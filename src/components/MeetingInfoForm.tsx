@@ -12,12 +12,12 @@ interface MeetingInfoFormProps {
   onGenerate: () => void;
   onBack: () => void;
   isGenerating: boolean;
-  fileName: string;
+  fileNames: string[];
   dataSummary: string;
 }
 
 export function MeetingInfoForm({
-  info, onChange, onGenerate, onBack, isGenerating, fileName, dataSummary,
+  info, onChange, onGenerate, onBack, isGenerating, fileNames, dataSummary,
 }: MeetingInfoFormProps) {
   const update = (key: keyof MeetingInfo, value: string) =>
     onChange({ ...info, [key]: value });
@@ -35,7 +35,7 @@ export function MeetingInfoForm({
             <span className="text-success text-lg">📊</span>
           </div>
           <div>
-            <p className="font-medium text-sm">{fileName}</p>
+            <p className="font-medium text-sm">{fileNames.join(', ')}</p>
             <p className="text-xs text-muted-foreground">{dataSummary}</p>
           </div>
         </div>
