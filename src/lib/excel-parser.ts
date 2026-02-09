@@ -34,3 +34,68 @@ export function parseExcelFile(file: File): Promise<ParsedExcelData> {
     reader.readAsArrayBuffer(file);
   });
 }
+
+/**
+ * Summarize large datasets to reduce payload size for AI processing.
+ * Keeps column info, basic stats, and a sample of rows.
+ */
+export function summarizeForAI(sheets: Record<string, Record<string, unknown>[]>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+
+  for (const [sheetName, rows] of Object.entries(sheets)) {
+    if (rows.length === 0) {
+      result[sheetName] = { rowCount: 0, columns: [], data: [] };
+      continue;
+    }
+
+    const columns = Object.keys(rows[0]);
+    const numericColumns: Record<string, number[]> = {};
+
+    // Collect numeric values per column
+    for (const col of columns) {
+      const nums: number[] = [];
+      for (const row of rows) {
+        const v = row[col];
+        if (typeof v === 'number' && !isNaN(v)) nums.push(v);
+      }
+      if (nums.length > 0) numericColumns[col] = nums;
+    }
+
+    // Compute stats for numeric columns
+    const stats: Record<string, unknown> = {};
+    for (const [col, nums] of Object.entries(numericColumns)) {
+      const sorted = [...nums].sort((a, b) => a - b);
+      stats[col] = {
+        min: sorted[0],
+        max: sorted[sorted.length - 1],
+        avg: +(nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2),
+        count: nums.length,
+        first: nums[0],
+        last: nums[nums.length - 1],
+      };
+    }
+
+    // Sample rows: first 5, last 5, and evenly spaced 10 from middle
+    const sampleRows: Record<string, unknown>[] = [];
+    if (rows.length <= 30) {
+      sampleRows.push(...rows);
+    } else {
+      sampleRows.push(...rows.slice(0, 5));
+      const step = Math.floor(rows.length / 12);
+      for (let i = step; i < rows.length - 5; i += step) {
+        sampleRows.push(rows[i]);
+        if (sampleRows.length >= 15) break;
+      }
+      sampleRows.push(...rows.slice(-5));
+    }
+
+    result[sheetName] = {
+      rowCount: rows.length,
+      columns,
+      stats,
+      sampleRows,
+    };
+  }
+
+  return result;
+}
