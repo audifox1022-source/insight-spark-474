@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { parseExcelFile, ParsedExcelData } from '@/lib/excel-parser';
+import { parseExcelFile, ParsedExcelData, summarizeForAI } from '@/lib/excel-parser';
 import { MeetingInfo, Presentation, AppStep } from '@/types/presentation';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -35,8 +35,9 @@ export function usePresentation() {
     setIsGenerating(true);
 
     try {
+      const summarized = summarizeForAI(excelData.sheets);
       const { data, error } = await supabase.functions.invoke('generate-presentation', {
-        body: { excelData: excelData.sheets, meetingInfo },
+        body: { excelData: summarized, meetingInfo },
       });
 
       if (error) throw error;
