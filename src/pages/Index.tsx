@@ -5,19 +5,20 @@ import { MeetingInfoForm } from '@/components/MeetingInfoForm';
 import { GeneratingState } from '@/components/GeneratingState';
 import { PresentationPreview } from '@/components/PresentationPreview';
 import { Flame } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowRight } from 'lucide-react';
 
 const Index = () => {
   const {
     step, setStep,
-    excelData, fileName,
+    excelData, fileNames,
     meetingInfo, setMeetingInfo,
     presentation, isGenerating,
-    handleFileUpload, generatePresentation, reset,
+    handleFilesUpload, removeFile, generatePresentation, reset,
   } = usePresentation();
 
   return (
     <div className="min-h-screen gradient-surface">
-      {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -33,7 +34,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="max-w-5xl mx-auto px-6 py-12">
         {step === 'upload' && (
           <div className="space-y-8">
@@ -49,7 +49,19 @@ const Index = () => {
                 가스원단위 실적 데이터를 업로드하면 대표이사 보고용 발표 자료를 생성합니다
               </p>
             </div>
-            <FileUploadZone onFileSelect={handleFileUpload} fileName={fileName} />
+            <FileUploadZone
+              onFilesSelect={handleFilesUpload}
+              fileNames={fileNames}
+              onRemoveFile={removeFile}
+            />
+            {fileNames.length > 0 && (
+              <div className="flex justify-center">
+                <Button onClick={() => setStep('info')} className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90">
+                  다음 단계로
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -65,7 +77,7 @@ const Index = () => {
               onGenerate={generatePresentation}
               onBack={() => setStep('upload')}
               isGenerating={isGenerating}
-              fileName={fileName}
+              fileNames={fileNames}
               dataSummary={excelData.summary}
             />
           </div>

@@ -6,8 +6,8 @@ import { toast } from 'sonner';
 
 export function usePresentation() {
   const [step, setStep] = useState<AppStep>('upload');
-  const [excelData, setExcelData] = useState<ParsedExcelData | null>(null);
-  const [fileName, setFileName] = useState('');
+  const [allExcelData, setAllExcelData] = useState<ParsedExcelData[]>([]);
+  const [fileNames, setFileNames] = useState<string[]>([]);
   const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({
     week: '',
     department: '단조사업부 생산부문',
@@ -17,32 +17,53 @@ export function usePresentation() {
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleFileUpload = useCallback(async (file: File) => {
+  const mergedData = useCallback((): ParsedExcelData | null => {
+    if (allExcelData.length === 0) return null;
+    const merged: ParsedExcelData = { sheetNames: [], sheets: {}, summary: '' };
+    for (const d of allExcelData) {
+      for (const name of d.sheetNames) {
+        const uniqueName = merged.sheetNames.includes(name) ? `${name}_${merged.sheetNames.length}` : name;
+        merged.sheetNames.push(uniqueName);
+        merged.sheets[uniqueName] = d.sheets[name];
+      }
+    }
+    const totalRows = Object.values(merged.sheets).reduce((a, s) => a + s.length, 0);
+    merged.summary = `파일 ${allExcelData.length}개, 시트 ${merged.sheetNames.length}개, 총 ${totalRows}행`;
+    return merged;
+  }, [allExcelData]);
+
+  const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
-      const parsed = await parseExcelFile(file);
-      setExcelData(parsed);
-      setFileName(file.name);
+      const results = await Promise.all(files.map(parseExcelFile));
+      setAllExcelData((prev) => [...prev, ...results]);
+      setFileNames((prev) => [...prev, ...files.map((f) => f.name)]);
       setStep('info');
-      toast.success(`${file.name} 파일이 성공적으로 업로드되었습니다.`);
+      toast.success(`${files.length}개 파일이 업로드되었습니다.`);
     } catch {
-      toast.error('엑셀 파일을 처리할 수 없습니다.');
+      toast.error('일부 엑셀 파일을 처리할 수 없습니다.');
     }
   }, []);
 
+  const removeFile = useCallback((index: number) => {
+    setAllExcelData((prev) => prev.filter((_, i) => i !== index));
+    setFileNames((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   const generatePresentation = useCallback(async () => {
-    if (!excelData) return;
+    const data = mergedData();
+    if (!data) return;
     setStep('generating');
     setIsGenerating(true);
 
     try {
-      const summarized = summarizeForAI(excelData.sheets);
-      const { data, error } = await supabase.functions.invoke('generate-presentation', {
+      const summarized = summarizeForAI(data.sheets);
+      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
         body: { excelData: summarized, meetingInfo },
       });
 
       if (error) throw error;
-      if (data?.presentation) {
-        setPresentation(data.presentation);
+      if (resData?.presentation) {
+        setPresentation(resData.presentation);
         setStep('preview');
         toast.success('발표 자료가 생성되었습니다!');
       } else {
@@ -54,20 +75,20 @@ export function usePresentation() {
     } finally {
       setIsGenerating(false);
     }
-  }, [excelData, meetingInfo]);
+  }, [mergedData, meetingInfo]);
 
   const reset = useCallback(() => {
     setStep('upload');
-    setExcelData(null);
-    setFileName('');
+    setAllExcelData([]);
+    setFileNames([]);
     setPresentation(null);
   }, []);
 
   return {
     step, setStep,
-    excelData, fileName,
+    excelData: mergedData(), fileNames,
     meetingInfo, setMeetingInfo,
     presentation, isGenerating,
-    handleFileUpload, generatePresentation, reset,
+    handleFilesUpload, removeFile, generatePresentation, reset,
   };
 }
