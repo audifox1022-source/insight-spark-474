@@ -1,10 +1,22 @@
 import PptxGenJS from 'pptxgenjs';
 import { jsPDF } from 'jspdf';
-import { Presentation, Slide } from '@/types/presentation';
+import { Presentation } from '@/types/presentation';
 
-const COLORS = {
-  primary: '1B3A5C',
-  accent: '0D8ECF',
+export interface BrandSettings {
+  primaryColor: string;   // hex without #
+  accentColor: string;    // hex without #
+  companyName: string;
+  logoDataUrl: string | null; // base64 data URL
+}
+
+export const DEFAULT_BRAND: BrandSettings = {
+  primaryColor: '1B3A5C',
+  accentColor: '0D8ECF',
+  companyName: '가스원단위 절감 TFT',
+  logoDataUrl: null,
+};
+
+const FIXED = {
   white: 'FFFFFF',
   dark: '1A2332',
   muted: '6B7A8D',
@@ -14,26 +26,25 @@ const COLORS = {
 };
 
 const slideTypeLabels: Record<string, string> = {
-  title: '표지',
-  data: '데이터',
-  chart: '차트',
-  action: '실행계획',
-  summary: '요약',
+  title: '표지', data: '데이터', chart: '차트', action: '실행계획', summary: '요약',
 };
 
-const trendSymbols: Record<string, string> = {
-  up: '▲',
-  down: '▼',
-  flat: '―',
-};
+const trendSymbols: Record<string, string> = { up: '▲', down: '▼', flat: '―' };
+
+function hexToRgb(hex: string) {
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  return { r, g, b };
+}
 
 // ─── PPTX Export ────────────────────────────────────────────
 
-export async function exportToPptx(presentation: Presentation) {
+export async function exportToPptx(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND) {
   const pptx = new PptxGenJS();
-  pptx.author = '가스원단위 절감 TFT';
+  pptx.author = brand.companyName;
   pptx.title = presentation.title;
-  pptx.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inches
+  pptx.layout = 'LAYOUT_WIDE';
 
   for (const slide of presentation.slides) {
     const pptSlide = pptx.addSlide();
@@ -41,14 +52,23 @@ export async function exportToPptx(presentation: Presentation) {
     // Header bar
     pptSlide.addShape(pptx.ShapeType.rect, {
       x: 0, y: 0, w: '100%', h: 1.4,
-      fill: { type: 'solid', color: COLORS.primary },
+      fill: { type: 'solid', color: brand.primaryColor },
     });
 
     // Accent stripe
     pptSlide.addShape(pptx.ShapeType.rect, {
       x: 0, y: 1.4, w: '100%', h: 0.06,
-      fill: { type: 'solid', color: COLORS.accent },
+      fill: { type: 'solid', color: brand.accentColor },
     });
+
+    // Logo (top-right of header)
+    if (brand.logoDataUrl) {
+      pptSlide.addImage({
+        data: brand.logoDataUrl,
+        x: 11.5, y: 0.25, w: 1.2, h: 0.9,
+        sizing: { type: 'contain', w: 1.2, h: 0.9 },
+      });
+    }
 
     // Slide number + type badge
     const badge = `${String(slide.slideNumber).padStart(2, '0')}  ${slideTypeLabels[slide.type] || slide.type}`;
@@ -59,8 +79,8 @@ export async function exportToPptx(presentation: Presentation) {
 
     // Title
     pptSlide.addText(slide.title, {
-      x: 0.6, y: 0.6, w: 12, h: 0.65,
-      fontSize: 26, bold: true, color: COLORS.white, fontFace: 'Arial',
+      x: 0.6, y: 0.6, w: brand.logoDataUrl ? 10.5 : 12, h: 0.65,
+      fontSize: 26, bold: true, color: FIXED.white, fontFace: 'Arial',
     });
 
     let yPos = 1.8;
@@ -72,19 +92,18 @@ export async function exportToPptx(presentation: Presentation) {
         const x = 0.6 + i * (metricWidth + 0.2);
         pptSlide.addShape(pptx.ShapeType.rect, {
           x, y: yPos, w: metricWidth, h: 1.0,
-          fill: { type: 'solid', color: COLORS.bg },
+          fill: { type: 'solid', color: FIXED.bg },
           rectRadius: 0.1,
         });
         pptSlide.addText(m.label, {
           x: x + 0.15, y: yPos + 0.1, w: metricWidth - 0.6, h: 0.3,
-          fontSize: 10, color: COLORS.muted, fontFace: 'Arial',
+          fontSize: 10, color: FIXED.muted, fontFace: 'Arial',
         });
-        const trendColor = m.trend === 'up' ? COLORS.success : m.trend === 'down' ? COLORS.destructive : COLORS.muted;
+        const trendColor = m.trend === 'up' ? FIXED.success : m.trend === 'down' ? FIXED.destructive : FIXED.muted;
         pptSlide.addText(`${m.value}  ${trendSymbols[m.trend] || ''}`, {
           x: x + 0.15, y: yPos + 0.45, w: metricWidth - 0.3, h: 0.4,
-          fontSize: 18, bold: true, color: COLORS.dark, fontFace: 'Arial',
+          fontSize: 18, bold: true, color: FIXED.dark, fontFace: 'Arial',
         });
-        // trend indicator
         pptSlide.addText(trendSymbols[m.trend] || '', {
           x: x + metricWidth - 0.5, y: yPos + 0.1, w: 0.35, h: 0.3,
           fontSize: 12, color: trendColor, fontFace: 'Arial', align: 'right',
@@ -97,7 +116,7 @@ export async function exportToPptx(presentation: Presentation) {
     if (slide.content && slide.content.length > 0) {
       const bulletText = slide.content.map((c) => ({
         text: c,
-        options: { fontSize: 13, color: COLORS.dark, bullet: { code: '25CF', color: COLORS.accent }, breakLine: true, paraSpaceAfter: 8 },
+        options: { fontSize: 13, color: FIXED.dark, bullet: { code: '25CF', color: brand.accentColor }, breakLine: true, paraSpaceAfter: 8 },
       }));
       pptSlide.addText(bulletText as any, {
         x: 0.6, y: yPos, w: 12, h: 7.5 - yPos - 0.8,
@@ -105,7 +124,12 @@ export async function exportToPptx(presentation: Presentation) {
       });
     }
 
-    // Notes
+    // Footer with company name
+    pptSlide.addText(brand.companyName, {
+      x: 0.6, y: 7.0, w: 6, h: 0.35,
+      fontSize: 8, color: FIXED.muted, fontFace: 'Arial',
+    });
+
     if (slide.notes) {
       pptSlide.addNotes(slide.notes);
     }
@@ -116,21 +140,30 @@ export async function exportToPptx(presentation: Presentation) {
 
 // ─── PDF Export ──────────────────────────────────────────────
 
-export function exportToPdf(presentation: Presentation) {
+export function exportToPdf(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = 297;
   const pageH = 210;
+  const primary = hexToRgb(brand.primaryColor);
+  const accent = hexToRgb(brand.accentColor);
 
   presentation.slides.forEach((slide, idx) => {
     if (idx > 0) doc.addPage();
 
     // Header background
-    doc.setFillColor(27, 58, 92); // primary
+    doc.setFillColor(primary.r, primary.g, primary.b);
     doc.rect(0, 0, pageW, 32, 'F');
 
     // Accent line
-    doc.setFillColor(13, 142, 207); // accent
+    doc.setFillColor(accent.r, accent.g, accent.b);
     doc.rect(0, 32, pageW, 1.5, 'F');
+
+    // Logo
+    if (brand.logoDataUrl) {
+      try {
+        doc.addImage(brand.logoDataUrl, 'PNG', pageW - 30, 5, 22, 22);
+      } catch { /* skip if format issue */ }
+    }
 
     // Slide number + type
     doc.setFont('helvetica', 'normal');
@@ -142,7 +175,7 @@ export function exportToPdf(presentation: Presentation) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.setTextColor(255, 255, 255);
-    doc.text(slide.title, 12, 25, { maxWidth: pageW - 24 });
+    doc.text(slide.title, 12, 25, { maxWidth: brand.logoDataUrl ? pageW - 50 : pageW - 24 });
 
     let yPos = 42;
 
@@ -162,8 +195,7 @@ export function exportToPdf(presentation: Presentation) {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.setTextColor(26, 35, 50);
-        const trend = trendSymbols[m.trend] || '';
-        doc.text(`${m.value} ${trend}`, x + 4, yPos + 16);
+        doc.text(`${m.value} ${trendSymbols[m.trend] || ''}`, x + 4, yPos + 16);
       });
       yPos += 28;
     }
@@ -176,7 +208,7 @@ export function exportToPdf(presentation: Presentation) {
 
       for (const item of slide.content) {
         if (yPos > pageH - 20) break;
-        doc.setFillColor(13, 142, 207);
+        doc.setFillColor(accent.r, accent.g, accent.b);
         doc.circle(15, yPos + 1.5, 1, 'F');
         const lines = doc.splitTextToSize(item, pageW - 36);
         doc.text(lines, 20, yPos + 3);
@@ -184,7 +216,13 @@ export function exportToPdf(presentation: Presentation) {
       }
     }
 
-    // Notes at bottom
+    // Footer
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(107, 122, 141);
+    doc.text(brand.companyName, 12, pageH - 8);
+
+    // Notes
     if (slide.notes) {
       const notesY = pageH - 20;
       doc.setDrawColor(220, 220, 220);
