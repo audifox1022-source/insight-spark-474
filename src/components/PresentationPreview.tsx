@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Presentation, Slide } from '@/types/presentation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, RotateCcw, TrendingUp, TrendingDown, Minus, FileText, BarChart3, Target, ClipboardList, Layout, Download } from 'lucide-react';
-import { exportToPptx, exportToPdf } from '@/lib/export-presentation';
+import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
+import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
 import { toast } from 'sonner';
 
 interface PresentationPreviewProps {
@@ -36,17 +37,19 @@ const slideTypeLabels: Record<string, string> = {
 export function PresentationPreview({ presentation, onReset }: PresentationPreviewProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const slides = presentation.slides || [];
 
-  const handleExport = async (format: 'pptx' | 'pdf') => {
+  const handleExport = async (format: 'pptx' | 'pdf', brand: BrandSettings) => {
     setIsExporting(true);
     try {
       if (format === 'pptx') {
-        await exportToPptx(presentation);
+        await exportToPptx(presentation, brand);
       } else {
-        exportToPdf(presentation);
+        exportToPdf(presentation, brand);
       }
       toast.success(`${format.toUpperCase()} 파일이 다운로드되었습니다.`);
+      setExportDialogOpen(false);
     } catch {
       toast.error('내보내기 중 오류가 발생했습니다.');
     } finally {
@@ -73,13 +76,9 @@ export function PresentationPreview({ presentation, onReset }: PresentationPrevi
           <p className="text-sm text-muted-foreground">총 {slides.length}장의 슬라이드</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} disabled={isExporting} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="gap-2">
             <Download className="w-4 h-4" />
-            PPT
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={isExporting} className="gap-2">
-            <Download className="w-4 h-4" />
-            PDF
+            내보내기
           </Button>
           <Button variant="outline" onClick={onReset} className="gap-2">
             <RotateCcw className="w-4 h-4" />
@@ -184,6 +183,13 @@ export function PresentationPreview({ presentation, onReset }: PresentationPrevi
           <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
+
+      <ExportSettingsDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        onExport={handleExport}
+        isExporting={isExporting}
+      />
     </motion.div>
   );
 }
