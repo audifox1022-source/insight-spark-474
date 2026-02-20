@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Presentation, Slide } from '@/types/presentation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, RotateCcw, TrendingUp, TrendingDown, Minus, FileText, BarChart3, Target, ClipboardList, Layout } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw, TrendingUp, TrendingDown, Minus, FileText, BarChart3, Target, ClipboardList, Layout, Download } from 'lucide-react';
+import { exportToPptx, exportToPdf } from '@/lib/export-presentation';
+import { toast } from 'sonner';
 
 interface PresentationPreviewProps {
   presentation: Presentation;
@@ -33,7 +35,24 @@ const slideTypeLabels: Record<string, string> = {
 
 export function PresentationPreview({ presentation, onReset }: PresentationPreviewProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
   const slides = presentation.slides || [];
+
+  const handleExport = async (format: 'pptx' | 'pdf') => {
+    setIsExporting(true);
+    try {
+      if (format === 'pptx') {
+        await exportToPptx(presentation);
+      } else {
+        exportToPdf(presentation);
+      }
+      toast.success(`${format.toUpperCase()} 파일이 다운로드되었습니다.`);
+    } catch {
+      toast.error('내보내기 중 오류가 발생했습니다.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const slide = slides[currentSlide];
 
   const prev = () => setCurrentSlide((s) => Math.max(0, s - 1));
@@ -53,10 +72,20 @@ export function PresentationPreview({ presentation, onReset }: PresentationPrevi
           <h2 className="text-xl font-bold">{presentation.title}</h2>
           <p className="text-sm text-muted-foreground">총 {slides.length}장의 슬라이드</p>
         </div>
-        <Button variant="outline" onClick={onReset} className="gap-2">
-          <RotateCcw className="w-4 h-4" />
-          새로 만들기
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleExport('pptx')} disabled={isExporting} className="gap-2">
+            <Download className="w-4 h-4" />
+            PPT
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('pdf')} disabled={isExporting} className="gap-2">
+            <Download className="w-4 h-4" />
+            PDF
+          </Button>
+          <Button variant="outline" onClick={onReset} className="gap-2">
+            <RotateCcw className="w-4 h-4" />
+            새로 만들기
+          </Button>
+        </div>
       </div>
 
       {/* Slide thumbnails */}
