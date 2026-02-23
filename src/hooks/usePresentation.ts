@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
-import { MeetingInfo, PresentationSettings, Presentation, AppStep } from '@/types/presentation';
+import { MeetingInfo, PresentationSettings, Presentation, Slide, SlideMetric, AppStep } from '@/types/presentation';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -78,6 +78,70 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings]);
 
+  // ─── Slide editing ───────────────────────────────────
+  const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const slides = [...prev.slides];
+      slides[index] = { ...slides[index], ...updated };
+      return { ...prev, slides };
+    });
+  }, []);
+
+  const addSlide = useCallback((afterIndex: number) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const newSlide: Slide = {
+        slideNumber: afterIndex + 2,
+        title: '새 슬라이드',
+        type: 'data',
+        content: ['내용을 입력하세요'],
+        notes: '',
+        keyMetrics: [],
+      };
+      const slides = [...prev.slides];
+      slides.splice(afterIndex + 1, 0, newSlide);
+      // Re-number
+      slides.forEach((s, i) => { s.slideNumber = i + 1; });
+      return { ...prev, slides };
+    });
+  }, []);
+
+  const deleteSlide = useCallback((index: number) => {
+    setPresentation((prev) => {
+      if (!prev || prev.slides.length <= 1) return prev;
+      const slides = prev.slides.filter((_, i) => i !== index);
+      slides.forEach((s, i) => { s.slideNumber = i + 1; });
+      return { ...prev, slides };
+    });
+  }, []);
+
+  const duplicateSlide = useCallback((index: number) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const slides = [...prev.slides];
+      const clone = JSON.parse(JSON.stringify(slides[index])) as Slide;
+      slides.splice(index + 1, 0, clone);
+      slides.forEach((s, i) => { s.slideNumber = i + 1; });
+      return { ...prev, slides };
+    });
+  }, []);
+
+  const moveSlide = useCallback((from: number, to: number) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const slides = [...prev.slides];
+      const [moved] = slides.splice(from, 1);
+      slides.splice(to, 0, moved);
+      slides.forEach((s, i) => { s.slideNumber = i + 1; });
+      return { ...prev, slides };
+    });
+  }, []);
+
+  const updatePresentationTitle = useCallback((title: string) => {
+    setPresentation((prev) => prev ? { ...prev, title } : prev);
+  }, []);
+
   const reset = useCallback(() => {
     setStep('upload');
     setParsedFiles([]);
@@ -92,5 +156,7 @@ export function usePresentation() {
     settings, setSettings,
     presentation, isGenerating,
     handleFilesUpload, removeFile, generatePresentation, reset,
+    // Editing
+    updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
 }

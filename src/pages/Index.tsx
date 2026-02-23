@@ -3,7 +3,7 @@ import { StepIndicator } from '@/components/StepIndicator';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { MeetingInfoForm } from '@/components/MeetingInfoForm';
 import { GeneratingState } from '@/components/GeneratingState';
-import { PresentationPreview } from '@/components/PresentationPreview';
+import { SlideEditor } from '@/components/SlideEditor';
 import { Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
@@ -16,12 +16,13 @@ const Index = () => {
     settings, setSettings,
     presentation, isGenerating,
     handleFilesUpload, removeFile, generatePresentation, reset,
+    updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
 
   return (
     <div className="min-h-screen gradient-surface">
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center">
               <Flame className="w-5 h-5 text-primary-foreground" />
@@ -35,7 +36,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-12">
+      <main className="max-w-6xl mx-auto px-6 py-12">
         {step === 'upload' && (
           <div className="space-y-8">
             <div className="text-center max-w-lg mx-auto">
@@ -89,7 +90,16 @@ const Index = () => {
         {step === 'generating' && <GeneratingState />}
 
         {step === 'preview' && presentation && (
-          <PresentationPreview presentation={presentation} onReset={reset} />
+          <SlideEditor
+            presentation={presentation}
+            onReset={reset}
+            onUpdateSlide={updateSlide}
+            onAddSlide={addSlide}
+            onDeleteSlide={deleteSlide}
+            onDuplicateSlide={duplicateSlide}
+            onMoveSlide={moveSlide}
+            onUpdateTitle={updatePresentationTitle}
+          />
         )}
       </main>
     </div>
