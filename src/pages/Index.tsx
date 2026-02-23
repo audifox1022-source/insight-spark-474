@@ -11,8 +11,9 @@ import { ArrowRight } from 'lucide-react';
 const Index = () => {
   const {
     step, setStep,
-    excelData, fileNames,
+    dataSummary, fileNames,
     meetingInfo, setMeetingInfo,
+    settings, setSettings,
     presentation, isGenerating,
     handleFilesUpload, removeFile, generatePresentation, reset,
   } = usePresentation();
@@ -39,14 +40,14 @@ const Index = () => {
           <div className="space-y-8">
             <div className="text-center max-w-lg mx-auto">
               <h2 className="text-3xl font-bold tracking-tight">
-                엑셀 데이터로
+                다양한 파일로
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
                   발표자료를 자동 생성
                 </span>
               </h2>
               <p className="text-muted-foreground mt-3">
-                가스원단위 실적 데이터를 업로드하면 대표이사 보고용 발표 자료를 생성합니다
+                엑셀, PDF, Word, 텍스트, 이미지 등 다양한 파일을 업로드하면 발표 자료를 생성합니다
               </p>
             </div>
             <FileUploadZone
@@ -65,7 +66,7 @@ const Index = () => {
           </div>
         )}
 
-        {step === 'info' && excelData && (
+        {step === 'info' && dataSummary && (
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-2xl font-bold">회의 정보 입력</h2>
@@ -74,11 +75,13 @@ const Index = () => {
             <MeetingInfoForm
               info={meetingInfo}
               onChange={setMeetingInfo}
+              settings={settings}
+              onSettingsChange={setSettings}
               onGenerate={generatePresentation}
               onBack={() => setStep('upload')}
               isGenerating={isGenerating}
               fileNames={fileNames}
-              dataSummary={excelData.summary}
+              dataSummary={dataSummary}
             />
           </div>
         )}

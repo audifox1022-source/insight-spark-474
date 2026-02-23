@@ -5,6 +5,11 @@ export interface MeetingInfo {
   notes: string;
 }
 
+export interface PresentationSettings {
+  difficulty: 'easy' | 'medium' | 'hard' | 'executive';
+  volume: 'brief' | 'standard' | 'detailed' | 'comprehensive';
+}
+
 export interface SlideMetric {
   label: string;
   value: string;
