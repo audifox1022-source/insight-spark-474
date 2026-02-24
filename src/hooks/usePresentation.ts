@@ -109,7 +109,7 @@ export function usePresentation() {
         async () => {
           return await aiService.getOutline({ fileData: payload, meetingInfo, settings, template });
         },
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
       );
       toast.dismiss('outline-retry');
       setOutline(resData.outline);
@@ -132,7 +132,7 @@ export function usePresentation() {
         async () => {
           return await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null });
         },
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
       );
       toast.dismiss('gen-retry');
       setPresentation(resData.presentation);
@@ -166,7 +166,7 @@ export function usePresentation() {
         async () => {
           return await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction });
         },
-        { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
+        { maxRetries: 1, onRetry: () => toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' }) }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
