@@ -28,6 +28,23 @@ const TEMPLATE_MAP: Record<string, string> = {
   summary: "핵심 내용만 간결하게 압축한 브리핑으로 구성하세요.",
 };
 
+const STORYTELLING_PERSONA = `## 페르소나
+당신은 TED 강연자들의 발표 자료를 디자인한 경험이 있는 프레젠테이션 디자인 전문가입니다.
+
+## 핵심 원칙
+- **스토리텔링 구조**: 모든 발표를 기승전결(도입→전개→위기/전환→결론) 구조로 구성하여 청중의 몰입도를 극대화합니다.
+- **한 슬라이드, 한 메시지**: 각 슬라이드는 하나의 핵심 메시지만 전달합니다. 복잡한 정보는 여러 슬라이드로 분리합니다.
+- **시각적 임팩트**: 데이터는 반드시 차트나 핵심 지표로 시각화하고, 텍스트는 최소화합니다.
+- **감정적 연결**: 단순한 데이터 나열이 아닌, "왜 이것이 중요한가?"라는 맥락을 항상 포함합니다.
+- **강력한 오프닝과 클로징**: 첫 슬라이드는 호기심을 유발하고, 마지막 슬라이드는 명확한 행동 촉구(CTA)로 마무리합니다.
+
+## 콘텐츠 작성 가이드
+- 제목은 짧고 임팩트 있게 (10자 이내 권장)
+- 본문 항목은 "결론 먼저, 근거 후에" 구조
+- 숫자 데이터에는 반드시 맥락 부여 (예: "매출 150억" → "전년 대비 23% 성장한 150억")
+- 전문 용어 사용 시 청중 수준에 맞춰 조절
+- 슬라이드 간 논리적 연결고리(전환 문구) 고려`;
+
 const MAX_FILE_DATA_LENGTH = 12000;
 const AI_TIMEOUT_MS = 120_000;
 
@@ -114,8 +131,11 @@ async function handleOutline(body: any, apiKey: string) {
   const volume = settings?.volume || "standard";
   const fileDataStr = truncateFileData(fileData);
 
-  const prompt = `당신은 발표 자료 구성 전문가입니다.
+  const prompt = `${STORYTELLING_PERSONA}
+
+당신은 발표 자료 구성 전문가입니다.
 업로드된 파일 데이터를 분석하여 발표 자료의 목차(구성안)를 먼저 제안해주세요.
+스토리텔링 구조(도입→전개→전환→결론)를 반영하여 청중이 몰입할 수 있는 흐름을 만들어주세요.
 
 회의 정보:
 - 발표 주제: ${meetingInfo?.week || '미입력'}
@@ -175,13 +195,14 @@ async function handleGenerate(body: any, apiKey: string) {
     ? `\n\n사용자가 승인한 목차 구성:\n${JSON.stringify(approvedOutline, null, 2)}\n위 목차 구성을 반드시 따르세요.`
     : "";
 
-  const systemPrompt = `당신은 전문 발표 자료 작성 전문가입니다.
+  const systemPrompt = `${STORYTELLING_PERSONA}
 
-핵심 원칙:
+핵심 작성 원칙:
 - AI가 생성한 느낌이 전혀 나지 않는, 현장 관리자가 직접 작성한 것 같은 자연스러운 문체
 - 구체적 데이터와 수치를 활용한 근거 기반 보고
 - 실행 가능한 개선 방안과 인사이트 제시
 - 간결하고 핵심적인 내용 구성
+- 스토리텔링 흐름: 도입(왜 중요한가) → 전개(현황/데이터) → 전환(인사이트/시사점) → 결론(행동 촉구)
 
 📊 난이도: ${DIFFICULTY_MAP[difficulty]}
 📄 분량: ${VOLUME_MAP[volume]}
@@ -242,8 +263,10 @@ async function handleRegenerateSlide(body: any, apiKey: string) {
   const { slideIndex, currentSlide, presentation, fileData, meetingInfo, settings, userInstruction } = body;
   const fileDataStr = truncateFileData(fileData);
 
-  const prompt = `당신은 전문 발표 자료 작성 전문가입니다.
+  const prompt = `${STORYTELLING_PERSONA}
+
 아래 슬라이드를 개선하거나 다시 작성해주세요.
+전체 발표의 스토리라인에서 이 슬라이드의 역할을 고려하여 더 임팩트 있게 작성하세요.
 
 전체 발표 제목: ${presentation?.title || ''}
 전체 슬라이드 수: ${presentation?.slides?.length || 0}장
@@ -288,8 +311,10 @@ ${fileDataStr}
 async function handleChatEdit(body: any, apiKey: string) {
   const { userMessage, currentSlide, slideIndex, presentation } = body;
 
-  const prompt = `당신은 발표 자료 편집 전문가입니다.
+  const prompt = `${STORYTELLING_PERSONA}
+
 사용자의 요청에 따라 슬라이드를 수정해주세요.
+수정 시에도 전체 스토리라인의 흐름과 해당 슬라이드의 역할을 유지하세요.
 
 전체 발표: ${presentation?.title || ''}
 현재 슬라이드 (${slideIndex + 1}번):
@@ -334,8 +359,10 @@ async function handleReview(body: any, apiKey: string) {
     `[${i + 1}번 - ${s.type}] ${s.title}\n내용: ${(s.content || []).join(' / ')}\n지표: ${(s.keyMetrics || []).map((m: any) => `${m.label}:${m.value}`).join(', ') || '없음'}\n차트: ${s.chartData ? s.chartData.chartType : '없음'}`
   ).join('\n\n');
 
-  const prompt = `당신은 기업 발표자료 품질 검토 전문가입니다.
-아래 발표자료를 분석하여 가독성, 완성도, 논리적 흐름을 검토하고 구체적인 개선 제안을 해주세요.
+  const prompt = `${STORYTELLING_PERSONA}
+
+당신은 기업 발표자료 품질 검토 전문가입니다.
+아래 발표자료의 스토리텔링 구조, 가독성, 완성도, 논리적 흐름을 검토하고 구체적인 개선 제안을 해주세요.
 
 발표 제목: ${presentation.title}
 총 슬라이드: ${presentation.slides.length}장
