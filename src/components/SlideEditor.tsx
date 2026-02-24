@@ -19,6 +19,7 @@ import {
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
+  Sparkles, MessageSquare,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -36,9 +37,10 @@ interface SlideEditorProps {
   onUpdateTitle: (title: string) => void;
   onSave: () => void;
   isSaving: boolean;
+  onRegenerateSlide: (slideIndex: number, instruction?: string) => Promise<void>;
+  onOpenChat: () => void;
 }
 
-// ── 슬라이드 타입 설정 ──
 const slideTypeIcons: Record<string, React.ReactNode> = {
   title: <Layout className="w-3.5 h-3.5" />,
   data: <BarChart3 className="w-3.5 h-3.5" />,
@@ -79,7 +81,7 @@ function SortableSlideThumbnail({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : 'auto',
+    zIndex: isDragging ? 50 : 'auto' as any,
   };
 
   return (
@@ -95,7 +97,6 @@ function SortableSlideThumbnail({
         `}
       >
         <div className="flex items-center gap-2 mb-2">
-          {/* 드래그 핸들 */}
           <div
             {...attributes}
             {...listeners}
@@ -125,6 +126,7 @@ function SortableSlideThumbnail({
 export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
+  onRegenerateSlide, onOpenChat,
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -132,11 +134,12 @@ export function SlideEditor({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
   const [presenting, setPresenting] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const slides = presentation.slides || [];
   const slide = slides[currentSlide];
 
-  // 드래그앤드롭 설정
+  // 드래그앤드롭
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -178,6 +181,15 @@ export function SlideEditor({
     onDeleteSlide(index);
     if (currentSlide >= slides.length - 1) {
       setCurrentSlide(Math.max(0, slides.length - 2));
+    }
+  };
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
+    try {
+      await onRegenerateSlide(currentSlide);
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -226,10 +238,7 @@ export function SlideEditor({
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            variant="outline" size="sm" onClick={onSave} disabled={isSaving}
-            className="gap-2"
-          >
+          <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {presentation.id ? '저장' : '저장하기'}
           </Button>
@@ -292,7 +301,8 @@ export function SlideEditor({
               transition={{ duration: 0.15 }}
               className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden"
             >
-              {/* 슬라이드 헤더 */}
+
+              {/* ── 슬라이드 헤더 ── */}
               <div className="gradient-primary px-8 py-7 text-primary-foreground">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs font-mono opacity-60">
@@ -308,24 +318,65 @@ export function SlideEditor({
                       ))}
                     </SelectContent>
                   </Select>
+
+                  {/* 슬라이드 액션 버튼 */}
                   <div className="ml-auto flex items-center gap-1">
-                    <Button size="sm" variant="ghost"
+                    {/* AI 재생성 */}
+                    <Button
+                      size="sm" variant="ghost"
+                      className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                      onClick={handleRegenerate}
+                      disabled={isRegenerating}
+                      title="AI로 재생성"
+                    >
+                      {isRegenerating
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        : <Sparkles className="w-3.5 h-3.5" />
+                      }
+                      재생성
+                    </Button>
+                    {/* AI 채팅 수정 */}
+                    <Button
+                      size="sm" variant="ghost"
+                      className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                      onClick={onOpenChat}
+                      title="AI 채팅으로 수정"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      AI 수정
+                    </Button>
+                    {/* 복제 */}
+                    <Button
+                      size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      onClick={() => onDuplicateSlide(currentSlide)} title="복제">
+                      onClick={() => onDuplicateSlide(currentSlide)}
+                      title="복제"
+                    >
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="sm" variant="ghost"
+                    {/* 뒤에 추가 */}
+                    <Button
+                      size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }} title="뒤에 추가">
+                      onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}
+                      title="뒤에 추가"
+                    >
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="sm" variant="ghost"
+                    {/* 삭제 */}
+                    <Button
+                      size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteSlide(currentSlide)} title="삭제" disabled={slides.length <= 1}>
+                      onClick={() => handleDeleteSlide(currentSlide)}
+                      title="삭제"
+                      disabled={slides.length <= 1}
+                    >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
+
+                {/* 슬라이드 제목 인라인 편집 */}
                 <input
                   value={slide.title}
                   onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })}
@@ -334,7 +385,7 @@ export function SlideEditor({
                 />
               </div>
 
-              {/* 슬라이드 본문 */}
+              {/* ── 슬라이드 본문 ── */}
               <div className="p-8 space-y-8">
 
                 {/* 핵심 지표 */}
@@ -434,11 +485,12 @@ export function SlideEditor({
                     rows={2}
                   />
                 </div>
+
               </div>
             </motion.div>
           </AnimatePresence>
 
-          {/* 네비게이션 */}
+          {/* 슬라이드 네비게이션 */}
           <div className="flex items-center justify-center gap-3 mt-5">
             <Button variant="outline" size="sm"
               onClick={() => setCurrentSlide((s) => Math.max(0, s - 1))}
@@ -457,6 +509,7 @@ export function SlideEditor({
         </div>
       </div>
 
+      {/* 내보내기 다이얼로그 */}
       <ExportSettingsDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
@@ -464,6 +517,7 @@ export function SlideEditor({
         isExporting={isExporting}
       />
 
+      {/* 발표 모드 */}
       {presenting && (
         <PresentationMode
           presentation={presentation}
