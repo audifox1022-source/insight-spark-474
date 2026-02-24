@@ -35,7 +35,23 @@ export function usePresentation() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
 
-  // 다크모드
+  // ✨ 테마 색상 상태 추가
+  const [appTheme, setAppTheme] = useState<string>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('app_theme') || 'blue';
+    return 'blue';
+  });
+
+  const changeTheme = useCallback((theme: string) => {
+    document.documentElement.classList.remove('theme-navy', 'theme-purple', 'theme-green', 'theme-orange');
+    if (theme !== 'blue') {
+      document.documentElement.classList.add(`theme-${theme}`);
+    }
+    localStorage.setItem('app_theme', theme);
+    setAppTheme(theme);
+    toast.success('테마가 변경되었습니다.');
+  }, []);
+
+  // 다크모드 및 초기 테마 로드
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
     return false;
@@ -55,6 +71,7 @@ export function usePresentation() {
       document.documentElement.classList.add('dark');
       setIsDark(true);
     }
+    changeTheme(appTheme); // 초기화 시 저장된 테마 클래스 추가
   }, []);
 
   const dataSummary = useCallback((): string => {
@@ -83,7 +100,6 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ── 구성안 미리보기 요청 ──
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -99,12 +115,7 @@ export function usePresentation() {
           if (!data?.outline) throw new Error('AI가 구성안 형식을 생성하지 못했습니다.');
           return data;
         },
-        {
-          maxRetries: 2,
-          onRetry: (attempt, max) => {
-            toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' });
-          },
-        },
+        { maxRetries: 2, onRetry: (attempt, max) => toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
       );
       toast.dismiss('outline-retry');
       setOutline(resData.outline);
@@ -117,7 +128,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ── 전체 발표자료 생성 (구성안 승인 후) ──
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -127,22 +137,13 @@ export function usePresentation() {
       const resData = await retryWithBackoff(
         async () => {
           const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: {
-              mode: 'generate',
-              fileData: payload, meetingInfo, settings, template,
-              approvedOutline: approvedOutline || null,
-            },
+            body: { mode: 'generate', fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null },
           });
           if (error) throw error;
           if (!data?.presentation) throw new Error('AI가 슬라이드 데이터를 올바르게 생성하지 못했습니다.');
           return data;
         },
-        {
-          maxRetries: 2,
-          onRetry: (attempt, max) => {
-            toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' });
-          },
-        },
+        { maxRetries: 2, onRetry: (attempt, max) => toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
       );
       toast.dismiss('gen-retry');
       setPresentation(resData.presentation);
@@ -157,11 +158,7 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ── 특정 슬라이드 재생성 ──
-  const regenerateSlide = useCallback(async (
-    slideIndex: number,
-    userInstruction?: string,
-  ) => {
+  const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
     toast.loading('슬라이드를 재생성하는 중...', { id: 'regen' });
@@ -170,27 +167,13 @@ export function usePresentation() {
       const resData = await retryWithBackoff(
         async () => {
           const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: {
-              mode: 'regenerate_slide',
-              slideIndex,
-              currentSlide,
-              presentation,
-              fileData: payload,
-              meetingInfo,
-              settings,
-              userInstruction,
-            },
+            body: { mode: 'regenerate_slide', slideIndex, currentSlide, presentation, fileData: payload, meetingInfo, settings, userInstruction },
           });
           if (error) throw error;
           if (!data?.slide) throw new Error('슬라이드 데이터를 올바르게 재생성하지 못했습니다.');
           return data;
         },
-        {
-          maxRetries: 1,
-          onRetry: () => {
-            toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' });
-          },
-        },
+        { maxRetries: 1, onRetry: () => toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' }) }
       );
       setPresentation((prev) => {
         if (!prev) return prev;
@@ -204,29 +187,18 @@ export function usePresentation() {
     }
   }, [presentation, parsedFiles, meetingInfo, settings]);
 
-  // ── 채팅형 슬라이드 수정 ──
-  const requestChatEdit = useCallback(async (
-    message: string,
-    slideIndex: number,
-    currentSlide: Slide,
-  ): Promise<{ slide: Slide; summary: string } | null> => {
+  const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide): Promise<{ slide: Slide; summary: string } | null> => {
     try {
       const resData = await retryWithBackoff(
         async () => {
           const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: {
-              mode: 'chat_edit',
-              userMessage: message,
-              currentSlide,
-              slideIndex,
-              presentation,
-            },
+            body: { mode: 'chat_edit', userMessage: message, currentSlide, slideIndex, presentation },
           });
           if (error) throw error;
           if (!data?.result) throw new Error('AI 수정 결과를 받지 못했습니다.');
           return data;
         },
-        { maxRetries: 1 },
+        { maxRetries: 1 }
       );
       return resData.result;
     } catch (err: any) {
@@ -235,7 +207,6 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ── 저장/히스토리 ──
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -289,7 +260,6 @@ export function usePresentation() {
     }
   }, []);
 
-  // ── 슬라이드 편집 ──
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -358,7 +328,6 @@ export function usePresentation() {
     setReviewResult(null);
   }, []);
 
-  // ── AI 리뷰 (단순 검토 결과만 반환) ──
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -376,11 +345,8 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ── 💡 특정 리뷰 제안을 해당 슬라이드에 즉시 적용 ──
   const applyReviewFix = useCallback(async (slideIndex: number, issue: string, suggestion: string) => {
     if (!presentation) return false;
-    
-    // 이 제안을 적용하기 위해 기존의 'chat_edit' 모드를 재활용합니다.
     const currentSlide = presentation.slides[slideIndex];
     const instruction = `리뷰어의 피드백을 반영해주세요. 지적된 문제점: "${issue}", 개선 제안: "${suggestion}". 이 제안에 맞게 슬라이드의 내용을 완벽하게 수정하세요.`;
     
@@ -388,13 +354,7 @@ export function usePresentation() {
       const resData = await retryWithBackoff(
         async () => {
           const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: {
-              mode: 'chat_edit',
-              userMessage: instruction,
-              currentSlide,
-              slideIndex,
-              presentation,
-            },
+            body: { mode: 'chat_edit', userMessage: instruction, currentSlide, slideIndex, presentation },
           });
           if (error) throw error;
           if (!data?.result) throw new Error('AI가 슬라이드를 수정하지 못했습니다.');
@@ -402,7 +362,6 @@ export function usePresentation() {
         },
         { maxRetries: 1 },
       );
-      
       if (resData.result) {
         updateSlide(slideIndex, resData.result.slide);
         toast.success(`✨ 슬라이드 ${slideIndex + 1}번에 제안이 적용되었습니다!`);
@@ -415,7 +374,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ── 전체 발표자료 자동 최적화 ──
   const reviewAndFixPresentation = useCallback(async () => {
     if (!presentation) return;
     setIsFixing(true);
@@ -425,21 +383,14 @@ export function usePresentation() {
       const resData = await retryWithBackoff(
         async () => {
           const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: {
-              mode: 'review_and_fix',
-              presentation,
-            },
+            body: { mode: 'review_and_fix', presentation },
           });
           if (error) throw error;
           if (!data?.result?.presentation) throw new Error('최적화된 결과를 가져오지 못했습니다.');
           return data;
         },
-        {
-          maxRetries: 1,
-          onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }),
-        }
+        { maxRetries: 1, onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }) }
       );
-
       setPresentation(resData.result.presentation);
       toast.success(`최적화 완료! ✨ ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
     } catch (err: any) {
@@ -462,9 +413,10 @@ export function usePresentation() {
     historyOpen, setHistoryOpen,
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
-    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix, // applyReviewFix 추가
+    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix,
     isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
+    appTheme, changeTheme, // ✨ 테마 상태 반환
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     reset,
