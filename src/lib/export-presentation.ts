@@ -64,6 +64,9 @@ export async function exportToPdf(presentation: Presentation, brand: BrandSettin
   const pageW = 297;
   const pageH = 210;
 
+  // 폰트 로딩 보장 — Google Fonts에서 Noto Sans KR 로드
+  await ensureKoreanFontLoaded();
+
   // 임시 렌더링 컨테이너 생성
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
@@ -73,12 +76,12 @@ export async function exportToPdf(presentation: Presentation, brand: BrandSettin
     for (let idx = 0; idx < presentation.slides.length; idx++) {
       if (idx > 0) doc.addPage();
 
-      // ScaledSlide와 동일한 구조의 HTML을 만들어 렌더링
       const slideHtml = buildSlideHtml(presentation.slides[idx], brand);
       container.innerHTML = slideHtml;
 
-      // 렌더링 대기
-      await new Promise(r => setTimeout(r, 100));
+      // 폰트 렌더링 및 이미지 로드 대기
+      await document.fonts.ready;
+      await new Promise(r => setTimeout(r, 300));
 
       const slideEl = container.firstElementChild as HTMLElement;
       if (!slideEl) continue;
@@ -100,6 +103,31 @@ export async function exportToPdf(presentation: Presentation, brand: BrandSettin
   }
 
   doc.save(`${presentation.title || '발표자료'}.pdf`);
+}
+
+/** 한글 폰트(Noto Sans KR) 로드를 보장하는 함수 */
+async function ensureKoreanFontLoaded(): Promise<void> {
+  // 이미 로드되어 있으면 스킵
+  const fonts = await document.fonts.ready;
+  const hasFont = Array.from(fonts).some(f => f.family.includes('Noto Sans KR'));
+  if (hasFont) return;
+
+  // Google Fonts stylesheet을 동적으로 추가
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap';
+  document.head.appendChild(link);
+
+  // 폰트가 실제로 로드될 때까지 대기 (최대 5초)
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 200));
+    try {
+      await document.fonts.load('400 16px "Noto Sans KR"', '가나다');
+      const check = document.fonts.check('400 16px "Noto Sans KR"', '가나다');
+      if (check) return;
+    } catch { /* continue waiting */ }
+  }
 }
 
 /** 슬라이드 HTML 빌더 — CSS 인라인으로 한글 폰트 포함 */
@@ -541,7 +569,8 @@ export async function exportToPptx(presentation: Presentation, brand: BrandSetti
               catAxisTitle: cd.xAxisLabel || '', valAxisTitle: cd.yAxisLabel || '',
               chartColors: [accent, primary, FIXED.success, 'F5A623', FIXED.destructive],
               lineDataSymbol: 'circle', lineDataSymbolSize: 6,
-              plotArea: { fill: { color: FIXED.cardBg } },
+              plotArea: { fill: { color: FIXED.slideBg } },
+              catAxisLineColor: '2A3A4A', valAxisLineColor: '2A3A4A',
             } as any);
           }
 
