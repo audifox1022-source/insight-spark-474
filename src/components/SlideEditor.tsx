@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
   useSensor, useSensors, DragEndEvent,
@@ -9,7 +10,7 @@ import {
   useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Presentation, Slide, SlideMetric } from '@/types/presentation';
+import { Presentation, Slide, SlideMetric, SlideChartData } from '@/types/presentation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,6 +28,8 @@ import { PresentationMode } from '@/components/PresentationMode';
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { toast } from 'sonner';
+import { ChartEditor } from '@/components/ChartEditor';
+
 
 interface SlideEditorProps {
   presentation: Presentation;
@@ -432,6 +435,15 @@ export function SlideEditor({
                       <Plus className="w-4 h-4" /> 지표 추가
                     </button>
                   )}
+                </div>
+
+                {/* 차트 편집 */}
+                <div>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 block">📊 차트</span>
+                  <ChartEditor
+                    chartData={slide.chartData}
+                    onChange={(chartData) => onUpdateSlide(currentSlide, { chartData })}
+                  />
                 </div>
 
                 {/* 슬라이드 내용 */}

@@ -16,6 +16,26 @@ export interface SlideMetric {
   trend: 'up' | 'down' | 'flat';
 }
 
+export type ChartType = 'bar' | 'line' | 'pie' | 'area';
+
+export interface ChartDataPoint {
+  name: string;
+  value: number;
+  value2?: number;
+  color?: string;
+}
+
+export interface SlideChartData {
+  chartType: ChartType;
+  title?: string;
+  data: ChartDataPoint[];
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+  series1Label?: string;
+  series2Label?: string;
+  showLegend?: boolean;
+}
+
 export interface Slide {
   slideNumber: number;
   title: string;
@@ -23,6 +43,7 @@ export interface Slide {
   content: string[];
   notes?: string;
   keyMetrics?: SlideMetric[];
+  chartData?: SlideChartData;
 }
 
 export interface Presentation {

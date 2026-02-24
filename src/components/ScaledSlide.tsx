@@ -1,6 +1,7 @@
-import { useRef, useEffect, useState, useMemo } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Slide, SlideMetric } from '@/types/presentation';
 import { TrendingUp, TrendingDown, Minus, BarChart3, Target, ClipboardList, Layout } from 'lucide-react';
+import { SlideChart } from '@/components/SlideChart';
 
 const SLIDE_W = 1920;
 const SLIDE_H = 1080;
@@ -40,7 +41,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -52,6 +52,8 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
   }, []);
 
   const gradient = typeGradients[slide.type] || typeGradients.data;
+  const hasChart = slide.chartData && slide.chartData.data && slide.chartData.data.length > 0;
+  const hasMetrics = slide.keyMetrics && slide.keyMetrics.length > 0;
 
   return (
     <div
@@ -72,7 +74,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           transformOrigin: 'center center',
         }}
       >
-        {/* Slide background */}
         <div className={`w-full h-full bg-gradient-to-br ${gradient} text-white flex flex-col`}>
           {/* Header */}
           <div className="px-[100px] pt-[80px] pb-[40px] flex items-start gap-[32px]">
@@ -93,9 +94,9 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           <div className="mx-[100px] h-[2px] bg-white/20" />
 
           {/* Body */}
-          <div className="flex-1 px-[100px] py-[48px] flex gap-[60px]">
-            {/* Content */}
-            <div className="flex-1 flex flex-col justify-center">
+          <div className="flex-1 px-[100px] py-[48px] flex gap-[60px] min-h-0">
+            {/* Content column */}
+            <div className={`flex flex-col justify-center ${hasChart && !hasMetrics ? 'w-[600px] flex-shrink-0' : 'flex-1'}`}>
               {slide.content && slide.content.length > 0 && (
                 <ul className="space-y-[28px]">
                   {slide.content.map((item, i) => (
@@ -108,10 +109,17 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
               )}
             </div>
 
-            {/* Metrics sidebar */}
-            {slide.keyMetrics && slide.keyMetrics.length > 0 && (
+            {/* Chart area */}
+            {hasChart && (
+              <div className={`flex-1 min-w-[500px] min-h-0`}>
+                <SlideChart chartData={slide.chartData!} isSlideView={true} />
+              </div>
+            )}
+
+            {/* Metrics sidebar (only when no chart) */}
+            {!hasChart && hasMetrics && (
               <div className="w-[440px] flex-shrink-0 flex flex-col justify-center gap-[28px]">
-                {slide.keyMetrics.map((m, i) => (
+                {slide.keyMetrics!.map((m, i) => (
                   <div key={i} className="bg-white/10 backdrop-blur-sm rounded-[24px] p-[32px]">
                     <div className="flex items-center justify-between mb-[12px]">
                       <span className="text-[24px] opacity-70">{m.label}</span>
@@ -123,6 +131,19 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
               </div>
             )}
           </div>
+
+          {/* Metrics bar at bottom when chart is present */}
+          {hasChart && hasMetrics && (
+            <div className="px-[100px] pb-[20px] flex gap-[24px]">
+              {slide.keyMetrics!.map((m, i) => (
+                <div key={i} className="bg-white/10 backdrop-blur-sm rounded-[16px] px-[28px] py-[16px] flex items-center gap-[16px]">
+                  <span className="text-[22px] opacity-70">{m.label}</span>
+                  {trendIcons[m.trend]}
+                  <span className="text-[32px] font-bold">{m.value}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Footer */}
           <div className="px-[100px] pb-[40px] flex items-center justify-between opacity-30">
