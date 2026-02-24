@@ -44,6 +44,7 @@ export interface Slide {
   notes?: string;
   keyMetrics?: SlideMetric[];
   chartData?: SlideChartData;
+  imageUrl?: string;
 }
 
 export interface Presentation {

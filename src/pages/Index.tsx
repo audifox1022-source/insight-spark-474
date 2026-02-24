@@ -7,6 +7,7 @@ import { SlideEditor } from '@/components/SlideEditor';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
+import { ReviewPanel } from '@/components/ReviewPanel';
 import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -24,6 +25,7 @@ const Index = () => {
     historyOpen, setHistoryOpen,
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
+    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview,
     isDark, toggleDark,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
@@ -168,6 +170,7 @@ const Index = () => {
             isSaving={isSaving}
             onRegenerateSlide={regenerateSlide}
             onOpenChat={() => setChatOpen(true)}
+            onOpenReview={() => setReviewOpen(true)}
           />
         )}
       </main>
@@ -191,6 +194,18 @@ const Index = () => {
           slideIndex={0}
           onApply={(updatedSlide) => updateSlide(0, updatedSlide)}
           onRequestEdit={requestChatEdit}
+        />
+      )}
+
+      {/* ── 리뷰 패널 ── */}
+      {step === 'preview' && presentation && (
+        <ReviewPanel
+          open={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          review={reviewResult}
+          isLoading={isReviewing}
+          onRequestReview={requestReview}
+          onGoToSlide={(index) => { setReviewOpen(false); }}
         />
       )}
     </div>
