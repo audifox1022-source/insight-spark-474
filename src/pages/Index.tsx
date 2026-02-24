@@ -220,6 +220,11 @@ const Index = () => {
           onGoToSlide={(index) => { setReviewOpen(false); }}
         />
       )}
+
+      {/* ── 푸터 ── */}
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 text-center text-xs text-muted-foreground">
+        Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span> · <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">audifox1022@gmail.com</a>
+      </footer>
     </div>
   );
 };
