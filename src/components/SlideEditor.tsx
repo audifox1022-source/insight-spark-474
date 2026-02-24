@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ScaledSlide } from '@/components/ScaledSlide';
 
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -235,7 +236,7 @@ export function SlideEditor({
   if (!slide) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-6xl mx-auto">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-7xl mx-auto">
 
       {/* ── 상단 툴바 ── */}
       <div className="flex items-center justify-between mb-6">
@@ -385,9 +386,13 @@ export function SlideEditor({
                 />
               </div>
 
+              {/* 슬라이드 미리보기 */}
+              <div className="p-6 bg-muted/30">
+                <ScaledSlide slide={slide} containerClassName="w-full rounded-xl overflow-hidden shadow-elevated" />
+              </div>
+
               {/* 슬라이드 본문 */}
               <div className="p-8 space-y-8">
-
                 {/* 핵심 지표 */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
