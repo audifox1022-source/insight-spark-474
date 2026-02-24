@@ -7,9 +7,9 @@ import { SlideEditor } from '@/components/SlideEditor';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2 } from 'lucide-react';
+import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const Index = () => {
   const {
@@ -33,65 +33,84 @@ const Index = () => {
 
   return (
     <div className="min-h-screen gradient-surface">
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      {/* ── 헤더 ── */}
+      <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+            <motion.div
+              className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow"
+              whileHover={{ scale: 1.05, rotate: 5 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            >
               <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
+            </motion.div>
             <div>
-              <h1 className="text-base font-bold leading-tight">AI 발표자료 생성기</h1>
-              <p className="text-xs text-muted-foreground">파일 업로드 → 자동 슬라이드 완성</p>
+              <h1 className="text-base font-extrabold leading-tight tracking-tight">AI 발표자료</h1>
+              <p className="text-[11px] text-muted-foreground font-medium">데이터 → 발표자료 자동 생성</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
-            <Button variant="outline" size="sm" onClick={openHistory} className="gap-2 hidden sm:flex">
+            <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+            <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
               <FolderOpen className="w-4 h-4" />
-              저장 목록
+              <span className="text-xs">저장 목록</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={toggleDark} className="w-9 h-9 p-0">
+            <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      <main className={`mx-auto px-6 py-10 ${step === 'preview' ? 'max-w-7xl' : 'max-w-6xl'}`}>
 
-        {/* 업로드 */}
+        {/* ── 업로드 ── */}
         {step === 'upload' && (
-          <div className="space-y-8">
-            <div className="text-center max-w-lg mx-auto">
-              <h2 className="text-3xl font-bold tracking-tight">
+          <div className="space-y-10">
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center max-w-lg mx-auto"
+            >
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
+                <Sparkles className="w-3 h-3" />
+                AI 기반 자동 생성
+              </div>
+              <h2 className="text-4xl font-black tracking-tight leading-tight">
                 파일만 올리면
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
                   발표자료가 완성됩니다
                 </span>
               </h2>
-              <p className="text-muted-foreground mt-3">
-                엑셀, PDF, Word, 텍스트, 이미지 등 다양한 파일을 업로드하면 AI가 발표 자료를 자동 생성합니다
+              <p className="text-muted-foreground mt-4 text-base leading-relaxed">
+                엑셀, PDF, Word 등 파일을 업로드하면<br className="hidden sm:block" />
+                AI가 전문적인 발표 자료를 자동으로 생성합니다
               </p>
-            </div>
+            </motion.div>
             <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
             {fileNames.length > 0 && (
-              <div className="flex justify-center">
-                <Button onClick={() => setStep('info')} className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-8 py-5 text-base">
-                  다음 단계로 <ArrowRight className="w-4 h-4" />
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex justify-center"
+              >
+                <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
+                  다음 단계로 <ArrowRight className="w-5 h-5" />
                 </Button>
-              </div>
+              </motion.div>
             )}
           </div>
         )}
 
-        {/* 발표자료 설정 */}
+        {/* ── 발표자료 설정 ── */}
         {step === 'info' && dataSummary && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold">발표자료 설정</h2>
-              <p className="text-sm text-muted-foreground mt-1">템플릿을 선택하거나 AI가 자동으로 구성을 제안합니다</p>
-            </div>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+              <h2 className="text-2xl font-extrabold tracking-tight">발표자료 설정</h2>
+              <p className="text-sm text-muted-foreground mt-1">템플릿과 옵션을 선택하면 AI가 구성을 제안합니다</p>
+            </motion.div>
             <PresentationSetupForm
               info={meetingInfo}
               onChange={setMeetingInfo}
@@ -106,13 +125,13 @@ const Index = () => {
           </div>
         )}
 
-        {/* 구성안 미리보기 */}
+        {/* ── 구성안 미리보기 ── */}
         {step === 'outline' && (
           <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold">구성안 확인</h2>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
+              <h2 className="text-2xl font-extrabold tracking-tight">구성안 확인</h2>
               <p className="text-sm text-muted-foreground mt-1">AI가 제안한 슬라이드 구성을 확인하고 수정하세요</p>
-            </div>
+            </motion.div>
             {isLoadingOutline || !outline ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
@@ -131,10 +150,10 @@ const Index = () => {
           </div>
         )}
 
-        {/* 생성 중 */}
+        {/* ── 생성 중 ── */}
         {step === 'generating' && <GeneratingState />}
 
-        {/* 슬라이드 에디터 */}
+        {/* ── 슬라이드 에디터 ── */}
         {step === 'preview' && presentation && (
           <SlideEditor
             presentation={presentation}
@@ -153,7 +172,7 @@ const Index = () => {
         )}
       </main>
 
-      {/* 히스토리 패널 */}
+      {/* ── 히스토리 패널 ── */}
       <HistoryPanel
         open={historyOpen}
         onClose={() => setHistoryOpen(false)}
@@ -163,7 +182,7 @@ const Index = () => {
         onDelete={deleteFromHistory}
       />
 
-      {/* 채팅 수정 패널 */}
+      {/* ── 채팅 수정 패널 ── */}
       {step === 'preview' && presentation && (
         <ChatEditPanel
           open={chatOpen}
