@@ -18,7 +18,7 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false); // ✨ 커스텀 테마 메뉴 상태
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -41,9 +41,10 @@ const Index = () => {
     reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix,
     isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
-    appTheme, changeTheme, // ✨ 테마 로직
+    appTheme, changeTheme,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
+    changeSlidePersona, cycleLayout, // ✨ 추가된 함수 사용
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
@@ -77,7 +78,6 @@ const Index = () => {
               <span className="text-xs">저장 목록</span>
             </Button>
             
-            {/* ✨ 테마 변경 드롭다운 메뉴 */}
             <div className="relative">
               <Button 
                 variant="ghost" 
@@ -126,7 +126,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* ── 단계 가이드 배너 ── */}
       {step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -150,8 +149,6 @@ const Index = () => {
       )}
 
       <main className={`mx-auto px-6 py-10 ${step === 'preview' ? 'max-w-7xl' : 'max-w-6xl'}`}>
-
-        {/* ── 업로드 ── */}
         {step === 'upload' && (
           <div className="space-y-10">
             <motion.div
@@ -190,7 +187,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* ── 발표자료 설정 ── */}
         {step === 'info' && dataSummary && (
           <div className="space-y-6">
             <PresentationSetupForm
@@ -207,7 +203,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* ── 구성안 미리보기 ── */}
         {step === 'outline' && (
           <div className="space-y-6">
             {isLoadingOutline || !outline ? (
@@ -228,10 +223,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* ── 생성 중 ── */}
         {step === 'generating' && <GeneratingState />}
 
-        {/* ── 슬라이드 에디터 ── */}
         {step === 'preview' && presentation && (
           <SlideEditor
             presentation={presentation}
@@ -249,46 +242,20 @@ const Index = () => {
             onOpenReview={() => setReviewOpen(true)}
             onReviewAndFix={reviewAndFixPresentation}
             isFixing={isFixing}
+            onChangePersona={changeSlidePersona} // ✨ 추가
+            onCycleLayout={cycleLayout}          // ✨ 추가
           />
         )}
       </main>
 
-      {/* ── 히스토리 패널 ── */}
-      <HistoryPanel
-        open={historyOpen}
-        onClose={() => setHistoryOpen(false)}
-        items={savedList}
-        isLoading={isLoadingList}
-        onLoad={loadFromHistory}
-        onDelete={deleteFromHistory}
-      />
-
-      {/* ── 채팅 수정 패널 ── */}
+      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} items={savedList} isLoading={isLoadingList} onLoad={loadFromHistory} onDelete={deleteFromHistory} />
       {step === 'preview' && presentation && (
-        <ChatEditPanel
-          open={chatOpen}
-          onClose={() => setChatOpen(false)}
-          currentSlide={presentation.slides[0]}
-          slideIndex={0}
-          onApply={(updatedSlide) => updateSlide(0, updatedSlide)}
-          onRequestEdit={requestChatEdit}
-        />
+        <ChatEditPanel open={chatOpen} onClose={() => setChatOpen(false)} currentSlide={presentation.slides[0]} slideIndex={0} onApply={(updatedSlide) => updateSlide(0, updatedSlide)} onRequestEdit={requestChatEdit} />
+      )}
+      {step === 'preview' && presentation && (
+        <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={(index) => { setReviewOpen(false); }} onApplyFix={applyReviewFix} />
       )}
 
-      {/* ── 리뷰 패널 ── */}
-      {step === 'preview' && presentation && (
-        <ReviewPanel
-          open={reviewOpen}
-          onClose={() => setReviewOpen(false)}
-          review={reviewResult}
-          isLoading={isReviewing}
-          onRequestReview={requestReview}
-          onGoToSlide={(index) => { setReviewOpen(false); }}
-          onApplyFix={applyReviewFix}
-        />
-      )}
-
-      {/* ── 푸터 ── */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 text-center text-xs text-muted-foreground">
         Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span> · <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">audifox1022@gmail.com</a>
       </footer>
