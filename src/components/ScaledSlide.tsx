@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Slide, SlideMetric } from '@/types/presentation';
-import { TrendingUp, TrendingDown, Minus, BarChart3, Target, ClipboardList, Layout } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, BarChart3, Target, ClipboardList, Layout, Sparkles } from 'lucide-react';
 import { SlideChart } from '@/components/SlideChart';
 
 const SLIDE_W = 1920;
@@ -12,40 +12,61 @@ interface ScaledSlideProps {
   interactive?: boolean;
 }
 
-const typeGradients: Record<string, string> = {
-  title: 'from-[hsl(215,60%,18%)] via-[hsl(215,55%,24%)] to-[hsl(200,80%,38%)]',
-  data: 'from-[hsl(215,60%,16%)] via-[hsl(218,55%,22%)] to-[hsl(220,50%,32%)]',
-  chart: 'from-[hsl(200,70%,18%)] via-[hsl(200,65%,26%)] to-[hsl(190,70%,40%)]',
-  action: 'from-[hsl(220,50%,14%)] via-[hsl(215,55%,22%)] to-[hsl(200,65%,34%)]',
-  summary: 'from-[hsl(225,40%,14%)] via-[hsl(220,45%,20%)] to-[hsl(215,50%,28%)]',
+/* ── 슬라이드 타입별 디자인 토큰 ── */
+const typeThemes: Record<string, {
+  bg: string;
+  accent: string;
+  accentGlow: string;
+  badge: string;
+}> = {
+  title: {
+    bg: 'from-[hsl(220,32%,8%)] via-[hsl(218,38%,14%)] to-[hsl(215,42%,18%)]',
+    accent: 'hsl(200, 85%, 58%)',
+    accentGlow: 'hsl(200, 85%, 58%)',
+    badge: 'INTRO',
+  },
+  data: {
+    bg: 'from-[hsl(222,30%,9%)] via-[hsl(220,32%,14%)] to-[hsl(218,34%,19%)]',
+    accent: 'hsl(190, 80%, 52%)',
+    accentGlow: 'hsl(190, 80%, 52%)',
+    badge: 'DATA',
+  },
+  chart: {
+    bg: 'from-[hsl(218,30%,8%)] via-[hsl(215,34%,13%)] to-[hsl(210,38%,18%)]',
+    accent: 'hsl(168, 72%, 50%)',
+    accentGlow: 'hsl(168, 72%, 50%)',
+    badge: 'CHART',
+  },
+  action: {
+    bg: 'from-[hsl(225,28%,8%)] via-[hsl(222,32%,13%)] to-[hsl(218,35%,17%)]',
+    accent: 'hsl(36, 95%, 58%)',
+    accentGlow: 'hsl(36, 95%, 58%)',
+    badge: 'ACTION',
+  },
+  summary: {
+    bg: 'from-[hsl(228,25%,8%)] via-[hsl(225,30%,12%)] to-[hsl(220,34%,16%)]',
+    accent: 'hsl(152, 68%, 48%)',
+    accentGlow: 'hsl(152, 68%, 48%)',
+    badge: 'SUMMARY',
+  },
 };
 
-const typeAccentColors: Record<string, string> = {
-  title: 'hsl(200, 80%, 55%)',
-  data: 'hsl(200, 80%, 50%)',
-  chart: 'hsl(190, 70%, 55%)',
-  action: 'hsl(38, 92%, 55%)',
-  summary: 'hsl(152, 60%, 50%)',
-};
-
-const typeIcons: Record<string, React.ReactNode> = {
-  title: <Layout className="w-[40px] h-[40px]" />,
-  data: <BarChart3 className="w-[40px] h-[40px]" />,
-  chart: <BarChart3 className="w-[40px] h-[40px]" />,
-  action: <Target className="w-[40px] h-[40px]" />,
-  summary: <ClipboardList className="w-[40px] h-[40px]" />,
-};
-
-const trendIcons: Record<string, React.ReactNode> = {
-  up: <TrendingUp className="w-[32px] h-[32px] text-emerald-400" />,
-  down: <TrendingDown className="w-[32px] h-[32px] text-red-400" />,
-  flat: <Minus className="w-[32px] h-[32px] text-gray-400" />,
-};
-
-const trendColors: Record<string, string> = {
-  up: 'from-emerald-500/20 to-emerald-500/5',
-  down: 'from-red-500/20 to-red-500/5',
-  flat: 'from-white/10 to-white/5',
+const trendConfig: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
+  up: {
+    icon: <TrendingUp className="w-[28px] h-[28px]" />,
+    color: 'hsl(152, 68%, 52%)',
+    bg: 'from-[hsl(152,68%,48%,0.15)] to-[hsl(152,68%,48%,0.03)]',
+  },
+  down: {
+    icon: <TrendingDown className="w-[28px] h-[28px]" />,
+    color: 'hsl(0, 72%, 58%)',
+    bg: 'from-[hsl(0,72%,58%,0.15)] to-[hsl(0,72%,58%,0.03)]',
+  },
+  flat: {
+    icon: <Minus className="w-[28px] h-[28px]" />,
+    color: 'hsl(220, 15%, 55%)',
+    bg: 'from-[hsl(220,15%,55%,0.12)] to-[hsl(220,15%,55%,0.03)]',
+  },
 };
 
 export function ScaledSlide({ slide, containerClassName = '', interactive = false }: ScaledSlideProps) {
@@ -65,10 +86,10 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
     return () => observer.disconnect();
   }, []);
 
-  const gradient = typeGradients[slide.type] || typeGradients.data;
-  const accentColor = typeAccentColors[slide.type] || typeAccentColors.data;
+  const theme = typeThemes[slide.type] || typeThemes.data;
   const hasChart = slide.chartData && slide.chartData.data && slide.chartData.data.length > 0;
   const hasMetrics = slide.keyMetrics && slide.keyMetrics.length > 0;
+  const isTitle = slide.type === 'title';
 
   return (
     <div
@@ -89,9 +110,9 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           transformOrigin: 'center center',
         }}
       >
-        <div className={`w-full h-full bg-gradient-to-br ${gradient} text-white flex flex-col relative overflow-hidden`}>
+        <div className={`w-full h-full bg-gradient-to-br ${theme.bg} text-white flex flex-col relative overflow-hidden`}>
 
-          {/* ── 슬라이드 배경 이미지 ── */}
+          {/* ── 배경 이미지 ── */}
           {slide.imageUrl && (
             <div className="absolute inset-0 z-0">
               <img
@@ -100,129 +121,199 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                 className="w-full h-full object-cover"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
-              {/* 이미지 위 오버레이 - 텍스트 가독성 보장 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/50" />
+              <div className="absolute inset-0" style={{
+                background: `linear-gradient(135deg, hsla(220,32%,8%,0.82) 0%, hsla(218,38%,14%,0.65) 50%, hsla(215,42%,18%,0.78) 100%)`,
+              }} />
             </div>
           )}
 
-          {/* ── 배경 장식 요소 ── */}
+          {/* ── 배경 장식 ── */}
           <div className="absolute inset-0 pointer-events-none z-[1]">
-            {/* 기하학적 원형 장식 */}
-            <div className="absolute -top-[200px] -right-[200px] w-[800px] h-[800px] rounded-full"
-              style={{ background: `radial-gradient(circle, ${accentColor}15 0%, transparent 70%)` }} />
-            <div className="absolute -bottom-[300px] -left-[150px] w-[600px] h-[600px] rounded-full"
-              style={{ background: `radial-gradient(circle, ${accentColor}08 0%, transparent 70%)` }} />
-            {/* 대각선 라인 패턴 */}
-            <div className="absolute top-0 right-0 w-[600px] h-full opacity-[0.03]"
+            {/* Subtle noise texture via gradient */}
+            <div className="absolute inset-0 opacity-[0.025]"
               style={{
-                backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 40px, white 40px, white 41px)`,
+                backgroundImage: `radial-gradient(circle at 20% 80%, white 1px, transparent 1px),
+                                  radial-gradient(circle at 80% 20%, white 1px, transparent 1px),
+                                  radial-gradient(circle at 50% 50%, white 0.5px, transparent 0.5px)`,
+                backgroundSize: '100px 100px, 150px 150px, 80px 80px',
               }} />
-            {/* 하단 악센트 바 */}
-            <div className="absolute bottom-0 left-0 right-0 h-[4px]"
-              style={{ background: `linear-gradient(90deg, transparent 0%, ${accentColor} 30%, ${accentColor} 70%, transparent 100%)` }} />
+            {/* Large ambient glow */}
+            <div className="absolute -top-[300px] -right-[300px] w-[900px] h-[900px] rounded-full"
+              style={{ background: `radial-gradient(circle, ${theme.accent}0A 0%, transparent 65%)` }} />
+            <div className="absolute -bottom-[200px] -left-[200px] w-[600px] h-[600px] rounded-full"
+              style={{ background: `radial-gradient(circle, ${theme.accent}06 0%, transparent 60%)` }} />
+            {/* Bottom accent line */}
+            <div className="absolute bottom-0 left-0 right-0 h-[3px]"
+              style={{ background: `linear-gradient(90deg, transparent 5%, ${theme.accent}50 35%, ${theme.accent} 50%, ${theme.accent}50 65%, transparent 95%)` }} />
           </div>
 
-          {/* ── 좌측 악센트 스트라이프 ── */}
-          <div className="absolute left-0 top-[80px] bottom-[80px] w-[5px] rounded-r-full z-[2]"
-            style={{ background: accentColor, opacity: 0.6 }} />
+          {/* ── 좌측 악센트 바 ── */}
+          <div className="absolute left-0 top-0 bottom-0 w-[4px] z-[2]"
+            style={{ background: `linear-gradient(180deg, transparent 10%, ${theme.accent}80 30%, ${theme.accent} 50%, ${theme.accent}80 70%, transparent 90%)` }} />
 
-          {/* ── Header ── */}
-          <div className="px-[120px] pt-[80px] pb-[36px] flex items-start gap-[28px] relative z-[3]">
-            <div className="flex-1">
-              <div className="flex items-center gap-[16px] mb-[16px]">
-                <div className="flex items-center justify-center w-[44px] h-[44px] rounded-[12px] bg-white/10 backdrop-blur-sm">
-                  {typeIcons[slide.type]}
-                </div>
-                <div className="flex items-center gap-[12px]">
-                  <span className="text-[20px] font-medium opacity-50 tracking-[0.2em] uppercase font-mono">
-                    Slide {String(slide.slideNumber).padStart(2, '0')}
-                  </span>
-                  <div className="w-[40px] h-[1px] bg-white/20" />
-                </div>
+          {/* ======= TITLE 슬라이드 전용 레이아웃 ======= */}
+          {isTitle ? (
+            <div className="flex-1 flex flex-col justify-center items-start px-[160px] relative z-[3]">
+              {/* 타입 뱃지 */}
+              <div className="flex items-center gap-[14px] mb-[48px]">
+                <div className="h-[1px] w-[48px]" style={{ background: theme.accent }} />
+                <span className="text-[18px] font-medium tracking-[0.3em] uppercase font-mono"
+                  style={{ color: theme.accent }}>
+                  {theme.badge}
+                </span>
+                <div className="h-[1px] w-[48px]" style={{ background: theme.accent }} />
               </div>
-              <h1 className="text-[68px] font-extrabold leading-[1.1] tracking-[-0.02em]"
-                style={{ textShadow: '0 2px 20px rgba(0,0,0,0.3)' }}>
+
+              {/* 메인 타이틀 */}
+              <h1 className="text-[88px] font-black leading-[1.05] tracking-[-0.03em] max-w-[1400px]"
+                style={{ textShadow: `0 4px 40px rgba(0,0,0,0.4), 0 0 80px ${theme.accent}15` }}>
                 {slide.title}
               </h1>
-            </div>
-          </div>
 
-          {/* ── Accent divider ── */}
-          <div className="mx-[120px] flex items-center gap-[16px]">
-            <div className="h-[2px] flex-1" style={{ background: `linear-gradient(90deg, ${accentColor}80, transparent)` }} />
-            <div className="w-[8px] h-[8px] rounded-full" style={{ background: accentColor }} />
-          </div>
+              {/* 구분선 */}
+              <div className="mt-[40px] mb-[36px] h-[3px] w-[120px] rounded-full"
+                style={{ background: `linear-gradient(90deg, ${theme.accent}, transparent)` }} />
 
-          {/* ── Body ── */}
-          <div className="flex-1 px-[120px] py-[48px] flex gap-[60px] min-h-0 relative z-[3]">
-            {/* Content column */}
-            <div className={`flex flex-col justify-center ${hasChart && !hasMetrics ? 'w-[580px] flex-shrink-0' : 'flex-1'}`}>
+              {/* 부가 내용 */}
               {slide.content && slide.content.length > 0 && (
-                <ul className="space-y-[24px]">
+                <div className="space-y-[16px] max-w-[900px]">
                   {slide.content.map((item, i) => (
-                    <li key={i} className="flex items-start gap-[20px] group">
-                      <div className="mt-[14px] flex-shrink-0 flex items-center gap-[8px]">
-                        <span className="w-[10px] h-[10px] rounded-full"
-                          style={{ background: accentColor, boxShadow: `0 0 12px ${accentColor}60` }} />
-                        <span className="w-[20px] h-[1px] bg-white/20" />
-                      </div>
-                      <span className="text-[34px] leading-[1.6] font-light opacity-90 tracking-[-0.01em]">{item}</span>
-                    </li>
+                    <p key={i} className="text-[32px] leading-[1.5] font-light opacity-70 tracking-[-0.005em]">
+                      {item}
+                    </p>
                   ))}
-                </ul>
+                </div>
+              )}
+
+              {/* 하단 메트릭 (title 슬라이드) */}
+              {hasMetrics && (
+                <div className="mt-[56px] flex gap-[32px]">
+                  {slide.keyMetrics!.map((m, i) => (
+                    <div key={i} className="flex items-center gap-[16px]">
+                      <span className="text-[48px] font-black" style={{ color: theme.accent }}>{m.value}</span>
+                      <div className="flex flex-col">
+                        <span className="text-[18px] opacity-50 font-medium">{m.label}</span>
+                        <span style={{ color: trendConfig[m.trend].color }}>{trendConfig[m.trend].icon}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-
-            {/* Chart area */}
-            {hasChart && (
-              <div className="flex-1 min-w-[500px] min-h-0 bg-white/[0.03] rounded-[24px] p-[24px] backdrop-blur-sm border border-white/[0.06]">
-                <SlideChart chartData={slide.chartData!} isSlideView={true} />
-              </div>
-            )}
-
-            {/* Metrics sidebar (only when no chart) */}
-            {!hasChart && hasMetrics && (
-              <div className="w-[460px] flex-shrink-0 flex flex-col justify-center gap-[24px]">
-                {slide.keyMetrics!.map((m, i) => (
-                  <div key={i} className={`bg-gradient-to-br ${trendColors[m.trend]} backdrop-blur-sm rounded-[20px] p-[32px] border border-white/[0.08] relative overflow-hidden`}>
-                    {/* 카드 내 장식 */}
-                    <div className="absolute top-0 right-0 w-[100px] h-[100px] rounded-bl-[60px] bg-white/[0.04]" />
-                    <div className="flex items-center justify-between mb-[14px]">
-                      <span className="text-[22px] opacity-60 font-medium tracking-wide">{m.label}</span>
-                      {trendIcons[m.trend]}
-                    </div>
-                    <div className="text-[52px] font-black tracking-tight leading-none"
-                      style={{ textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>
-                      {m.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Metrics bar at bottom when chart is present */}
-          {hasChart && hasMetrics && (
-            <div className="px-[120px] pb-[24px] flex gap-[20px] relative z-[3]">
-              {slide.keyMetrics!.map((m, i) => (
-                <div key={i} className="bg-white/[0.07] backdrop-blur-sm rounded-[14px] px-[28px] py-[16px] flex items-center gap-[14px] border border-white/[0.06]">
-                  <span className="text-[20px] opacity-60 font-medium">{m.label}</span>
-                  {trendIcons[m.trend]}
-                  <span className="text-[30px] font-bold">{m.value}</span>
+          ) : (
+            /* ======= 일반 슬라이드 레이아웃 ======= */
+            <>
+              {/* ── Header ── */}
+              <div className="px-[120px] pt-[72px] pb-[28px] relative z-[3]">
+                <div className="flex items-center gap-[14px] mb-[20px]">
+                  <span className="text-[15px] font-semibold tracking-[0.25em] uppercase font-mono px-[14px] py-[5px] rounded-full border"
+                    style={{ color: theme.accent, borderColor: `${theme.accent}40` }}>
+                    {theme.badge}
+                  </span>
+                  <div className="w-[1px] h-[16px] bg-white/15" />
+                  <span className="text-[16px] font-mono opacity-30 tracking-widest">
+                    {String(slide.slideNumber).padStart(2, '0')}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Footer ── */}
-          <div className="px-[120px] pb-[36px] flex items-center justify-between relative z-[3]">
-            <div className="flex items-center gap-[12px] opacity-25">
-              <div className="w-[24px] h-[24px] rounded-[6px] bg-white/30 flex items-center justify-center">
-                <span className="text-[12px] font-bold">{slide.slideNumber}</span>
+                <h1 className="text-[62px] font-extrabold leading-[1.1] tracking-[-0.025em] max-w-[1200px]"
+                  style={{ textShadow: '0 2px 24px rgba(0,0,0,0.3)' }}>
+                  {slide.title}
+                </h1>
               </div>
-              <span className="text-[16px] font-mono tracking-wider">{slide.slideNumber} / ∞</span>
-            </div>
-          </div>
+
+              {/* ── Divider ── */}
+              <div className="mx-[120px] h-[2px] rounded-full"
+                style={{ background: `linear-gradient(90deg, ${theme.accent}60, ${theme.accent}15, transparent)` }} />
+
+              {/* ── Body ── */}
+              <div className="flex-1 px-[120px] py-[44px] flex gap-[56px] min-h-0 relative z-[3]">
+                {/* Content */}
+                <div className={`flex flex-col justify-center ${hasChart && !hasMetrics ? 'w-[560px] flex-shrink-0' : 'flex-1'}`}>
+                  {slide.content && slide.content.length > 0 && (
+                    <ul className="space-y-[28px]">
+                      {slide.content.map((item, i) => (
+                        <li key={i} className="flex items-start gap-[20px]">
+                          <div className="mt-[16px] flex-shrink-0 flex items-center gap-[6px]">
+                            <span className="w-[8px] h-[8px] rounded-full"
+                              style={{ background: theme.accent, boxShadow: `0 0 16px ${theme.accent}50` }} />
+                            <span className="w-[24px] h-[1px]"
+                              style={{ background: `linear-gradient(90deg, ${theme.accent}40, transparent)` }} />
+                          </div>
+                          <span className="text-[32px] leading-[1.6] font-light opacity-85 tracking-[-0.01em]">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Chart */}
+                {hasChart && (
+                  <div className="flex-1 min-w-[480px] min-h-0 rounded-[20px] p-[28px] relative overflow-hidden"
+                    style={{
+                      background: 'linear-gradient(135deg, hsla(0,0%,100%,0.04) 0%, hsla(0,0%,100%,0.01) 100%)',
+                      border: `1px solid hsla(0,0%,100%,0.06)`,
+                      backdropFilter: 'blur(8px)',
+                    }}>
+                    <SlideChart chartData={slide.chartData!} isSlideView={true} />
+                  </div>
+                )}
+
+                {/* Metrics sidebar (no chart) */}
+                {!hasChart && hasMetrics && (
+                  <div className="w-[440px] flex-shrink-0 flex flex-col justify-center gap-[20px]">
+                    {slide.keyMetrics!.map((m, i) => {
+                      const trend = trendConfig[m.trend];
+                      return (
+                        <div key={i} className={`bg-gradient-to-br ${trend.bg} rounded-[16px] p-[28px] relative overflow-hidden`}
+                          style={{ border: `1px solid hsla(0,0%,100%,0.06)`, backdropFilter: 'blur(6px)' }}>
+                          <div className="absolute top-0 right-0 w-[80px] h-[80px] rounded-bl-[40px]"
+                            style={{ background: `${trend.color}08` }} />
+                          <div className="flex items-center justify-between mb-[12px]">
+                            <span className="text-[20px] opacity-50 font-medium tracking-wide">{m.label}</span>
+                            <span style={{ color: trend.color }}>{trend.icon}</span>
+                          </div>
+                          <div className="text-[48px] font-black tracking-tight leading-none"
+                            style={{ textShadow: '0 2px 12px rgba(0,0,0,0.2)' }}>
+                            {m.value}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Metrics bar (when chart + metrics both) */}
+              {hasChart && hasMetrics && (
+                <div className="px-[120px] pb-[20px] flex gap-[16px] relative z-[3]">
+                  {slide.keyMetrics!.map((m, i) => {
+                    const trend = trendConfig[m.trend];
+                    return (
+                      <div key={i} className="rounded-[12px] px-[24px] py-[14px] flex items-center gap-[12px]"
+                        style={{
+                          background: 'hsla(0,0%,100%,0.05)',
+                          border: '1px solid hsla(0,0%,100%,0.06)',
+                          backdropFilter: 'blur(4px)',
+                        }}>
+                        <span className="text-[18px] opacity-50 font-medium">{m.label}</span>
+                        <span style={{ color: trend.color }}>{trend.icon}</span>
+                        <span className="text-[28px] font-bold">{m.value}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Footer ── */}
+              <div className="px-[120px] pb-[32px] flex items-center justify-between relative z-[3]">
+                <div className="flex items-center gap-[10px] opacity-20">
+                  <span className="text-[14px] font-mono tracking-[0.15em]">
+                    {String(slide.slideNumber).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
