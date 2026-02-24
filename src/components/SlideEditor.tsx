@@ -22,6 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
+  Wand2, LayoutTemplate // ✨ 아이콘 추가
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -48,6 +49,8 @@ interface SlideEditorProps {
   onOpenReview: () => void;
   onReviewAndFix: () => Promise<void>;
   isFixing: boolean;
+  onChangePersona: (slideIndex: number, persona: 'jobs' | 'mckinsey') => Promise<void>; // ✨ 추가
+  onCycleLayout: (slideIndex: number) => void; // ✨ 추가
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -136,6 +139,7 @@ export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
   onRegenerateSlide, onOpenChat, onOpenReview, onReviewAndFix, isFixing,
+  onChangePersona, onCycleLayout // ✨ Props 받기
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -401,7 +405,36 @@ export function SlideEditor({
                         ))}
                       </SelectContent>
                     </Select>
+                    
                     <div className="ml-auto flex items-center gap-1">
+                      
+                      {/* ✨ 1초 레이아웃 마법사 버튼 */}
+                      <Button size="sm" variant="ghost"
+                        className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                        onClick={() => onCycleLayout(currentSlide)} title="1초 레이아웃 마법사">
+                        <LayoutTemplate className="w-3.5 h-3.5" />
+                        <span className="hidden xl:inline">레이아웃</span>
+                      </Button>
+
+                      {/* ✨ 스타일 변환 (스티브 잡스 / 맥킨지) 드롭다운 */}
+                      <div className="relative group/persona pb-1 -mb-1">
+                        <Button size="sm" variant="ghost"
+                          className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                          title="발표 스타일 변환">
+                          <Wand2 className="w-3.5 h-3.5" />
+                          <span className="hidden xl:inline">스타일 변환</span>
+                        </Button>
+                        <div className="absolute right-0 top-full mt-0 w-44 bg-card rounded-xl shadow-elevated border border-border opacity-0 invisible group-hover/persona:opacity-100 group-hover/persona:visible transition-all z-50 overflow-hidden">
+                          <button onClick={() => onChangePersona(currentSlide, 'jobs')} className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground border-b border-border flex items-center gap-2">
+                            🍎 잡스 모드 (감성)
+                          </button>
+                          <button onClick={() => onChangePersona(currentSlide, 'mckinsey')} className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground flex items-center gap-2">
+                            💼 맥킨지 모드 (논리)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 기존 버튼들 */}
                       <Button size="sm" variant="ghost"
                         className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
                         onClick={handleRegenerate} disabled={isRegenerating} title="AI로 재생성">
@@ -445,8 +478,9 @@ export function SlideEditor({
                   </div>
                 </div>
 
-                {/* 슬라이드 본문 */}
+                {/* 슬라이드 본문 편집 영역 */}
                 <div className="p-6 space-y-8">
+                  {/* (기존 코드와 동일하게 지표, 차트, 테이블, 이미지 편집 영역 유지) */}
                   
                   {/* 핵심 지표 */}
                   <div>
@@ -502,7 +536,7 @@ export function SlideEditor({
                     />
                   </div>
 
-                  {/* ✨ 데이터 테이블 편집 추가 */}
+                  {/* 데이터 테이블 편집 */}
                   {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
                     <div>
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-1.5">
@@ -618,28 +652,9 @@ export function SlideEditor({
         </div>
       </div>
 
-      {/* 내보내기 다이얼로그 */}
-      <ExportSettingsDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        onExport={handleExport}
-        isExporting={isExporting}
-      />
-
-      {/* 발표 모드 */}
-      {presenting && (
-        <PresentationMode
-          presentation={presentation}
-          startSlide={currentSlide}
-          onExit={() => setPresenting(false)}
-        />
-      )}
-
-      {/* 키보드 단축키 도움말 */}
-      <KeyboardShortcutsHelp
-        open={shortcutsHelpOpen}
-        onOpenChange={setShortcutsHelpOpen}
-      />
+      <ExportSettingsDialog open={exportDialogOpen} onOpenChange={setExportDialogOpen} onExport={handleExport} isExporting={isExporting} />
+      {presenting && <PresentationMode presentation={presentation} startSlide={currentSlide} onExit={() => setPresenting(false)} />}
+      <KeyboardShortcutsHelp open={shortcutsHelpOpen} onOpenChange={setShortcutsHelpOpen} />
     </motion.div>
   );
 }
