@@ -21,7 +21,7 @@ import {
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
-  Sparkles, MessageSquare, Keyboard, Star,
+  Sparkles, MessageSquare, Keyboard, Star, TableProperties,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -31,7 +31,6 @@ import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { toast } from 'sonner';
 import { ChartEditor } from '@/components/ChartEditor';
 import { SlideImageEditor } from '@/components/SlideImageEditor';
-
 
 interface SlideEditorProps {
   presentation: Presentation;
@@ -273,7 +272,7 @@ export function SlideEditor({
             <Keyboard className="w-4 h-4" />
           </Button>
 
-          {/* ✨ 자동 최적화 버튼 추가 */}
+          {/* 자동 최적화 버튼 */}
           <Button
             variant="default"
             size="sm"
@@ -447,7 +446,8 @@ export function SlideEditor({
                 </div>
 
                 {/* 슬라이드 본문 */}
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-8">
+                  
                   {/* 핵심 지표 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
@@ -484,10 +484,6 @@ export function SlideEditor({
                               placeholder="수치" />
                           </div>
                         ))}
-                        <button onClick={addMetric}
-                          className="rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex flex-col items-center justify-center gap-2 text-xs p-4 min-h-[90px]">
-                          <Plus className="w-5 h-5" /> 지표 추가
-                        </button>
                       </div>
                     ) : (
                       <button onClick={addMetric}
@@ -505,6 +501,56 @@ export function SlideEditor({
                       onChange={(chartData) => onUpdateSlide(currentSlide, { chartData })}
                     />
                   </div>
+
+                  {/* ✨ 데이터 테이블 편집 추가 */}
+                  {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
+                    <div>
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-1.5">
+                        <TableProperties className="w-3.5 h-3.5" /> 데이터 테이블
+                      </span>
+                      <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
+                        <table className="w-full text-sm text-left whitespace-nowrap">
+                          <thead className="bg-muted/50 text-muted-foreground border-b border-border">
+                            <tr>
+                              {slide.tableData.headers.map((h, cIdx) => (
+                                <th key={`th-${cIdx}`} className="p-0 font-semibold border-r border-border last:border-r-0">
+                                  <input
+                                    value={h}
+                                    onChange={(e) => {
+                                      const newHeaders = [...slide.tableData!.headers];
+                                      newHeaders[cIdx] = e.target.value;
+                                      onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, headers: newHeaders } });
+                                    }}
+                                    className="w-full bg-transparent px-4 py-2.5 outline-none focus:bg-muted/80 transition-colors"
+                                  />
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {slide.tableData.rows.map((row, rIdx) => (
+                              <tr key={`tr-${rIdx}`} className="hover:bg-muted/20 transition-colors">
+                                {row.map((cell, cIdx) => (
+                                  <td key={`td-${rIdx}-${cIdx}`} className="p-0 border-r border-border last:border-r-0">
+                                    <input
+                                      value={cell}
+                                      onChange={(e) => {
+                                        const newRows = [...slide.tableData!.rows];
+                                        newRows[rIdx] = [...newRows[rIdx]];
+                                        newRows[rIdx][cIdx] = e.target.value;
+                                        onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, rows: newRows } });
+                                      }}
+                                      className="w-full bg-transparent px-4 py-2 outline-none focus:bg-muted transition-colors"
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 이미지 편집 */}
                   <SlideImageEditor
