@@ -66,8 +66,10 @@ const STORYTELLING_PERSONA = `## 페르소나
 ## 톤앤스타일
 명확함, 분석적, 전문적. AI가 생성한 느낌을 배제하고 현장 관리자가 직접 작성한 것 같은 자연스러운 문체.`;
 
-const MAX_FILE_DATA_LENGTH = 12000;
-const MAX_BODY_SIZE = 500_000; // 500KB max request body
+// 💡 수정됨: 여러 파일을 수용할 수 있도록 한도 대폭 증가 (12,000 -> 300,000자)
+const MAX_FILE_DATA_LENGTH = 300000;
+// 💡 수정됨: 다중 파일 업로드 용량을 수용하도록 500KB -> 4MB 로 증가
+const MAX_BODY_SIZE = 4_000_000; 
 const AI_TIMEOUT_MS = 120_000;
 
 // ── Input validation schemas ──
@@ -137,8 +139,31 @@ function sanitizeErrorMessage(e: unknown): string {
   return "처리 중 오류가 발생했습니다. 다시 시도해주세요.";
 }
 
+// 💡 수정됨: 여러 파일일 경우 각 파일별로 용량을 공평하게 분배하여 잘라냄
 function truncateFileData(fileData: any): string {
-  const raw = JSON.stringify(fileData, null, 2);
+  if (!fileData) return "";
+
+  // 배열(여러 파일)로 들어온 경우
+  if (Array.isArray(fileData) && fileData.length > 0) {
+    // 파일 개수만큼 전체 제한을 공평하게 분배
+    const limitPerFile = Math.floor(MAX_FILE_DATA_LENGTH / fileData.length);
+    
+    const processedFiles = fileData.map((file, index) => {
+      const fileName = file.fileName || `문서_${index + 1}`;
+      const fileStr = typeof file === 'object' ? JSON.stringify(file, null, 2) : String(file);
+      
+      // 파일 하나가 분배된 한도를 넘으면 그 파일만 자름
+      if (fileStr.length > limitPerFile) {
+        return `\n--- [업로드 파일: ${fileName}] 시작 ---\n${fileStr.slice(0, limitPerFile)}\n... (이 파일의 데이터가 너무 길어 뒷부분 생략됨)\n--- [업로드 파일: ${fileName}] 끝 ---\n`;
+      }
+      return `\n--- [업로드 파일: ${fileName}] 시작 ---\n${fileStr}\n--- [업로드 파일: ${fileName}] 끝 ---\n`;
+    });
+    
+    return processedFiles.join("\n");
+  }
+
+  // 단일 객체/문자열일 경우 기존 로직 적용
+  const raw = typeof fileData === 'object' ? JSON.stringify(fileData, null, 2) : String(fileData);
   if (raw.length <= MAX_FILE_DATA_LENGTH) return raw;
   return raw.slice(0, MAX_FILE_DATA_LENGTH) + "\n... (데이터가 너무 길어 일부 생략됨)";
 }
@@ -261,7 +286,7 @@ async function handleOutline(body: any, apiKey: string) {
   const prompt = `${STORYTELLING_PERSONA}
 
 당신은 발표 자료 구성 전문가입니다.
-업로드된 파일 데이터를 분석하여 발표 자료의 목차(구성안)를 먼저 제안해주세요.
+업로드된 모든 파일 데이터를 종합적으로 분석하여 발표 자료의 목차(구성안)를 제안해주세요. 여러 개의 파일이 업로드되었다면 모든 파일의 내용을 빠짐없이 통합해서 반영해야 합니다.
 스토리텔링 구조(도입→전개→전환→결론)를 반영하여 청중이 몰입할 수 있는 흐름을 만들어주세요.
 
 회의 정보:
@@ -275,8 +300,9 @@ async function handleOutline(body: any, apiKey: string) {
 - 분량: ${VOLUME_MAP[volume]}
 - 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
 
-파일 데이터:
+업로드된 전체 파일 데이터:
 ${fileDataStr}
+
 ${CHART_INSTRUCTION}
 
 아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
@@ -323,6 +349,7 @@ async function handleGenerate(body: any, apiKey: string) {
 
 핵심 작성 원칙:
 - AI가 생성한 느낌이 전혀 나지 않는, 현장 관리자가 직접 작성한 것 같은 자연스러운 문체
+- 여러 개의 파일이 제공된 경우, 특정 파일 하나에만 치우치지 말고 모든 파일의 데이터를 통합하여 전체적인 맥락을 구성하세요.
 - 구체적 데이터와 수치를 활용한 근거 기반 보고
 - 실행 가능한 개선 방안과 인사이트 제시
 - 간결하고 핵심적인 내용 구성
@@ -358,10 +385,10 @@ ${CHART_INSTRUCTION}
 - 발표자: ${meetingInfo?.reporter || '미입력'}
 - 추가 지시사항: ${meetingInfo?.notes || '없음'}
 
-파일 데이터:
+업로드된 전체 파일 데이터:
 ${fileDataStr}
 
-위 데이터를 분석하여 발표 자료를 생성해주세요. 수치 데이터가 있으면 반드시 차트 슬라이드를 포함하세요.`;
+위 데이터를 종합적으로 분석하여 발표 자료를 생성해주세요. 여러 개의 파일이 있다면 모두 반영해야 합니다. 수치 데이터가 있으면 반드시 차트 슬라이드를 포함하세요.`;
 
   const data = await callAI(`${systemPrompt}\n\n${userPrompt}`, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -398,7 +425,7 @@ ${JSON.stringify(currentSlide, null, 2)}
 
 ${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 내용으로 전면 재작성해주세요.'}
 
-파일 원본 데이터 (참고):
+업로드된 전체 파일 원본 데이터 (참고):
 ${fileDataStr}
 
 수치 데이터가 있고 시각화가 적절하다면 chartData도 포함하세요.
@@ -594,8 +621,6 @@ Context: ${(slideContent || []).slice(0, 2).join('. ')}
 Slide type: ${slideType}
 Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text. Suitable as a background or accent image for a presentation slide. 16:9 aspect ratio. High quality.`;
 
-  
-
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -642,8 +667,6 @@ Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text.
 
   const { data: publicUrlData } = supabase.storage.from("slide-images").getPublicUrl(fileName);
   const imageUrl = publicUrlData.publicUrl;
-
-  
 
   return new Response(JSON.stringify({ imageUrl }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
