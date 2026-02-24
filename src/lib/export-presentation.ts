@@ -112,6 +112,67 @@ export async function exportToPptx(presentation: Presentation, brand: BrandSetti
       yPos += 1.3;
     }
 
+    // Chart
+    if (slide.chartData && slide.chartData.data && slide.chartData.data.length > 0) {
+      const cd = slide.chartData;
+      const chartH = 3.8;
+      const chartW = 11.4;
+
+      if (cd.chartType === 'pie') {
+        const chartData = [{
+          name: cd.title || '데이터',
+          labels: cd.data.map(d => d.name),
+          values: cd.data.map(d => d.value),
+        }];
+        pptSlide.addChart(pptx.ChartType.pie, chartData, {
+          x: 0.6, y: yPos, w: chartW, h: chartH,
+          showTitle: !!cd.title, title: cd.title || '',
+          showLegend: cd.showLegend !== false,
+          legendPos: 'r',
+          dataLabelPosition: 'outEnd',
+          showPercent: true,
+          showValue: false,
+        });
+      } else {
+        const chartTypeMap: Record<string, any> = {
+          bar: pptx.ChartType.bar,
+          line: pptx.ChartType.line,
+          area: pptx.ChartType.area,
+        };
+        const pptxChartType = chartTypeMap[cd.chartType] || pptx.ChartType.bar;
+
+        const chartData: any[] = [{
+          name: cd.series1Label || '값',
+          labels: cd.data.map(d => d.name),
+          values: cd.data.map(d => d.value),
+        }];
+
+        const hasValue2 = cd.data.some(d => d.value2 !== undefined && d.value2 !== null);
+        if (hasValue2) {
+          chartData.push({
+            name: cd.series2Label || '비교값',
+            labels: cd.data.map(d => d.name),
+            values: cd.data.map(d => d.value2 ?? 0),
+          });
+        }
+
+        pptSlide.addChart(pptxChartType, chartData, {
+          x: 0.6, y: yPos, w: chartW, h: chartH,
+          showTitle: !!cd.title, title: cd.title || '',
+          showLegend: cd.showLegend !== false,
+          legendPos: 'b',
+          catAxisLabelColor: FIXED.muted,
+          valAxisLabelColor: FIXED.muted,
+          catAxisTitle: cd.xAxisLabel || '',
+          valAxisTitle: cd.yAxisLabel || '',
+          chartColors: [brand.accentColor, brand.primaryColor, '33A06B', 'F5A623', 'E04040'],
+          lineDataSymbol: 'circle',
+          lineDataSymbolSize: 6,
+        });
+      }
+      yPos += 4.1;
+    }
+
     // Content bullets
     if (slide.content && slide.content.length > 0) {
       const bulletText = slide.content.map((c) => ({
