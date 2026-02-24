@@ -9,12 +9,13 @@ import {
   RotateCcw, Download, Plus, Trash2, Copy, GripVertical,
   TrendingUp, TrendingDown, Minus, FileText, BarChart3, Target,
   ClipboardList, Layout, ChevronUp, ChevronDown, Edit3, Check, X,
-  Pencil,
+  Pencil, Play,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
+import { ScaledSlide } from '@/components/ScaledSlide';
+import { PresentationMode } from '@/components/PresentationMode';
 import { toast } from 'sonner';
-
 interface SlideEditorProps {
   presentation: Presentation;
   onReset: () => void;
@@ -53,6 +54,7 @@ export function SlideEditor({
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [presenting, setPresenting] = useState(false);
 
   const slides = presentation.slides || [];
   const slide = slides[currentSlide];
@@ -157,6 +159,10 @@ export function SlideEditor({
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <Button variant="default" size="sm" onClick={() => setPresenting(true)} className="gap-2 gradient-primary text-primary-foreground border-0">
+            <Play className="w-4 h-4" />
+            발표하기
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="gap-2">
             <Download className="w-4 h-4" />
             내보내기
@@ -431,6 +437,14 @@ export function SlideEditor({
         onExport={handleExport}
         isExporting={isExporting}
       />
+
+      {presenting && (
+        <PresentationMode
+          presentation={presentation}
+          startSlide={currentSlide}
+          onExit={() => setPresenting(false)}
+        />
+      )}
     </motion.div>
   );
 }
