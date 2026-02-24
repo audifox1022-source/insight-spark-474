@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/sheet';
 import {
   CheckCircle2, AlertTriangle, Info, Star, Eye, BookOpen,
-  BarChart3, Layout, FileText, Lightbulb, Loader2, X,
+  BarChart3, Layout, FileText, Lightbulb, Loader2, X, Sparkles, Check
 } from 'lucide-react';
 
 export interface ReviewImprovement {
@@ -33,6 +33,7 @@ interface ReviewPanelProps {
   isLoading: boolean;
   onRequestReview: () => void;
   onGoToSlide: (index: number) => void;
+  onApplyFix?: (slideIndex: number, issue: string, suggestion: string) => Promise<boolean>;
 }
 
 const categoryIcons: Record<string, React.ReactNode> = {
@@ -79,7 +80,29 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-export function ReviewPanel({ open, onClose, review, isLoading, onRequestReview, onGoToSlide }: ReviewPanelProps) {
+export function ReviewPanel({ open, onClose, review, isLoading, onRequestReview, onGoToSlide, onApplyFix }: ReviewPanelProps) {
+  // 제안 적용 상태를 관리하기 위한 state (loading, applied)
+  const [applyingStatus, setApplyingStatus] = useState<Record<number, 'loading' | 'applied'>>({});
+
+  const handleApply = async (idx: number, imp: ReviewImprovement) => {
+    if (!onApplyFix || applyingStatus[idx] === 'applied') return;
+    
+    setApplyingStatus(prev => ({ ...prev, [idx]: 'loading' }));
+    
+    const success = await onApplyFix(imp.slideIndex, imp.issue, imp.suggestion);
+    
+    if (success) {
+      setApplyingStatus(prev => ({ ...prev, [idx]: 'applied' }));
+    } else {
+      // 실패 시 다시 클릭할 수 있도록 상태 제거
+      setApplyingStatus(prev => {
+        const next = { ...prev };
+        delete next[idx];
+        return next;
+      });
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-[420px] sm:w-[480px] p-0">
@@ -154,33 +177,58 @@ export function ReviewPanel({ open, onClose, review, isLoading, onRequestReview,
                         <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> 개선 사항 ({review.improvements.length}건)
                       </p>
                       <div className="space-y-2">
-                        {review.improvements.map((imp, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="p-3 rounded-xl bg-card border border-border hover:shadow-card transition-shadow"
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${severityColors[imp.severity]}`}>
-                                {severityLabels[imp.severity]}
-                              </span>
-                              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
-                                {categoryIcons[imp.category]}
-                                {categoryLabels[imp.category]}
-                              </span>
-                              <button
-                                onClick={() => onGoToSlide(imp.slideIndex)}
-                                className="ml-auto text-[10px] font-mono text-accent hover:underline"
-                              >
-                                슬라이드 {imp.slideIndex + 1}번 →
-                              </button>
-                            </div>
-                            <p className="text-sm font-medium mb-1">{imp.issue}</p>
-                            <p className="text-xs text-muted-foreground">{imp.suggestion}</p>
-                          </motion.div>
-                        ))}
+                        {review.improvements.map((imp, i) => {
+                          const status = applyingStatus[i];
+                          const isApplied = status === 'applied';
+                          const isApplying = status === 'loading';
+
+                          return (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, y: 5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className={`p-3 rounded-xl border transition-all ${isApplied ? 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-200 dark:border-indigo-800' : 'bg-card border-border hover:shadow-card'}`}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-semibold ${severityColors[imp.severity]}`}>
+                                  {severityLabels[imp.severity]}
+                                </span>
+                                <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">
+                                  {categoryIcons[imp.category]}
+                                  {categoryLabels[imp.category]}
+                                </span>
+                                <button
+                                  onClick={() => onGoToSlide(imp.slideIndex)}
+                                  className="ml-auto text-[10px] font-mono text-accent hover:underline"
+                                >
+                                  슬라이드 {imp.slideIndex + 1}번 →
+                                </button>
+                              </div>
+                              <p className={`text-sm font-medium mb-1 ${isApplied ? 'text-muted-foreground' : ''}`}>{imp.issue}</p>
+                              <p className={`text-xs ${isApplied ? 'text-muted-foreground' : 'text-muted-foreground'}`}>{imp.suggestion}</p>
+                              
+                              {/* ✨ 제안 적용 버튼 */}
+                              <div className="mt-3 pt-3 border-t border-border/50 flex justify-end">
+                                <Button 
+                                  size="sm" 
+                                  variant={isApplied ? "outline" : "default"}
+                                  disabled={isApplying || isApplied}
+                                  onClick={() => handleApply(i, imp)}
+                                  className={`h-7 text-xs px-3 gap-1.5 ${!isApplied ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 hover:text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50' : 'text-emerald-600 border-emerald-200 bg-emerald-50/50 dark:border-emerald-800/50 dark:bg-emerald-900/20'}`}
+                                >
+                                  {isApplying ? (
+                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 반영 중...</>
+                                  ) : isApplied ? (
+                                    <><Check className="w-3.5 h-3.5" /> 슬라이드에 적용됨</>
+                                  ) : (
+                                    <><Sparkles className="w-3.5 h-3.5" /> 이 제안 적용하기</>
+                                  )}
+                                </Button>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
