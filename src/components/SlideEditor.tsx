@@ -47,6 +47,8 @@ interface SlideEditorProps {
   onRegenerateSlide: (slideIndex: number, instruction?: string) => Promise<void>;
   onOpenChat: () => void;
   onOpenReview: () => void;
+  onReviewAndFix: () => Promise<void>;
+  isFixing: boolean;
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -134,7 +136,7 @@ function SortableSlideThumbnail({
 export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
-  onRegenerateSlide, onOpenChat, onOpenReview,
+  onRegenerateSlide, onOpenChat, onOpenReview, onReviewAndFix, isFixing,
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -185,7 +187,7 @@ export function SlideEditor({
       if (format === 'pptx') {
         await exportToPptx(presentation, brand);
       } else {
-        await exportToPdf(presentation, brand);
+        exportToPdf(presentation, brand);
       }
       toast.success(`${format.toUpperCase()} 파일이 다운로드되었습니다.`);
       setExportDialogOpen(false);
@@ -270,6 +272,20 @@ export function SlideEditor({
           >
             <Keyboard className="w-4 h-4" />
           </Button>
+
+          {/* ✨ 자동 최적화 버튼 추가 */}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onReviewAndFix}
+            disabled={isFixing}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm hidden sm:flex"
+            title="전체 슬라이드를 분석하고 자동으로 최적화합니다"
+          >
+            {isFixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            전체 최적화
+          </Button>
+
           <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {presentation.id ? '저장' : '저장하기'}
