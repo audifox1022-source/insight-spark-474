@@ -11,6 +11,8 @@
     --card-foreground: 220 30% 12%;
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
+    
+    /* 기본 블루 테마 */
     --primary: 215 60% 22%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 25% 93%;
@@ -25,6 +27,7 @@
     --input: 220 13% 88%;
     --ring: 215 60% 22%;
     --radius: 0.625rem;
+    
     --sidebar-background: 215 60% 22%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 200 80% 44%;
@@ -33,30 +36,25 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 40% 32%;
     --sidebar-ring: 200 80% 44%;
+
+    /* 공통 토큰 */
     --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --info: 200 80% 44%;
     --info-foreground: 0 0% 100%;
-    --gradient-primary: linear-gradient(135deg, hsl(215 60% 22%), hsl(200 80% 44%));
-    --gradient-accent: linear-gradient(135deg, hsl(200 80% 44%), hsl(190 70% 50%));
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(190 70% 50%));
     --gradient-surface: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 15% 94%));
     --shadow-card: 0 1px 3px 0 hsl(220 30% 12% / 0.06), 0 1px 2px -1px hsl(220 30% 12% / 0.06);
     --shadow-elevated: 0 10px 25px -5px hsl(220 30% 12% / 0.08), 0 8px 10px -6px hsl(220 30% 12% / 0.04);
-    --shadow-glow: 0 0 20px hsl(200 80% 44% / 0.15);
+    --shadow-glow: 0 0 20px hsl(var(--accent) / 0.2);
     --font-display: 'Noto Sans KR', sans-serif;
     --font-body: 'Noto Sans KR', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
-    --chart-1: 215 60% 22%;
-    --chart-2: 200 80% 44%;
-    --chart-3: 152 60% 40%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 340 65% 55%;
-    --chart-6: 270 60% 55%;
-    --chart-7: 180 60% 45%;
-    --chart-8: 15 75% 55%;
   }
+
   .dark {
     --background: 220 25% 8%;
     --foreground: 210 40% 96%;
@@ -85,21 +83,60 @@
     --sidebar-accent-foreground: 210 40% 96%;
     --sidebar-border: 220 20% 22%;
     --sidebar-ring: 200 80% 55%;
-    --chart-1: 200 80% 55%;
-    --chart-2: 190 70% 50%;
-    --chart-3: 152 60% 50%;
-    --chart-4: 38 92% 60%;
-    --chart-5: 340 65% 65%;
-    --chart-6: 270 60% 65%;
-    --chart-7: 180 60% 55%;
-    --chart-8: 15 75% 65%;
+    --gradient-surface: linear-gradient(180deg, hsl(220 25% 10%), hsl(220 25% 8%));
+  }
+
+  /* ✨ 테마: 네이비 (기업용) */
+  .theme-navy {
+    --primary: 220 60% 15%;
+    --accent: 215 70% 35%;
+    --sidebar-background: 220 60% 15%;
+  }
+  .theme-navy.dark {
+    --primary: 215 70% 55%;
+    --accent: 220 60% 65%;
+  }
+
+  /* ✨ 테마: 퍼플 (크리에이티브) */
+  .theme-purple {
+    --primary: 260 60% 35%;
+    --accent: 270 70% 50%;
+    --sidebar-background: 260 60% 35%;
+  }
+  .theme-purple.dark {
+    --primary: 270 70% 60%;
+    --accent: 260 60% 70%;
+  }
+
+  /* ✨ 테마: 그린 (친환경/자연) */
+  .theme-green {
+    --primary: 150 70% 25%;
+    --accent: 140 80% 35%;
+    --sidebar-background: 150 70% 25%;
+  }
+  .theme-green.dark {
+    --primary: 140 80% 50%;
+    --accent: 150 70% 60%;
+  }
+
+  /* ✨ 테마: 오렌지 (활력/스타트업) */
+  .theme-orange {
+    --primary: 20 80% 45%;
+    --accent: 30 90% 50%;
+    --sidebar-background: 20 80% 45%;
+  }
+  .theme-orange.dark {
+    --primary: 30 90% 55%;
+    --accent: 20 80% 65%;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
+  * {
+    @apply border-border;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
     font-family: var(--font-body);
   }
   h1, h2, h3, h4, h5, h6 {
@@ -108,32 +145,38 @@
 }
 
 @layer utilities {
-  .gradient-primary { background: var(--gradient-primary); }
-  .gradient-accent { background: var(--gradient-accent); }
-  .gradient-surface { background: var(--gradient-surface); }
-  .shadow-card { box-shadow: var(--shadow-card); }
-  .shadow-elevated { box-shadow: var(--shadow-elevated); }
-  .shadow-glow { box-shadow: var(--shadow-glow); }
-  .font-mono { font-family: var(--font-mono); }
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+  .gradient-surface {
+    background: var(--gradient-surface);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
 }
 
 /* ─── 인쇄 최적화 ─────────────────────────────── */
 @media print {
-  /* 인쇄 불필요한 UI 숨기기 */
-  header,
-  .print-hide,
-  button,
-  [data-radix-popper-content-wrapper] {
+  header, .print-hide, button, [data-radix-popper-content-wrapper] {
     display: none !important;
   }
-
   body {
     background: white !important;
     color: black !important;
-    font-family: var(--font-body);
   }
-
-  /* 각 슬라이드를 한 페이지로 */
   .print-slide {
     page-break-after: always;
     break-after: page;
@@ -146,15 +189,12 @@
     display: flex;
     flex-direction: column;
   }
-
   .print-slide:last-child {
     page-break-after: avoid;
     break-after: avoid;
   }
-
-  /* 슬라이드 헤더 */
   .print-slide-header {
-    background: hsl(215, 60%, 22%) !important;
+    background: hsl(var(--primary)) !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     color: white !important;
@@ -162,12 +202,7 @@
     border-radius: 4mm 4mm 0 0;
     margin-bottom: 6mm;
   }
-
-  .print-slide-header * {
-    color: white !important;
-  }
-
-  /* 핵심 지표 카드 */
+  .print-slide-header * { color: white !important; }
   .print-metric-card {
     background: #f5f6f8 !important;
     -webkit-print-color-adjust: exact;
@@ -176,40 +211,15 @@
     border-radius: 3mm;
     padding: 4mm 5mm;
   }
-
-  /* 내용 불릿 */
   .print-bullet {
-    display: flex;
-    align-items: flex-start;
-    gap: 3mm;
-    margin-bottom: 3mm;
-    font-size: 11pt;
-    line-height: 1.6;
+    display: flex; align-items: flex-start; gap: 3mm; margin-bottom: 3mm; font-size: 11pt; line-height: 1.6;
   }
-
   .print-bullet::before {
-    content: '●';
-    color: hsl(200, 80%, 44%);
-    font-size: 8pt;
-    margin-top: 3pt;
-    flex-shrink: 0;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    content: '●'; color: hsl(var(--accent)); font-size: 8pt; margin-top: 3pt; flex-shrink: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-
-  /* 발표자 노트 */
   .print-notes {
-    margin-top: auto;
-    padding-top: 4mm;
-    border-top: 1px solid #e2e5ea;
-    font-size: 8pt;
-    color: #6b7a8d !important;
-    font-style: italic;
+    margin-top: auto; padding-top: 4mm; border-top: 1px solid #e2e5ea; font-size: 8pt; color: #6b7a8d !important; font-style: italic;
   }
-
-  /* 페이지 설정 */
-  @page {
-    size: A4 landscape;
-    margin: 8mm;
-  }
+  @page { size: A4 landscape; margin: 8mm; }
 }
