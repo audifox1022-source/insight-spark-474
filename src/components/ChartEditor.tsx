@@ -4,7 +4,7 @@ import { SlideChartData } from '@/types/presentation';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react'; // 💡 X 아이콘 import 추가됨!
 
 interface ChartEditorProps {
   chartData?: SlideChartData;
@@ -33,7 +33,7 @@ export function ChartEditor({ chartData, onChange }: ChartEditorProps) {
     );
   }
 
-  // 💡 2번 문제 해결: 차트 여백 대폭 증가 (왼쪽, 아래쪽 확보)
+  // 차트 여백 대폭 증가 (왼쪽, 아래쪽 확보)
   const chartMargin = { top: 30, right: 30, left: 50, bottom: 40 };
 
   const renderChart = () => {
