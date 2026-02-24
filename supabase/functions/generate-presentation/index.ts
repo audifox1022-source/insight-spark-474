@@ -72,7 +72,7 @@ const SettingsSchema = z.object({
 }).optional();
 
 const RequestSchema = z.object({
-  mode: z.enum(["outline", "generate", "regenerate_slide", "chat_edit", "review", "review_and_fix", "generate_image", "search_images", "analyze_template"]),
+  mode: z.enum(["outline", "generate", "regenerate_slide", "chat_edit", "review", "review_and_fix", "generate_image", "search_images", "analyze_template", "change_persona"]),
   fileData: z.any().optional(),
   meetingInfo: MeetingInfoSchema,
   settings: SettingsSchema,
@@ -83,6 +83,7 @@ const RequestSchema = z.object({
   presentation: z.any().optional(),
   userInstruction: z.string().max(3000).optional(),
   userMessage: z.string().max(3000).optional(),
+  persona: z.enum(["jobs", "mckinsey"]).optional(), // ✨ 페르소나 파라미터 추가
   query: z.string().max(200).optional(),
   page: z.number().int().min(1).max(100).optional(),
   perPage: z.number().int().min(1).max(50).optional(),
@@ -115,12 +116,8 @@ const SAFE_ERROR_MESSAGES = new Set([
 ]);
 
 function sanitizeErrorMessage(e: unknown): string {
-  if (e instanceof z.ZodError) {
-    return "잘못된 요청 형식입니다.";
-  }
-  if (e instanceof Error && SAFE_ERROR_MESSAGES.has(e.message)) {
-    return e.message;
-  }
+  if (e instanceof z.ZodError) return "잘못된 요청 형식입니다.";
+  if (e instanceof Error && SAFE_ERROR_MESSAGES.has(e.message)) return e.message;
   return "처리 중 오류가 발생했습니다. 다시 시도해주세요.";
 }
 
@@ -187,13 +184,9 @@ const CHART_AND_TABLE_INSTRUCTION = `
 [테이블(tableData) 생성 기준]
 - 엑셀, CSV 등 원본 데이터의 다수 항목이나 상세 수치를 요약해서 보여줘야 할 때 활용하세요.
 - 여러 항목의 세부 스펙이나 장단점을 한눈에 비교할 때 표를 사용하세요.
-- 테이블의 헤더(headers)와 행(rows) 데이터는 간결하게 핵심만 추출하여 작성하세요.
 
 [차트(chartData) 생성 기준]
-- 시간에 따른 변화(line), 카테고리별 크기 비교(bar), 전체 대비 비율(pie)을 시각적으로 강조할 때 사용하세요.
-- 차트 제목은 "월별 생산량" 같은 단순 설명이 아니라 "3분기 생산량 15% 증가세 뚜렷"처럼 핵심 인사이트를 담아야 합니다.
-
-💡 한 슬라이드에 chartData와 tableData 중 하나만 선택하거나, 내용이 많다면 적절히 분배하세요.`;
+- 시간에 따른 변화(line), 카테고리별 크기 비교(bar), 전체 대비 비율(pie)을 시각적으로 강조할 때 사용하세요.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -227,6 +220,7 @@ serve(async (req) => {
     if (mode === "outline") return await handleOutline(body, LOVABLE_API_KEY);
     else if (mode === "regenerate_slide") return await handleRegenerateSlide(body, LOVABLE_API_KEY);
     else if (mode === "chat_edit") return await handleChatEdit(body, LOVABLE_API_KEY);
+    else if (mode === "change_persona") return await handleChangePersona(body, LOVABLE_API_KEY); // ✨ 스타일 변환 추가
     else if (mode === "review") return await handleReview(body, LOVABLE_API_KEY);
     else if (mode === "review_and_fix") return await handleReviewAndFix(body, LOVABLE_API_KEY);
     else if (mode === "generate_image") return await handleGenerateImage(body, LOVABLE_API_KEY);
@@ -240,45 +234,66 @@ serve(async (req) => {
   }
 });
 
+// ── ✨ 3. 스타일 변환 (스티브 잡스 vs 맥킨지) 로직 추가 ──
+async function handleChangePersona(body: any, apiKey: string) {
+  const { currentSlide, persona } = body;
+  
+  let stylePrompt = "";
+  if (persona === 'jobs') {
+    stylePrompt = `🍎 스티브 잡스 스타일 (Visionary & Emotional):
+    - 극도로 간결하고 영감을 주는 감성적인 카피로 재작성하세요.
+    - 텍스트 분량을 기존 대비 30% 이하로 확 줄이고, 핵심 키워드 1~2개로 압축하세요.
+    - "왜 이것이 세상을 바꾸는가?", "우리에게 어떤 의미가 있는가?"에 집중하는 비전을 제시하세요.
+    - 단조로운 나열이 아닌, 심장을 울리는 한 줄의 강력한 메시지를 제목에 담으세요.`;
+  } else if (persona === 'mckinsey') {
+    stylePrompt = `💼 맥킨지 컨설턴트 스타일 (Logical & Structured):
+    - 극도로 이성적이고 MECE(상호배제와 전체포괄) 원칙에 입각한 구조화된 문장으로 재작성하세요.
+    - 슬라이드 제목은 단순 명사가 아닌, 구체적인 결론(Action-oriented)과 수치를 포함한 완전한 문장형으로 작성하세요.
+    - 논리적이고 빈틈없는 3가지 근거(불릿 포인트)로 내용을 명확히 정리하세요.
+    - 수치와 팩트 중심으로 객관적이고 전문적인 어조를 유지하세요.`;
+  }
+
+  const prompt = `당신은 세계 최고 수준의 프레젠테이션 카피라이터입니다.
+현재 슬라이드를 다음 지침에 따라 완전히 새롭게 재작성하세요. (원래 데이터의 팩트와 수치는 훼손하지 마세요)
+
+[적용할 스타일 가이드]
+${stylePrompt}
+
+[현재 슬라이드 내용]
+${JSON.stringify(currentSlide, null, 2)}
+
+아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
+{
+  "slide": {
+    "slideNumber": ${currentSlide.slideNumber || 1},
+    "title": "스타일이 적용된 제목",
+    "type": "${currentSlide.type || 'data'}",
+    "content": ["스타일이 완벽하게 적용된 내용 항목들"],
+    "notes": "이 스타일로 발표할 때 활용할 발표자 스크립트 대본 (자연스럽게 말하듯이)",
+    "keyMetrics": ${JSON.stringify(currentSlide.keyMetrics || [])},
+    "chartData": ${currentSlide.chartData ? JSON.stringify(currentSlide.chartData) : 'undefined'},
+    "tableData": ${currentSlide.tableData ? JSON.stringify(currentSlide.tableData) : 'undefined'}
+  }
+}`;
+
+  const data = await callAI(prompt, apiKey);
+  const content = data.choices?.[0]?.message?.content || "";
+  const result = extractJSON(content);
+  
+  if (!result || !result.slide) {
+    throw new Error("스타일 변환 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
+  }
+
+  return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+}
+
 async function handleOutline(body: any, apiKey: string) {
   const { fileData, meetingInfo, settings, template } = body;
   const difficulty = settings?.difficulty || "medium";
   const volume = settings?.volume || "standard";
   const fileDataStr = truncateFileData(fileData);
 
-  const prompt = `${STORYTELLING_PERSONA}
-
-당신은 발표 자료 구성 전문가입니다.
-업로드된 모든 파일 데이터를 종합적으로 분석하여 발표 자료의 목차(구성안)를 제안해주세요. 여러 개의 파일이 업로드되었다면 모든 파일의 내용을 빠짐없이 통합해서 반영해야 합니다.
-
-회의 정보:
-- 발표 주제: ${meetingInfo?.week || '미입력'}
-- 부서: ${meetingInfo?.department || '미입력'}
-- 발표자: ${meetingInfo?.reporter || '미입력'}
-- 추가 지시사항: ${meetingInfo?.notes || '없음'}
-
-설정:
-- 난이도: ${DIFFICULTY_MAP[difficulty]}
-- 분량: ${VOLUME_MAP[volume]}
-- 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
-
-업로드된 전체 파일 데이터:
-${fileDataStr}
-
-${CHART_AND_TABLE_INSTRUCTION}
-
-아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "title": "전체 발표 제목",
-  "outline": [
-    {
-      "slideNumber": 1,
-      "title": "슬라이드 제목",
-      "type": "title|data|chart|action|summary",
-      "description": "이 슬라이드에서 다룰 내용 한 줄 요약 (chart/table 타입이면 어떤 데이터를 시각화/표로 작성할지 설명)"
-    }
-  ]
-}`;
+  const prompt = `${STORYTELLING_PERSONA}\n\n당신은 발표 자료 구성 전문가입니다.\n업로드된 모든 파일 데이터를 종합적으로 분석하여 발표 자료의 목차(구성안)를 제안해주세요. 여러 개의 파일이 업로드되었다면 모든 파일의 내용을 빠짐없이 통합해서 반영해야 합니다.\n\n회의 정보:\n- 발표 주제: ${meetingInfo?.week || '미입력'}\n- 부서: ${meetingInfo?.department || '미입력'}\n- 발표자: ${meetingInfo?.reporter || '미입력'}\n- 추가 지시사항: ${meetingInfo?.notes || '없음'}\n\n설정:\n- 난이도: ${DIFFICULTY_MAP[difficulty]}\n- 분량: ${VOLUME_MAP[volume]}\n- 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}\n\n업로드된 전체 파일 데이터:\n${fileDataStr}\n\n${CHART_AND_TABLE_INSTRUCTION}\n\n아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "outline": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "description": "이 슬라이드에서 다룰 내용 한 줄 요약 (chart/table 타입이면 어떤 데이터를 시각화/표로 작성할지 설명)"\n    }\n  ]\n}`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -297,49 +312,9 @@ async function handleGenerate(body: any, apiKey: string) {
 
   const outlineHint = approvedOutline ? `\n\n사용자가 승인한 목차 구성:\n${JSON.stringify(approvedOutline, null, 2)}\n위 목차 구성을 반드시 따르세요.` : "";
 
-  const systemPrompt = `${STORYTELLING_PERSONA}
+  const systemPrompt = `${STORYTELLING_PERSONA}\n\n핵심 작성 원칙:\n- AI가 생성한 느낌이 전혀 나지 않는, 현장 관리자가 직접 작성한 것 같은 자연스러운 문체\n- 여러 개의 파일이 제공된 경우, 특정 파일 하나에만 치우치지 말고 모든 파일의 데이터를 통합하여 전체적인 맥락을 구성하세요.\n- 구체적 데이터와 수치를 활용한 근거 기반 보고\n- 💡[중요] 완벽한 초기 품질: 리뷰 단계에서 지적될 만한 가독성 저하, 데이터 누락, 논리 비약, 차트 레이블 누락을 처음부터 100% 완벽하게 차단하세요.\n\n📊 난이도: ${DIFFICULTY_MAP[difficulty]}\n📄 분량: ${VOLUME_MAP[volume]}\n📋 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}\n${outlineHint}\n${CHART_AND_TABLE_INSTRUCTION}\n\n반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "slides": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "content": ["핵심 내용 항목들"],\n      "notes": "발표자 노트",\n      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n      ${CHART_DATA_SCHEMA},\n      ${TABLE_DATA_SCHEMA}\n    }\n  ]\n}\n\n참고: chartData나 tableData는 필요하고 적절한 슬라이드에만 선택적으로 포함하세요.`;
 
-핵심 작성 원칙:
-- AI가 생성한 느낌이 전혀 나지 않는, 현장 관리자가 직접 작성한 것 같은 자연스러운 문체
-- 여러 개의 파일이 제공된 경우, 특정 파일 하나에만 치우치지 말고 모든 파일의 데이터를 통합하여 전체적인 맥락을 구성하세요.
-- 구체적 데이터와 수치를 활용한 근거 기반 보고
-- 💡[중요] 완벽한 초기 품질: 리뷰 단계에서 지적될 만한 가독성 저하, 데이터 누락, 논리 비약, 차트 레이블 누락을 처음부터 100% 완벽하게 차단하세요.
-
-📊 난이도: ${DIFFICULTY_MAP[difficulty]}
-📄 분량: ${VOLUME_MAP[volume]}
-📋 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
-${outlineHint}
-${CHART_AND_TABLE_INSTRUCTION}
-
-반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "title": "전체 발표 제목",
-  "slides": [
-    {
-      "slideNumber": 1,
-      "title": "슬라이드 제목",
-      "type": "title|data|chart|action|summary",
-      "content": ["핵심 내용 항목들"],
-      "notes": "발표자 노트",
-      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
-      ${CHART_DATA_SCHEMA},
-      ${TABLE_DATA_SCHEMA}
-    }
-  ]
-}
-
-참고: chartData나 tableData는 필요하고 적절한 슬라이드에만 선택적으로 포함하세요.`;
-
-  const userPrompt = `회의 정보:
-- 발표 주제: ${meetingInfo?.week || '미입력'}
-- 부서: ${meetingInfo?.department || '미입력'}
-- 발표자: ${meetingInfo?.reporter || '미입력'}
-- 추가 지시사항: ${meetingInfo?.notes || '없음'}
-
-업로드된 전체 파일 데이터:
-${fileDataStr}
-
-위 데이터를 종합적으로 분석하여 발표 자료를 생성해주세요. 수치 데이터가 있으면 반드시 차트나 테이블을 포함하세요.`;
+  const userPrompt = `회의 정보:\n- 발표 주제: ${meetingInfo?.week || '미입력'}\n- 부서: ${meetingInfo?.department || '미입력'}\n- 발표자: ${meetingInfo?.reporter || '미입력'}\n- 추가 지시사항: ${meetingInfo?.notes || '없음'}\n\n업로드된 전체 파일 데이터:\n${fileDataStr}\n\n위 데이터를 종합적으로 분석하여 발표 자료를 생성해주세요. 수치 데이터가 있으면 반드시 차트나 테이블을 포함하세요.`;
 
   const data = await callAI(`${systemPrompt}\n\n${userPrompt}`, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -354,34 +329,7 @@ async function handleRegenerateSlide(body: any, apiKey: string) {
   const { slideIndex, currentSlide, presentation, fileData, meetingInfo, settings, userInstruction } = body;
   const fileDataStr = truncateFileData(fileData);
 
-  const prompt = `${STORYTELLING_PERSONA}
-
-아래 슬라이드를 개선하거나 다시 작성해주세요.
-전체 발표의 스토리라인에서 이 슬라이드의 역할을 고려하여 더 임팩트 있게 작성하세요.
-
-전체 발표 제목: ${presentation?.title || ''}
-전체 슬라이드 수: ${presentation?.slides?.length || 0}장
-현재 슬라이드 번호: ${slideIndex + 1}번
-
-현재 슬라이드 내용:
-${JSON.stringify(currentSlide, null, 2)}
-
-${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 내용으로 전면 재작성해주세요.'}
-
-업로드된 전체 파일 원본 데이터 (참고):
-${fileDataStr}
-
-아래 JSON 형식으로 슬라이드 1개만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "slideNumber": ${slideIndex + 1},
-  "title": "슬라이드 제목",
-  "type": "title|data|chart|action|summary",
-  "content": ["내용 항목들"],
-  "notes": "발표자 노트",
-  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
-  ${CHART_DATA_SCHEMA},
-  ${TABLE_DATA_SCHEMA}
-}`;
+  const prompt = `${STORYTELLING_PERSONA}\n\n아래 슬라이드를 개선하거나 다시 작성해주세요.\n전체 발표의 스토리라인에서 이 슬라이드의 역할을 고려하여 더 임팩트 있게 작성하세요.\n\n전체 발표 제목: ${presentation?.title || ''}\n전체 슬라이드 수: ${presentation?.slides?.length || 0}장\n현재 슬라이드 번호: ${slideIndex + 1}번\n\n현재 슬라이드 내용:\n${JSON.stringify(currentSlide, null, 2)}\n\n${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 내용으로 전면 재작성해주세요.'}\n\n업로드된 전체 파일 원본 데이터 (참고):\n${fileDataStr}\n\n아래 JSON 형식으로 슬라이드 1개만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "slideNumber": ${slideIndex + 1},\n  "title": "슬라이드 제목",\n  "type": "title|data|chart|action|summary",\n  "content": ["내용 항목들"],\n  "notes": "발표자 노트",\n  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n  ${CHART_DATA_SCHEMA},\n  ${TABLE_DATA_SCHEMA}\n}`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -393,32 +341,7 @@ ${fileDataStr}
 
 async function handleChatEdit(body: any, apiKey: string) {
   const { userMessage, currentSlide, slideIndex, presentation } = body;
-
-  const prompt = `${STORYTELLING_PERSONA}
-
-사용자의 요청에 따라 슬라이드를 수정해주세요.
-수정 시에도 전체 스토리라인의 흐름과 해당 슬라이드의 역할을 유지하세요.
-
-전체 발표: ${presentation?.title || ''}
-현재 슬라이드 (${slideIndex + 1}번):
-${JSON.stringify(currentSlide, null, 2)}
-
-사용자 요청: "${userMessage}"
-
-요청을 정확히 반영하여 슬라이드를 수정하고, 아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "slide": {
-    "slideNumber": ${slideIndex + 1},
-    "title": "슬라이드 제목",
-    "type": "title|data|chart|action|summary",
-    "content": ["내용 항목들"],
-    "notes": "발표자 노트",
-    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
-    ${CHART_DATA_SCHEMA},
-    ${TABLE_DATA_SCHEMA}
-  },
-  "summary": "변경 내용 한 줄 요약"
-}`;
+  const prompt = `${STORYTELLING_PERSONA}\n\n사용자의 요청에 따라 슬라이드를 수정해주세요.\n수정 시에도 전체 스토리라인의 흐름과 해당 슬라이드의 역할을 유지하세요.\n\n전체 발표: ${presentation?.title || ''}\n현재 슬라이드 (${slideIndex + 1}번):\n${JSON.stringify(currentSlide, null, 2)}\n\n사용자 요청: "${userMessage}"\n\n요청을 정확히 반영하여 슬라이드를 수정하고, 아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "slide": {\n    "slideNumber": ${slideIndex + 1},\n    "title": "슬라이드 제목",\n    "type": "title|data|chart|action|summary",\n    "content": ["내용 항목들"],\n    "notes": "발표자 노트",\n    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n    ${CHART_DATA_SCHEMA},\n    ${TABLE_DATA_SCHEMA}\n  },\n  "summary": "변경 내용 한 줄 요약"\n}`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -436,33 +359,7 @@ async function handleReview(body: any, apiKey: string) {
     `[${i + 1}번 - ${s.type}] ${s.title}\n내용: ${(s.content || []).join(' / ')}\n지표: ${(s.keyMetrics || []).map((m: any) => `${m.label}:${m.value}`).join(', ') || '없음'}\n차트/테이블 유무: ${s.chartData ? '차트있음' : ''} ${s.tableData ? '테이블있음' : ''}`
   ).join('\n\n');
 
-  const prompt = `${STORYTELLING_PERSONA}
-
-당신은 기업 발표자료 품질 검토 전문가이자 데이터 시각화 검토 전문가입니다.
-아래 발표자료의 스토리텔링 구조, 가독성, 완성도, 논리적 흐름, 그리고 데이터 시각화 품질을 검토하고 구체적인 개선 제안을 해주세요.
-
-발표 제목: ${presentation.title}
-총 슬라이드: ${presentation.slides.length}장
-
-슬라이드 내용:
-${slideSummary}
-
-아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "overallScore": 1~10 사이의 숫자,
-  "summary": "전체적인 평가 한 줄 요약",
-  "strengths": ["잘된 점 1", "잘된 점 2"],
-  "improvements": [
-    {
-      "slideIndex": 0,
-      "category": "readability|content|structure|visual|data|chart",
-      "severity": "high|medium|low",
-      "issue": "문제점 설명",
-      "suggestion": "구체적 개선 방법"
-    }
-  ],
-  "generalTips": ["전반적인 개선 제안 1", "전반적인 개선 제안 2"]
-}`;
+  const prompt = `${STORYTELLING_PERSONA}\n\n당신은 기업 발표자료 품질 검토 전문가이자 데이터 시각화 검토 전문가입니다.\n아래 발표자료의 스토리텔링 구조, 가독성, 완성도, 논리적 흐름, 그리고 데이터 시각화 품질을 검토하고 구체적인 개선 제안을 해주세요.\n\n발표 제목: ${presentation.title}\n총 슬라이드: ${presentation.slides.length}장\n\n슬라이드 내용:\n${slideSummary}\n\n아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "overallScore": 1~10 사이의 숫자,\n  "summary": "전체적인 평가 한 줄 요약",\n  "strengths": ["잘된 점 1", "잘된 점 2"],\n  "improvements": [\n    {\n      "slideIndex": 0,\n      "category": "readability|content|structure|visual|data|chart",\n      "severity": "high|medium|low",\n      "issue": "문제점 설명",\n      "suggestion": "구체적 개선 방법"\n    }\n  ],\n  "generalTips": ["전반적인 개선 제안 1", "전반적인 개선 제안 2"]\n}`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -476,39 +373,7 @@ async function handleReviewAndFix(body: any, apiKey: string) {
   const { presentation } = body;
   if (!presentation || !presentation.slides) throw new Error("발표자료가 없습니다.");
 
-  const prompt = `${STORYTELLING_PERSONA}
-
-당신은 최고 수준의 프레젠테이션 컨설턴트입니다.
-아래 전체 발표 자료를 분석하고, 스토리텔링의 흐름, 문장의 명확성, 핵심 지표의 강조 등을 최적화하여 전체 내용을 직접 개선해주세요.
-
-현재 전체 발표 자료:
-${JSON.stringify(presentation, null, 2)}
-
-요구사항:
-1. 전체적인 맥락과 스토리 흐름을 매끄럽게 다듬으세요.
-2. 어색한 문장이나 너무 긴 문장을 간결하고 임팩트 있게 수정하세요.
-3. 슬라이드의 일관성을 유지하며 내용의 배치를 개선하세요.
-${CHART_AND_TABLE_INSTRUCTION}
-
-아래 JSON 형식으로 개선된 전체 발표 자료와 어떤 부분을 수정했는지 요약을 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
-{
-  "summary": "어떤 부분을 집중적으로 개선했는지 1~2줄로 요약",
-  "presentation": {
-    "title": "전체 발표 제목 (필요시 개선)",
-    "slides": [
-      {
-        "slideNumber": 1,
-        "title": "슬라이드 제목",
-        "type": "title|data|chart|action|summary",
-        "content": ["개선된 내용 항목들"],
-        "notes": "개선된 발표자 노트",
-        "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
-        ${CHART_DATA_SCHEMA},
-        ${TABLE_DATA_SCHEMA}
-      }
-    ]
-  }
-}`;
+  const prompt = `${STORYTELLING_PERSONA}\n\n당신은 최고 수준의 프레젠테이션 컨설턴트입니다.\n아래 전체 발표 자료를 분석하고, 스토리텔링의 흐름, 문장의 명확성, 핵심 지표의 강조 등을 최적화하여 전체 내용을 직접 개선해주세요.\n\n현재 전체 발표 자료:\n${JSON.stringify(presentation, null, 2)}\n\n요구사항:\n1. 전체적인 맥락과 스토리 흐름을 매끄럽게 다듬으세요.\n2. 어색한 문장이나 너무 긴 문장을 간결하고 임팩트 있게 수정하세요.\n3. 슬라이드의 일관성을 유지하며 내용의 배치를 개선하세요.\n${CHART_AND_TABLE_INSTRUCTION}\n\n아래 JSON 형식으로 개선된 전체 발표 자료와 어떤 부분을 수정했는지 요약을 반환하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "summary": "어떤 부분을 집중적으로 개선했는지 1~2줄로 요약",\n  "presentation": {\n    "title": "전체 발표 제목 (필요시 개선)",\n    "slides": [\n      {\n        "slideNumber": 1,\n        "title": "슬라이드 제목",\n        "type": "title|data|chart|action|summary",\n        "content": ["개선된 내용 항목들"],\n        "notes": "개선된 발표자 노트",\n        "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n        ${CHART_DATA_SCHEMA},\n        ${TABLE_DATA_SCHEMA}\n      }\n    ]\n  }\n}`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -548,7 +413,6 @@ async function handleGenerateImage(body: any, apiKey: string) {
   return new Response(JSON.stringify({ imageUrl: publicUrlData.publicUrl }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-// 💡 1번 문제 해결: 모델 호출 시 maxOutputTokens 설정 추가
 async function callAI(prompt: string, apiKey: string) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
@@ -559,8 +423,8 @@ async function callAI(prompt: string, apiKey: string) {
         model: "google/gemini-2.5-flash", 
         messages: [{ role: "user", content: prompt }],
         generationConfig: {
-          temperature: 0.2, // 예측 가능하고 안정적인 JSON 생성을 위해 온도 낮춤
-          maxOutputTokens: 8192 // 전체 최적화 등 긴 텍스트 반환 시 잘림 방지
+          temperature: 0.2,
+          maxOutputTokens: 8192
         }
       }),
       signal: controller.signal,
