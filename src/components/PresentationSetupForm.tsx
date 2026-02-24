@@ -363,13 +363,14 @@ export function PresentationSetupForm({
         </div>
       </div>
 
-      {/* 발표 정보 */}
-      <div className="rounded-xl bg-card border border-border p-5 shadow-card space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      {/* 발표 정보 (접기 가능) */}
+      <details className="rounded-xl bg-card border border-border shadow-card group/details">
+        <summary className="flex items-center gap-2 text-sm font-semibold text-foreground px-5 py-4 cursor-pointer select-none list-none hover:bg-muted/30 transition-colors rounded-xl">
           <FileText className="w-4 h-4 text-primary" />
           발표 정보 (선택)
-        </div>
-        <div className="space-y-4">
+          <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto transition-transform group-open/details:rotate-180" />
+        </summary>
+        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
           <div className="space-y-2">
             <Label htmlFor="topic">발표 주제 / 제목</Label>
             <Input id="topic" placeholder="예: 2024년 3분기 실적 분석 보고"
@@ -394,85 +395,88 @@ export function PresentationSetupForm({
               value={info.notes} onChange={(e) => update('notes', e.target.value)} rows={3} />
           </div>
         </div>
-      </div>
+      </details>
 
-      {/* PPT 템플릿 참조 */}
-      <div className="rounded-xl bg-card border border-border p-5 shadow-card space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      {/* PPT 템플릿 참조 (접기 가능) */}
+      <details className="rounded-xl bg-card border border-border shadow-card group/details">
+        <summary className="flex items-center gap-2 text-sm font-semibold text-foreground px-5 py-4 cursor-pointer select-none list-none hover:bg-muted/30 transition-colors rounded-xl">
           <Palette className="w-4 h-4 text-primary" />
           PPT 템플릿 참조 (선택)
-        </div>
-        <p className="text-xs text-muted-foreground">
-          기존 PPT 파일이나 스크린샷을 업로드하면 색상과 스타일을 분석하여 동일한 톤으로 발표자료를 생성합니다.
-        </p>
+          <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto transition-transform group-open/details:rotate-180" />
+        </summary>
+        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
+          <p className="text-xs text-muted-foreground">
+            기존 PPT 파일이나 스크린샷을 업로드하면 색상과 스타일을 분석하여 동일한 톤으로 발표자료를 생성합니다.
+          </p>
 
-        <input
-          ref={templateInputRef}
-          type="file"
-          accept=".pptx,.ppt,.png,.jpg,.jpeg"
-          onChange={handleTemplateUpload}
-          className="hidden"
-        />
+          <input
+            ref={templateInputRef}
+            type="file"
+            accept=".pptx,.ppt,.png,.jpg,.jpeg"
+            onChange={handleTemplateUpload}
+            className="hidden"
+          />
 
-        {!templateFile ? (
-          <Button
-            variant="outline"
-            onClick={() => templateInputRef.current?.click()}
-            disabled={isAnalyzing}
-            className="w-full gap-2 py-6 border-dashed"
-          >
-            <Upload className="w-4 h-4" />
-            PPT 파일 또는 스크린샷 업로드
-          </Button>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <FileText className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{templateFileName}</p>
-                {isAnalyzing && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> 스타일 분석 중...
-                  </p>
-                )}
-              </div>
-              <button onClick={clearTemplate} className="text-muted-foreground hover:text-destructive transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {extractedStyle && (
-              <motion.div
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-4 rounded-xl bg-accent/5 border border-accent/20 space-y-3"
-              >
-                <p className="text-xs font-semibold text-accent flex items-center gap-1.5">
-                  <Palette className="w-3.5 h-3.5" /> 추출된 스타일
-                </p>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.primaryColor }} />
-                    <span className="text-xs font-mono text-muted-foreground">{extractedStyle.primaryColor}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.accentColor }} />
-                    <span className="text-xs font-mono text-muted-foreground">{extractedStyle.accentColor}</span>
-                  </div>
+          {!templateFile ? (
+            <Button
+              variant="outline"
+              onClick={() => templateInputRef.current?.click()}
+              disabled={isAnalyzing}
+              className="w-full gap-2 py-6 border-dashed"
+            >
+              <Upload className="w-4 h-4" />
+              PPT 파일 또는 스크린샷 업로드
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-4 h-4 text-primary" />
                 </div>
-                {extractedStyle.description && (
-                  <p className="text-xs text-muted-foreground">{extractedStyle.description}</p>
-                )}
-                <p className="text-[10px] text-muted-foreground">
-                  ✨ 이 색상은 내보내기 설정에서 자동 적용됩니다
-                </p>
-              </motion.div>
-            )}
-          </div>
-        )}
-      </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{templateFileName}</p>
+                  {isAnalyzing && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> 스타일 분석 중...
+                    </p>
+                  )}
+                </div>
+                <button onClick={clearTemplate} className="text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {extractedStyle && (
+                <motion.div
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-xl bg-accent/5 border border-accent/20 space-y-3"
+                >
+                  <p className="text-xs font-semibold text-accent flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5" /> 추출된 스타일
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.primaryColor }} />
+                      <span className="text-xs font-mono text-muted-foreground">{extractedStyle.primaryColor}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.accentColor }} />
+                      <span className="text-xs font-mono text-muted-foreground">{extractedStyle.accentColor}</span>
+                    </div>
+                  </div>
+                  {extractedStyle.description && (
+                    <p className="text-xs text-muted-foreground">{extractedStyle.description}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">
+                    ✨ 이 색상은 내보내기 설정에서 자동 적용됩니다
+                  </p>
+                </motion.div>
+              )}
+            </div>
+          )}
+        </div>
+      </details>
 
       {/* 액션 버튼 */}
       <div className="flex gap-3 pt-2">

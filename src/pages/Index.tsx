@@ -1,5 +1,5 @@
 import { usePresentation } from '@/hooks/usePresentation';
-import { StepIndicator } from '@/components/StepIndicator';
+import { StepIndicator, getStepGuide } from '@/components/StepIndicator';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { PresentationSetupForm } from '@/components/PresentationSetupForm';
 import { GeneratingState } from '@/components/GeneratingState';
@@ -8,9 +8,9 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight } from 'lucide-react';
+import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Index = () => {
   const {
@@ -32,6 +32,8 @@ const Index = () => {
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
+
+  const guide = getStepGuide(step);
 
   return (
     <div className="min-h-screen gradient-surface">
@@ -64,6 +66,29 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      {/* ── 단계 가이드 배너 ── */}
+      {step !== 'preview' && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            className="border-b border-border bg-accent/5"
+          >
+            <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
+                <HelpCircle className="w-4 h-4 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{guide.title}</p>
+                <p className="text-xs text-muted-foreground">{guide.desc}</p>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       <main className={`mx-auto px-6 py-10 ${step === 'preview' ? 'max-w-7xl' : 'max-w-6xl'}`}>
 
@@ -99,7 +124,7 @@ const Index = () => {
                 className="flex justify-center"
               >
                 <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
-                  다음 단계로 <ArrowRight className="w-5 h-5" />
+                  다음: 설정하기 <ArrowRight className="w-5 h-5" />
                 </Button>
               </motion.div>
             )}
@@ -109,10 +134,6 @@ const Index = () => {
         {/* ── 발표자료 설정 ── */}
         {step === 'info' && dataSummary && (
           <div className="space-y-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight">발표자료 설정</h2>
-              <p className="text-sm text-muted-foreground mt-1">템플릿과 옵션을 선택하면 AI가 구성을 제안합니다</p>
-            </motion.div>
             <PresentationSetupForm
               info={meetingInfo}
               onChange={setMeetingInfo}
@@ -130,10 +151,6 @@ const Index = () => {
         {/* ── 구성안 미리보기 ── */}
         {step === 'outline' && (
           <div className="space-y-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-              <h2 className="text-2xl font-extrabold tracking-tight">구성안 확인</h2>
-              <p className="text-sm text-muted-foreground mt-1">AI가 제안한 슬라이드 구성을 확인하고 수정하세요</p>
-            </motion.div>
             {isLoadingOutline || !outline ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
@@ -174,18 +191,6 @@ const Index = () => {
           />
         )}
       </main>
-
-      {/* ── 푸터 ── */}
-      <footer className="border-t border-border bg-card/50 backdrop-blur-sm mt-16">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Made with ❤️ by <span className="font-semibold text-foreground">Developer</span>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} AI 발표자료 · Powered by AI
-          </p>
-        </div>
-      </footer>
 
       {/* ── 히스토리 패널 ── */}
       <HistoryPanel

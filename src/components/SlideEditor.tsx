@@ -359,13 +359,13 @@ export function SlideEditor({
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         : <Sparkles className="w-3.5 h-3.5" />
                       }
-                      재생성
+                      <span className="hidden md:inline">재생성</span>
                     </Button>
                     <Button size="sm" variant="ghost"
                       className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
                       onClick={onOpenChat} title="AI 채팅으로 수정">
                       <MessageSquare className="w-3.5 h-3.5" />
-                      AI 수정
+                      <span className="hidden md:inline">AI 수정</span>
                     </Button>
                     <Button size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
@@ -384,12 +384,15 @@ export function SlideEditor({
                     </Button>
                   </div>
                 </div>
-                <input
-                  value={slide.title}
-                  onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })}
-                  className="w-full bg-transparent text-3xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight"
-                  placeholder="슬라이드 제목 입력..."
-                />
+                <div className="relative group/title">
+                  <input
+                    value={slide.title}
+                    onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })}
+                    className="w-full bg-transparent text-3xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight peer"
+                    placeholder="슬라이드 제목 입력..."
+                  />
+                  <Pencil className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/30 opacity-0 group-hover/title:opacity-100 peer-focus:opacity-0 transition-opacity pointer-events-none" />
+                </div>
               </div>
 
               {/* 슬라이드 미리보기 */}
@@ -476,16 +479,18 @@ export function SlideEditor({
                   </div>
                   <div className="space-y-2">
                     {(slide.content || []).map((item, i) => (
-                      <div key={i} className="flex items-start gap-4 group/bullet rounded-xl px-4 py-3 hover:bg-muted/40 transition-colors">
+                      <div key={i} className="flex items-start gap-4 group/bullet rounded-xl px-4 py-3 hover:bg-muted/40 transition-colors relative">
                         <span className="mt-[15px] w-2 h-2 rounded-full bg-accent flex-shrink-0" />
                         <Textarea value={item} onChange={(e) => updateContent(i, e.target.value)}
-                          className="flex-1 min-h-[44px] text-base font-medium leading-relaxed resize-none border-transparent bg-transparent hover:bg-transparent focus:bg-transparent focus:border-border transition-colors"
+                          className="flex-1 min-h-[44px] text-base font-medium leading-relaxed resize-none border-transparent bg-transparent hover:bg-transparent focus:bg-transparent focus:border-border transition-colors peer"
                           rows={1}
+                          placeholder="내용을 입력하세요..."
                           onInput={(e) => {
                             const t = e.currentTarget;
                             t.style.height = 'auto';
                             t.style.height = t.scrollHeight + 'px';
                           }} />
+                        <Pencil className="absolute right-12 top-4 w-3.5 h-3.5 text-muted-foreground/40 opacity-0 group-hover/bullet:opacity-100 peer-focus:opacity-0 transition-opacity pointer-events-none" />
                         <button onClick={() => removeBullet(i)}
                           className="mt-2 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/bullet:opacity-100 transition-all flex-shrink-0">
                           <X className="w-3.5 h-3.5" />
