@@ -40,8 +40,11 @@ export interface Slide {
   notes?: string;
   keyMetrics?: SlideMetric[];
   chartData?: SlideChartData;
-  tableData?: SlideTableData; // ✨ 테이블 데이터 추가
+  tableData?: SlideTableData;
   imageUrl?: string;
+  // ✨ 레이아웃 및 스타일 속성 추가
+  layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid'; 
+  persona?: 'default' | 'jobs' | 'mckinsey';
 }
 
 export interface Presentation {
