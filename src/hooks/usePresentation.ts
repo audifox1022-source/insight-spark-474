@@ -3,48 +3,43 @@ import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
 import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep } from '@/types/presentation';
 import { supabase } from '@/integrations/supabase/client';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
+import { OutlineData } from '@/components/OutlinePreview';
 import { toast } from 'sonner';
 
+export type ExtendedStep = AppStep | 'outline';
+
 export function usePresentation() {
-  const [step, setStep] = useState<AppStep>('upload');
+  const [step, setStep] = useState<ExtendedStep>('upload');
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [template, setTemplate] = useState<string>('auto');
   const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({
-    week: '',
-    department: '',
-    reporter: '',
-    notes: '',
+    week: '', department: '', reporter: '', notes: '',
   });
   const [settings, setSettings] = useState<PresentationSettings>({
-    difficulty: 'medium',
-    volume: 'standard',
+    difficulty: 'medium', volume: 'standard',
   });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingOutline, setIsLoadingOutline] = useState(false);
+  const [outline, setOutline] = useState<OutlineData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedList, setSavedList] = useState<SavedPresentation[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
-  // ── 다크모드 ──
+  // 다크모드
   const [isDark, setIsDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark';
-    }
+    if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
     return false;
   });
 
   const toggleDark = useCallback(() => {
     setIsDark((prev) => {
       const next = !prev;
-      if (next) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-      }
+      document.documentElement.classList.toggle('dark', next);
+      localStorage.setItem('theme', next ? 'dark' : 'light');
       return next;
     });
   }, []);
@@ -72,9 +67,7 @@ export function usePresentation() {
         setStep('info');
         toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
       }
-      if (failed.length > 0) {
-        toast.error(`${failed.length}개 파일을 처리할 수 없습니다.`);
-      }
+      if (failed.length > 0) toast.error(`${failed.length}개 파일을 처리할 수 없습니다.`);
     } catch {
       toast.error('파일 처리 중 오류가 발생했습니다.');
     }
@@ -85,14 +78,43 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const generatePresentation = useCallback(async () => {
+  // ── 구성안 미리보기 요청 ──
+  const requestOutline = useCallback(async () => {
+    if (parsedFiles.length === 0) return;
+    setIsLoadingOutline(true);
+    setStep('outline' as ExtendedStep);
+    try {
+      const payload = buildAIPayload(parsedFiles);
+      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
+        body: { mode: 'outline', fileData: payload, meetingInfo, settings, template },
+      });
+      if (error) throw error;
+      if (resData?.outline) {
+        setOutline(resData.outline);
+      } else {
+        throw new Error('구성안을 생성하지 못했습니다.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || '구성안 생성 중 오류가 발생했습니다.');
+      setStep('info');
+    } finally {
+      setIsLoadingOutline(false);
+    }
+  }, [parsedFiles, meetingInfo, settings, template]);
+
+  // ── 전체 발표자료 생성 (구성안 승인 후) ──
+  const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
     setIsGenerating(true);
     try {
       const payload = buildAIPayload(parsedFiles);
       const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: { fileData: payload, meetingInfo, settings, template },
+        body: {
+          mode: 'generate',
+          fileData: payload, meetingInfo, settings, template,
+          approvedOutline: approvedOutline || null,
+        },
       });
       if (error) throw error;
       if (resData?.presentation) {
@@ -110,7 +132,71 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ── 저장 (localStorage) ──
+  // ── 특정 슬라이드 재생성 ──
+  const regenerateSlide = useCallback(async (
+    slideIndex: number,
+    userInstruction?: string,
+  ) => {
+    if (!presentation) return;
+    const currentSlide = presentation.slides[slideIndex];
+    toast.loading('슬라이드를 재생성하는 중...', { id: 'regen' });
+    try {
+      const payload = buildAIPayload(parsedFiles);
+      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
+        body: {
+          mode: 'regenerate_slide',
+          slideIndex,
+          currentSlide,
+          presentation,
+          fileData: payload,
+          meetingInfo,
+          settings,
+          userInstruction,
+        },
+      });
+      if (error) throw error;
+      if (resData?.slide) {
+        setPresentation((prev) => {
+          if (!prev) return prev;
+          const slides = [...prev.slides];
+          slides[slideIndex] = { ...resData.slide, slideNumber: slideIndex + 1 };
+          return { ...prev, slides };
+        });
+        toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
+      } else {
+        throw new Error('슬라이드를 재생성하지 못했습니다.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || '재생성 중 오류가 발생했습니다.', { id: 'regen' });
+    }
+  }, [presentation, parsedFiles, meetingInfo, settings]);
+
+  // ── 채팅형 슬라이드 수정 ──
+  const requestChatEdit = useCallback(async (
+    message: string,
+    slideIndex: number,
+    currentSlide: Slide,
+  ): Promise<{ slide: Slide; summary: string } | null> => {
+    try {
+      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
+        body: {
+          mode: 'chat_edit',
+          userMessage: message,
+          currentSlide,
+          slideIndex,
+          presentation,
+        },
+      });
+      if (error) throw error;
+      if (resData?.result) return resData.result;
+      return null;
+    } catch (err: any) {
+      toast.error(err.message || '수정 중 오류가 발생했습니다.');
+      return null;
+    }
+  }, [presentation]);
+
+  // ── 저장/히스토리 ──
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -129,7 +215,6 @@ export function usePresentation() {
     }
   }, [presentation, meetingInfo, settings, template]);
 
-  // ── 히스토리 ──
   const fetchHistory = useCallback(async () => {
     setIsLoadingList(true);
     try {
@@ -179,12 +264,8 @@ export function usePresentation() {
     setPresentation((prev) => {
       if (!prev) return prev;
       const newSlide: Slide = {
-        slideNumber: afterIndex + 2,
-        title: '새 슬라이드',
-        type: 'data',
-        content: ['내용을 입력하세요'],
-        notes: '',
-        keyMetrics: [],
+        slideNumber: afterIndex + 2, title: '새 슬라이드', type: 'data',
+        content: ['내용을 입력하세요'], notes: '', keyMetrics: [],
       };
       const slides = [...prev.slides];
       slides.splice(afterIndex + 1, 0, newSlide);
@@ -233,6 +314,7 @@ export function usePresentation() {
     setParsedFiles([]);
     setFileNames([]);
     setPresentation(null);
+    setOutline(null);
     setTemplate('auto');
   }, []);
 
@@ -242,13 +324,17 @@ export function usePresentation() {
     meetingInfo, setMeetingInfo,
     settings, setSettings,
     template, setTemplate,
+    outline, isLoadingOutline,
     presentation, isGenerating,
     isSaving, handleSave,
     savedList, isLoadingList,
     historyOpen, setHistoryOpen,
     openHistory, loadFromHistory, deleteFromHistory,
+    chatOpen, setChatOpen,
     isDark, toggleDark,
-    handleFilesUpload, removeFile, generatePresentation, reset,
+    handleFilesUpload, removeFile,
+    requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
+    reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
 }
