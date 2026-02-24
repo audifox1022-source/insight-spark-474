@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
 import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep } from '@/types/presentation';
-import { supabase } from '@/integrations/supabase/client';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { OutlineData } from '@/components/OutlinePreview';
 import { ReviewResult } from '@/components/ReviewPanel';
 import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
+import { aiService } from '@/lib/ai-service'; // ✨ Supabase 대신 직접 만든 aiService 호출
 
 export type ExtendedStep = AppStep | 'outline';
 
@@ -98,6 +98,7 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // ── ✨ Supabase 대신 Client-Side API 직접 호출 ──
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -106,14 +107,9 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'outline', fileData: payload, meetingInfo, settings, template },
-          });
-          if (error) throw error;
-          if (!data?.outline) throw new Error('AI가 구성안 형식을 생성하지 못했습니다.');
-          return data;
+          return await aiService.getOutline({ fileData: payload, meetingInfo, settings, template });
         },
-        { maxRetries: 2, onRetry: (attempt, max) => toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
       );
       toast.dismiss('outline-retry');
       setOutline(resData.outline);
@@ -134,14 +130,9 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'generate', fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null },
-          });
-          if (error) throw error;
-          if (!data?.presentation) throw new Error('AI가 슬라이드 데이터를 올바르게 생성하지 못했습니다.');
-          return data;
+          return await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null });
         },
-        { maxRetries: 2, onRetry: (attempt, max) => toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
       );
       toast.dismiss('gen-retry');
       setPresentation(resData.presentation);
@@ -173,32 +164,22 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'regenerate_slide', slideIndex, currentSlide, presentation, fileData: payload, meetingInfo, settings, userInstruction },
-          });
-          if (error) throw error;
-          if (!data?.slide) throw new Error('슬라이드 데이터를 올바르게 재생성하지 못했습니다.');
-          return data;
+          return await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction });
         },
-        { maxRetries: 1, onRetry: () => toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' }) }
+        { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '슬라이드 재생성'), { id: 'regen' });
     }
-  }, [presentation, parsedFiles, meetingInfo, settings, updateSlide]);
+  }, [presentation, parsedFiles, updateSlide]);
 
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide): Promise<{ slide: Slide; summary: string } | null> => {
     try {
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'chat_edit', userMessage: message, currentSlide, slideIndex, presentation },
-          });
-          if (error) throw error;
-          if (!data?.result) throw new Error('AI 수정 결과를 받지 못했습니다.');
-          return data;
+          return await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation });
         },
         { maxRetries: 1 }
       );
@@ -209,7 +190,6 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ── ✨ 3. 스타일 변환 (스티브 잡스 vs 맥킨지) ──
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: 'jobs' | 'mckinsey') => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -218,17 +198,10 @@ export function usePresentation() {
     try {
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'change_persona', currentSlide, persona },
-          });
-          if (error) throw error;
-          if (!data?.slide) throw new Error('변환 실패');
-          return data;
+          return await aiService.changePersona({ currentSlide, persona });
         },
         { maxRetries: 1 }
       );
-
-      // 기존 레이아웃은 그대로 유지하면서 내용만 덮어씌움
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona });
       toast.success('스타일 변환 완료! ✨', { id: 'persona' });
     } catch (err: any) {
@@ -236,7 +209,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ── ✨ 4. 1초 레이아웃 마법사 ──
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
@@ -363,12 +335,8 @@ export function usePresentation() {
     if (!presentation) return;
     setIsReviewing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-presentation', {
-        body: { mode: 'review', presentation },
-      });
-      if (error) throw error;
-      if (!data?.review) throw new Error('리뷰 결과를 받지 못했습니다.');
-      setReviewResult(data.review);
+      const resData = await aiService.review({ presentation });
+      setReviewResult(resData.review);
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '리뷰'));
     } finally {
@@ -384,14 +352,9 @@ export function usePresentation() {
     try {
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'chat_edit', userMessage: instruction, currentSlide, slideIndex, presentation },
-          });
-          if (error) throw error;
-          if (!data?.result) throw new Error('AI가 슬라이드를 수정하지 못했습니다.');
-          return data;
+          return await aiService.chatEdit({ userMessage: instruction, currentSlide, slideIndex, presentation });
         },
-        { maxRetries: 1 },
+        { maxRetries: 1 }
       );
       if (resData.result) {
         updateSlide(slideIndex, resData.result.slide);
@@ -413,12 +376,7 @@ export function usePresentation() {
     try {
       const resData = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase.functions.invoke('generate-presentation', {
-            body: { mode: 'review_and_fix', presentation },
-          });
-          if (error) throw error;
-          if (!data?.result?.presentation) throw new Error('최적화된 결과를 가져오지 못했습니다.');
-          return data;
+          return await aiService.reviewAndFix({ presentation });
         },
         { maxRetries: 1, onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }) }
       );
@@ -450,7 +408,7 @@ export function usePresentation() {
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
-    changeSlidePersona, cycleLayout, // ✨ 반환 객체에 추가
+    changeSlidePersona, cycleLayout,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
