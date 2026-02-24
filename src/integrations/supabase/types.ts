@@ -24,6 +24,7 @@ export type Database = {
           template: string | null
           title: string
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           created_at?: string | null
@@ -34,6 +35,7 @@ export type Database = {
           template?: string | null
           title: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           created_at?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           template?: string | null
           title?: string
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }

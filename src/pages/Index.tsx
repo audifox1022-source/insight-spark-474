@@ -8,11 +8,21 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle } from 'lucide-react';
+import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const Index = () => {
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success('로그아웃 되었습니다.');
+    navigate('/auth', { replace: true });
+  };
+
   const {
     step, setStep,
     dataSummary, fileNames,
@@ -62,6 +72,9 @@ const Index = () => {
             </Button>
             <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="로그아웃">
+              <LogOut className="w-4 h-4" />
             </Button>
           </div>
         </div>

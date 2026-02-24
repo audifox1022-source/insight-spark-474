@@ -48,7 +48,12 @@ function escapeHtml(unsafe: string): string {
 function sanitizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    if (!['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+    if (parsed.protocol === 'data:') {
+      // Only allow image data URLs
+      if (!url.startsWith('data:image/')) return '';
+      return url;
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
       return '';
     }
     return url;
