@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,34 +7,24 @@
   :root {
     --background: 220 20% 97%;
     --foreground: 220 30% 12%;
-
     --card: 0 0% 100%;
     --card-foreground: 220 30% 12%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 220 30% 12%;
-
     --primary: 215 60% 22%;
     --primary-foreground: 210 40% 98%;
-
     --secondary: 210 25% 93%;
     --secondary-foreground: 215 60% 22%;
-
     --muted: 220 15% 94%;
     --muted-foreground: 220 10% 46%;
-
     --accent: 200 80% 44%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-
     --border: 220 13% 88%;
     --input: 220 13% 88%;
     --ring: 215 60% 22%;
-
     --radius: 0.625rem;
-
     --sidebar-background: 215 60% 22%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 200 80% 44%;
@@ -44,28 +33,22 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 215 40% 32%;
     --sidebar-ring: 200 80% 44%;
-
-    /* Custom tokens */
     --success: 152 60% 40%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --info: 200 80% 44%;
     --info-foreground: 0 0% 100%;
-
     --gradient-primary: linear-gradient(135deg, hsl(215 60% 22%), hsl(200 80% 44%));
     --gradient-accent: linear-gradient(135deg, hsl(200 80% 44%), hsl(190 70% 50%));
     --gradient-surface: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 15% 94%));
-
     --shadow-card: 0 1px 3px 0 hsl(220 30% 12% / 0.06), 0 1px 2px -1px hsl(220 30% 12% / 0.06);
     --shadow-elevated: 0 10px 25px -5px hsl(220 30% 12% / 0.08), 0 8px 10px -6px hsl(220 30% 12% / 0.04);
     --shadow-glow: 0 0 20px hsl(200 80% 44% / 0.15);
-
     --font-display: 'Noto Sans KR', sans-serif;
     --font-body: 'Noto Sans KR', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
   }
-
   .dark {
     --background: 220 25% 8%;
     --foreground: 210 40% 96%;
@@ -98,9 +81,7 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
@@ -111,25 +92,108 @@
 }
 
 @layer utilities {
-  .gradient-primary {
-    background: var(--gradient-primary);
+  .gradient-primary { background: var(--gradient-primary); }
+  .gradient-accent { background: var(--gradient-accent); }
+  .gradient-surface { background: var(--gradient-surface); }
+  .shadow-card { box-shadow: var(--shadow-card); }
+  .shadow-elevated { box-shadow: var(--shadow-elevated); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+  .font-mono { font-family: var(--font-mono); }
+}
+
+/* ─── 인쇄 최적화 ─────────────────────────────── */
+@media print {
+  /* 인쇄 불필요한 UI 숨기기 */
+  header,
+  .print-hide,
+  button,
+  [data-radix-popper-content-wrapper] {
+    display: none !important;
   }
-  .gradient-accent {
-    background: var(--gradient-accent);
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-family: var(--font-body);
   }
-  .gradient-surface {
-    background: var(--gradient-surface);
+
+  /* 각 슬라이드를 한 페이지로 */
+  .print-slide {
+    page-break-after: always;
+    break-after: page;
+    width: 297mm;
+    min-height: 210mm;
+    padding: 12mm 16mm;
+    margin: 0;
+    box-sizing: border-box;
+    background: white;
+    display: flex;
+    flex-direction: column;
   }
-  .shadow-card {
-    box-shadow: var(--shadow-card);
+
+  .print-slide:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
   }
-  .shadow-elevated {
-    box-shadow: var(--shadow-elevated);
+
+  /* 슬라이드 헤더 */
+  .print-slide-header {
+    background: hsl(215, 60%, 22%) !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: white !important;
+    padding: 8mm 12mm;
+    border-radius: 4mm 4mm 0 0;
+    margin-bottom: 6mm;
   }
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
+
+  .print-slide-header * {
+    color: white !important;
   }
-  .font-mono {
-    font-family: var(--font-mono);
+
+  /* 핵심 지표 카드 */
+  .print-metric-card {
+    background: #f5f6f8 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    border: 1px solid #e2e5ea;
+    border-radius: 3mm;
+    padding: 4mm 5mm;
+  }
+
+  /* 내용 불릿 */
+  .print-bullet {
+    display: flex;
+    align-items: flex-start;
+    gap: 3mm;
+    margin-bottom: 3mm;
+    font-size: 11pt;
+    line-height: 1.6;
+  }
+
+  .print-bullet::before {
+    content: '●';
+    color: hsl(200, 80%, 44%);
+    font-size: 8pt;
+    margin-top: 3pt;
+    flex-shrink: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 발표자 노트 */
+  .print-notes {
+    margin-top: auto;
+    padding-top: 4mm;
+    border-top: 1px solid #e2e5ea;
+    font-size: 8pt;
+    color: #6b7a8d !important;
+    font-style: italic;
+  }
+
+  /* 페이지 설정 */
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
   }
 }
