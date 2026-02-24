@@ -35,7 +35,6 @@ export function usePresentation() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
 
-  // ✨ 테마 색상 상태 추가
   const [appTheme, setAppTheme] = useState<string>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('app_theme') || 'blue';
     return 'blue';
@@ -51,7 +50,6 @@ export function usePresentation() {
     toast.success('테마가 변경되었습니다.');
   }, []);
 
-  // 다크모드 및 초기 테마 로드
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
     return false;
@@ -71,7 +69,7 @@ export function usePresentation() {
       document.documentElement.classList.add('dark');
       setIsDark(true);
     }
-    changeTheme(appTheme); // 초기화 시 저장된 테마 클래스 추가
+    changeTheme(appTheme);
   }, []);
 
   const dataSummary = useCallback((): string => {
@@ -158,6 +156,15 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const slides = [...prev.slides];
+      slides[index] = { ...slides[index], ...updated };
+      return { ...prev, slides };
+    });
+  }, []);
+
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -175,17 +182,12 @@ export function usePresentation() {
         },
         { maxRetries: 1, onRetry: () => toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' }) }
       );
-      setPresentation((prev) => {
-        if (!prev) return prev;
-        const slides = [...prev.slides];
-        slides[slideIndex] = { ...resData.slide, slideNumber: slideIndex + 1 };
-        return { ...prev, slides };
-      });
+      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '슬라이드 재생성'), { id: 'regen' });
     }
-  }, [presentation, parsedFiles, meetingInfo, settings]);
+  }, [presentation, parsedFiles, meetingInfo, settings, updateSlide]);
 
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide): Promise<{ slide: Slide; summary: string } | null> => {
     try {
@@ -206,6 +208,44 @@ export function usePresentation() {
       return null;
     }
   }, [presentation]);
+
+  // ── ✨ 3. 스타일 변환 (스티브 잡스 vs 맥킨지) ──
+  const changeSlidePersona = useCallback(async (slideIndex: number, persona: 'jobs' | 'mckinsey') => {
+    if (!presentation) return;
+    const currentSlide = presentation.slides[slideIndex];
+    toast.loading(`${persona === 'jobs' ? '🍎 스티브 잡스' : '💼 맥킨지'} 스타일로 변환 중...`, { id: 'persona' });
+
+    try {
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: { mode: 'change_persona', currentSlide, persona },
+          });
+          if (error) throw error;
+          if (!data?.slide) throw new Error('변환 실패');
+          return data;
+        },
+        { maxRetries: 1 }
+      );
+
+      // 기존 레이아웃은 그대로 유지하면서 내용만 덮어씌움
+      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona });
+      toast.success('스타일 변환 완료! ✨', { id: 'persona' });
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err, '스타일 변환'), { id: 'persona' });
+    }
+  }, [presentation, updateSlide]);
+
+  // ── ✨ 4. 1초 레이아웃 마법사 ──
+  const cycleLayout = useCallback((slideIndex: number) => {
+    if (!presentation) return;
+    const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
+    const currentLayout = presentation.slides[slideIndex].layout || 'default';
+    const nextLayout = layouts[(layouts.indexOf(currentLayout) + 1) % layouts.length];
+    
+    updateSlide(slideIndex, { layout: nextLayout });
+    toast.success('레이아웃이 변경되었습니다 🪄');
+  }, [presentation, updateSlide]);
 
   const handleSave = useCallback(async () => {
     if (!presentation) return;
@@ -258,15 +298,6 @@ export function usePresentation() {
     } else {
       toast.error('삭제에 실패했습니다.');
     }
-  }, []);
-
-  const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      const slides = [...prev.slides];
-      slides[index] = { ...slides[index], ...updated };
-      return { ...prev, slides };
-    });
   }, []);
 
   const addSlide = useCallback((afterIndex: number) => {
@@ -416,9 +447,10 @@ export function usePresentation() {
     reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix,
     isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
-    appTheme, changeTheme, // ✨ 테마 상태 반환
+    appTheme, changeTheme,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
+    changeSlidePersona, cycleLayout, // ✨ 반환 객체에 추가
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
