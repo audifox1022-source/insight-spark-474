@@ -175,7 +175,6 @@ const CHART_DATA_SCHEMA = `"chartData": {
         "showLegend": true
       }`;
 
-// ✨ 테이블 데이터 스키마 추가
 const TABLE_DATA_SCHEMA = `"tableData": {
         "headers": ["열1", "열2", "열3"],
         "rows": [["값1", "값2", "값3"], ["값4", "값5", "값6"]]
@@ -549,13 +548,21 @@ async function handleGenerateImage(body: any, apiKey: string) {
   return new Response(JSON.stringify({ imageUrl: publicUrlData.publicUrl }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
+// 💡 1번 문제 해결: 모델 호출 시 maxOutputTokens 설정 추가
 async function callAI(prompt: string, apiKey: string) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "google/gemini-2.5-flash", messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ 
+        model: "google/gemini-2.5-flash", 
+        messages: [{ role: "user", content: prompt }],
+        generationConfig: {
+          temperature: 0.2, // 예측 가능하고 안정적인 JSON 생성을 위해 온도 낮춤
+          maxOutputTokens: 8192 // 전체 최적화 등 긴 텍스트 반환 시 잘림 방지
+        }
+      }),
       signal: controller.signal,
     });
     if (!response.ok) {
