@@ -48,6 +48,32 @@ const STORYTELLING_PERSONA = `## 페르소나
 const MAX_FILE_DATA_LENGTH = 12000;
 const AI_TIMEOUT_MS = 120_000;
 
+// Safe error messages that can be shown to users
+const SAFE_ERROR_MESSAGES = new Set([
+  "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
+  "크레딧이 부족합니다.",
+  "AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.",
+  "AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.",
+  "AI가 올바른 슬라이드 구조를 생성하지 못했습니다. 다시 시도해주세요.",
+  "슬라이드 JSON을 파싱할 수 없습니다. 다시 시도해주세요.",
+  "AI 수정 결과를 파싱할 수 없습니다. 다시 시도해주세요.",
+  "리뷰 결과를 파싱할 수 없습니다. 다시 시도해주세요.",
+  "이미지를 생성하지 못했습니다. 다시 시도해주세요.",
+  "이미지 업로드에 실패했습니다.",
+  "검색어가 필요합니다.",
+  "템플릿 데이터가 필요합니다.",
+  "템플릿 분석 결과를 파싱하지 못했습니다.",
+  "발표자료가 없습니다.",
+  "AI 응답 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.",
+]);
+
+function sanitizeErrorMessage(e: unknown): string {
+  if (e instanceof Error && SAFE_ERROR_MESSAGES.has(e.message)) {
+    return e.message;
+  }
+  return "처리 중 오류가 발생했습니다. 다시 시도해주세요.";
+}
+
 function truncateFileData(fileData: any): string {
   const raw = JSON.stringify(fileData, null, 2);
   if (raw.length <= MAX_FILE_DATA_LENGTH) return raw;
@@ -104,7 +130,7 @@ serve(async (req) => {
     const body = await req.json();
     const { mode } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) throw new Error("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
 
     console.log(`[generate-presentation] mode=${mode}`);
 
@@ -118,7 +144,9 @@ serve(async (req) => {
     else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
     console.error("Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "알 수 없는 오류" }), {
+    // Sanitize error - only return safe user-facing messages
+    const safeMessage = sanitizeErrorMessage(e);
+    return new Response(JSON.stringify({ error: safeMessage }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
@@ -501,7 +529,7 @@ async function callAI(prompt: string, apiKey: string) {
       if (response.status === 402) throw new Error("크레딧이 부족합니다.");
       const t = await response.text();
       console.error("AI gateway error:", response.status, t);
-      throw new Error(`AI 생성 오류 (${response.status})`);
+      throw new Error("이미지 생성 중 오류가 발생했습니다.");
     }
 
     return response.json();
@@ -521,7 +549,7 @@ async function handleSearchImages(body: any) {
   if (!query) throw new Error("검색어가 필요합니다.");
 
   const UNSPLASH_ACCESS_KEY = Deno.env.get("UNSPLASH_ACCESS_KEY");
-  if (!UNSPLASH_ACCESS_KEY) throw new Error("UNSPLASH_ACCESS_KEY is not configured");
+  if (!UNSPLASH_ACCESS_KEY) throw new Error("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
 
   const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}&orientation=landscape`;
   
@@ -531,7 +559,8 @@ async function handleSearchImages(body: any) {
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`Unsplash API error [${res.status}]: ${errText}`);
+    console.error("Unsplash API error:", res.status, errText);
+    throw new Error("이미지 검색 중 오류가 발생했습니다.");
   }
 
   const data = await res.json();
@@ -592,7 +621,8 @@ async function handleAnalyzeTemplate(body: any, apiKey: string) {
 
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`AI 호출 실패 [${res.status}]: ${errText}`);
+    console.error("Template analysis AI error:", res.status, errText);
+    throw new Error("템플릿 분석 중 오류가 발생했습니다.");
   }
 
   const aiData = await res.json();
