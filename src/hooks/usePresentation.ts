@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { OutlineData } from '@/components/OutlinePreview';
 import { toast } from 'sonner';
+import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 
 export type ExtendedStep = AppStep | 'outline';
 
@@ -85,17 +86,27 @@ export function usePresentation() {
     setStep('outline' as ExtendedStep);
     try {
       const payload = buildAIPayload(parsedFiles);
-      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: { mode: 'outline', fileData: payload, meetingInfo, settings, template },
-      });
-      if (error) throw error;
-      if (resData?.outline) {
-        setOutline(resData.outline);
-      } else {
-        throw new Error('구성안을 생성하지 못했습니다.');
-      }
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: { mode: 'outline', fileData: payload, meetingInfo, settings, template },
+          });
+          if (error) throw error;
+          if (!data?.outline) throw new Error('AI가 구성안 형식을 생성하지 못했습니다.');
+          return data;
+        },
+        {
+          maxRetries: 2,
+          onRetry: (attempt, max) => {
+            toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' });
+          },
+        },
+      );
+      toast.dismiss('outline-retry');
+      setOutline(resData.outline);
     } catch (err: any) {
-      toast.error(err.message || '구성안 생성 중 오류가 발생했습니다.');
+      toast.dismiss('outline-retry');
+      toast.error(getKoreanErrorMessage(err, '구성안 생성'));
       setStep('info');
     } finally {
       setIsLoadingOutline(false);
@@ -109,23 +120,33 @@ export function usePresentation() {
     setIsGenerating(true);
     try {
       const payload = buildAIPayload(parsedFiles);
-      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: {
-          mode: 'generate',
-          fileData: payload, meetingInfo, settings, template,
-          approvedOutline: approvedOutline || null,
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: {
+              mode: 'generate',
+              fileData: payload, meetingInfo, settings, template,
+              approvedOutline: approvedOutline || null,
+            },
+          });
+          if (error) throw error;
+          if (!data?.presentation) throw new Error('AI가 슬라이드 데이터를 올바르게 생성하지 못했습니다.');
+          return data;
         },
-      });
-      if (error) throw error;
-      if (resData?.presentation) {
-        setPresentation(resData.presentation);
-        setStep('preview');
-        toast.success('발표 자료가 생성되었습니다!');
-      } else {
-        throw new Error('발표 자료를 생성하지 못했습니다.');
-      }
+        {
+          maxRetries: 2,
+          onRetry: (attempt, max) => {
+            toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' });
+          },
+        },
+      );
+      toast.dismiss('gen-retry');
+      setPresentation(resData.presentation);
+      setStep('preview');
+      toast.success('발표 자료가 생성되었습니다!');
     } catch (err: any) {
-      toast.error(err.message || '발표 자료 생성 중 오류가 발생했습니다.');
+      toast.dismiss('gen-retry');
+      toast.error(getKoreanErrorMessage(err, '발표자료 생성'));
       setStep('info');
     } finally {
       setIsGenerating(false);
@@ -142,32 +163,40 @@ export function usePresentation() {
     toast.loading('슬라이드를 재생성하는 중...', { id: 'regen' });
     try {
       const payload = buildAIPayload(parsedFiles);
-      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: {
-          mode: 'regenerate_slide',
-          slideIndex,
-          currentSlide,
-          presentation,
-          fileData: payload,
-          meetingInfo,
-          settings,
-          userInstruction,
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: {
+              mode: 'regenerate_slide',
+              slideIndex,
+              currentSlide,
+              presentation,
+              fileData: payload,
+              meetingInfo,
+              settings,
+              userInstruction,
+            },
+          });
+          if (error) throw error;
+          if (!data?.slide) throw new Error('슬라이드 데이터를 올바르게 재생성하지 못했습니다.');
+          return data;
         },
+        {
+          maxRetries: 1,
+          onRetry: () => {
+            toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' });
+          },
+        },
+      );
+      setPresentation((prev) => {
+        if (!prev) return prev;
+        const slides = [...prev.slides];
+        slides[slideIndex] = { ...resData.slide, slideNumber: slideIndex + 1 };
+        return { ...prev, slides };
       });
-      if (error) throw error;
-      if (resData?.slide) {
-        setPresentation((prev) => {
-          if (!prev) return prev;
-          const slides = [...prev.slides];
-          slides[slideIndex] = { ...resData.slide, slideNumber: slideIndex + 1 };
-          return { ...prev, slides };
-        });
-        toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
-      } else {
-        throw new Error('슬라이드를 재생성하지 못했습니다.');
-      }
+      toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
     } catch (err: any) {
-      toast.error(err.message || '재생성 중 오류가 발생했습니다.', { id: 'regen' });
+      toast.error(getKoreanErrorMessage(err, '슬라이드 재생성'), { id: 'regen' });
     }
   }, [presentation, parsedFiles, meetingInfo, settings]);
 
@@ -178,20 +207,26 @@ export function usePresentation() {
     currentSlide: Slide,
   ): Promise<{ slide: Slide; summary: string } | null> => {
     try {
-      const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: {
-          mode: 'chat_edit',
-          userMessage: message,
-          currentSlide,
-          slideIndex,
-          presentation,
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: {
+              mode: 'chat_edit',
+              userMessage: message,
+              currentSlide,
+              slideIndex,
+              presentation,
+            },
+          });
+          if (error) throw error;
+          if (!data?.result) throw new Error('AI 수정 결과를 받지 못했습니다.');
+          return data;
         },
-      });
-      if (error) throw error;
-      if (resData?.result) return resData.result;
-      return null;
+        { maxRetries: 1 },
+      );
+      return resData.result;
     } catch (err: any) {
-      toast.error(err.message || '수정 중 오류가 발생했습니다.');
+      toast.error(getKoreanErrorMessage(err, 'AI 채팅 수정'));
       return null;
     }
   }, [presentation]);
