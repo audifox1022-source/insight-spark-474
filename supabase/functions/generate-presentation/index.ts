@@ -96,6 +96,7 @@ serve(async (req) => {
     else if (mode === "chat_edit") return await handleChatEdit(body, LOVABLE_API_KEY);
     else if (mode === "review") return await handleReview(body, LOVABLE_API_KEY);
     else if (mode === "generate_image") return await handleGenerateImage(body, LOVABLE_API_KEY);
+    else if (mode === "search_images") return await handleSearchImages(body);
     else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
     console.error("Error:", e);
@@ -484,4 +485,40 @@ async function callAI(prompt: string, apiKey: string) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+// ── 7. Unsplash 이미지 검색 ──
+async function handleSearchImages(body: any) {
+  const { query, page = 1, perPage = 12 } = body;
+  if (!query) throw new Error("검색어가 필요합니다.");
+
+  const UNSPLASH_ACCESS_KEY = Deno.env.get("UNSPLASH_ACCESS_KEY");
+  if (!UNSPLASH_ACCESS_KEY) throw new Error("UNSPLASH_ACCESS_KEY is not configured");
+
+  const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&page=${page}&per_page=${perPage}&orientation=landscape`;
+  
+  const res = await fetch(url, {
+    headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Unsplash API error [${res.status}]: ${errText}`);
+  }
+
+  const data = await res.json();
+  
+  const images = data.results.map((img: any) => ({
+    id: img.id,
+    url: img.urls.regular,
+    thumbUrl: img.urls.small,
+    altDescription: img.alt_description || img.description || '',
+    photographer: img.user.name,
+    photographerUrl: img.user.links.html,
+    downloadUrl: img.links.download_location,
+  }));
+
+  return new Response(JSON.stringify({ images, totalPages: data.total_pages, total: data.total }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
