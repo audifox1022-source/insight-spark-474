@@ -175,6 +175,18 @@ const Index = () => {
         )}
       </main>
 
+      {/* ── 푸터 ── */}
+      <footer className="border-t border-border bg-card/50 backdrop-blur-sm mt-16">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <p className="text-xs text-muted-foreground">
+            Made with ❤️ by <span className="font-semibold text-foreground">Developer</span>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} AI 발표자료 · Powered by AI
+          </p>
+        </div>
+      </footer>
+
       {/* ── 히스토리 패널 ── */}
       <HistoryPanel
         open={historyOpen}
