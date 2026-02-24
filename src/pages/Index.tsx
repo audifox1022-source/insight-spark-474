@@ -4,7 +4,8 @@ import { FileUploadZone } from '@/components/FileUploadZone';
 import { PresentationSetupForm } from '@/components/PresentationSetupForm';
 import { GeneratingState } from '@/components/GeneratingState';
 import { SlideEditor } from '@/components/SlideEditor';
-import { Sparkles } from 'lucide-react';
+import { HistoryPanel } from '@/components/HistoryPanel';
+import { Sparkles, Moon, Sun, FolderOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 
@@ -15,6 +16,11 @@ const Index = () => {
     meetingInfo, setMeetingInfo,
     settings, setSettings,
     presentation, isGenerating,
+    isSaving, handleSave,
+    savedList, isLoadingList,
+    historyOpen, setHistoryOpen,
+    openHistory, loadFromHistory, deleteFromHistory,
+    isDark, toggleDark,
     handleFilesUpload, removeFile, generatePresentation, reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
@@ -32,7 +38,29 @@ const Index = () => {
               <p className="text-xs text-muted-foreground">파일 업로드 → 자동 슬라이드 완성</p>
             </div>
           </div>
-          <StepIndicator currentStep={step} />
+          <div className="flex items-center gap-3">
+            <StepIndicator currentStep={step} />
+            {/* 히스토리 버튼 */}
+            <Button
+              variant="outline" size="sm"
+              onClick={openHistory}
+              className="gap-2 hidden sm:flex"
+            >
+              <FolderOpen className="w-4 h-4" />
+              저장 목록
+            </Button>
+            {/* 다크모드 토글 */}
+            <Button
+              variant="outline" size="sm"
+              onClick={toggleDark}
+              className="w-9 h-9 p-0"
+            >
+              {isDark
+                ? <Sun className="w-4 h-4" />
+                : <Moon className="w-4 h-4" />
+              }
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -58,7 +86,10 @@ const Index = () => {
             />
             {fileNames.length > 0 && (
               <div className="flex justify-center">
-                <Button onClick={() => setStep('info')} className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-8 py-5 text-base">
+                <Button
+                  onClick={() => setStep('info')}
+                  className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-8 py-5 text-base"
+                >
                   다음 단계로
                   <ArrowRight className="w-4 h-4" />
                 </Button>
@@ -71,7 +102,9 @@ const Index = () => {
           <div className="space-y-6">
             <div className="text-center">
               <h2 className="text-2xl font-bold">발표자료 설정</h2>
-              <p className="text-sm text-muted-foreground mt-1">템플릿을 선택하거나 AI가 자동으로 구성을 제안합니다</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                템플릿을 선택하거나 AI가 자동으로 구성을 제안합니다
+              </p>
             </div>
             <PresentationSetupForm
               info={meetingInfo}
@@ -99,9 +132,21 @@ const Index = () => {
             onDuplicateSlide={duplicateSlide}
             onMoveSlide={moveSlide}
             onUpdateTitle={updatePresentationTitle}
+            onSave={handleSave}
+            isSaving={isSaving}
           />
         )}
       </main>
+
+      {/* 히스토리 사이드패널 */}
+      <HistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        items={savedList}
+        isLoading={isLoadingList}
+        onLoad={loadFromHistory}
+        onDelete={deleteFromHistory}
+      />
     </div>
   );
 };
