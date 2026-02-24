@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +47,43 @@ const STORYTELLING_PERSONA = `## 페르소나
 - 슬라이드 간 논리적 연결고리(전환 문구) 고려`;
 
 const MAX_FILE_DATA_LENGTH = 12000;
+const MAX_BODY_SIZE = 500_000; // 500KB max request body
 const AI_TIMEOUT_MS = 120_000;
+
+// ── Input validation schemas ──
+const MeetingInfoSchema = z.object({
+  week: z.string().max(200).optional(),
+  department: z.string().max(100).optional(),
+  reporter: z.string().max(100).optional(),
+  notes: z.string().max(2000).optional(),
+}).optional();
+
+const SettingsSchema = z.object({
+  difficulty: z.enum(["easy", "medium", "hard", "executive"]).optional(),
+  volume: z.enum(["brief", "standard", "detailed", "comprehensive"]).optional(),
+}).optional();
+
+const RequestSchema = z.object({
+  mode: z.enum(["outline", "generate", "regenerate_slide", "chat_edit", "review", "generate_image", "search_images", "analyze_template"]),
+  fileData: z.any().optional(),
+  meetingInfo: MeetingInfoSchema,
+  settings: SettingsSchema,
+  template: z.string().max(50).optional(),
+  approvedOutline: z.any().optional(),
+  slideIndex: z.number().int().min(0).max(100).optional(),
+  currentSlide: z.any().optional(),
+  presentation: z.any().optional(),
+  userInstruction: z.string().max(3000).optional(),
+  userMessage: z.string().max(3000).optional(),
+  query: z.string().max(200).optional(),
+  page: z.number().int().min(1).max(100).optional(),
+  perPage: z.number().int().min(1).max(50).optional(),
+  customPrompt: z.string().max(1000).optional(),
+  slideTitle: z.string().max(500).optional(),
+  slideContent: z.array(z.string().max(500)).max(20).optional(),
+  slideType: z.string().max(50).optional(),
+  templateData: z.string().optional(),
+});
 
 // Safe error messages that can be shown to users
 const SAFE_ERROR_MESSAGES = new Set([
@@ -65,9 +102,14 @@ const SAFE_ERROR_MESSAGES = new Set([
   "템플릿 분석 결과를 파싱하지 못했습니다.",
   "발표자료가 없습니다.",
   "AI 응답 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.",
+  "요청 데이터가 너무 큽니다.",
+  "잘못된 요청 형식입니다.",
 ]);
 
 function sanitizeErrorMessage(e: unknown): string {
+  if (e instanceof z.ZodError) {
+    return "잘못된 요청 형식입니다.";
+  }
   if (e instanceof Error && SAFE_ERROR_MESSAGES.has(e.message)) {
     return e.message;
   }
@@ -77,7 +119,6 @@ function sanitizeErrorMessage(e: unknown): string {
 function truncateFileData(fileData: any): string {
   const raw = JSON.stringify(fileData, null, 2);
   if (raw.length <= MAX_FILE_DATA_LENGTH) return raw;
-  console.warn(`File data truncated: ${raw.length} → ${MAX_FILE_DATA_LENGTH} chars`);
   return raw.slice(0, MAX_FILE_DATA_LENGTH) + "\n... (데이터가 너무 길어 일부 생략됨)";
 }
 
@@ -127,12 +168,16 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    if (rawBody.length > MAX_BODY_SIZE) {
+      throw new Error("요청 데이터가 너무 큽니다.");
+    }
+
+    const parsed = JSON.parse(rawBody);
+    const body = RequestSchema.parse(parsed);
     const { mode } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
-
-    console.log(`[generate-presentation] mode=${mode}`);
 
     if (mode === "outline") return await handleOutline(body, LOVABLE_API_KEY);
     else if (mode === "regenerate_slide") return await handleRegenerateSlide(body, LOVABLE_API_KEY);
@@ -143,11 +188,10 @@ serve(async (req) => {
     else if (mode === "analyze_template") return await handleAnalyzeTemplate(body, LOVABLE_API_KEY);
     else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
-    console.error("Error:", e);
-    // Sanitize error - only return safe user-facing messages
     const safeMessage = sanitizeErrorMessage(e);
+    const status = e instanceof z.ZodError ? 400 : 500;
     return new Response(JSON.stringify({ error: safeMessage }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
@@ -195,15 +239,12 @@ ${CHART_INSTRUCTION}
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
-  console.log(`[outline] AI response length: ${content.length}`);
 
   const outline = extractJSON(content);
   if (!outline) {
-    console.error("[outline] Failed to parse JSON from AI response:", content.slice(0, 500));
     throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
   }
   if (!outline.title || !Array.isArray(outline.outline) || outline.outline.length === 0) {
-    console.error("[outline] Invalid outline structure:", JSON.stringify(outline).slice(0, 500));
     throw new Error("AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
@@ -269,15 +310,12 @@ ${fileDataStr}
 
   const data = await callAI(`${systemPrompt}\n\n${userPrompt}`, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
-  console.log(`[generate] AI response length: ${content.length}`);
 
   const presentation = extractJSON(content);
   if (!presentation) {
-    console.error("[generate] Failed to parse JSON:", content.slice(0, 500));
     throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
   }
   if (!presentation.title || !Array.isArray(presentation.slides) || presentation.slides.length === 0) {
-    console.error("[generate] Invalid presentation structure:", JSON.stringify(presentation).slice(0, 500));
     throw new Error("AI가 올바른 슬라이드 구조를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
@@ -326,7 +364,6 @@ ${fileDataStr}
 
   const slide = extractJSON(content);
   if (!slide) {
-    console.error("[regenerate] Failed to parse JSON:", content.slice(0, 500));
     throw new Error("슬라이드 JSON을 파싱할 수 없습니다. 다시 시도해주세요.");
   }
 
@@ -369,7 +406,6 @@ ${JSON.stringify(currentSlide, null, 2)}
 
   const result = extractJSON(content);
   if (!result) {
-    console.error("[chat_edit] Failed to parse JSON:", content.slice(0, 500));
     throw new Error("AI 수정 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
   }
 
@@ -424,11 +460,9 @@ ${slideSummary}
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
-  console.log(`[review] AI response length: ${content.length}`);
 
   const review = extractJSON(content);
   if (!review) {
-    console.error("[review] Failed to parse JSON:", content.slice(0, 500));
     throw new Error("리뷰 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
   }
 
@@ -446,7 +480,7 @@ Context: ${(slideContent || []).slice(0, 2).join('. ')}
 Slide type: ${slideType}
 Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text. Suitable as a background or accent image for a presentation slide. 16:9 aspect ratio. High quality.`;
 
-  console.log(`[generate_image] Generating image for: ${slideTitle}`);
+  
 
   const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -464,16 +498,14 @@ Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text.
   if (!response.ok) {
     if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
     if (response.status === 402) throw new Error("크레딧이 부족합니다.");
-    const t = await response.text();
-    console.error("Image generation error:", response.status, t);
-    throw new Error(`이미지 생성 오류 (${response.status})`);
+    await response.text();
+    throw new Error("이미지를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
   const data = await response.json();
   const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
   if (!imageData) {
-    console.error("[generate_image] No image in response");
     throw new Error("이미지를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
@@ -491,14 +523,13 @@ Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text.
     .upload(fileName, binaryData, { contentType: "image/png", upsert: true });
 
   if (uploadError) {
-    console.error("[generate_image] Upload error:", uploadError);
     throw new Error("이미지 업로드에 실패했습니다.");
   }
 
   const { data: publicUrlData } = supabase.storage.from("slide-images").getPublicUrl(fileName);
   const imageUrl = publicUrlData.publicUrl;
 
-  console.log(`[generate_image] Image uploaded: ${imageUrl}`);
+  
 
   return new Response(JSON.stringify({ imageUrl }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -527,9 +558,8 @@ async function callAI(prompt: string, apiKey: string) {
     if (!response.ok) {
       if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
       if (response.status === 402) throw new Error("크레딧이 부족합니다.");
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      throw new Error("이미지 생성 중 오류가 발생했습니다.");
+      await response.text();
+      throw new Error("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
     }
 
     return response.json();
@@ -558,8 +588,6 @@ async function handleSearchImages(body: any) {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("Unsplash API error:", res.status, errText);
     throw new Error("이미지 검색 중 오류가 발생했습니다.");
   }
 
@@ -620,8 +648,6 @@ async function handleAnalyzeTemplate(body: any, apiKey: string) {
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error("Template analysis AI error:", res.status, errText);
     throw new Error("템플릿 분석 중 오류가 발생했습니다.");
   }
 
