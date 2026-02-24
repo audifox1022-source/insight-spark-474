@@ -8,9 +8,10 @@ export function usePresentation() {
   const [step, setStep] = useState<AppStep>('upload');
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
+  const [template, setTemplate] = useState<string>('auto');
   const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({
     week: '',
-    department: '단조사업부 생산부문',
+    department: '',
     reporter: '',
     notes: '',
   });
@@ -59,7 +60,7 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
-        body: { fileData: payload, meetingInfo, settings },
+        body: { fileData: payload, meetingInfo, settings, template },
       });
 
       if (error) throw error;
@@ -76,9 +77,8 @@ export function usePresentation() {
     } finally {
       setIsGenerating(false);
     }
-  }, [parsedFiles, meetingInfo, settings]);
+  }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ─── Slide editing ───────────────────────────────────
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -101,7 +101,6 @@ export function usePresentation() {
       };
       const slides = [...prev.slides];
       slides.splice(afterIndex + 1, 0, newSlide);
-      // Re-number
       slides.forEach((s, i) => { s.slideNumber = i + 1; });
       return { ...prev, slides };
     });
@@ -147,6 +146,7 @@ export function usePresentation() {
     setParsedFiles([]);
     setFileNames([]);
     setPresentation(null);
+    setTemplate('auto');
   }, []);
 
   return {
@@ -154,9 +154,9 @@ export function usePresentation() {
     dataSummary: dataSummary(), fileNames,
     meetingInfo, setMeetingInfo,
     settings, setSettings,
+    template, setTemplate,
     presentation, isGenerating,
     handleFilesUpload, removeFile, generatePresentation, reset,
-    // Editing
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
 }
