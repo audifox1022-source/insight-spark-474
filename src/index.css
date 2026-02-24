@@ -48,6 +48,14 @@
     --font-display: 'Noto Sans KR', sans-serif;
     --font-body: 'Noto Sans KR', sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
+    --chart-1: 215 60% 22%;
+    --chart-2: 200 80% 44%;
+    --chart-3: 152 60% 40%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 340 65% 55%;
+    --chart-6: 270 60% 55%;
+    --chart-7: 180 60% 45%;
+    --chart-8: 15 75% 55%;
   }
   .dark {
     --background: 220 25% 8%;
@@ -77,6 +85,14 @@
     --sidebar-accent-foreground: 210 40% 96%;
     --sidebar-border: 220 20% 22%;
     --sidebar-ring: 200 80% 55%;
+    --chart-1: 200 80% 55%;
+    --chart-2: 190 70% 50%;
+    --chart-3: 152 60% 50%;
+    --chart-4: 38 92% 60%;
+    --chart-5: 340 65% 65%;
+    --chart-6: 270 60% 65%;
+    --chart-7: 180 60% 55%;
+    --chart-8: 15 75% 65%;
   }
 }
 

@@ -6,16 +6,13 @@ import {
 } from 'recharts';
 import { SlideChartData } from '@/types/presentation';
 
-const CHART_COLORS = [
-  'hsl(200, 80%, 50%)',
-  'hsl(152, 60%, 45%)',
-  'hsl(38, 92%, 50%)',
-  'hsl(340, 65%, 55%)',
-  'hsl(270, 60%, 55%)',
-  'hsl(180, 60%, 45%)',
-  'hsl(15, 75%, 55%)',
-  'hsl(210, 50%, 60%)',
-];
+function getThemeChartColors(): string[] {
+  const style = getComputedStyle(document.documentElement);
+  return Array.from({ length: 8 }, (_, i) => {
+    const raw = style.getPropertyValue(`--chart-${i + 1}`).trim();
+    return raw ? `hsl(${raw})` : `hsl(${200 + i * 25}, 60%, 50%)`;
+  });
+}
 
 interface SlideChartProps {
   chartData: SlideChartData;
@@ -30,9 +27,11 @@ export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) 
   const titleSize = isSlideView ? 36 : 16;
   const hasSeries2 = data.some((d) => d.value2 !== undefined && d.value2 !== null);
 
+  const CHART_COLORS = useMemo(() => getThemeChartColors(), []);
+
   const coloredData = useMemo(
     () => data.map((d, i) => ({ ...d, fill: d.color || CHART_COLORS[i % CHART_COLORS.length] })),
-    [data],
+    [data, CHART_COLORS],
   );
 
   const commonAxisProps = {
