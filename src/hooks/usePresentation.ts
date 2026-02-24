@@ -68,7 +68,6 @@ export function usePresentation() {
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
         setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
-        setStep('info');
         toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
       }
       if (failed.length > 0) toast.error(`${failed.length}개 파일을 처리할 수 없습니다.`);
