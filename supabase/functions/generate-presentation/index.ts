@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -27,6 +27,47 @@ const TEMPLATE_MAP: Record<string, string> = {
   summary: "핵심 내용만 간결하게 압축한 브리핑으로 구성하세요.",
 };
 
+const MAX_FILE_DATA_LENGTH = 12000; // 파일 데이터 최대 문자 수 (토큰 한도 방지)
+const AI_TIMEOUT_MS = 120_000; // AI 호출 타임아웃 (120초)
+
+/** 파일 데이터를 안전한 크기로 절단 */
+function truncateFileData(fileData: any): string {
+  const raw = JSON.stringify(fileData, null, 2);
+  if (raw.length <= MAX_FILE_DATA_LENGTH) return raw;
+  console.warn(`File data truncated: ${raw.length} → ${MAX_FILE_DATA_LENGTH} chars`);
+  return raw.slice(0, MAX_FILE_DATA_LENGTH) + "\n... (데이터가 너무 길어 일부 생략됨)";
+}
+
+/** AI 응답에서 JSON 객체를 안전하게 추출 */
+function extractJSON(text: string): any | null {
+  // 코드 블록 안의 JSON 우선 시도
+  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1].trim()); } catch { /* fall through */ }
+  }
+
+  // 중괄호 매칭으로 최외곽 JSON 객체 추출 (비탐욕적)
+  let depth = 0;
+  let start = -1;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        try {
+          return JSON.parse(text.slice(start, i + 1));
+        } catch {
+          // 이 블록이 유효한 JSON이 아니면 다음 시도
+          start = -1;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -36,7 +77,8 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // ── 모드별 분기 ──
+    console.log(`[generate-presentation] mode=${mode}`);
+
     if (mode === "outline") {
       return await handleOutline(body, LOVABLE_API_KEY);
     } else if (mode === "regenerate_slide") {
@@ -59,15 +101,16 @@ async function handleOutline(body: any, apiKey: string) {
   const { fileData, meetingInfo, settings, template } = body;
   const difficulty = settings?.difficulty || "medium";
   const volume = settings?.volume || "standard";
+  const fileDataStr = truncateFileData(fileData);
 
   const prompt = `당신은 발표 자료 구성 전문가입니다.
 업로드된 파일 데이터를 분석하여 발표 자료의 목차(구성안)를 먼저 제안해주세요.
 
 회의 정보:
-- 발표 주제: ${meetingInfo.week || '미입력'}
-- 부서: ${meetingInfo.department || '미입력'}
-- 발표자: ${meetingInfo.reporter || '미입력'}
-- 추가 지시사항: ${meetingInfo.notes || '없음'}
+- 발표 주제: ${meetingInfo?.week || '미입력'}
+- 부서: ${meetingInfo?.department || '미입력'}
+- 발표자: ${meetingInfo?.reporter || '미입력'}
+- 추가 지시사항: ${meetingInfo?.notes || '없음'}
 
 설정:
 - 난이도: ${DIFFICULTY_MAP[difficulty]}
@@ -75,9 +118,9 @@ async function handleOutline(body: any, apiKey: string) {
 - 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
 
 파일 데이터:
-${JSON.stringify(fileData, null, 2)}
+${fileDataStr}
 
-아래 JSON 형식으로 목차만 생성하세요 (슬라이드 전체 내용은 생성하지 마세요):
+아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
   "title": "전체 발표 제목",
   "outline": [
@@ -92,13 +135,18 @@ ${JSON.stringify(fileData, null, 2)}
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
+  console.log(`[outline] AI response length: ${content.length}`);
 
-  let outline;
-  try {
-    const match = content.match(/\{[\s\S]*\}/);
-    outline = match ? JSON.parse(match[0]) : null;
-  } catch {
-    outline = null;
+  const outline = extractJSON(content);
+  if (!outline) {
+    console.error("[outline] Failed to parse JSON from AI response:", content.slice(0, 500));
+    throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
+  }
+
+  // outline 유효성 검증
+  if (!outline.title || !Array.isArray(outline.outline) || outline.outline.length === 0) {
+    console.error("[outline] Invalid outline structure:", JSON.stringify(outline).slice(0, 500));
+    throw new Error("AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
   return new Response(JSON.stringify({ outline }), {
@@ -111,6 +159,7 @@ async function handleGenerate(body: any, apiKey: string) {
   const { fileData, meetingInfo, settings, template, approvedOutline } = body;
   const difficulty = settings?.difficulty || "medium";
   const volume = settings?.volume || "standard";
+  const fileDataStr = truncateFileData(fileData);
 
   const outlineHint = approvedOutline
     ? `\n\n사용자가 승인한 목차 구성:\n${JSON.stringify(approvedOutline, null, 2)}\n위 목차 구성을 반드시 따르세요.`
@@ -129,7 +178,7 @@ async function handleGenerate(body: any, apiKey: string) {
 📋 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
 ${outlineHint}
 
-반드시 아래 JSON 형식으로 생성하세요:
+반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
   "title": "전체 발표 제목",
   "slides": [
@@ -145,25 +194,29 @@ ${outlineHint}
 }`;
 
   const userPrompt = `회의 정보:
-- 발표 주제: ${meetingInfo.week || '미입력'}
-- 부서: ${meetingInfo.department || '미입력'}
-- 발표자: ${meetingInfo.reporter || '미입력'}
-- 추가 지시사항: ${meetingInfo.notes || '없음'}
+- 발표 주제: ${meetingInfo?.week || '미입력'}
+- 부서: ${meetingInfo?.department || '미입력'}
+- 발표자: ${meetingInfo?.reporter || '미입력'}
+- 추가 지시사항: ${meetingInfo?.notes || '없음'}
 
 파일 데이터:
-${JSON.stringify(fileData, null, 2)}
+${fileDataStr}
 
 위 데이터를 분석하여 발표 자료를 생성해주세요.`;
 
   const data = await callAI(`${systemPrompt}\n\n${userPrompt}`, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
+  console.log(`[generate] AI response length: ${content.length}`);
 
-  let presentation;
-  try {
-    const match = content.match(/\{[\s\S]*\}/);
-    presentation = match ? JSON.parse(match[0]) : null;
-  } catch {
-    presentation = null;
+  const presentation = extractJSON(content);
+  if (!presentation) {
+    console.error("[generate] Failed to parse JSON:", content.slice(0, 500));
+    throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
+  }
+
+  if (!presentation.title || !Array.isArray(presentation.slides) || presentation.slides.length === 0) {
+    console.error("[generate] Invalid presentation structure:", JSON.stringify(presentation).slice(0, 500));
+    throw new Error("AI가 올바른 슬라이드 구조를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
   return new Response(JSON.stringify({ presentation, rawContent: content }), {
@@ -174,6 +227,7 @@ ${JSON.stringify(fileData, null, 2)}
 // ── 3. 특정 슬라이드만 재생성 ──
 async function handleRegenerateSlide(body: any, apiKey: string) {
   const { slideIndex, currentSlide, presentation, fileData, meetingInfo, settings, userInstruction } = body;
+  const fileDataStr = truncateFileData(fileData);
 
   const prompt = `당신은 전문 발표 자료 작성 전문가입니다.
 아래 슬라이드를 개선하거나 다시 작성해주세요.
@@ -188,9 +242,9 @@ ${JSON.stringify(currentSlide, null, 2)}
 ${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 내용으로 전면 재작성해주세요.'}
 
 파일 원본 데이터 (참고):
-${JSON.stringify(fileData, null, 2)}
+${fileDataStr}
 
-아래 JSON 형식으로 슬라이드 1개만 반환하세요:
+아래 JSON 형식으로 슬라이드 1개만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
   "slideNumber": ${slideIndex + 1},
   "title": "슬라이드 제목",
@@ -203,12 +257,10 @@ ${JSON.stringify(fileData, null, 2)}
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
 
-  let slide;
-  try {
-    const match = content.match(/\{[\s\S]*\}/);
-    slide = match ? JSON.parse(match[0]) : null;
-  } catch {
-    slide = null;
+  const slide = extractJSON(content);
+  if (!slide) {
+    console.error("[regenerate] Failed to parse JSON:", content.slice(0, 500));
+    throw new Error("슬라이드 JSON을 파싱할 수 없습니다. 다시 시도해주세요.");
   }
 
   return new Response(JSON.stringify({ slide }), {
@@ -229,31 +281,26 @@ ${JSON.stringify(currentSlide, null, 2)}
 
 사용자 요청: "${userMessage}"
 
-요청을 정확히 반영하여 슬라이드를 수정하고, 아래 JSON 형식으로 수정된 슬라이드만 반환하세요:
+요청을 정확히 반영하여 슬라이드를 수정하고, 아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
-  "slideNumber": ${slideIndex + 1},
-  "title": "슬라이드 제목",
-  "type": "title|data|chart|action|summary",
-  "content": ["내용 항목들"],
-  "notes": "발표자 노트",
-  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}]
-}
-
-수정 후 어떤 변경을 했는지 "summary" 필드에 한 줄로 설명을 추가하세요:
-{
-  "slide": { ... },
+  "slide": {
+    "slideNumber": ${slideIndex + 1},
+    "title": "슬라이드 제목",
+    "type": "title|data|chart|action|summary",
+    "content": ["내용 항목들"],
+    "notes": "발표자 노트",
+    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}]
+  },
   "summary": "변경 내용 한 줄 요약"
 }`;
 
   const data = await callAI(prompt, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
 
-  let result;
-  try {
-    const match = content.match(/\{[\s\S]*\}/);
-    result = match ? JSON.parse(match[0]) : null;
-  } catch {
-    result = null;
+  const result = extractJSON(content);
+  if (!result) {
+    console.error("[chat_edit] Failed to parse JSON:", content.slice(0, 500));
+    throw new Error("AI 수정 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
   }
 
   return new Response(JSON.stringify({ result }), {
@@ -261,27 +308,40 @@ ${JSON.stringify(currentSlide, null, 2)}
   });
 }
 
-// ── 공통 AI 호출 ──
+// ── 공통 AI 호출 (타임아웃 포함) ──
 async function callAI(prompt: string, apiKey: string) {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
-  if (!response.ok) {
-    if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
-    if (response.status === 402) throw new Error("크레딧이 부족합니다.");
-    const t = await response.text();
-    console.error("AI gateway error:", response.status, t);
-    throw new Error("AI 생성 오류가 발생했습니다.");
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+      if (response.status === 402) throw new Error("크레딧이 부족합니다.");
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
+      throw new Error(`AI 생성 오류 (${response.status})`);
+    }
+
+    return response.json();
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new Error("AI 응답 시간이 초과되었습니다. 파일 크기를 줄이거나 다시 시도해주세요.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json();
 }
