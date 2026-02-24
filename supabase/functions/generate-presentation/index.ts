@@ -27,10 +27,9 @@ const TEMPLATE_MAP: Record<string, string> = {
   summary: "핵심 내용만 간결하게 압축한 브리핑으로 구성하세요.",
 };
 
-const MAX_FILE_DATA_LENGTH = 12000; // 파일 데이터 최대 문자 수 (토큰 한도 방지)
-const AI_TIMEOUT_MS = 120_000; // AI 호출 타임아웃 (120초)
+const MAX_FILE_DATA_LENGTH = 12000;
+const AI_TIMEOUT_MS = 120_000;
 
-/** 파일 데이터를 안전한 크기로 절단 */
 function truncateFileData(fileData: any): string {
   const raw = JSON.stringify(fileData, null, 2);
   if (raw.length <= MAX_FILE_DATA_LENGTH) return raw;
@@ -38,15 +37,11 @@ function truncateFileData(fileData: any): string {
   return raw.slice(0, MAX_FILE_DATA_LENGTH) + "\n... (데이터가 너무 길어 일부 생략됨)";
 }
 
-/** AI 응답에서 JSON 객체를 안전하게 추출 */
 function extractJSON(text: string): any | null {
-  // 코드 블록 안의 JSON 우선 시도
   const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlockMatch) {
     try { return JSON.parse(codeBlockMatch[1].trim()); } catch { /* fall through */ }
   }
-
-  // 중괄호 매칭으로 최외곽 JSON 객체 추출 (비탐욕적)
   let depth = 0;
   let start = -1;
   for (let i = 0; i < text.length; i++) {
@@ -56,17 +51,33 @@ function extractJSON(text: string): any | null {
     } else if (text[i] === '}') {
       depth--;
       if (depth === 0 && start !== -1) {
-        try {
-          return JSON.parse(text.slice(start, i + 1));
-        } catch {
-          // 이 블록이 유효한 JSON이 아니면 다음 시도
-          start = -1;
-        }
+        try { return JSON.parse(text.slice(start, i + 1)); } catch { start = -1; }
       }
     }
   }
   return null;
 }
+
+const CHART_DATA_SCHEMA = `"chartData": {
+        "chartType": "bar|line|pie|area",
+        "title": "차트 제목",
+        "data": [{"name": "항목명", "value": 숫자, "value2": 선택적_비교숫자}],
+        "xAxisLabel": "X축 레이블",
+        "yAxisLabel": "Y축 레이블",
+        "series1Label": "계열1 이름",
+        "series2Label": "계열2 이름 (value2 사용 시)",
+        "showLegend": true
+      }`;
+
+const CHART_INSTRUCTION = `
+중요 - 차트 자동 삽입 규칙:
+파일 데이터에 수치/통계 데이터가 포함되어 있으면 반드시 적절한 차트를 포함한 슬라이드(type: "chart")를 생성하세요.
+- 시계열 데이터(월별, 주별, 연도별 등) → line 또는 area 차트
+- 카테고리별 비교 데이터 → bar 차트  
+- 비율/구성 데이터 → pie 차트
+- chartData의 data 배열에는 실제 파일 데이터에서 추출한 정확한 수치를 사용하세요.
+- chartData는 type이 "chart"인 슬라이드에만 포함하세요.
+- 수치 데이터가 충분하면 2개 이상의 차트 슬라이드도 가능합니다.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -79,15 +90,10 @@ serve(async (req) => {
 
     console.log(`[generate-presentation] mode=${mode}`);
 
-    if (mode === "outline") {
-      return await handleOutline(body, LOVABLE_API_KEY);
-    } else if (mode === "regenerate_slide") {
-      return await handleRegenerateSlide(body, LOVABLE_API_KEY);
-    } else if (mode === "chat_edit") {
-      return await handleChatEdit(body, LOVABLE_API_KEY);
-    } else {
-      return await handleGenerate(body, LOVABLE_API_KEY);
-    }
+    if (mode === "outline") return await handleOutline(body, LOVABLE_API_KEY);
+    else if (mode === "regenerate_slide") return await handleRegenerateSlide(body, LOVABLE_API_KEY);
+    else if (mode === "chat_edit") return await handleChatEdit(body, LOVABLE_API_KEY);
+    else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
     console.error("Error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "알 수 없는 오류" }), {
@@ -119,6 +125,7 @@ async function handleOutline(body: any, apiKey: string) {
 
 파일 데이터:
 ${fileDataStr}
+${CHART_INSTRUCTION}
 
 아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
@@ -128,7 +135,7 @@ ${fileDataStr}
       "slideNumber": 1,
       "title": "슬라이드 제목",
       "type": "title|data|chart|action|summary",
-      "description": "이 슬라이드에서 다룰 내용 한 줄 요약"
+      "description": "이 슬라이드에서 다룰 내용 한 줄 요약 (chart 타입이면 어떤 데이터를 어떤 차트로 시각화할지 설명)"
     }
   ]
 }`;
@@ -142,8 +149,6 @@ ${fileDataStr}
     console.error("[outline] Failed to parse JSON from AI response:", content.slice(0, 500));
     throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
   }
-
-  // outline 유효성 검증
   if (!outline.title || !Array.isArray(outline.outline) || outline.outline.length === 0) {
     console.error("[outline] Invalid outline structure:", JSON.stringify(outline).slice(0, 500));
     throw new Error("AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.");
@@ -177,6 +182,7 @@ async function handleGenerate(body: any, apiKey: string) {
 📄 분량: ${VOLUME_MAP[volume]}
 📋 템플릿: ${TEMPLATE_MAP[template] || TEMPLATE_MAP.auto}
 ${outlineHint}
+${CHART_INSTRUCTION}
 
 반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
@@ -188,10 +194,13 @@ ${outlineHint}
       "type": "title|data|chart|action|summary",
       "content": ["핵심 내용 항목들"],
       "notes": "발표자 노트",
-      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}]
+      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
+      ${CHART_DATA_SCHEMA}
     }
   ]
-}`;
+}
+
+참고: chartData는 type이 "chart"인 슬라이드에만 포함하세요.`;
 
   const userPrompt = `회의 정보:
 - 발표 주제: ${meetingInfo?.week || '미입력'}
@@ -202,7 +211,7 @@ ${outlineHint}
 파일 데이터:
 ${fileDataStr}
 
-위 데이터를 분석하여 발표 자료를 생성해주세요.`;
+위 데이터를 분석하여 발표 자료를 생성해주세요. 수치 데이터가 있으면 반드시 차트 슬라이드를 포함하세요.`;
 
   const data = await callAI(`${systemPrompt}\n\n${userPrompt}`, apiKey);
   const content = data.choices?.[0]?.message?.content || "";
@@ -213,7 +222,6 @@ ${fileDataStr}
     console.error("[generate] Failed to parse JSON:", content.slice(0, 500));
     throw new Error("AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.");
   }
-
   if (!presentation.title || !Array.isArray(presentation.slides) || presentation.slides.length === 0) {
     console.error("[generate] Invalid presentation structure:", JSON.stringify(presentation).slice(0, 500));
     throw new Error("AI가 올바른 슬라이드 구조를 생성하지 못했습니다. 다시 시도해주세요.");
@@ -244,6 +252,8 @@ ${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 �
 파일 원본 데이터 (참고):
 ${fileDataStr}
 
+수치 데이터가 있고 시각화가 적절하다면 chartData도 포함하세요.
+
 아래 JSON 형식으로 슬라이드 1개만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
 {
   "slideNumber": ${slideIndex + 1},
@@ -251,7 +261,8 @@ ${fileDataStr}
   "type": "title|data|chart|action|summary",
   "content": ["내용 항목들"],
   "notes": "발표자 노트",
-  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}]
+  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
+  ${CHART_DATA_SCHEMA}
 }`;
 
   const data = await callAI(prompt, apiKey);
@@ -289,7 +300,8 @@ ${JSON.stringify(currentSlide, null, 2)}
     "type": "title|data|chart|action|summary",
     "content": ["내용 항목들"],
     "notes": "발표자 노트",
-    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}]
+    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
+    ${CHART_DATA_SCHEMA}
   },
   "summary": "변경 내용 한 줄 요약"
 }`;
