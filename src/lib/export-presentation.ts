@@ -34,6 +34,29 @@ const slideTypeLabels: Record<string, string> = {
 
 const trendSymbols: Record<string, string> = { up: '▲', down: '▼', flat: '―' };
 
+/** HTML 특수문자를 이스케이프하여 XSS를 방지 */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/** URL을 검증하여 안전한 프로토콜만 허용 */
+function sanitizeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:', 'data:'].includes(parsed.protocol)) {
+      return '';
+    }
+    return url;
+  } catch {
+    return '';
+  }
+}
+
 function hexToRgb(hex: string) {
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
@@ -142,9 +165,10 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
   const trendBar = (t: string) =>
     t === 'up' ? '78%' : t === 'down' ? '35%' : '50%';
 
-  const bgImage = slide.imageUrl ? `
+  const safeImageUrl = slide.imageUrl ? sanitizeUrl(slide.imageUrl) : '';
+  const bgImage = safeImageUrl ? `
     <div style="position:absolute;inset:0;z-index:0;">
-      <img src="${slide.imageUrl}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous" />
+      <img src="${safeImageUrl}" style="width:100%;height:100%;object-fit:cover;" crossorigin="anonymous" />
       <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,25,35,0.85),rgba(15,25,35,0.65),rgba(15,25,35,0.8));"></div>
     </div>
   ` : '';
@@ -154,11 +178,11 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
     <div style="flex:1;background:linear-gradient(145deg,${trendColor(m.trend)}18,rgba(255,255,255,0.02));border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:24px;position:relative;overflow:hidden;">
       <div style="position:absolute;right:-20px;top:-20px;width:100px;height:100px;border-radius:50%;border:3px solid ${trendColor(m.trend)};opacity:0.06;"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <span style="font-size:16px;opacity:0.5;font-weight:500;text-transform:uppercase;">${m.label}</span>
+        <span style="font-size:16px;opacity:0.5;font-weight:500;text-transform:uppercase;">${escapeHtml(m.label)}</span>
         <span style="color:${trendColor(m.trend)};font-size:18px;background:${trendColor(m.trend)}20;padding:3px 8px;border-radius:20px;">${trendSymbols[m.trend]}</span>
       </div>
       <div style="font-size:${slide.type === 'data' ? '52px' : '40px'};font-weight:900;letter-spacing:-0.03em;line-height:1;color:${trendColor(m.trend)};text-shadow:0 0 30px ${trendColor(m.trend)}25;">
-        ${m.value}
+        ${escapeHtml(m.value)}
       </div>
       ${slide.type === 'data' ? `<div style="margin-top:12px;height:5px;border-radius:3px;overflow:hidden;background:rgba(255,255,255,0.06);">
         <div style="height:100%;width:${trendBar(m.trend)};border-radius:3px;background:linear-gradient(90deg,${trendColor(m.trend)}80,${trendColor(m.trend)});box-shadow:0 0 10px ${trendColor(m.trend)}40;"></div>
@@ -173,13 +197,13 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
         <span style="width:7px;height:7px;border-radius:50%;background:${accent};box-shadow:0 0 12px ${accent}50;display:inline-block;"></span>
         <span style="width:18px;height:1px;background:${accent}40;display:inline-block;"></span>
       </div>
-      <span style="font-size:24px;line-height:1.6;font-weight:300;opacity:0.85;">${item}</span>
+      <span style="font-size:24px;line-height:1.6;font-weight:300;opacity:0.85;">${escapeHtml(item)}</span>
     </div>
   `).join('') : '';
 
   const notesHtml = slide.notes ? `
     <div style="position:absolute;bottom:8px;left:100px;right:100px;font-size:11px;color:rgba(255,255,255,0.3);font-style:italic;border-top:1px solid rgba(255,255,255,0.06);padding-top:6px;">
-      💡 ${slide.notes}
+      💡 ${escapeHtml(slide.notes)}
     </div>
   ` : '';
 
@@ -198,7 +222,7 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
           <div style="height:1px;width:40px;background:${accent};"></div>
         </div>
         <h1 style="font-size:76px;font-weight:900;line-height:1.08;letter-spacing:-0.03em;max-width:1400px;text-shadow:0 4px 40px rgba(0,0,0,0.4);">
-          ${slide.title}
+          ${escapeHtml(slide.title)}
         </h1>
         <div style="margin:32px 0 28px;height:3px;width:100px;border-radius:2px;background:linear-gradient(90deg,${accent},transparent);"></div>
         ${contentHtml ? `<div style="max-width:900px;">${contentHtml}</div>` : ''}
@@ -237,7 +261,7 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
           <div style="border-radius:16px;padding:32px;background:linear-gradient(135deg,${accent}18,${accent}06);border:2px solid ${accent}30;position:relative;overflow:hidden;margin-bottom:16px;">
             <div style="display:flex;align-items:flex-start;gap:16px;">
               <div style="flex-shrink:0;width:48px;height:48px;border-radius:12px;background:${accent}25;display:flex;align-items:center;justify-content:center;font-size:24px;">⚡</div>
-              <span style="font-size:28px;font-weight:700;line-height:1.4;">${mainCta}</span>
+              <span style="font-size:28px;font-weight:700;line-height:1.4;">${escapeHtml(mainCta)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:16px;margin-left:64px;">
               <div style="height:2px;width:32px;background:${accent};border-radius:1px;"></div>
@@ -247,7 +271,7 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
           ${subItems.map(item => `
             <div style="display:flex;align-items:center;gap:14px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);margin-bottom:8px;">
               <span style="color:${accent};font-size:18px;">✓</span>
-              <span style="font-size:22px;font-weight:300;opacity:0.8;line-height:1.5;">${item}</span>
+              <span style="font-size:22px;font-weight:300;opacity:0.8;line-height:1.5;">${escapeHtml(item)}</span>
             </div>
           `).join('')}
         </div>
@@ -265,7 +289,7 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
               <div style="flex-shrink:0;width:36px;height:36px;border-radius:10px;background:${accent}18;color:${accent};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;">
                 ${String(i + 1).padStart(2, '0')}
               </div>
-              <span style="font-size:20px;line-height:1.5;font-weight:300;opacity:0.85;">${item}</span>
+              <span style="font-size:20px;line-height:1.5;font-weight:300;opacity:0.85;">${escapeHtml(item)}</span>
             </div>
           `).join('')}
         </div>` : ''}
@@ -292,7 +316,7 @@ function buildSlideHtml(slide: Slide, brand: BrandSettings): string {
         <span style="font-size:14px;font-family:monospace;opacity:0.3;letter-spacing:0.15em;">${String(slide.slideNumber).padStart(2, '0')}</span>
       </div>
       <h1 style="font-size:${isData ? '48px' : '52px'};font-weight:800;line-height:1.1;letter-spacing:-0.025em;max-width:1200px;text-shadow:0 2px 24px rgba(0,0,0,0.3);">
-        ${slide.title}
+        ${escapeHtml(slide.title)}
       </h1>
     </div>
     <div style="margin:0 100px;height:2px;border-radius:1px;background:linear-gradient(90deg,${accent}60,${accent}15,transparent);"></div>
