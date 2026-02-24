@@ -36,6 +36,7 @@ const Index = () => {
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
     reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview,
+    isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
@@ -201,6 +202,8 @@ const Index = () => {
             onRegenerateSlide={regenerateSlide}
             onOpenChat={() => setChatOpen(true)}
             onOpenReview={() => setReviewOpen(true)}
+            onReviewAndFix={reviewAndFixPresentation}
+            isFixing={isFixing}
           />
         )}
       </main>
