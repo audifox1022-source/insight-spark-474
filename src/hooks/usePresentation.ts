@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
-import { MeetingInfo, PresentationSettings, Presentation, Slide, SlideMetric, AppStep } from '@/types/presentation';
+import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep } from '@/types/presentation';
 import { supabase } from '@/integrations/supabase/client';
+import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { toast } from 'sonner';
 
 export function usePresentation() {
@@ -21,6 +22,39 @@ export function usePresentation() {
   });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedList, setSavedList] = useState<SavedPresentation[]>([]);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  // ── 다크모드 ──
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
+
+  const toggleDark = useCallback(() => {
+    setIsDark((prev) => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+  }, []);
 
   const dataSummary = useCallback((): string => {
     if (parsedFiles.length === 0) return '';
@@ -32,7 +66,6 @@ export function usePresentation() {
       const results = await Promise.all(files.map(parseFile));
       const failed = results.filter((r) => r.fileType === 'unknown');
       const succeeded = results.filter((r) => r.fileType !== 'unknown');
-
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
         setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
@@ -56,13 +89,11 @@ export function usePresentation() {
     if (parsedFiles.length === 0) return;
     setStep('generating');
     setIsGenerating(true);
-
     try {
       const payload = buildAIPayload(parsedFiles);
       const { data: resData, error } = await supabase.functions.invoke('generate-presentation', {
         body: { fileData: payload, meetingInfo, settings, template },
       });
-
       if (error) throw error;
       if (resData?.presentation) {
         setPresentation(resData.presentation);
@@ -79,6 +110,62 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  // ── 저장 (localStorage) ──
+  const handleSave = useCallback(async () => {
+    if (!presentation) return;
+    setIsSaving(true);
+    try {
+      const id = await savePresentation(presentation, meetingInfo, settings, template);
+      if (id) {
+        setPresentation((prev) => prev ? { ...prev, id } : prev);
+        toast.success('발표 자료가 저장되었습니다.');
+        const list = await loadPresentations();
+        setSavedList(list);
+      } else {
+        toast.error('저장에 실패했습니다.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  }, [presentation, meetingInfo, settings, template]);
+
+  // ── 히스토리 ──
+  const fetchHistory = useCallback(async () => {
+    setIsLoadingList(true);
+    try {
+      const list = await loadPresentations();
+      setSavedList(list);
+    } finally {
+      setIsLoadingList(false);
+    }
+  }, []);
+
+  const openHistory = useCallback(async () => {
+    setHistoryOpen(true);
+    await fetchHistory();
+  }, [fetchHistory]);
+
+  const loadFromHistory = useCallback((saved: SavedPresentation) => {
+    setPresentation({ id: saved.id, title: saved.title, slides: saved.slides });
+    setMeetingInfo(saved.meetingInfo);
+    setSettings(saved.settings);
+    setTemplate(saved.template);
+    setStep('preview');
+    setHistoryOpen(false);
+    toast.success(`"${saved.title}" 불러왔습니다.`);
+  }, []);
+
+  const deleteFromHistory = useCallback(async (id: string) => {
+    const ok = await deletePresentation(id);
+    if (ok) {
+      setSavedList((prev) => prev.filter((p) => p.id !== id));
+      toast.success('삭제되었습니다.');
+    } else {
+      toast.error('삭제에 실패했습니다.');
+    }
+  }, []);
+
+  // ── 슬라이드 편집 ──
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -156,6 +243,11 @@ export function usePresentation() {
     settings, setSettings,
     template, setTemplate,
     presentation, isGenerating,
+    isSaving, handleSave,
+    savedList, isLoadingList,
+    historyOpen, setHistoryOpen,
+    openHistory, loadFromHistory, deleteFromHistory,
+    isDark, toggleDark,
     handleFilesUpload, removeFile, generatePresentation, reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
