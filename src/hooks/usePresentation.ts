@@ -33,6 +33,8 @@ export function usePresentation() {
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [isFixing, setIsFixing] = useState(false); // 전체 자동 최적화 로딩 상태
+
   // 다크모드
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
@@ -356,7 +358,7 @@ export function usePresentation() {
     setReviewResult(null);
   }, []);
 
-  // ── AI 리뷰 ──
+  // ── AI 리뷰 (단순 검토 결과만 반환) ──
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -374,6 +376,40 @@ export function usePresentation() {
     }
   }, [presentation]);
 
+  // ── 전체 발표자료 자동 최적화 (수정 반영) ──
+  const reviewAndFixPresentation = useCallback(async () => {
+    if (!presentation) return;
+    setIsFixing(true);
+    toast.loading('AI가 전체 내용을 분석하고 흐름을 최적화하고 있습니다...', { id: 'review-fix' });
+
+    try {
+      const resData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase.functions.invoke('generate-presentation', {
+            body: {
+              mode: 'review_and_fix',
+              presentation,
+            },
+          });
+          if (error) throw error;
+          if (!data?.result?.presentation) throw new Error('최적화된 결과를 가져오지 못했습니다.');
+          return data;
+        },
+        {
+          maxRetries: 1,
+          onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }),
+        }
+      );
+
+      setPresentation(resData.result.presentation);
+      toast.success(`최적화 완료! ✨ ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err, '전체 최적화'), { id: 'review-fix' });
+    } finally {
+      setIsFixing(false);
+    }
+  }, [presentation]);
+
   return {
     step, setStep,
     dataSummary: dataSummary(), fileNames,
@@ -388,6 +424,7 @@ export function usePresentation() {
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
     reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview,
+    isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
