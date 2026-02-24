@@ -19,11 +19,13 @@ import {
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
-  Sparkles, MessageSquare,
+  Sparkles, MessageSquare, Keyboard,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
 import { PresentationMode } from '@/components/PresentationMode';
+import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { toast } from 'sonner';
 
 interface SlideEditorProps {
@@ -135,9 +137,24 @@ export function SlideEditor({
   const [titleDraft, setTitleDraft] = useState('');
   const [presenting, setPresenting] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
 
   const slides = presentation.slides || [];
   const slide = slides[currentSlide];
+
+  // ── 키보드 단축키 ──
+  useKeyboardShortcuts({
+    onPrev: () => setCurrentSlide((s) => Math.max(0, s - 1)),
+    onNext: () => setCurrentSlide((s) => Math.min(slides.length - 1, s + 1)),
+    onSave,
+    onDuplicate: () => onDuplicateSlide(currentSlide),
+    onDelete: () => handleDeleteSlide(currentSlide),
+    onPresent: () => setPresenting(true),
+    onAddSlide: () => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); },
+    totalSlides: slides.length,
+    currentSlide,
+    enabled: !presenting && !exportDialogOpen && !shortcutsHelpOpen,
+  });
 
   // 드래그앤드롭
   const sensors = useSensors(
@@ -238,6 +255,15 @@ export function SlideEditor({
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* 단축키 도움말 */}
+          <Button
+            variant="ghost" size="sm"
+            onClick={() => setShortcutsHelpOpen(true)}
+            className="w-9 h-9 p-0 text-muted-foreground hover:text-foreground"
+            title="키보드 단축키 (?)"
+          >
+            <Keyboard className="w-4 h-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {presentation.id ? '저장' : '저장하기'}
@@ -271,8 +297,7 @@ export function SlideEditor({
                 {slides.map((s, i) => (
                   <SortableSlideThumbnail
                     key={`slide-${i}-${s.slideNumber}`}
-                    slide={s}
-                    index={i}
+                    slide={s} index={i}
                     isActive={i === currentSlide}
                     onClick={() => setCurrentSlide(i)}
                   />
@@ -280,7 +305,6 @@ export function SlideEditor({
               </div>
             </SortableContext>
           </DndContext>
-
           <button
             onClick={() => { onAddSlide(slides.length - 1); setCurrentSlide(slides.length); }}
             className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs"
@@ -301,8 +325,7 @@ export function SlideEditor({
               transition={{ duration: 0.15 }}
               className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden"
             >
-
-              {/* ── 슬라이드 헤더 ── */}
+              {/* 슬라이드 헤더 */}
               <div className="gradient-primary px-8 py-7 text-primary-foreground">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-xs font-mono opacity-60">
@@ -318,65 +341,39 @@ export function SlideEditor({
                       ))}
                     </SelectContent>
                   </Select>
-
-                  {/* 슬라이드 액션 버튼 */}
                   <div className="ml-auto flex items-center gap-1">
-                    {/* AI 재생성 */}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button size="sm" variant="ghost"
                       className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                      onClick={handleRegenerate}
-                      disabled={isRegenerating}
-                      title="AI로 재생성"
-                    >
+                      onClick={handleRegenerate} disabled={isRegenerating} title="AI로 재생성">
                       {isRegenerating
                         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         : <Sparkles className="w-3.5 h-3.5" />
                       }
                       재생성
                     </Button>
-                    {/* AI 채팅 수정 */}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button size="sm" variant="ghost"
                       className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                      onClick={onOpenChat}
-                      title="AI 채팅으로 수정"
-                    >
+                      onClick={onOpenChat} title="AI 채팅으로 수정">
                       <MessageSquare className="w-3.5 h-3.5" />
                       AI 수정
                     </Button>
-                    {/* 복제 */}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      onClick={() => onDuplicateSlide(currentSlide)}
-                      title="복제"
-                    >
+                      onClick={() => onDuplicateSlide(currentSlide)} title="복제">
                       <Copy className="w-3.5 h-3.5" />
                     </Button>
-                    {/* 뒤에 추가 */}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                      onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}
-                      title="뒤에 추가"
-                    >
+                      onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }} title="뒤에 추가">
                       <Plus className="w-3.5 h-3.5" />
                     </Button>
-                    {/* 삭제 */}
-                    <Button
-                      size="sm" variant="ghost"
+                    <Button size="sm" variant="ghost"
                       className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => handleDeleteSlide(currentSlide)}
-                      title="삭제"
-                      disabled={slides.length <= 1}
-                    >
+                      onClick={() => handleDeleteSlide(currentSlide)} title="삭제" disabled={slides.length <= 1}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
-
-                {/* 슬라이드 제목 인라인 편집 */}
                 <input
                   value={slide.title}
                   onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })}
@@ -385,7 +382,7 @@ export function SlideEditor({
                 />
               </div>
 
-              {/* ── 슬라이드 본문 ── */}
+              {/* 슬라이드 본문 */}
               <div className="p-8 space-y-8">
 
                 {/* 핵심 지표 */}
@@ -485,7 +482,6 @@ export function SlideEditor({
                     rows={2}
                   />
                 </div>
-
               </div>
             </motion.div>
           </AnimatePresence>
@@ -525,6 +521,12 @@ export function SlideEditor({
           onExit={() => setPresenting(false)}
         />
       )}
+
+      {/* 키보드 단축키 도움말 */}
+      <KeyboardShortcutsHelp
+        open={shortcutsHelpOpen}
+        onOpenChange={setShortcutsHelpOpen}
+      />
     </motion.div>
   );
 }
