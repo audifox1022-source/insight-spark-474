@@ -84,7 +84,7 @@ const SettingsSchema = z.object({
 }).optional();
 
 const RequestSchema = z.object({
-  mode: z.enum(["outline", "generate", "regenerate_slide", "chat_edit", "review", "generate_image", "search_images", "analyze_template"]),
+  mode: z.enum(["outline", "generate", "regenerate_slide", "chat_edit", "review", "review_and_fix", "generate_image", "search_images", "analyze_template"]),
   fileData: z.any().optional(),
   meetingInfo: MeetingInfoSchema,
   settings: SettingsSchema,
@@ -115,6 +115,7 @@ const SAFE_ERROR_MESSAGES = new Set([
   "슬라이드 JSON을 파싱할 수 없습니다. 다시 시도해주세요.",
   "AI 수정 결과를 파싱할 수 없습니다. 다시 시도해주세요.",
   "리뷰 결과를 파싱할 수 없습니다. 다시 시도해주세요.",
+  "최적화 결과를 파싱할 수 없습니다. 다시 시도해주세요.",
   "이미지를 생성하지 못했습니다. 다시 시도해주세요.",
   "이미지 업로드에 실패했습니다.",
   "검색어가 필요합니다.",
@@ -236,6 +237,7 @@ serve(async (req) => {
     else if (mode === "regenerate_slide") return await handleRegenerateSlide(body, LOVABLE_API_KEY);
     else if (mode === "chat_edit") return await handleChatEdit(body, LOVABLE_API_KEY);
     else if (mode === "review") return await handleReview(body, LOVABLE_API_KEY);
+    else if (mode === "review_and_fix") return await handleReviewAndFix(body, LOVABLE_API_KEY);
     else if (mode === "generate_image") return await handleGenerateImage(body, LOVABLE_API_KEY);
     else if (mode === "search_images") return await handleSearchImages(body);
     else if (mode === "analyze_template") return await handleAnalyzeTemplate(body, LOVABLE_API_KEY);
@@ -530,6 +532,58 @@ ${slideSummary}
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
+
+// ── 5-1. 전체 발표자료 자동 최적화 ──
+async function handleReviewAndFix(body: any, apiKey: string) {
+  const { presentation } = body;
+  if (!presentation || !presentation.slides) throw new Error("발표자료가 없습니다.");
+
+  const prompt = `${STORYTELLING_PERSONA}
+
+당신은 최고 수준의 프레젠테이션 컨설턴트입니다.
+아래 전체 발표 자료를 분석하고, 스토리텔링의 흐름, 문장의 명확성, 핵심 지표의 강조 등을 최적화하여 전체 내용을 직접 개선해주세요.
+
+현재 전체 발표 자료:
+${JSON.stringify(presentation, null, 2)}
+
+요구사항:
+1. 전체적인 맥락과 스토리 흐름을 매끄럽게 다듬으세요.
+2. 어색한 문장이나 너무 긴 문장을 간결하고 임팩트 있게 수정하세요.
+3. 슬라이드의 일관성을 유지하며 내용의 배치를 개선하세요.
+${CHART_INSTRUCTION}
+
+아래 JSON 형식으로 개선된 전체 발표 자료와 어떤 부분을 수정했는지 요약을 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
+{
+  "summary": "어떤 부분을 집중적으로 개선했는지 1~2줄로 요약",
+  "presentation": {
+    "title": "전체 발표 제목 (필요시 개선)",
+    "slides": [
+      {
+        "slideNumber": 1,
+        "title": "슬라이드 제목",
+        "type": "title|data|chart|action|summary",
+        "content": ["개선된 내용 항목들"],
+        "notes": "개선된 발표자 노트",
+        "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],
+        ${CHART_DATA_SCHEMA}
+      }
+    ]
+  }
+}`;
+
+  const data = await callAI(prompt, apiKey);
+  const content = data.choices?.[0]?.message?.content || "";
+
+  const result = extractJSON(content);
+  if (!result) {
+    throw new Error("최적화 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
+  }
+
+  return new Response(JSON.stringify({ result }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 
 // ── 6. 슬라이드 이미지 생성 ──
 async function handleGenerateImage(body: any, apiKey: string) {
