@@ -35,7 +35,7 @@ const Index = () => {
     historyOpen, setHistoryOpen,
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
-    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview,
+    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix,
     isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
     handleFilesUpload, removeFile,
@@ -239,6 +239,7 @@ const Index = () => {
           isLoading={isReviewing}
           onRequestReview={requestReview}
           onGoToSlide={(index) => { setReviewOpen(false); }}
+          onApplyFix={applyReviewFix} // 새로운 props 연결
         />
       )}
 
