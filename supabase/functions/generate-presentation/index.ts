@@ -97,6 +97,7 @@ serve(async (req) => {
     else if (mode === "review") return await handleReview(body, LOVABLE_API_KEY);
     else if (mode === "generate_image") return await handleGenerateImage(body, LOVABLE_API_KEY);
     else if (mode === "search_images") return await handleSearchImages(body);
+    else if (mode === "analyze_template") return await handleAnalyzeTemplate(body, LOVABLE_API_KEY);
     else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
     console.error("Error:", e);
@@ -519,6 +520,61 @@ async function handleSearchImages(body: any) {
   }));
 
   return new Response(JSON.stringify({ images, totalPages: data.total_pages, total: data.total }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── 8. PPT 템플릿 분석 (색상/폰트 추출) ──
+async function handleAnalyzeTemplate(body: any, apiKey: string) {
+  const { templateData } = body; // base64 encoded PPT screenshot or content description
+  if (!templateData) throw new Error("템플릿 데이터가 필요합니다.");
+
+  const res = await fetch("https://ai.lovable.dev/api/chat", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `다음은 PPT 발표자료 템플릿의 스크린샷 또는 설명입니다.
+이 템플릿에서 브랜드 스타일 요소를 분석해주세요.
+
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "primaryColor": "#hex코드 (메인 색상, 헤더/제목에 사용되는 색상)",
+  "accentColor": "#hex코드 (강조 색상, 포인트/버튼에 사용되는 색상)",
+  "backgroundColor": "#hex코드 (배경 색상)",
+  "textColor": "#hex코드 (본문 텍스트 색상)",
+  "fontStyle": "고딕|명조|둥근|모던|클래식 중 하나",
+  "layoutStyle": "미니멀|기업|크리에이티브|데이터중심 중 하나",
+  "description": "이 템플릿 스타일에 대한 한 줄 설명"
+}`,
+            },
+            ...(templateData.startsWith("data:")
+              ? [{ type: "image_url" as const, image_url: { url: templateData } }]
+              : [{ type: "text" as const, text: `템플릿 내용:\n${templateData}` }]),
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`AI 호출 실패 [${res.status}]: ${errText}`);
+  }
+
+  const aiData = await res.json();
+  const text = aiData.choices?.[0]?.message?.content || "";
+  const parsed = extractJSON(text);
+
+  if (!parsed) throw new Error("템플릿 분석 결과를 파싱하지 못했습니다.");
+
+  return new Response(JSON.stringify({ template: parsed }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
