@@ -26,8 +26,11 @@ export interface Slide {
 }
 
 export interface Presentation {
+  id?: string;
   title: string;
   slides: Slide[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type AppStep = 'upload' | 'info' | 'generating' | 'preview';
