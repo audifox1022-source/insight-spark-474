@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { usePresentation } from '@/hooks/usePresentation';
 import { StepIndicator, getStepGuide } from '@/components/StepIndicator';
 import { FileUploadZone } from '@/components/FileUploadZone';
@@ -8,7 +9,7 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut } from 'lucide-react';
+import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut, Palette } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,8 @@ import { toast } from 'sonner';
 
 const Index = () => {
   const navigate = useNavigate();
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false); // ✨ 커스텀 테마 메뉴 상태
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success('로그아웃 되었습니다.');
@@ -38,6 +41,7 @@ const Index = () => {
     reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix,
     isFixing, reviewAndFixPresentation,
     isDark, toggleDark,
+    appTheme, changeTheme, // ✨ 테마 로직
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     reset,
@@ -47,7 +51,7 @@ const Index = () => {
   const guide = getStepGuide(step);
 
   return (
-    <div className="min-h-screen gradient-surface">
+    <div className="min-h-screen gradient-surface transition-colors duration-300">
       {/* ── 헤더 ── */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -67,11 +71,52 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
             <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+            
             <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
               <FolderOpen className="w-4 h-4" />
               <span className="text-xs">저장 목록</span>
             </Button>
-            <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground">
+            
+            {/* ✨ 테마 변경 드롭다운 메뉴 */}
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setThemeMenuOpen(!themeMenuOpen)} 
+                className="w-9 h-9 text-muted-foreground hover:text-foreground"
+                title="테마 색상 변경"
+              >
+                <Palette className="w-4 h-4" />
+              </Button>
+              <AnimatePresence>
+                {themeMenuOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1 overflow-hidden"
+                  >
+                    <button onClick={() => {changeTheme('blue'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='blue' ? 'font-bold' : ''}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-blue-600 border border-border"></div> 블루 (기본)
+                    </button>
+                    <button onClick={() => {changeTheme('navy'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='navy' ? 'font-bold' : ''}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-border"></div> 네이비 (기업)
+                    </button>
+                    <button onClick={() => {changeTheme('purple'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='purple' ? 'font-bold' : ''}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-purple-600 border border-border"></div> 퍼플 (크리에이티브)
+                    </button>
+                    <button onClick={() => {changeTheme('green'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='green' ? 'font-bold' : ''}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 border border-border"></div> 그린 (친환경)
+                    </button>
+                    <button onClick={() => {changeTheme('orange'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='orange' ? 'font-bold' : ''}`}>
+                      <div className="w-3.5 h-3.5 rounded-full bg-orange-500 border border-border"></div> 오렌지 (활력)
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="다크 모드 변경">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="로그아웃">
@@ -239,7 +284,7 @@ const Index = () => {
           isLoading={isReviewing}
           onRequestReview={requestReview}
           onGoToSlide={(index) => { setReviewOpen(false); }}
-          onApplyFix={applyReviewFix} // 새로운 props 연결
+          onApplyFix={applyReviewFix}
         />
       )}
 
