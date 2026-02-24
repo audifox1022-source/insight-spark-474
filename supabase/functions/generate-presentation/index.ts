@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -93,6 +94,8 @@ serve(async (req) => {
     if (mode === "outline") return await handleOutline(body, LOVABLE_API_KEY);
     else if (mode === "regenerate_slide") return await handleRegenerateSlide(body, LOVABLE_API_KEY);
     else if (mode === "chat_edit") return await handleChatEdit(body, LOVABLE_API_KEY);
+    else if (mode === "review") return await handleReview(body, LOVABLE_API_KEY);
+    else if (mode === "generate_image") return await handleGenerateImage(body, LOVABLE_API_KEY);
     else return await handleGenerate(body, LOVABLE_API_KEY);
   } catch (e) {
     console.error("Error:", e);
@@ -316,6 +319,131 @@ ${JSON.stringify(currentSlide, null, 2)}
   }
 
   return new Response(JSON.stringify({ result }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── 5. 발표자료 리뷰 (가독성 검토 및 보완점 제안) ──
+async function handleReview(body: any, apiKey: string) {
+  const { presentation } = body;
+  if (!presentation || !presentation.slides) throw new Error("발표자료가 없습니다.");
+
+  const slideSummary = presentation.slides.map((s: any, i: number) =>
+    `[${i + 1}번 - ${s.type}] ${s.title}\n내용: ${(s.content || []).join(' / ')}\n지표: ${(s.keyMetrics || []).map((m: any) => `${m.label}:${m.value}`).join(', ') || '없음'}\n차트: ${s.chartData ? s.chartData.chartType : '없음'}`
+  ).join('\n\n');
+
+  const prompt = `당신은 기업 발표자료 품질 검토 전문가입니다.
+아래 발표자료를 분석하여 가독성, 완성도, 논리적 흐름을 검토하고 구체적인 개선 제안을 해주세요.
+
+발표 제목: ${presentation.title}
+총 슬라이드: ${presentation.slides.length}장
+
+슬라이드 내용:
+${slideSummary}
+
+아래 JSON 형식으로만 반환하세요. JSON 외의 텍스트는 포함하지 마세요:
+{
+  "overallScore": 1~10 사이의 숫자,
+  "summary": "전체적인 평가 한 줄 요약",
+  "strengths": ["잘된 점 1", "잘된 점 2"],
+  "improvements": [
+    {
+      "slideIndex": 0,
+      "category": "readability|content|structure|visual|data",
+      "severity": "high|medium|low",
+      "issue": "문제점 설명",
+      "suggestion": "구체적 개선 방법"
+    }
+  ],
+  "generalTips": ["전반적인 개선 제안 1", "전반적인 개선 제안 2"]
+}
+
+카테고리 설명:
+- readability: 가독성 (글자 수, 문장 길이, 전문 용어 등)
+- content: 내용 충실도 (데이터 누락, 근거 부족 등)
+- structure: 구조/흐름 (슬라이드 순서, 논리적 연결)
+- visual: 시각적 요소 (차트 활용, 지표 표시)
+- data: 데이터 정확성 (수치 검증, 트렌드 일관성)`;
+
+  const data = await callAI(prompt, apiKey);
+  const content = data.choices?.[0]?.message?.content || "";
+  console.log(`[review] AI response length: ${content.length}`);
+
+  const review = extractJSON(content);
+  if (!review) {
+    console.error("[review] Failed to parse JSON:", content.slice(0, 500));
+    throw new Error("리뷰 결과를 파싱할 수 없습니다. 다시 시도해주세요.");
+  }
+
+  return new Response(JSON.stringify({ review }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// ── 6. 슬라이드 이미지 생성 ──
+async function handleGenerateImage(body: any, apiKey: string) {
+  const { slideTitle, slideContent, slideType, customPrompt } = body;
+
+  const imagePrompt = customPrompt || `Create a professional, clean, minimalist business presentation background image for a slide about: "${slideTitle}". 
+Context: ${(slideContent || []).slice(0, 2).join('. ')}
+Slide type: ${slideType}
+Style: Corporate, modern, subtle gradient or abstract geometric shapes. No text. Suitable as a background or accent image for a presentation slide. 16:9 aspect ratio. High quality.`;
+
+  console.log(`[generate_image] Generating image for: ${slideTitle}`);
+
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [{ role: "user", content: imagePrompt }],
+      modalities: ["image", "text"],
+    }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    if (response.status === 402) throw new Error("크레딧이 부족합니다.");
+    const t = await response.text();
+    console.error("Image generation error:", response.status, t);
+    throw new Error(`이미지 생성 오류 (${response.status})`);
+  }
+
+  const data = await response.json();
+  const imageData = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+  if (!imageData) {
+    console.error("[generate_image] No image in response");
+    throw new Error("이미지를 생성하지 못했습니다. 다시 시도해주세요.");
+  }
+
+  // Upload to Supabase storage
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const base64Data = imageData.replace(/^data:image\/\w+;base64,/, "");
+  const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+  const fileName = `slide-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("slide-images")
+    .upload(fileName, binaryData, { contentType: "image/png", upsert: true });
+
+  if (uploadError) {
+    console.error("[generate_image] Upload error:", uploadError);
+    throw new Error("이미지 업로드에 실패했습니다.");
+  }
+
+  const { data: publicUrlData } = supabase.storage.from("slide-images").getPublicUrl(fileName);
+  const imageUrl = publicUrlData.publicUrl;
+
+  console.log(`[generate_image] Image uploaded: ${imageUrl}`);
+
+  return new Response(JSON.stringify({ imageUrl }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }

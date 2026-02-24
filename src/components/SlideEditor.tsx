@@ -21,7 +21,7 @@ import {
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
-  Sparkles, MessageSquare, Keyboard,
+  Sparkles, MessageSquare, Keyboard, Star,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -30,6 +30,7 @@ import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { toast } from 'sonner';
 import { ChartEditor } from '@/components/ChartEditor';
+import { SlideImageEditor } from '@/components/SlideImageEditor';
 
 
 interface SlideEditorProps {
@@ -45,6 +46,7 @@ interface SlideEditorProps {
   isSaving: boolean;
   onRegenerateSlide: (slideIndex: number, instruction?: string) => Promise<void>;
   onOpenChat: () => void;
+  onOpenReview: () => void;
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -132,7 +134,7 @@ function SortableSlideThumbnail({
 export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
-  onRegenerateSlide, onOpenChat,
+  onRegenerateSlide, onOpenChat, onOpenReview,
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -276,6 +278,10 @@ export function SlideEditor({
             className="gap-2 gradient-primary text-primary-foreground border-0">
             <Play className="w-4 h-4" />
             발표하기
+          </Button>
+          <Button variant="outline" size="sm" onClick={onOpenReview} className="gap-2">
+            <Star className="w-4 h-4" />
+            리뷰
           </Button>
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="gap-2">
             <Download className="w-4 h-4" />
@@ -450,6 +456,15 @@ export function SlideEditor({
                     onChange={(chartData) => onUpdateSlide(currentSlide, { chartData })}
                   />
                 </div>
+
+                {/* 이미지 편집 */}
+                <SlideImageEditor
+                  imageUrl={slide.imageUrl}
+                  slideTitle={slide.title}
+                  slideContent={slide.content || []}
+                  slideType={slide.type}
+                  onChange={(imageUrl) => onUpdateSlide(currentSlide, { imageUrl })}
+                />
 
                 {/* 슬라이드 내용 */}
                 <div>

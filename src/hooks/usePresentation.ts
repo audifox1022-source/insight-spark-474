@@ -4,6 +4,7 @@ import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep } from 
 import { supabase } from '@/integrations/supabase/client';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { OutlineData } from '@/components/OutlinePreview';
+import { ReviewResult } from '@/components/ReviewPanel';
 import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 
@@ -29,7 +30,9 @@ export function usePresentation() {
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   // 다크모드
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
@@ -351,7 +354,26 @@ export function usePresentation() {
     setPresentation(null);
     setOutline(null);
     setTemplate('auto');
+    setReviewResult(null);
   }, []);
+
+  // ── AI 리뷰 ──
+  const requestReview = useCallback(async () => {
+    if (!presentation) return;
+    setIsReviewing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-presentation', {
+        body: { mode: 'review', presentation },
+      });
+      if (error) throw error;
+      if (!data?.review) throw new Error('리뷰 결과를 받지 못했습니다.');
+      setReviewResult(data.review);
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err, '리뷰'));
+    } finally {
+      setIsReviewing(false);
+    }
+  }, [presentation]);
 
   return {
     step, setStep,
@@ -366,6 +388,7 @@ export function usePresentation() {
     historyOpen, setHistoryOpen,
     openHistory, loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
+    reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview,
     isDark, toggleDark,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
