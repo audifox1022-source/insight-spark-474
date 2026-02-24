@@ -38,6 +38,23 @@ function hexToRgb(hex: string) {
   return { r, g, b };
 }
 
+// Helper: fetch image as base64 data URL
+async function imageUrlToDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 // ─── PPTX Export ────────────────────────────────────────────
 
 export async function exportToPptx(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND) {
@@ -84,6 +101,30 @@ export async function exportToPptx(presentation: Presentation, brand: BrandSetti
     });
 
     let yPos = 1.8;
+
+    // Slide background image
+    if (slide.imageUrl) {
+      const imgData = await imageUrlToDataUrl(slide.imageUrl);
+      if (imgData) {
+        pptSlide.addImage({
+          data: imgData,
+          x: 0, y: 0, w: '100%', h: '100%',
+          sizing: { type: 'cover', w: 13.33, h: 7.5 },
+        });
+        // Dark overlay for text readability
+        pptSlide.addShape(pptx.ShapeType.rect, {
+          x: 0, y: 0, w: '100%', h: '100%',
+          fill: { type: 'solid', color: '000000' },
+          opacity: 0.5,
+        } as any);
+        // Re-add header on top of image
+        pptSlide.addShape(pptx.ShapeType.rect, {
+          x: 0, y: 0, w: '100%', h: 1.4,
+          fill: { type: 'solid', color: brand.primaryColor },
+          opacity: 0.7,
+        } as any);
+      }
+    }
 
     // Key Metrics
     if (slide.keyMetrics && slide.keyMetrics.length > 0) {
@@ -201,15 +242,31 @@ export async function exportToPptx(presentation: Presentation, brand: BrandSetti
 
 // ─── PDF Export ──────────────────────────────────────────────
 
-export function exportToPdf(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND) {
+export async function exportToPdf(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageW = 297;
   const pageH = 210;
   const primary = hexToRgb(brand.primaryColor);
   const accent = hexToRgb(brand.accentColor);
 
-  presentation.slides.forEach((slide, idx) => {
+  for (let idx = 0; idx < presentation.slides.length; idx++) {
+    const slide = presentation.slides[idx];
     if (idx > 0) doc.addPage();
+
+    // Slide background image
+    if (slide.imageUrl) {
+      const imgData = await imageUrlToDataUrl(slide.imageUrl);
+      if (imgData) {
+        try {
+          doc.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+          // Dark overlay
+          doc.setGState(new (doc as any).GState({ opacity: 0.55 }));
+          doc.setFillColor(0, 0, 0);
+          doc.rect(0, 0, pageW, pageH, 'F');
+          doc.setGState(new (doc as any).GState({ opacity: 1 }));
+        } catch { /* skip if format issue */ }
+      }
+    }
 
     // Header background
     doc.setFillColor(primary.r, primary.g, primary.b);
@@ -293,7 +350,7 @@ export function exportToPdf(presentation: Presentation, brand: BrandSettings = D
       doc.setTextColor(107, 122, 141);
       doc.text(`💡 ${slide.notes}`, 12, notesY + 2, { maxWidth: pageW - 24 });
     }
-  });
+  }
 
   doc.save(`${presentation.title || '발표자료'}.pdf`);
 }

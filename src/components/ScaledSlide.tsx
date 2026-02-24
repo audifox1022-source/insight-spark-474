@@ -91,8 +91,22 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
       >
         <div className={`w-full h-full bg-gradient-to-br ${gradient} text-white flex flex-col relative overflow-hidden`}>
 
+          {/* ── 슬라이드 배경 이미지 ── */}
+          {slide.imageUrl && (
+            <div className="absolute inset-0 z-0">
+              <img
+                src={slide.imageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+              {/* 이미지 위 오버레이 - 텍스트 가독성 보장 */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/50" />
+            </div>
+          )}
+
           {/* ── 배경 장식 요소 ── */}
-          <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 pointer-events-none z-[1]">
             {/* 기하학적 원형 장식 */}
             <div className="absolute -top-[200px] -right-[200px] w-[800px] h-[800px] rounded-full"
               style={{ background: `radial-gradient(circle, ${accentColor}15 0%, transparent 70%)` }} />
@@ -109,11 +123,11 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           </div>
 
           {/* ── 좌측 악센트 스트라이프 ── */}
-          <div className="absolute left-0 top-[80px] bottom-[80px] w-[5px] rounded-r-full"
+          <div className="absolute left-0 top-[80px] bottom-[80px] w-[5px] rounded-r-full z-[2]"
             style={{ background: accentColor, opacity: 0.6 }} />
 
           {/* ── Header ── */}
-          <div className="px-[120px] pt-[80px] pb-[36px] flex items-start gap-[28px] relative z-10">
+          <div className="px-[120px] pt-[80px] pb-[36px] flex items-start gap-[28px] relative z-[3]">
             <div className="flex-1">
               <div className="flex items-center gap-[16px] mb-[16px]">
                 <div className="flex items-center justify-center w-[44px] h-[44px] rounded-[12px] bg-white/10 backdrop-blur-sm">
@@ -140,7 +154,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           </div>
 
           {/* ── Body ── */}
-          <div className="flex-1 px-[120px] py-[48px] flex gap-[60px] min-h-0 relative z-10">
+          <div className="flex-1 px-[120px] py-[48px] flex gap-[60px] min-h-0 relative z-[3]">
             {/* Content column */}
             <div className={`flex flex-col justify-center ${hasChart && !hasMetrics ? 'w-[580px] flex-shrink-0' : 'flex-1'}`}>
               {slide.content && slide.content.length > 0 && (
@@ -189,7 +203,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
 
           {/* Metrics bar at bottom when chart is present */}
           {hasChart && hasMetrics && (
-            <div className="px-[120px] pb-[24px] flex gap-[20px] relative z-10">
+            <div className="px-[120px] pb-[24px] flex gap-[20px] relative z-[3]">
               {slide.keyMetrics!.map((m, i) => (
                 <div key={i} className="bg-white/[0.07] backdrop-blur-sm rounded-[14px] px-[28px] py-[16px] flex items-center gap-[14px] border border-white/[0.06]">
                   <span className="text-[20px] opacity-60 font-medium">{m.label}</span>
@@ -201,7 +215,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           )}
 
           {/* ── Footer ── */}
-          <div className="px-[120px] pb-[36px] flex items-center justify-between relative z-10">
+          <div className="px-[120px] pb-[36px] flex items-center justify-between relative z-[3]">
             <div className="flex items-center gap-[12px] opacity-25">
               <div className="w-[24px] h-[24px] rounded-[6px] bg-white/30 flex items-center justify-center">
                 <span className="text-[12px] font-bold">{slide.slideNumber}</span>

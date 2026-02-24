@@ -185,7 +185,7 @@ export function SlideEditor({
       if (format === 'pptx') {
         await exportToPptx(presentation, brand);
       } else {
-        exportToPdf(presentation, brand);
+        await exportToPdf(presentation, brand);
       }
       toast.success(`${format.toUpperCase()} 파일이 다운로드되었습니다.`);
       setExportDialogOpen(false);
