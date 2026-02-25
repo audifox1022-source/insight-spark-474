@@ -41,10 +41,10 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 - "title"     : 표지. 발표 제목 + 발표자 정보
 - "agenda"    : 목차. items 배열에 목차 항목 나열
 - "kpi"       : KPI 수치 강조. keyMetrics 배열 필수 (3~4개 카드)
-- "chart"     : 수치 비교/추이. 반드시 chartData 객체 필수 (bar, line, pie 차트)
+- "chart"     : 수치 비교/추이. 반드시 chartData 객체와 stats 배열을 생성
 - "compare"   : 좌우 2가지 비교. leftTitle/leftItems/rightTitle/rightItems 필수
-- "table"     : 표/데이터 그리드. headers + rows 필수 
-- "process"   : 순서/단계. steps 배열 필수 
+- "table"     : 표/데이터 그리드. headers + rows 필수
+- "process"   : 순서/단계. steps 배열 필수
 - "cards"     : 카드 나열. items 배열 필수 (각 항목: {title, desc})
 - "timeline"  : 시간 흐름. milestones 배열 필수
 - "content"   : 일반 텍스트. points 배열 사용
@@ -53,7 +53,7 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 
 [🚫 절대 금지]
 - table 타입에 stats 사용 금지 (표는 반드시 headers + rows만 사용)
-- content/points 배열에 객체({}) 삽입 금지 — 순수 문자열만
+- content/points/steps 배열에 객체({}) 삽입 금지 — 반드시 순수 문자열만 작성
 - 모든 응답은 순수 JSON (마크다운 없음)`;
 
 function truncateFileData(fileData: any): string {
@@ -69,7 +69,6 @@ function truncateFileData(fileData: any): string {
         const excelText = typeof v.data === 'string' ? v.data : JSON.stringify(v.data, null, 2);
         parts.push(`### [${fileName} (Excel)]:\n${excelText}`); continue;
       }
-      if (v.type === 'image') { parts.push(`### [${fileName} (이미지)]: 이미지 파일`); continue; }
       parts.push(`### [${fileName}]:\n${JSON.stringify(v)}`);
     }
     return parts.join('\n\n').slice(0, 80000);
@@ -91,7 +90,7 @@ function extractJSON(text: string): any | null {
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
-  try { return JSON.parse(cleanText); } catch { console.warn('JSON 손상, 복구 시도...'); }
+  try { return JSON.parse(cleanText); } catch { console.warn('JSON 손상, 1차 복구 시도...'); }
 
   try {
     let repaired = cleanText;
@@ -101,7 +100,7 @@ function extractJSON(text: string): any | null {
     while (brackets > 0) { repaired += ']'; brackets--; }
     while (braces   > 0) { repaired += '}'; braces--;   }
     return JSON.parse(repaired.replace(/,\s*([\]}])/g, '$1'));
-  } catch { console.warn('2차 복구...'); }
+  } catch { console.warn('JSON 손상, 2차 복구 시도...'); }
 
   try {
     const slidesMatch = cleanText.match(/"slides"\s*:\s*(\[[\s\S]*)/);
@@ -110,12 +109,9 @@ function extractJSON(text: string): any | null {
       let brackets = (slidesText.match(/\[/g) || []).length - (slidesText.match(/\]/g) || []).length;
       while (brackets > 0) { slidesText += ']'; brackets--; }
       slidesText = slidesText.replace(/,\s*([\]}])/g, '$1');
-      const slides = JSON.parse(slidesText);
-      const titleMatch = cleanText.match(/"title"\s*:\s*"([^"]+)"/);
-      return { title: titleMatch ? titleMatch[1] : '발표 자료', slides: Array.isArray(slides) ? slides : [] };
+      return { title: '발표 자료', slides: JSON.parse(slidesText) };
     }
-  } catch { console.warn('3차 복구...'); }
-
+  } catch { return null; }
   return null;
 }
 
@@ -148,9 +144,7 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
     );
 
     if (!response.ok) throw new Error(`AI 서버 통신 오류 (${response.status})`);
-    
     const data = await response.json();
-    if (!data.candidates?.length) throw new Error('AI 응답이 비어있습니다.');
     return data.candidates[0].content.parts[0].text;
   } catch (err: any) {
     if (err.name === 'AbortError') throw new Error('AI 응답 시간 초과 (60초). 다시 시도해주세요.');
@@ -160,27 +154,37 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   }
 }
 
-// ✨ 마법의 함수: 유니버셜 슬라이드 정규화 (차트 및 내보내기 에러 완벽 차단)
+// 🚀 마법의 정규화 함수: 차트 렌더링 증발 및 내보내기(PPT) 에러를 완벽하게 차단합니다.
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== 'object') return s;
-  
   if (!s.id) s.id = `slide-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 
-  // 1. 차트 데이터 극한 정규화 (Recharts와 내보내기 PptxGenJS 호환 보장)
+  // 1. 내보내기 에러 방지: 텍스트 배열에 객체가 들어있으면 순수 문자로 강제 변환
+  if (Array.isArray(s.points)) s.points = s.points.map((p: any) => typeof p === 'object' ? (p.title || p.desc || p.label || JSON.stringify(p)) : String(p));
+  if (Array.isArray(s.content)) s.content = s.content.map((p: any) => typeof p === 'object' ? (p.title || p.desc || p.label || JSON.stringify(p)) : String(p));
+  if (Array.isArray(s.steps)) s.steps = s.steps.map((p: any) => typeof p === 'object' ? (p.title || p.desc || p.label || JSON.stringify(p)) : String(p));
+  
+  if (Array.isArray(s.items)) {
+    s.items = s.items.map((it: any) => {
+      if (typeof it === 'string') return { title: it, desc: '' };
+      return { title: String(it.title || it.label || it.name || ''), desc: String(it.desc || it.description || it.value || '') };
+    });
+  }
+
+  // 2. 차트 데이터 극한 정규화: 차트 컴포넌트(Recharts/Chart.js)가 모두 읽을 수 있는 유니버셜 규격으로 변환
   if (s.type === 'chart' || s.chartData || s.stats) {
     let rawData: any[] = [];
+    
+    // 데이터 출처 색출
     if (s.chartData && Array.isArray(s.chartData.data)) rawData = s.chartData.data;
+    else if (s.chartData && s.chartData.labels && s.chartData.datasets) {
+      const labels = s.chartData.labels;
+      const values = s.chartData.datasets[0]?.data || [];
+      rawData = labels.map((l: string, i: number) => ({ name: l, value: values[i] }));
+    }
     else if (Array.isArray(s.chartData)) rawData = s.chartData;
     else if (Array.isArray(s.stats)) rawData = s.stats;
-    
-    // 데이터가 비어있다면 다른 곳에서 강제 징발
-    if (rawData.length === 0) {
-      if (s.tableData && Array.isArray(s.tableData.rows)) {
-        rawData = s.tableData.rows.map((r: any, i: number) => ({ name: String(r[0] || `항목${i+1}`), value: r[1] }));
-      } else if (Array.isArray(s.keyMetrics)) {
-        rawData = s.keyMetrics;
-      }
-    }
+    else if (Array.isArray(s.keyMetrics)) rawData = s.keyMetrics;
 
     let normalizedData = rawData.map((item: any, idx: number) => {
       if (item == null) return null;
@@ -189,46 +193,57 @@ function normalizeSlide(s: any): any {
       let name = item.name ?? item.label ?? item.title ?? item.x ?? item.항목 ?? item.구분 ?? `항목 ${idx + 1}`;
       let value = item.value ?? item.y ?? item.수치 ?? item.rightValue ?? item.leftValue;
 
-      // value가 명시적으로 없으면 객체 안에서 숫자를 가진 첫 번째 값을 찾아냄
+      // value가 숨어있다면 객체 순회하여 숫자 추출
       if (value === undefined || value === null) {
         for (const key in item) {
           const strVal = String(item[key]);
-          if (/[0-9]/.test(strVal) && key !== 'name' && key !== 'label' && key !== 'title') {
-            value = item[key];
-            break;
+          if (/[0-9]/.test(strVal) && !['name', 'label', 'title'].includes(key)) {
+            value = item[key]; break;
           }
         }
       }
 
       return {
         name: String(name),
-        // "150억", "30%" 등 모든 불순물 제거 후 순수 Number 변환 (NaN 방지)
+        // 수치에 포함된 "억", "%", "만" 등의 문자를 모두 제거하고 순수 숫자로 변환 (NaN 크래시 방지)
         value: Number(String(value).replace(/[^0-9.-]+/g, "")) || 0
       };
     }).filter((item: any) => item != null && !isNaN(item.value));
 
-    // 정제된 데이터가 존재하면 양방향 호환성 보장 (렌더러는 chartData, 내보내기는 stats 이용 가능)
     if (normalizedData.length > 0) {
       s.type = 'chart';
-      s.chartData = { type: s.chartData?.type || 'bar', data: normalizedData };
-      // PptxGenJS 호환성 보장을 위해 stats 배열에도 깨끗한 값을 복사
-      s.stats = normalizedData.map((d: any) => ({ label: d.name, value: String(d.value), leftValue: String(d.value), rightValue: '' }));
+      
+      const labels = normalizedData.map((d: any) => d.name);
+      const values = normalizedData.map((d: any) => d.value);
+
+      // Recharts와 Chart.js 양쪽 스펙을 모두 만족하는 유니버셜 구조 주입
+      s.chartData = {
+        type: s.chartData?.type || 'bar',
+        data: normalizedData, 
+        labels: labels,
+        datasets: [{ label: '수치', data: values }]
+      };
+
+      // PptxGenJS (내보내기) 라이브러리가 참고할 수 있도록 stats에도 완벽한 규격 복사
+      s.stats = normalizedData.map((d: any) => ({
+        label: d.name,
+        value: String(d.value),
+        leftValue: String(d.value),
+        rightValue: ''
+      }));
     } else {
-      s.type = s.type === 'chart' ? 'content' : s.type; // 차트 추출 실패 시 텍스트 슬라이드로 전환
+      // 숫자 데이터를 끝내 찾지 못했다면 빈 차트를 띄우지 않고 텍스트 뷰로 자동 전환
+      s.type = s.type === 'chart' ? 'content' : s.type;
       s.chartData = undefined;
     }
   }
-
-  // 2. 텍스트 배열에 섞인 객체 제거 (내보내기 에러 원인 차단)
-  if (Array.isArray(s.points)) s.points = s.points.map((p: any) => typeof p === 'object' ? (p.title || p.desc || JSON.stringify(p)) : String(p));
-  if (Array.isArray(s.content)) s.content = s.content.map((p: any) => typeof p === 'object' ? (p.title || p.desc || JSON.stringify(p)) : String(p));
 
   return s;
 }
 
 const SLIDE_SCHEMA = `
-"chart" 타입 필수 구조 (수치는 반드시 숫자만):
-  { "slideNumber":4, "type":"chart", "title":"데이터 차트", "chartData":{"type":"bar","data":[{"name":"항목A","value":42},{"name":"항목B","value":58}]}, "notes":"..." }
+"chart" 타입 필수 구조:
+  { "slideNumber":4, "type":"chart", "title":"데이터 차트", "chartData":{"type":"bar","labels":["A","B"],"datasets":[{"label":"수치","data":[42,58]}]}, "stats":[{"label":"A","value":"42"},{"label":"B","value":"58"}], "notes":"..." }
 `;
 
 export const aiService = {
@@ -261,7 +276,7 @@ export const aiService = {
     if (!data) throw new Error('발표 자료 파싱 실패');
     if (Array.isArray(data)) data = { title: '발표 자료', slides: data };
 
-    // 🚀 모든 슬라이드에 유니버셜 정규화 통과
+    // 🚀 모든 슬라이드를 순회하며 에러 유발 인자를 소독합니다.
     data.slides = (data.slides || []).map(normalizeSlide);
 
     return { presentation: data };
@@ -271,7 +286,7 @@ export const aiService = {
     const { currentSlide, userInstruction, fileData, slideIndex, presentation } = body;
     const prompt = `${SYSTEM_PROMPT_CORE}\n[미션] 아래 슬라이드를 재작성하세요.\n- 요청: "${userInstruction || '전면 재작성'}"\n- 현재 데이터: ${JSON.stringify(currentSlide)}\n- 원본 자료: ${truncateFileData(fileData)}\n${SLIDE_SCHEMA}\n슬라이드 JSON 1개만 반환.`;
     const text = await callGeminiAPI(prompt, 4096);
-    return { slide: normalizeSlide(extractJSON(text)) }; // 정규화 적용
+    return { slide: normalizeSlide(extractJSON(text)) }; // 재생성 시에도 정규화 적용
   },
 
   async chatEdit(body: any) {
@@ -279,7 +294,7 @@ export const aiService = {
     const prompt = `${SYSTEM_PROMPT_CORE}\n[미션] 사용자 요청에 따라 수정하세요.\n- 요청: "${userMessage}"\n- 현재: ${JSON.stringify(currentSlide)}\n${SLIDE_SCHEMA}\n{"slide":{...},"summary":"..."} 반환.`;
     const text = await callGeminiAPI(prompt, 4096);
     const result = extractJSON(text);
-    if (result && result.slide) result.slide = normalizeSlide(result.slide); // 정규화 적용
+    if (result && result.slide) result.slide = normalizeSlide(result.slide); // AI 수정 시에도 정규화 적용
     return { result };
   },
 
@@ -287,7 +302,7 @@ export const aiService = {
     const { currentSlide, persona } = body;
     const prompt = `${SYSTEM_PROMPT_CORE}\n[미션] 아래 페르소나 스타일로 재작성하세요. 타입(${currentSlide.type}) 유지.\n- 페르소나: ${persona}\n- 현재: ${JSON.stringify(currentSlide)}\n${SLIDE_SCHEMA}\n슬라이드 JSON 1개만 반환.`;
     const text = await callGeminiAPI(prompt, 4096);
-    return { slide: normalizeSlide(extractJSON(text)) }; // 정규화 적용
+    return { slide: normalizeSlide(extractJSON(text)) };
   },
 
   async review(body: any) {
@@ -302,11 +317,11 @@ export const aiService = {
     if (!data) throw new Error('최적화 파싱 실패');
 
     if (!data.presentation && data.slides) {
-      data.slides = data.slides.map(normalizeSlide); // 정규화 적용
+      data.slides = data.slides.map(normalizeSlide);
       return { result: { presentation: data, summary: '최적화됨' } };
     }
     if (data.presentation && data.presentation.slides) {
-      data.presentation.slides = data.presentation.slides.map(normalizeSlide); // 정규화 적용
+      data.presentation.slides = data.presentation.slides.map(normalizeSlide);
     }
     return { result: data };
   },
