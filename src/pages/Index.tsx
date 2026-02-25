@@ -18,15 +18,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-// ✨ 고도화된 빠른 시작 가이드 (구조화된 템플릿 데이터)
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
 type Preset = { id: string; icon: string; label: string; fields: PresetField[]; generate: (data: Record<string, string>) => string; };
 
 const PROMPT_PRESETS: Preset[] = [
   {
-    id: 'new_product',
-    icon: "🚀",
-    label: "신제품/기획안",
+    id: 'new_product', icon: "🚀", label: "신제품/기획안",
     fields: [
       { id: 'topic', label: '💡 기획 주제 (제품/서비스명)', placeholder: '예: 친환경 텀블러 마케팅', suggestions: ['B2B 업무협업 SaaS 솔루션', '1인가구 맞춤형 프리미엄 밀키트', '사내 복지 포인트 제도 도입'] },
       { id: 'target', label: '👥 타겟 고객', placeholder: '누구를 대상으로 하나요?', suggestions: ['2030 직장인 여성', '중소기업 HR/교육 담당자', 'IT 기기에 익숙한 MZ세대'] },
@@ -35,9 +32,7 @@ const PROMPT_PRESETS: Preset[] = [
     generate: (d) => `새로운 [${d.topic || '기획안'}]에 대한 발표자료를 만들어줘.\n- 타겟 고객: ${d.target || '미정'}\n- 핵심 목표 및 강점: ${d.goal || '성공적인 추진'}`
   },
   {
-    id: 'report',
-    icon: "📊",
-    label: "실적 보고서",
+    id: 'report', icon: "📊", label: "실적 보고서",
     fields: [
       { id: 'period', label: '📅 보고 기간', placeholder: '예: 2025년 1분기', suggestions: ['2026년 상반기', '지난달(2월) 월간', '2025년 연간 종합'] },
       { id: 'achievement', label: '🏆 주요 성과', placeholder: '가장 자랑할 만한 성과는?', suggestions: ['전년 동기 대비 매출 25% 상승', '신규 고객 1만 명 성공적 유치', '운영/유지보수 비용 15% 절감'] },
@@ -46,9 +41,7 @@ const PROMPT_PRESETS: Preset[] = [
     generate: (d) => `[${d.period || '이번 기수'}] 실적 보고서를 작성해줘.\n- 주요 성과: ${d.achievement || '내용 없음'}\n- 향후 계획: ${d.plan || '유지 및 보수'}`
   },
   {
-    id: 'proposal',
-    icon: "🤝",
-    label: "외부 제안서",
+    id: 'proposal', icon: "🤝", label: "외부 제안서",
     fields: [
       { id: 'client', label: '🏢 고객사 (제안 대상)', placeholder: '누구에게 제안하나요?', suggestions: ['A그룹(대기업) IT 부서', 'B 스타트업 경영진', 'C 공공기관 지자체장'] },
       { id: 'solution', label: '💡 제안 솔루션', placeholder: '어떤 해결책을 주나요?', suggestions: ['전사적 클라우드 인프라 전환', 'AI 기반 고객센터 자동화 구축', '맞춤형 임직원 워케이션 프로그램'] },
@@ -62,8 +55,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   
-  // 프롬프트 입력 관련 상태
-  const [activePresetId, setActivePresetId] = useState<string>('manual'); // 'manual' 이면 직접 입력창
+  const [activePresetId, setActivePresetId] = useState<string>('manual');
   const [presetData, setPresetData] = useState<Record<string, string>>({});
   const [manualPrompt, setManualPrompt] = useState('');
 
@@ -77,7 +69,7 @@ const Index = () => {
     step, setStep,
     dataSummary, fileNames,
     meetingInfo, setMeetingInfo,
-    settings, setSettings,
+    settings, setSettings, // ✨ 설정(Settings) 상태
     outline, isLoadingOutline,
     presentation, isGenerating,
     isSaving, handleSave,
@@ -102,15 +94,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300">
-      {/* ── 헤더 ── */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <motion.div
-              className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
+            <motion.div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow" whileHover={{ scale: 1.05, rotate: 5 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </motion.div>
             <div>
@@ -161,7 +148,6 @@ const Index = () => {
         </div>
       </header>
 
-      {/* ── 단계 가이드 배너 ── */}
       {step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div key={step} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="border-b border-border bg-accent/5">
@@ -193,10 +179,8 @@ const Index = () => {
               </p>
             </motion.div>
 
-            {/* ✨ 구조화된 템플릿 입력 UI */}
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
               
-              {/* 탭 버튼 (직접 입력 vs 프리셋) */}
               <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
                 <button
                   onClick={() => setActivePresetId('manual')}
@@ -217,8 +201,6 @@ const Index = () => {
 
               <div className="relative">
                 <AnimatePresence mode="wait">
-                  
-                  {/* 옵션 1: 프리셋 폼 (구조화된 입력창) */}
                   {activePreset && (
                     <motion.div key={activePreset.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6">
                       <div className="space-y-5">
@@ -242,6 +224,25 @@ const Index = () => {
                           </div>
                         ))}
                       </div>
+                      
+                      {/* ✨ 웹 검색 옵션 체크박스 추가 */}
+                      <label className="flex items-start gap-3 p-4 mt-2 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
+                        <div className="mt-0.5">
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+                            checked={settings.useWebSearch || false}
+                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
+                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">
+                            자료 없이 주제만 입력했거나, 최신 정보가 필요할 때 활성화하세요. AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.
+                          </p>
+                        </div>
+                      </label>
+
                       <div className="pt-2 border-t border-border">
                         <Button 
                           onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
@@ -253,22 +254,41 @@ const Index = () => {
                     </motion.div>
                   )}
 
-                  {/* 옵션 2: 자유 직접 입력창 */}
                   {activePresetId === 'manual' && (
-                    <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
-                        <MessageSquare className="w-6 h-6 text-primary" />
+                    <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
+                      <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
+                          <MessageSquare className="w-6 h-6 text-primary" />
+                        </div>
+                        <Textarea 
+                          value={manualPrompt} onChange={(e) => setManualPrompt(e.target.value)}
+                          placeholder="예: 우리 팀의 상반기 워크샵 기획안을 레크레이션 위주로 짜줘"
+                          className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
+                          rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }}
+                        />
+                        <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm">
+                          <Send className="w-4 h-4" /> AI 생성
+                        </Button>
                       </div>
-                      <Textarea 
-                        value={manualPrompt} onChange={(e) => setManualPrompt(e.target.value)}
-                        placeholder="예: 우리 팀의 상반기 워크샵 기획안을 레크레이션 위주로 짜줘"
-                        className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
-                        rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }}
-                      />
-                      <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm">
-                        <Send className="w-4 h-4" /> AI 생성
-                      </Button>
+
+                      {/* ✨ 웹 검색 옵션 체크박스 추가 */}
+                      <label className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
+                        <div className="mt-0.5">
+                          <input
+                            type="checkbox"
+                            className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+                            checked={settings.useWebSearch || false}
+                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
+                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">
+                            자료 없이 주제만 입력했거나, 최신 정보가 필요할 때 활성화하세요. AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.
+                          </p>
+                        </div>
+                      </label>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -292,14 +312,12 @@ const Index = () => {
           </div>
         )}
 
-        {/* ── 발표자료 설정 ── */}
         {step === 'info' && dataSummary && (
           <div className="space-y-6">
             <PresentationSetupForm info={meetingInfo} onChange={setMeetingInfo} settings={settings} onSettingsChange={setSettings} onGenerate={requestOutline} onBack={() => setStep('upload')} isGenerating={isLoadingOutline} fileNames={fileNames} dataSummary={dataSummary} />
           </div>
         )}
 
-        {/* ── 구성안 미리보기 ── */}
         {step === 'outline' && (
           <div className="space-y-6">
             {isLoadingOutline || !outline ? (
@@ -315,10 +333,8 @@ const Index = () => {
           </div>
         )}
 
-        {/* ── 생성 중 ── */}
         {step === 'generating' && <GeneratingState />}
 
-        {/* ── 슬라이드 에디터 ── */}
         {step === 'preview' && presentation && (
           <SlideEditor
             presentation={presentation} onReset={reset} onUpdateSlide={updateSlide} onAddSlide={addSlide} onDeleteSlide={deleteSlide} onDuplicateSlide={duplicateSlide} onMoveSlide={moveSlide} onUpdateTitle={updatePresentationTitle} onSave={handleSave} isSaving={isSaving} onRegenerateSlide={regenerateSlide} onOpenChat={() => setChatOpen(true)} onOpenReview={() => setReviewOpen(true)} onReviewAndFix={reviewAndFixPresentation} isFixing={isFixing} onChangePersona={changeSlidePersona} onCycleLayout={cycleLayout} updatePresentationMaster={updatePresentationMaster}
