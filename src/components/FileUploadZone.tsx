@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, FileSpreadsheet, FileText, Image, FileType, X, Zap, Shield, BarChart3 } from 'lucide-react';
 
@@ -38,7 +38,7 @@ const FEATURES = [
   { icon: Shield, title: '기업 수준 품질', desc: '전문적인 디자인과 일관된 브랜딩이 적용됩니다' },
 ];
 
-export function FileUploadZone({ onFilesSelect, fileNames, onRemoveFile }: FileUploadZoneProps) {
+export const FileUploadZone = React.forwardRef<HTMLDivElement, FileUploadZoneProps>(function FileUploadZone({ onFilesSelect, fileNames, onRemoveFile }, ref) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -190,4 +190,4 @@ export function FileUploadZone({ onFilesSelect, fileNames, onRemoveFile }: FileU
       )}
     </motion.div>
   );
-}
+});
