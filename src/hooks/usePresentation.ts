@@ -75,17 +75,36 @@ export function usePresentation() {
     return parsedFiles.map((f) => f.summary).join(' | ');
   }, [parsedFiles]);
 
+  // ✅ 파일 업로드 — parseError 체크 추가
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
       const results = await Promise.all(files.map(parseFile));
-      const failed = results.filter((r) => r.fileType === 'unknown');
-      const succeeded = results.filter((r) => r.fileType !== 'unknown');
+      const failed = results.filter((r) => r.fileType === 'unknown' || r.parseError);
+      const succeeded = results.filter((r) => r.fileType !== 'unknown' && !r.parseError);
+
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
         setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
+        setStep('info');
         toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
       }
-      if (failed.length > 0) toast.error(`${failed.length}개 파일을 처리할 수 없습니다.`);
+
+      // ✅ 파싱 실패 파일 구체적으로 알림
+      if (failed.length > 0) {
+        failed.forEach((f) => {
+          if (f.parseError) {
+            toast.error(`"${f.fileName}" 파싱 실패 — 스캔 PDF이거나 손상된 파일일 수 있습니다.`);
+          } else {
+            toast.error(`"${f.fileName}" 지원하지 않는 형식입니다.`);
+          }
+        });
+      }
+
+      // ✅ 모든 파일이 실패한 경우
+      if (succeeded.length === 0 && failed.length > 0) {
+        toast.error('파일을 분석할 수 없습니다. 다른 파일을 시도해보세요.');
+        return;
+      }
     } catch {
       toast.error('파일 처리 중 오류가 발생했습니다.');
     }
@@ -96,26 +115,28 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ── ✨ 7번 기능: 파일 없이 직접 텍스트로 시작하기 ──
+  // ── ✨ 파일 없이 직접 텍스트로 시작하기 ──
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
-    
-    // 입력한 프롬프트를 가상의 텍스트 파일 데이터로 취급합니다.
+
     const dummyFile: ParsedFileData = {
       fileName: '💡_사용자_요청사항.txt',
       fileType: 'text/plain',
       content: prompt,
       summary: prompt.length > 30 ? prompt.slice(0, 30) + '...' : prompt,
     };
-    
+
     setParsedFiles([dummyFile]);
     setFileNames([dummyFile.fileName]);
-    // 발표 주제(week) 필드에 프롬프트 내용을 살짝 넣어주면 템플릿 설정할 때 더 편리합니다.
-    setMeetingInfo(prev => ({ ...prev, week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt }));
+    setMeetingInfo(prev => ({
+      ...prev,
+      week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt,
+    }));
     setStep('info');
     toast.success('요청사항이 접수되었습니다! 세부 설정을 확인해주세요.');
   }, []);
 
+  // ── 구성안 미리보기 요청 ──
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -124,7 +145,10 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
         async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
+        {
+          maxRetries: 1,
+          onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }),
+        }
       );
       toast.dismiss('outline-retry');
       setOutline(resData.outline);
@@ -137,6 +161,7 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  // ── 전체 발표자료 생성 ──
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -144,8 +169,14 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null }),
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
+        async () => await aiService.generatePresentation({
+          fileData: payload, meetingInfo, settings, template,
+          approvedOutline: approvedOutline || null,
+        }),
+        {
+          maxRetries: 1,
+          onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }),
+        }
       );
       toast.dismiss('gen-retry');
       setPresentation(resData.presentation);
@@ -173,6 +204,7 @@ export function usePresentation() {
     });
   }, []);
 
+  // ── 특정 슬라이드 재생성 ──
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -180,7 +212,10 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction }),
+        async () => await aiService.regenerateSlide({
+          slideIndex, currentSlide, presentation,
+          fileData: payload, userInstruction,
+        }),
         { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
@@ -190,7 +225,12 @@ export function usePresentation() {
     }
   }, [presentation, parsedFiles, updateSlide]);
 
-  const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide): Promise<{ slide: Slide; summary: string } | null> => {
+  // ── 채팅형 슬라이드 수정 ──
+  const requestChatEdit = useCallback(async (
+    message: string,
+    slideIndex: number,
+    currentSlide: Slide,
+  ): Promise<{ slide: Slide; summary: string } | null> => {
     try {
       const resData = await retryWithBackoff(
         async () => await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation }),
@@ -203,38 +243,45 @@ export function usePresentation() {
     }
   }, [presentation]);
 
+  // ── 슬라이드 페르소나 변경 ──
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
-    
-    const personaLabels: Record<string, string> = {
-      jobs: '🍎 스티브 잡스', mckinsey: '💼 맥킨지', ceo: '👔 임원진 보고', team: '🤝 팀원 공유', client: '🏢 외부 고객'
-    };
-    
-    toast.loading(`${personaLabels[persona] || '새로운'} 스타일로 변환 중...`, { id: 'persona' });
 
+    const personaLabels: Record<string, string> = {
+      jobs: '🍎 스티브 잡스', mckinsey: '💼 맥킨지',
+      ceo: '👔 임원진 보고', team: '🤝 팀원 공유', client: '🏢 외부 고객',
+    };
+
+    toast.loading(`${personaLabels[persona] || '새로운'} 스타일로 변환 중...`, { id: 'persona' });
     try {
       const resData = await retryWithBackoff(
         async () => await aiService.changePersona({ currentSlide, persona }),
         { maxRetries: 1 }
       );
-      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona: persona as Slide['persona'] });
+      updateSlide(slideIndex, {
+        ...resData.slide,
+        slideNumber: slideIndex + 1,
+        layout: currentSlide.layout,
+        persona: persona as Slide['persona'],
+      });
       toast.success('스타일 변환 완료! ✨', { id: 'persona' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '스타일 변환'), { id: 'persona' });
     }
   }, [presentation, updateSlide]);
 
+  // ── 레이아웃 순환 ──
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
     const currentLayout = presentation.slides[slideIndex].layout || 'default';
     const nextLayout = layouts[(layouts.indexOf(currentLayout) + 1) % layouts.length];
-    
     updateSlide(slideIndex, { layout: nextLayout });
     toast.success('레이아웃이 변경되었습니다 🪄');
   }, [presentation, updateSlide]);
 
+  // ── 저장 ──
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -253,6 +300,7 @@ export function usePresentation() {
     }
   }, [presentation, meetingInfo, settings, template]);
 
+  // ── 히스토리 ──
   const fetchHistory = useCallback(async () => {
     setIsLoadingList(true);
     try {
@@ -288,6 +336,7 @@ export function usePresentation() {
     }
   }, []);
 
+  // ── 슬라이드 편집 ──
   const addSlide = useCallback((afterIndex: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -347,6 +396,7 @@ export function usePresentation() {
     setReviewResult(null);
   }, []);
 
+  // ── AI 리뷰 ──
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -360,11 +410,15 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  const applyReviewFix = useCallback(async (slideIndex: number, issue: string, suggestion: string) => {
+  const applyReviewFix = useCallback(async (
+    slideIndex: number,
+    issue: string,
+    suggestion: string,
+  ): Promise<boolean> => {
     if (!presentation) return false;
     const currentSlide = presentation.slides[slideIndex];
     const instruction = `리뷰어의 피드백을 반영해주세요. 지적된 문제점: "${issue}", 개선 제안: "${suggestion}". 이 제안에 맞게 슬라이드의 내용을 완벽하게 수정하세요.`;
-    
+
     try {
       const resData = await retryWithBackoff(
         async () => await aiService.chatEdit({ userMessage: instruction, currentSlide, slideIndex, presentation }),
@@ -390,7 +444,10 @@ export function usePresentation() {
     try {
       const resData = await retryWithBackoff(
         async () => await aiService.reviewAndFix({ presentation }),
-        { maxRetries: 1, onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }) }
+        {
+          maxRetries: 1,
+          onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }),
+        }
       );
       setPresentation(resData.result.presentation);
       toast.success(`최적화 완료! ✨ ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
@@ -419,7 +476,7 @@ export function usePresentation() {
     isDark, toggleDark,
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
-    handlePromptSubmit, // ✨ 텍스트(프롬프트) 입력 함수 반환 추가
+    handlePromptSubmit,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
     reset,
