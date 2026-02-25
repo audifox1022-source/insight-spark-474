@@ -36,16 +36,26 @@ export function ScaledSlide({ slide, containerClassName = '', logoUrl, watermark
   const tScale = slide.titleSizeScale ?? 1.0;
   const cScale = slide.contentSizeScale ?? 1.0;
 
-  // ✨ 데이터 위치 유연성 확보 (최상위 필드와 tableData 객체 모두 확인)
-  const headers = slide.headers || slide.tableData?.headers || [];
-  const rows = slide.rows || slide.tableData?.rows || [];
+  // ✨ [React Error #31 방어] 데이터를 안전하게 문자열로 변환하는 함수
+  const safeString = (val: any): string => {
+    if (!val) return "";
+    if (typeof val === 'string') return val;
+    if (typeof val === 'object') {
+      // {type, content} 형태인 경우 content를 우선 추출, 아니면 JSON 직렬화
+      return val.content || val.text || val.title || JSON.stringify(val);
+    }
+    return String(val);
+  };
+
+  const headers = (slide.headers || slide.tableData?.headers || []).map(safeString);
+  const rows = (slide.rows || slide.tableData?.rows || []).map(row => (Array.isArray(row) ? row.map(safeString) : []));
   const stats = slide.stats || slide.chartData?.stats || [];
-  const items = slide.items || [];
-  const hasVisual = headers.length > 0 || stats.length > 0 || items.length > 0;
+  const items = (slide.items || []).map(it => (typeof it === 'object' ? { ...it, title: safeString(it.title || it) } : safeString(it)));
+  const content = (slide.content || slide.points || []).map(safeString);
 
   const renderHighlightedText = (text: string, baseSize: number, appliedScale: number, isBold: boolean = false) => {
-    if (!text) return null;
-    const parts = text.split(/(\*\*.*?\*\*)/g);
+    const str = safeString(text);
+    const parts = str.split(/(\*\*.*?\*\*)/g);
     return (
       <span style={{ fontSize: `${baseSize * appliedScale}px` }} className={`${isBold ? 'font-bold' : 'font-medium'} break-words whitespace-pre-wrap leading-[1.6]`}>
         {parts.map((p, i) => p.startsWith('**') ? <span key={i} style={{ color: theme.accent }} className="font-extrabold">{p.slice(2, -2)}</span> : <span key={i}>{p}</span>)}
@@ -78,7 +88,7 @@ export function ScaledSlide({ slide, containerClassName = '', logoUrl, watermark
             <div className="flex-1 flex flex-col justify-center items-start px-[180px]">
               <h1 className="font-black leading-[1.15] max-w-[1400px] text-slate-900" style={{ fontSize: `${96 * tScale}px` }}>{renderHighlightedText(slide.title, 96, tScale, true)}</h1>
             </div>
-          ) : slide.type === 'table' || (headers.length > 0) ? (
+          ) : (headers.length > 0) ? (
             <div className="flex-1 flex flex-col">
               {renderHeader()}
               <div className="flex-1 px-[140px] py-[40px] overflow-hidden">
@@ -87,9 +97,11 @@ export function ScaledSlide({ slide, containerClassName = '', logoUrl, watermark
                     <tr>{headers.map((h, i) => <th key={i} className="p-[24px] font-black text-slate-800" style={{ fontSize: `${24 * cScale}px` }}>{h}</th>)}</tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => <tr key={i} className="border-b border-slate-50">
-                      {row.map((cell, j) => <td key={j} className="p-[24px] font-medium text-slate-600" style={{ fontSize: `${22 * cScale}px` }}>{cell}</td>)}
-                    </tr>)}
+                    {rows.map((row, i) => (
+                      <tr key={i} className="border-b border-slate-50">
+                        {row.map((cell, j) => <td key={j} className="p-[24px] font-medium text-slate-600" style={{ fontSize: `${22 * cScale}px` }}>{cell}</td>)}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -98,12 +110,16 @@ export function ScaledSlide({ slide, containerClassName = '', logoUrl, watermark
             <div className="flex-1 flex flex-col">
               {renderHeader()}
               <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
-                {items.length > 0 && <ul className="space-y-[24px]">
-                  {items.map((it, i) => <li key={i} className="bg-white p-[32px] rounded-[24px] shadow-sm flex items-center gap-6">
-                    <span className="font-black text-slate-200" style={{ fontSize: `${40 * cScale}px` }}>{String(i + 1).padStart(2, '0')}</span>
-                    <span className="font-bold text-slate-700" style={{ fontSize: `${32 * cScale}px` }}>{it.title || it}</span>
-                  </li>)}
-                </ul>}
+                {(content.length > 0 || items.length > 0) && (
+                  <ul className="space-y-[24px]">
+                    {(content.length > 0 ? content : items).map((it: any, i) => (
+                      <li key={i} className="bg-white p-[32px] rounded-[24px] shadow-sm flex items-center gap-6">
+                        <span className="font-black text-slate-200" style={{ fontSize: `${40 * cScale}px` }}>{String(i + 1).padStart(2, '0')}</span>
+                        <span className="font-bold text-slate-700" style={{ fontSize: `${32 * cScale}px` }}>{renderHighlightedText(typeof it === 'object' ? it.title : it, 32, cScale)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           )}
