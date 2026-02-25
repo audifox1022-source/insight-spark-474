@@ -1,6 +1,10 @@
 import { useRef, useEffect, useState } from 'react';
-import { Slide, SlideMetric } from '@/types/presentation';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, CheckCircle2, Zap } from 'lucide-react';
+import React from 'react';
+import { Slide } from '@/types/presentation';
+import { 
+  TrendingUp, TrendingDown, Minus, ArrowRight, CheckCircle2, 
+  Zap, Quote, ArrowRightCircle, AlertCircle, BarChart2
+} from 'lucide-react';
 import { SlideChart } from '@/components/SlideChart';
 
 const SLIDE_W = 1920;
@@ -22,18 +26,16 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+/* ── 💡 가독성 극대화 라이트 테마 ── */
 const typeThemes: Record<string, { bg: string; accent: string; badge: string; }> = {
   title: { bg: 'bg-gradient-to-br from-slate-50 to-slate-100', accent: '#2563eb', badge: 'INTRO' },
+  section: { bg: 'bg-gradient-to-br from-indigo-50 to-slate-100', accent: '#4f46e5', badge: 'CHAPTER' },
+  agenda: { bg: 'bg-gradient-to-br from-slate-50 to-white', accent: '#3b82f6', badge: 'INDEX' },
   data: { bg: 'bg-gradient-to-br from-white to-slate-50', accent: '#7c3aed', badge: 'DATA' },
   chart: { bg: 'bg-gradient-to-br from-slate-50 to-white', accent: '#0d9488', badge: 'CHART' },
   action: { bg: 'bg-gradient-to-br from-orange-50 to-white', accent: '#ea580c', badge: 'ACTION' },
   summary: { bg: 'bg-gradient-to-br from-blue-50 to-white', accent: '#0284c7', badge: 'SUMMARY' },
-};
-
-const trendConfig: Record<string, { icon: React.ReactNode; color: string; }> = {
-  up: { icon: <TrendingUp className="w-[32px] h-[32px]" />, color: '#059669' },
-  down: { icon: <TrendingDown className="w-[32px] h-[32px]" />, color: '#dc2626' },
-  flat: { icon: <Minus className="w-[32px] h-[32px]" />, color: '#64748b' },
+  closing: { bg: 'bg-gradient-to-br from-slate-900 to-slate-800', accent: '#38bdf8', badge: 'FINISH' },
 };
 
 export function ScaledSlide({ slide, containerClassName = '', interactive = false, logoUrl, watermark }: ScaledSlideProps) {
@@ -53,29 +55,51 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
     return () => observer.disconnect();
   }, []);
 
+  // 테마 매핑 (알 수 없는 타입은 data 테마 사용)
   const theme = typeThemes[slide.type] || typeThemes.data;
   
-  const hasChart = slide.chartData && slide.chartData.data && slide.chartData.data.length > 0;
-  const hasTable = slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0;
-  const hasMetrics = slide.keyMetrics && slide.keyMetrics.length > 0;
-  const hasVisual = hasChart || hasTable || hasMetrics;
-
-  const isTitle = slide.type === 'title';
-  const isAction = slide.type === 'action';
-  const isSummary = slide.type === 'summary';
-
-  const layoutMode = slide.layout || 'default';
-  const isSplitLeft = layoutMode === 'split-left';
-  const isHighlight = layoutMode === 'highlight';
-  const isGrid = layoutMode === 'grid';
-
-  // ✨ 디테일 튜닝 파라미터 적용
+  // 디테일 튜닝 파라미터 적용
   const textScale = slide.textSizeScale || 1.0;
-  const vRatio = slide.visualRatio || 50; // 시각자료가 차지하는 비율 (기본 50%)
+  const vRatio = slide.visualRatio || 50; 
   const tDensity = slide.tableDensity || 'normal';
-
-  // 표 밀집도에 따른 패딩 설정
   const tablePadding = tDensity === 'compact' ? 'py-[12px] px-[16px]' : tDensity === 'relaxed' ? 'py-[28px] px-[32px]' : 'py-[20px] px-[24px]';
+
+  // 특정 강조 텍스트 파싱 함수 (**텍스트** -> 하이라이트)
+  const renderHighlightedText = (text: string, baseSize: number, isBold: boolean = false) => {
+    if (!text) return null;
+    const parts = text.split(/(\*\*.*?\*\*|\[\[.*?\]\])/g);
+    return (
+      <span style={{ fontSize: `${baseSize * textScale}px` }} className={`${isBold ? 'font-bold' : 'font-medium'} break-keep leading-[1.6]`}>
+        {parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return <span key={i} style={{ color: theme.accent }} className="font-extrabold">{part.slice(2, -2)}</span>;
+          }
+          if (part.startsWith('[[') && part.endsWith(']]')) {
+            return <span key={i} className="inline-block px-[12px] py-[4px] mx-[6px] rounded-[12px] font-bold shadow-sm" style={{ backgroundColor: hexToRgba(theme.accent, 0.1), color: theme.accent }}>{part.slice(2, -2)}</span>;
+          }
+          return <span key={i}>{part}</span>;
+        })}
+      </span>
+    );
+  };
+
+  /* ── 템플릿 렌더링 함수들 ── */
+  const renderHeader = () => (
+    <div className="px-[140px] pt-[80px] pb-[28px] relative z-[3]">
+      <div className="flex items-center gap-[16px] mb-[24px]">
+        <span className="font-bold tracking-[0.3em] uppercase font-mono px-[20px] py-[8px] rounded-full bg-white border border-slate-200 shadow-sm" style={{ color: theme.accent, fontSize: `${18 * textScale}px` }}>{theme.badge || slide.type}</span>
+        <div className="w-[3px] h-[24px] bg-slate-300" />
+        <span className="font-mono text-slate-400 font-bold tracking-[0.2em]" style={{ fontSize: `${20 * textScale}px` }}>{String(slide.slideNumber).padStart(2, '0')}</span>
+      </div>
+      <h1 className="font-black leading-[1.2] tracking-[-0.03em] max-w-[1500px] break-keep" style={{ fontSize: `${72 * textScale}px`, color: slide.type === 'closing' ? 'white' : '#0f172a' }}>
+        {renderHighlightedText(slide.title, 72, true)}
+      </h1>
+      {slide.subhead && (
+        <p className="mt-[24px] text-slate-500 font-medium tracking-tight" style={{ fontSize: `${36 * textScale}px` }}>{slide.subhead}</p>
+      )}
+      <div className="h-[3px] rounded-full mt-[32px] w-[200px]" style={{ background: theme.accent }} />
+    </div>
+  );
 
   return (
     <div ref={containerRef} className={`relative overflow-hidden ${containerClassName}`} style={{ aspectRatio: '16/9' }}>
@@ -88,249 +112,301 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale',
         }}
       >
-        <div className={`w-full h-full ${theme.bg} text-slate-900 flex flex-col relative overflow-hidden tracking-tight`}>
-
+        <div className={`w-full h-full ${theme.bg} ${slide.type === 'closing' ? 'text-white' : 'text-slate-900'} flex flex-col relative overflow-hidden tracking-tight`}>
+          
+          {/* 배경 이미지 & 워터마크 & 로고 */}
           {slide.imageUrl && (
             <div className="absolute inset-0 z-0">
-              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover opacity-30 grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover opacity-30 grayscale" />
               <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
             </div>
           )}
-
           <div className="absolute inset-0 pointer-events-none z-[1]">
             <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: `radial-gradient(circle at 20% 80%, black 1px, transparent 1px), radial-gradient(circle at 80% 20%, black 1px, transparent 1px)`, backgroundSize: '120px 120px, 160px 160px' }} />
             <div className="absolute -top-[300px] -right-[300px] w-[900px] h-[900px] rounded-full blur-[100px]" style={{ background: hexToRgba(theme.accent, 0.08) }} />
-            <div className="absolute -bottom-[200px] -left-[200px] w-[600px] h-[600px] rounded-full blur-[80px]" style={{ background: hexToRgba(theme.accent, 0.05) }} />
           </div>
-
           {watermark && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[1] overflow-hidden opacity-[0.04]">
-              <span className="font-black tracking-widest uppercase rotate-[-30deg] whitespace-nowrap select-none text-slate-900" style={{ fontSize: `${240 * textScale}px` }}>{watermark}</span>
+              <span className="font-black tracking-widest uppercase rotate-[-30deg] whitespace-nowrap select-none" style={{ fontSize: `${240 * textScale}px` }}>{watermark}</span>
             </div>
           )}
-
           {logoUrl && (
             <div className="absolute top-[50px] right-[60px] z-[50]">
               <img src={logoUrl} alt="Logo" className="h-[70px] object-contain drop-shadow-sm" />
             </div>
           )}
-
           <div className="absolute left-0 top-0 bottom-0 w-[8px] z-[2]" style={{ background: theme.accent }} />
 
-          {/* ======= TITLE 슬라이드 ======= */}
-          {isTitle ? (
-            <div className={`flex-1 flex flex-col justify-center relative z-[3] ${isHighlight ? 'items-center text-center px-[80px]' : 'items-start px-[180px]'}`}>
-              <div className="flex items-center gap-[16px] mb-[40px]">
-                <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
-                <span className="font-bold tracking-[0.4em] uppercase font-mono" style={{ color: theme.accent, fontSize: `${22 * textScale}px` }}>{theme.badge}</span>
-                <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
-              </div>
-              <h1 className={`font-black leading-[1.2] tracking-[-0.03em] text-slate-900 ${isHighlight ? 'max-w-[1600px]' : 'max-w-[1400px]'} break-keep`}
-                  style={{ fontSize: `${100 * textScale}px` }}>
-                {slide.title}
-              </h1>
-              <div className={`mt-[48px] mb-[48px] h-[6px] w-[140px] rounded-full ${isHighlight ? 'mx-auto' : ''}`} style={{ background: theme.accent }} />
-              {slide.content && slide.content.length > 0 && (
-                <div className={`space-y-[20px] ${isHighlight ? 'max-w-[1200px]' : 'max-w-[1000px]'}`}>
-                  {slide.content.map((item, i) => (
-                    <p key={i} className="leading-[1.6] font-medium text-slate-600 break-keep" style={{ fontSize: `${36 * textScale}px` }}>{item}</p>
-                  ))}
-                </div>
-              )}
-              {hasMetrics && (
-                <div className={`mt-[64px] flex gap-[40px] ${isHighlight ? 'justify-center' : ''}`}>
-                  {slide.keyMetrics!.map((m, i) => (
-                    <div key={i} className="flex items-center gap-[20px] bg-white px-[36px] py-[24px] rounded-[24px] border border-slate-200 shadow-xl">
-                      <span className="font-black text-slate-900" style={{ fontSize: `${64 * textScale}px` }}>{m.value}</span>
-                      <div className="flex flex-col text-left border-l-2 border-slate-100 pl-[24px]">
-                        <span className="text-slate-500 font-bold mb-[4px]" style={{ fontSize: `${20 * textScale}px` }}>{m.label}</span>
-                        <span style={{ color: trendConfig[m.trend].color }}>{trendConfig[m.trend].icon}</span>
-                      </div>
+          {/* 슬라이드 본문 렌더링 스위치 */}
+          {(() => {
+            switch (slide.type) {
+              
+              case 'title':
+                return (
+                  <div className="flex-1 flex flex-col justify-center items-start px-[180px] relative z-[3]">
+                    <div className="flex items-center gap-[16px] mb-[40px]">
+                      <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
+                      <span className="font-bold tracking-[0.4em] uppercase font-mono" style={{ color: theme.accent, fontSize: `${22 * textScale}px` }}>{theme.badge || 'TITLE'}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    <h1 className="font-black leading-[1.15] tracking-[-0.03em] max-w-[1400px] break-keep" style={{ fontSize: `${110 * textScale}px` }}>
+                      {renderHighlightedText(slide.title, 110, true)}
+                    </h1>
+                    {slide.subhead && <p className="mt-[32px] font-medium text-slate-500" style={{ fontSize: `${40 * textScale}px` }}>{slide.subhead}</p>}
+                    <div className="mt-[64px] h-[6px] w-[140px] rounded-full" style={{ background: theme.accent }} />
+                    {slide.date && <p className="mt-[40px] font-mono text-slate-400 font-bold tracking-widest" style={{ fontSize: `${24 * textScale}px` }}>{slide.date}</p>}
+                  </div>
+                );
 
-          /* ======= ACTION 슬라이드 ======= */
-          ) : isAction ? (
-            <div className="flex-1 flex flex-col relative z-[3]">
-              <div className="px-[140px] pt-[80px] pb-[20px]">
-                <div className="flex items-center gap-[16px] mb-[24px]">
-                  <span className="font-bold tracking-[0.3em] uppercase font-mono px-[20px] py-[8px] rounded-full bg-white border border-slate-200 shadow-sm" style={{ color: theme.accent, fontSize: `${18 * textScale}px` }}>{theme.badge}</span>
-                  <div className="w-[3px] h-[24px] bg-slate-300" />
-                  <span className="font-mono text-slate-400 font-bold tracking-[0.2em]" style={{ fontSize: `${20 * textScale}px` }}>{String(slide.slideNumber).padStart(2, '0')}</span>
-                </div>
-                <h1 className="font-black leading-[1.2] tracking-[-0.03em] max-w-[1300px] text-slate-900 break-keep" style={{ fontSize: `${72 * textScale}px` }}>{slide.title}</h1>
-              </div>
+              case 'section':
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center px-[100px] relative z-[3]">
+                    {slide.sectionNo && (
+                      <span className="font-black opacity-10 mb-[24px]" style={{ fontSize: `${200 * textScale}px`, color: theme.accent }}>{slide.sectionNo}</span>
+                    )}
+                    <div className="h-[4px] w-[100px] mb-[40px]" style={{ background: theme.accent }} />
+                    <h1 className="font-black leading-[1.2] tracking-[-0.03em] break-keep text-slate-800" style={{ fontSize: `${90 * textScale}px` }}>
+                      {renderHighlightedText(slide.title, 90, true)}
+                    </h1>
+                    {slide.subhead && <p className="mt-[32px] font-medium text-slate-500" style={{ fontSize: `${36 * textScale}px` }}>{slide.subhead}</p>}
+                  </div>
+                );
 
-              {/* ✨ Action 영역: 시각 자료 비율(vRatio) 반영 */}
-              <div className={`flex-1 px-[140px] py-[40px] flex gap-[72px] min-h-0 ${isSplitLeft ? 'flex-row-reverse' : 'flex-row'}`}>
-                <div className="flex-1 flex flex-col justify-center" style={{ width: hasVisual ? `${100 - vRatio}%` : '100%' }}>
-                  {slide.content && slide.content.length > 0 && (
-                    <div className="space-y-[24px]">
-                      <div className="rounded-[24px] p-[48px] relative overflow-hidden shadow-2xl bg-white border-2" style={{ borderColor: theme.accent }}>
-                        <div className="absolute -top-[60px] -right-[60px] w-[240px] h-[240px] rounded-full blur-[40px]" style={{ background: hexToRgba(theme.accent, 0.15) }} />
-                        <div className="flex items-start gap-[24px] relative z-10">
-                          <div className="flex-shrink-0 w-[64px] h-[64px] rounded-[16px] flex items-center justify-center mt-[4px] shadow-lg" style={{ background: theme.accent }}>
-                            <Zap className="w-[32px] h-[32px] text-white" />
+              case 'agenda':
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
+                      <div className="grid gap-[32px] max-w-[1200px]">
+                        {slide.items?.map((item, i) => (
+                          <div key={i} className="flex items-center gap-[40px] p-[32px] bg-white rounded-[24px] shadow-sm border border-slate-100">
+                            <span className="font-black italic opacity-20" style={{ fontSize: `${80 * textScale}px`, color: theme.accent }}>{String(i + 1).padStart(2, '0')}</span>
+                            <span className="font-bold text-slate-700 break-keep" style={{ fontSize: `${48 * textScale}px` }}>{typeof item === 'string' ? item : item.title}</span>
                           </div>
-                          <div><span className="font-bold leading-[1.4] text-slate-900 break-keep" style={{ fontSize: `${44 * textScale}px` }}>{slide.content[0]}</span></div>
-                        </div>
+                        ))}
                       </div>
-                      {slide.content.slice(1).map((item, i) => (
-                        <div key={i} className="flex items-start gap-[20px] px-[32px] py-[24px] rounded-[20px] bg-white border border-slate-200 shadow-sm">
-                          <CheckCircle2 className="w-[36px] h-[36px] flex-shrink-0 mt-[4px]" style={{ color: theme.accent }} />
-                          <span className="font-medium text-slate-700 leading-[1.6] break-keep" style={{ fontSize: `${32 * textScale}px` }}>{item}</span>
-                        </div>
-                      ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                );
 
-                {hasVisual && (
-                  <div className={`flex-shrink-0 flex flex-col justify-center min-h-0`} style={{ width: `${vRatio}%` }}>
-                    {hasChart && (
-                      <div className="w-full min-h-[480px] rounded-[24px] p-[32px] bg-white shadow-xl border border-slate-200">
-                        <SlideChart chartData={slide.chartData!} isSlideView={true} />
-                      </div>
-                    )}
-                    {hasTable && !hasChart && (
-                      <div className="w-full max-h-[600px] overflow-hidden rounded-[24px] bg-white shadow-xl border border-slate-200 flex flex-col">
-                        <div className="w-full flex-1 overflow-y-auto custom-scrollbar p-[16px]">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 z-10">
-                              <tr>
-                                {slide.tableData!.headers.map((h, i) => (
-                                  <th key={i} className={`${tablePadding} font-bold text-slate-800 bg-slate-100 border-b-2 border-slate-300 whitespace-nowrap shadow-sm`} style={{ fontSize: `${24 * textScale}px` }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                              {slide.tableData!.rows.map((row, rIdx) => (
-                                <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
-                                  {row.map((cell, cIdx) => (
-                                    <td key={cIdx} className={`${tablePadding} leading-[1.5] break-keep`} style={{ fontSize: `${22 * textScale}px` }}>{cell}</td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                    {!hasChart && !hasTable && hasMetrics && (
-                      <div className="flex flex-col gap-[24px]">
-                        {slide.keyMetrics!.map((m, i) => {
-                          const trend = trendConfig[m.trend];
-                          return (
-                            <div key={i} className="rounded-[24px] p-[40px] relative overflow-hidden bg-white shadow-xl border border-slate-200">
-                              <div className="flex items-center justify-between mb-[16px]">
-                                <span className="text-slate-500 font-bold" style={{ fontSize: `${24 * textScale}px` }}>{m.label}</span>
-                                <span style={{ color: trend.color }}>{trend.icon}</span>
-                              </div>
-                              <div className="font-black tracking-tight leading-none text-slate-900" style={{ fontSize: `${64 * textScale}px` }}>{m.value}</div>
+              case 'process':
+              case 'processList':
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[40px] flex flex-col justify-center">
+                      <div className="flex items-center justify-between w-full gap-[24px]">
+                        {slide.steps?.map((step, i) => (
+                          <React.Fragment key={i}>
+                            <div className="flex-1 bg-white rounded-[32px] p-[48px] shadow-xl border-t-[8px] flex flex-col justify-center min-h-[360px]" style={{ borderTopColor: theme.accent }}>
+                              <div className="w-[64px] h-[64px] rounded-full flex items-center justify-center font-black text-white mb-[32px]" style={{ background: theme.accent, fontSize: `${28 * textScale}px` }}>{i + 1}</div>
+                              <span className="font-bold text-slate-800 break-keep" style={{ fontSize: `${36 * textScale}px` }}>{renderHighlightedText(step, 36)}</span>
                             </div>
-                          );
+                            {i < (slide.steps?.length || 0) - 1 && (
+                              <ArrowRightCircle className="flex-shrink-0 opacity-20" style={{ width: `${80 * textScale}px`, height: `${80 * textScale}px`, color: theme.accent }} />
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+
+              case 'compare':
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[20px] flex gap-[64px]">
+                      {/* Left */}
+                      <div className="flex-1 bg-white rounded-[32px] p-[48px] shadow-lg border border-slate-200">
+                        <h2 className="font-black mb-[40px] pb-[24px] border-b-2 border-slate-100 text-center text-slate-800" style={{ fontSize: `${48 * textScale}px` }}>{slide.leftTitle || 'As-Is'}</h2>
+                        <ul className="space-y-[32px]">
+                          {slide.leftItems?.map((item, i) => (
+                            <li key={i} className="flex items-start gap-[20px]">
+                              <AlertCircle className="flex-shrink-0 mt-[8px] text-slate-400" style={{ width: `${32 * textScale}px`, height: `${32 * textScale}px` }} />
+                              <span className="font-medium text-slate-600 break-keep" style={{ fontSize: `${32 * textScale}px` }}>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {/* VS icon */}
+                      <div className="flex flex-col justify-center items-center font-black italic text-slate-200" style={{ fontSize: `${80 * textScale}px` }}>VS</div>
+                      {/* Right */}
+                      <div className="flex-1 bg-gradient-to-b from-white to-slate-50 rounded-[32px] p-[48px] shadow-2xl border-[3px]" style={{ borderColor: theme.accent }}>
+                        <h2 className="font-black mb-[40px] pb-[24px] border-b-2 border-slate-200 text-center" style={{ fontSize: `${48 * textScale}px`, color: theme.accent }}>{slide.rightTitle || 'To-Be'}</h2>
+                        <ul className="space-y-[32px]">
+                          {slide.rightItems?.map((item, i) => (
+                            <li key={i} className="flex items-start gap-[20px]">
+                              <CheckCircle2 className="flex-shrink-0 mt-[8px]" style={{ width: `${36 * textScale}px`, height: `${36 * textScale}px`, color: theme.accent }} />
+                              <span className="font-bold text-slate-800 break-keep" style={{ fontSize: `${32 * textScale}px` }}>{renderHighlightedText(item, 32)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                );
+
+              case 'cards':
+              case 'bulletCards':
+              case 'headerCards':
+                const cols = slide.columns || (slide.items?.length && slide.items.length <= 3 ? slide.items.length : 2);
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
+                      <div className="grid gap-[40px]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+                        {slide.items?.map((item, i) => (
+                          <div key={i} className="bg-white rounded-[32px] p-[48px] shadow-xl border border-slate-100 flex flex-col h-full hover:shadow-2xl transition-shadow">
+                            {item.title && (
+                              <h3 className="font-bold mb-[24px] pb-[24px] border-b border-slate-100 flex items-center gap-[16px]" style={{ fontSize: `${40 * textScale}px`, color: theme.accent }}>
+                                <Zap className="flex-shrink-0" style={{ width: `${40 * textScale}px`, height: `${40 * textScale}px` }} />
+                                {item.title}
+                              </h3>
+                            )}
+                            <p className="font-medium text-slate-600 leading-[1.7] break-keep" style={{ fontSize: `${32 * textScale}px` }}>
+                              {renderHighlightedText(item.desc || item.description || '', 32)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+
+              case 'barCompare':
+              case 'statsCompare':
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
+                      <div className="flex justify-between px-[60px] mb-[40px] font-black text-slate-400 uppercase tracking-widest" style={{ fontSize: `${28 * textScale}px` }}>
+                        <span>{slide.leftTitle || 'As-Is'}</span>
+                        <span>{slide.rightTitle || 'To-Be'}</span>
+                      </div>
+                      <div className="space-y-[40px]">
+                        {slide.stats?.map((stat, i) => (
+                          <div key={i} className="bg-white rounded-[24px] p-[40px] shadow-md border border-slate-200">
+                            <div className="flex justify-between items-end mb-[24px]">
+                              <span className="font-black text-slate-500" style={{ fontSize: `${48 * textScale}px` }}>{stat.leftValue}</span>
+                              <span className="font-bold text-slate-400 bg-slate-100 px-[24px] py-[8px] rounded-full" style={{ fontSize: `${24 * textScale}px` }}>{stat.label}</span>
+                              <span className="font-black" style={{ fontSize: `${64 * textScale}px`, color: theme.accent }}>{stat.rightValue}</span>
+                            </div>
+                            {/* 시각적 바 차트 렌더링 (단순 비율화) */}
+                            <div className="w-full h-[24px] bg-slate-100 rounded-full flex overflow-hidden">
+                               <div className="h-full bg-slate-300 transition-all" style={{ width: '40%' }}></div>
+                               <div className="h-full transition-all" style={{ width: '60%', background: theme.accent }}></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+
+              case 'kpi':
+                const kpiCols = slide.columns || Math.min(slide.items?.length || 3, 4);
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
+                      <div className="grid gap-[40px]" style={{ gridTemplateColumns: `repeat(${kpiCols}, 1fr)` }}>
+                        {slide.items?.map((item, i) => {
+                           const isGood = item.status === 'good';
+                           const isBad = item.status === 'bad';
+                           const tColor = isGood ? '#059669' : isBad ? '#dc2626' : theme.accent;
+                           return (
+                            <div key={i} className="bg-white rounded-[32px] p-[48px] shadow-2xl border-2 text-center flex flex-col items-center justify-center min-h-[360px]" style={{ borderColor: hexToRgba(tColor, 0.2) }}>
+                              <span className="font-bold text-slate-500 mb-[24px]" style={{ fontSize: `${32 * textScale}px` }}>{item.label}</span>
+                              <span className="font-black tracking-tighter mb-[24px]" style={{ fontSize: `${80 * textScale}px`, color: tColor }}>{item.value}</span>
+                              {item.change && (
+                                <span className="inline-flex items-center gap-2 px-[24px] py-[12px] rounded-full font-bold" style={{ backgroundColor: hexToRgba(tColor, 0.1), color: tColor, fontSize: `${24 * textScale}px` }}>
+                                  {isGood ? <TrendingUp size={28}/> : isBad ? <TrendingDown size={28}/> : <Minus size={28}/>}
+                                  {item.change}
+                                </span>
+                              )}
+                            </div>
+                           );
                         })}
                       </div>
-                    )}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
+                );
 
-          /* ======= DATA / CHART / SUMMARY 공용 (레이아웃 마법사) ======= */
-          ) : (
-            <div className="flex-1 flex flex-col relative z-[3]">
-              <div className={`px-[140px] pt-[80px] pb-[28px] ${isHighlight ? 'text-center' : ''}`}>
-                <div className={`flex items-center gap-[16px] mb-[24px] ${isHighlight ? 'justify-center' : ''}`}>
-                  <span className="font-bold tracking-[0.3em] uppercase font-mono px-[20px] py-[8px] rounded-full bg-white border border-slate-200 shadow-sm" style={{ color: theme.accent, fontSize: `${18 * textScale}px` }}>{theme.badge}</span>
-                  <div className="w-[3px] h-[24px] bg-slate-300" />
-                  <span className="font-mono text-slate-400 font-bold tracking-[0.2em]" style={{ fontSize: `${20 * textScale}px` }}>{String(slide.slideNumber).padStart(2, '0')}</span>
-                </div>
-                <h1 className={`font-black leading-[1.2] tracking-[-0.03em] text-slate-900 ${isHighlight ? 'mx-auto max-w-[1600px]' : 'max-w-[1300px]'} break-keep`} style={{ fontSize: `${72 * textScale}px` }}>{slide.title}</h1>
-              </div>
+              // 기본 처리 (content, data, table, chart 등 기존 엔진 활용)
+              default:
+                const displayContent = slide.content || slide.points || [];
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className={`flex-1 px-[140px] py-[20px] flex gap-[72px] min-h-0 ${slide.imagePosition === 'right' ? 'flex-row' : 'flex-row-reverse'}`}>
+                      
+                      {/* 텍스트 영역 */}
+                      <div className="flex flex-col justify-center min-h-0 overflow-y-auto custom-scrollbar" style={{ width: hasVisual ? `${100 - vRatio}%` : '100%' }}>
+                        {displayContent.length > 0 && (
+                          <ul className="space-y-[32px]">
+                            {displayContent.map((item, i) => (
+                              <li key={i} className="flex items-start gap-[24px] bg-white p-[32px] rounded-[24px] shadow-sm border border-slate-100">
+                                <div className="mt-[6px] flex-shrink-0 w-[48px] h-[48px] rounded-[16px] flex items-center justify-center font-black" style={{ background: hexToRgba(theme.accent, 0.1), color: theme.accent, fontSize: `${22 * textScale}px` }}>
+                                  {String(i + 1).padStart(2, '0')}
+                                </div>
+                                {renderHighlightedText(item, 36)}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
 
-              <div className={`h-[3px] rounded-full mb-[24px] ${isHighlight ? 'mx-[400px]' : 'mx-[140px]'}`} style={{ background: theme.accent }} />
-
-              {/* ✨ Data/Chart/Summary 영역: 시각 자료 비율(vRatio) 반영 */}
-              <div className={`flex-1 px-[140px] py-[32px] min-h-0 relative z-[3] ${isGrid ? 'grid grid-cols-2 gap-[72px] items-center' : isHighlight ? 'flex flex-col items-center text-center gap-[48px]' : isSplitLeft ? 'flex flex-row-reverse gap-[72px]' : 'flex flex-row gap-[72px]'}`}>
-                
-                {/* 텍스트 영역 */}
-                <div className={`flex flex-col justify-center ${isGrid || isHighlight ? 'w-full' : ''}`} style={{ width: !isGrid && !isHighlight && hasVisual ? `${100 - vRatio}%` : '100%' }}>
-                  {slide.content && slide.content.length > 0 && (
-                    <ul className={`space-y-[32px] ${isHighlight ? 'flex flex-col items-center' : ''}`}>
-                      {slide.content.map((item, i) => (
-                        <li key={i} className={`flex ${isHighlight ? 'flex-col items-center text-center gap-[24px]' : 'items-start gap-[24px]'} bg-white p-[32px] rounded-[24px] shadow-sm border border-slate-200`}>
-                          {!isHighlight && (
-                            <div className="mt-[6px] flex-shrink-0 w-[48px] h-[48px] rounded-[16px] flex items-center justify-center font-black" style={{ background: hexToRgba(theme.accent, 0.1), color: theme.accent, fontSize: `${22 * textScale}px` }}>
-                              {String(i + 1).padStart(2, '0')}
+                      {/* 시각 자료 영역 (표, 차트) */}
+                      {hasVisual && (
+                        <div className="flex flex-col justify-center gap-[32px] min-h-0" style={{ width: `${vRatio}%` }}>
+                          
+                          {/* 테이블 렌더링 */}
+                          {hasTable && (
+                            <div className="flex-1 min-h-0 rounded-[24px] shadow-xl bg-white border border-slate-200 flex flex-col overflow-hidden w-full">
+                              <div className="w-full h-full overflow-y-auto custom-scrollbar p-[16px]">
+                                <table className="w-full text-left border-collapse">
+                                  <thead className="sticky top-0 z-10">
+                                    <tr>
+                                      {slide.tableData!.headers.map((h, i) => (
+                                        <th key={i} className={`${tablePadding} font-bold text-slate-800 bg-slate-100 border-b-2 border-slate-300 whitespace-nowrap shadow-sm`} style={{ fontSize: `${24 * textScale}px` }}>{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                    {slide.tableData!.rows.map((row, rIdx) => (
+                                      <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                                        {row.map((cell, cIdx) => (
+                                          <td key={cIdx} className={`${tablePadding} leading-[1.5] break-keep`} style={{ fontSize: `${22 * textScale}px` }}>{renderHighlightedText(cell, 22)}</td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
                           )}
-                          <span className={`leading-[1.65] font-medium text-slate-800 break-keep ${isHighlight ? 'font-bold' : ''}`} style={{ fontSize: `${(isHighlight ? 44 : 36) * textScale}px` }}>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
 
-                {/* 시각 자료 영역 (표, 차트, 핵심 지표) */}
-                {hasVisual && (
-                  <div className={`flex flex-col justify-center gap-[32px] min-h-0 ${isGrid ? 'w-full h-full max-h-[600px]' : isHighlight ? 'w-full max-w-[1500px] flex-row flex-wrap justify-center h-[460px]' : 'flex-shrink-0'}`} style={{ width: !isGrid && !isHighlight ? `${vRatio}%` : '100%' }}>
-                    
-                    {hasTable && (
-                      <div className={`flex-1 min-h-0 rounded-[24px] shadow-xl bg-white border border-slate-200 flex flex-col overflow-hidden ${isHighlight || isGrid ? 'w-full' : ''}`}>
-                        <div className="w-full h-full overflow-y-auto custom-scrollbar p-[16px]">
-                          <table className="w-full text-left border-collapse">
-                            <thead className="sticky top-0 z-10">
-                              <tr>
-                                {slide.tableData!.headers.map((h, i) => (
-                                  <th key={i} className={`${tablePadding} font-bold text-slate-800 bg-slate-100 border-b-2 border-slate-300 whitespace-nowrap shadow-sm`} style={{ fontSize: `${24 * textScale}px` }}>{h}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
-                              {slide.tableData!.rows.map((row, rIdx) => (
-                                <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
-                                  {row.map((cell, cIdx) => (
-                                    <td key={cIdx} className={`${tablePadding} leading-[1.5] break-keep`} style={{ fontSize: `${22 * textScale}px` }}>{cell}</td>
-                                  ))}
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {hasChart && !hasTable && (
-                      <div className={`flex-1 min-h-[480px] rounded-[24px] p-[32px] shadow-xl bg-white border border-slate-200 ${isHighlight || isGrid ? 'w-full' : ''}`}>
-                        <SlideChart chartData={slide.chartData!} isSlideView={true} />
-                      </div>
-                    )}
-
-                    {hasMetrics && !hasChart && !hasTable && (
-                      <div className={`flex flex-col gap-[24px] ${isHighlight ? 'flex-row w-full justify-center' : ''}`}>
-                        {slide.keyMetrics!.map((m, i) => {
-                          const trend = trendConfig[m.trend];
-                          return (
-                            <div key={i} className={`rounded-[24px] p-[40px] relative overflow-hidden shadow-xl bg-white border border-slate-200 ${isHighlight ? 'w-[420px]' : ''}`}>
-                              <div className="flex items-center justify-between mb-[16px]">
-                                <span className="text-slate-500 font-bold tracking-wide" style={{ fontSize: `${24 * textScale}px` }}>{m.label}</span>
-                                <span style={{ color: trend.color }}>{trend.icon}</span>
-                              </div>
-                              <div className="font-black tracking-tight leading-none text-slate-900" style={{ fontSize: `${72 * textScale}px` }}>{m.value}</div>
+                          {/* 차트 렌더링 */}
+                          {hasChart && !hasTable && (
+                            <div className="flex-1 min-h-[480px] rounded-[24px] p-[32px] shadow-xl bg-white border border-slate-200 w-full">
+                              <SlideChart chartData={slide.chartData!} isSlideView={true} />
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
-            </div>
-          )}
+                );
+            }
+          })()}
+
+          {/* 공통 Footer (출처 및 슬라이드 번호) */}
+          <div className="absolute bottom-[32px] left-[140px] right-[140px] flex items-center justify-between z-[3]">
+             {slide.source ? (
+               <span className="font-medium text-slate-400" style={{ fontSize: `${18 * textScale}px` }}>{slide.source}</span>
+             ) : <div />}
+          </div>
+
         </div>
       </div>
     </div>
