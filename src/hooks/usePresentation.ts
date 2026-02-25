@@ -96,6 +96,26 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // ── ✨ 7번 기능: 파일 없이 직접 텍스트로 시작하기 ──
+  const handlePromptSubmit = useCallback((prompt: string) => {
+    if (!prompt.trim()) return;
+    
+    // 입력한 프롬프트를 가상의 텍스트 파일 데이터로 취급합니다.
+    const dummyFile: ParsedFileData = {
+      fileName: '💡_사용자_요청사항.txt',
+      fileType: 'text/plain',
+      content: prompt,
+      summary: prompt.length > 30 ? prompt.slice(0, 30) + '...' : prompt,
+    };
+    
+    setParsedFiles([dummyFile]);
+    setFileNames([dummyFile.fileName]);
+    // 발표 주제(week) 필드에 프롬프트 내용을 살짝 넣어주면 템플릿 설정할 때 더 편리합니다.
+    setMeetingInfo(prev => ({ ...prev, week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt }));
+    setStep('info');
+    toast.success('요청사항이 접수되었습니다! 세부 설정을 확인해주세요.');
+  }, []);
+
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -140,7 +160,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ✨ 마스터 설정(로고, 워터마크) 업데이트 함수 추가
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
     setPresentation((prev) => prev ? { ...prev, ...updates } : prev);
   }, []);
@@ -400,8 +419,9 @@ export function usePresentation() {
     isDark, toggleDark,
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
+    handlePromptSubmit, // ✨ 텍스트(프롬프트) 입력 함수 반환 추가
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
-    changeSlidePersona, cycleLayout, updatePresentationMaster, // ✨ 추가
+    changeSlidePersona, cycleLayout, updatePresentationMaster,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
