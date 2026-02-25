@@ -16,8 +16,8 @@ const VOLUME_MAP: Record<string, string> = {
 
 const SYSTEM_PROMPT_CORE = `당신은 최고 수준의 프레젠테이션 전문가이자 완벽한 JSON 생성기입니다.
 [🔥 절대 준수 규칙 🔥]
-1. 인사말이나 부연 설명 없이, 오직 "순수한 JSON 문자열"만 반환하세요.
-2. 큰따옴표(") 이스케이프 오류나 배열 마지막 쉼표(Trailing comma)가 없도록 문법을 완벽히 지키세요.
+1. 인사말이나 부연 설명 없이, 오직 "순수한 JSON" 형식으로만 반환하세요.
+2. JSON 문법을 완벽히 지키고, 올바른 스키마를 사용하세요.
 
 [디자인 및 내용 원칙]
 1. 단순 텍스트 나열을 피하고, 내용에 맞는 '시각적 레이아웃 타입(type)'을 전략적으로 선택하세요.
@@ -55,52 +55,23 @@ function truncateFileData(fileData: any): string {
   return raw.length <= MAX_FILE_DATA_LENGTH ? raw : raw.slice(0, MAX_FILE_DATA_LENGTH) + "...";
 }
 
-// ✨ 강력한 JSON 파서: 어떤 형태든 복구해냄
+// 텍스트를 객체로 변환 (마크다운 찌꺼기 제거)
 function extractJSON(text: string): any | null {
   if (!text) return null;
-  
   let cleanText = text.trim();
-  
-  // 1. 마크다운 블록 제거
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) {
     cleanText = mdMatch[1].trim();
   }
-  
   try {
     return JSON.parse(cleanText);
   } catch (e1) {
-    console.warn("1차 파싱 실패, 강제 복구 시도...");
-    try {
-      // 2. 가장 바깥쪽의 { } 또는 [ ] 만 찾아서 강제 추출
-      const firstBrace = cleanText.indexOf('{');
-      const lastBrace = cleanText.lastIndexOf('}');
-      const firstBracket = cleanText.indexOf('[');
-      const lastBracket = cleanText.lastIndexOf(']');
-      
-      let startObj = firstBrace !== -1 ? firstBrace : Infinity;
-      let startArr = firstBracket !== -1 ? firstBracket : Infinity;
-      
-      if (startObj === Infinity && startArr === Infinity) return null;
-      
-      const isObj = startObj < startArr;
-      const start = isObj ? startObj : startArr;
-      const end = isObj ? lastBrace : lastBracket;
-      
-      if (start !== -1 && end !== -1 && end > start) {
-        let jsonStr = cleanText.slice(start, end + 1);
-        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1'); // 쉼표 오류 제거
-        jsonStr = jsonStr.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
-        jsonStr = jsonStr.replace(/\\\\n/g, '\\n').replace(/\\\\r/g, '\\r');
-        return JSON.parse(jsonStr);
-      }
-    } catch (e2) {
-      console.error("JSON 파싱 완벽 실패:", text);
-    }
+    console.error("JSON 파싱 에러 (텍스트가 잘렸을 확률이 높습니다):", cleanText);
+    return null;
   }
-  return null;
 }
 
+// ✨ 안전 필터(Safety Filter) 강제 해제 및 JSON Mode 활성화
 async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다.");
@@ -108,9 +79,17 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const payload: any = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.2,
+      temperature: 0.1,
       maxOutputTokens: 8192,
-    }
+      responseMimeType: "application/json", // 🔥 무조건 100% JSON 형식 강제 반환
+    },
+    // 🔥 [핵심 조치] 산업재해, 화상 등의 단어가 폭력성으로 차단되어 텍스트가 잘리는 현상 방지
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+    ]
   };
 
   if (useWebSearch) {
@@ -125,11 +104,19 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
 
   if (!response.ok) {
     const err = await response.text();
-    console.error("API Error:", err);
+    console.error("API 통신 에러:", err);
     throw new Error("AI 통신 중 오류가 발생했습니다.");
   }
   
   const data = await response.json();
+  
+  // 예외 종료 사유 검사
+  const finishReason = data.candidates?.[0]?.finishReason;
+  if (finishReason && finishReason !== 'STOP') {
+    if (finishReason === 'SAFETY') throw new Error("문서 내용에 포함된 단어가 AI 안전 필터에 차단되어 생성이 강제 중단되었습니다.");
+    console.warn("AI 생성 비정상 종료 사유:", finishReason);
+  }
+  
   if (!data.candidates || data.candidates.length === 0) {
     throw new Error("AI가 응답을 생성하지 못했습니다.");
   }
@@ -153,23 +140,18 @@ export const aiService = {
     const text = await callGeminiAPI(prompt, settings?.useWebSearch);
     let outlineData = extractJSON(text);
     
-    if (!outlineData) throw new Error("구성안 JSON을 해석할 수 없습니다.");
+    if (!outlineData) throw new Error("AI 생성 텍스트가 손상되었습니다. 다시 시도해주세요.");
     
-    // ✨ 자동 복구: AI가 { outline: [...] } 껍데기를 빼먹고 [...] 배열만 준 경우 복구
+    // AI가 배열 형태로만 반환한 경우 자동 복구
     if (Array.isArray(outlineData)) {
-      outlineData = {
-        title: meetingInfo?.week || "발표 자료 구성안",
-        outline: outlineData
-      };
+      outlineData = { title: meetingInfo?.week || "발표 자료 구성안", outline: outlineData };
     } else if (outlineData.slides && !outlineData.outline) {
-      // AI가 outline 대신 slides 라는 키를 쓴 경우 복구
       outlineData.outline = outlineData.slides;
     }
 
     if (!outlineData.outline || !Array.isArray(outlineData.outline)) {
       throw new Error("구성안 구조가 올바르지 않습니다.");
     }
-    
     return { outline: outlineData };
   },
 
@@ -186,26 +168,17 @@ export const aiService = {
     const text = await callGeminiAPI(prompt, settings?.useWebSearch);
     let presentationData = extractJSON(text);
     
-    if (!presentationData) throw new Error("발표자료 JSON을 해석할 수 없습니다.");
+    if (!presentationData) throw new Error("AI 생성 텍스트가 손상되었습니다. 다시 시도해주세요.");
 
-    // ✨ 자동 복구: AI가 { slides: [...] } 껍데기를 빼먹고 [...] 배열만 준 경우 복구
     if (Array.isArray(presentationData)) {
-      presentationData = {
-        title: approvedOutline?.title || "발표 자료",
-        slides: presentationData
-      };
+      presentationData = { title: approvedOutline?.title || "발표 자료", slides: presentationData };
     }
 
     if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
       throw new Error("발표자료 구조가 올바르지 않습니다.");
     }
     
-    // id 부여 (React Key용)
-    presentationData.slides = presentationData.slides.map((s: any, idx: number) => ({ 
-      ...s, 
-      id: `slide-${Date.now()}-${idx}` 
-    }));
-    
+    presentationData.slides = presentationData.slides.map((s: any, idx: number) => ({ ...s, id: `slide-${Date.now()}-${idx}` }));
     return { presentation: presentationData };
   },
 
