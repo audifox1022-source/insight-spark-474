@@ -6,7 +6,7 @@ import { OutlineData } from '@/components/OutlinePreview';
 import { ReviewResult } from '@/components/ReviewPanel';
 import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
-import { aiService } from '@/lib/ai-service'; // ✨ Supabase 대신 직접 만든 aiService 호출
+import { aiService } from '@/lib/ai-service';
 
 export type ExtendedStep = AppStep | 'outline';
 
@@ -42,9 +42,7 @@ export function usePresentation() {
 
   const changeTheme = useCallback((theme: string) => {
     document.documentElement.classList.remove('theme-navy', 'theme-purple', 'theme-green', 'theme-orange');
-    if (theme !== 'blue') {
-      document.documentElement.classList.add(`theme-${theme}`);
-    }
+    if (theme !== 'blue') document.documentElement.classList.add(`theme-${theme}`);
     localStorage.setItem('app_theme', theme);
     setAppTheme(theme);
     toast.success('테마가 변경되었습니다.');
@@ -98,7 +96,6 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ── ✨ Supabase 대신 Client-Side API 직접 호출 ──
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -106,10 +103,8 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.getOutline({ fileData: payload, meetingInfo, settings, template });
-        },
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
+        async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'outline-retry' }) }
       );
       toast.dismiss('outline-retry');
       setOutline(resData.outline);
@@ -129,10 +124,8 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null });
-        },
-        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
+        async () => await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline || null }),
+        { maxRetries: 1, onRetry: (attempt, max) => toast.loading(`재시도 중... (${attempt}/${max})`, { id: 'gen-retry' }) }
       );
       toast.dismiss('gen-retry');
       setPresentation(resData.presentation);
@@ -146,6 +139,11 @@ export function usePresentation() {
       setIsGenerating(false);
     }
   }, [parsedFiles, meetingInfo, settings, template]);
+
+  // ✨ 마스터 설정(로고, 워터마크) 업데이트 함수 추가
+  const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
+    setPresentation((prev) => prev ? { ...prev, ...updates } : prev);
+  }, []);
 
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
     setPresentation((prev) => {
@@ -163,10 +161,8 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction });
-        },
-        { maxRetries: 1, onRetry: () => toast.loading('슬라이드 재생성 재시도 중...', { id: 'regen' }) }
+        async () => await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction }),
+        { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
@@ -178,9 +174,7 @@ export function usePresentation() {
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide): Promise<{ slide: Slide; summary: string } | null> => {
     try {
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation });
-        },
+        async () => await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation }),
         { maxRetries: 1 }
       );
       return resData.result;
@@ -190,19 +184,22 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  const changeSlidePersona = useCallback(async (slideIndex: number, persona: 'jobs' | 'mckinsey') => {
+  const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
-    toast.loading(`${persona === 'jobs' ? '🍎 스티브 잡스' : '💼 맥킨지'} 스타일로 변환 중...`, { id: 'persona' });
+    
+    const personaLabels: Record<string, string> = {
+      jobs: '🍎 스티브 잡스', mckinsey: '💼 맥킨지', ceo: '👔 임원진 보고', team: '🤝 팀원 공유', client: '🏢 외부 고객'
+    };
+    
+    toast.loading(`${personaLabels[persona] || '새로운'} 스타일로 변환 중...`, { id: 'persona' });
 
     try {
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.changePersona({ currentSlide, persona });
-        },
+        async () => await aiService.changePersona({ currentSlide, persona }),
         { maxRetries: 1 }
       );
-      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona });
+      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona: persona as Slide['persona'] });
       toast.success('스타일 변환 완료! ✨', { id: 'persona' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '스타일 변환'), { id: 'persona' });
@@ -351,9 +348,7 @@ export function usePresentation() {
     
     try {
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.chatEdit({ userMessage: instruction, currentSlide, slideIndex, presentation });
-        },
+        async () => await aiService.chatEdit({ userMessage: instruction, currentSlide, slideIndex, presentation }),
         { maxRetries: 1 }
       );
       if (resData.result) {
@@ -375,9 +370,7 @@ export function usePresentation() {
 
     try {
       const resData = await retryWithBackoff(
-        async () => {
-          return await aiService.reviewAndFix({ presentation });
-        },
+        async () => await aiService.reviewAndFix({ presentation }),
         { maxRetries: 1, onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }) }
       );
       setPresentation(resData.result.presentation);
@@ -408,7 +401,7 @@ export function usePresentation() {
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
-    changeSlidePersona, cycleLayout,
+    changeSlidePersona, cycleLayout, updatePresentationMaster, // ✨ 추가
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
