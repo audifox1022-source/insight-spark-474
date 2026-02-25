@@ -37,7 +37,7 @@ export function useVisitorCount() {
         // 2. 이번 세션에서 이미 기록했으면 스킵 (중복 방지)
         const alreadyTracked = sessionStorage.getItem('visitor_tracked');
         if (!alreadyTracked) {
-          await supabase.from('visitor_stats').insert({
+          await (supabase as any).from('visitor_stats').insert({
             user_id: user.id,
             session_id: sessionId,
           });
@@ -45,7 +45,7 @@ export function useVisitorCount() {
         }
 
         // 3. 통계 조회 (RPC)
-        const { data, error } = await supabase.rpc('get_visitor_stats');
+        const { data, error } = await (supabase as any).rpc('get_visitor_stats');
         if (error) throw error;
         if (!cancelled) setStats(data as VisitorStats);
 
