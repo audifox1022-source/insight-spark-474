@@ -38,12 +38,16 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 1. [파일 데이터가 있는 경우]: 외부 지식이나 웹 검색을 배제하고, 오직 업로드된 파일의 텍스트만 사용하여 내용을 구성하세요.
 2. [파일이 없고 주제만 있는 경우]: 사용자의 주제를 바탕으로 창의적으로 전개하되 범위를 벗어나지 마세요.
 
-[시각화 및 형식 규칙]
-1. 수치 데이터는 반드시 'keyMetrics' 배열을 사용하여 시각화하세요.
-2. 'content' 배열 내부에는 절대 객체({})를 넣지 말고 오직 "단순 문자열"만 넣으세요.
-3. 'notes'는 발표용 구어체 대본으로 작성하되, 슬라이드당 2문장 이내로 간결하게 작성하세요.
-4. 모든 응답은 마크다운 없이 순수 JSON 객체여야 합니다.
-5. JSON이 잘리지 않도록 notes와 content는 간결하게 작성하세요.`;
+[🎨 시각화 생성 규칙 — 반드시 준수]
+1. 수치 비교 데이터(매출, 성장률 등) → "stats" 배열 필수 사용 (바 차트로 렌더링됨)
+2. 비율/구성 데이터(점유율, 예산 배분 등) → "chartData" 필드 사용 (파이/도넛 차트로 렌더링됨)
+3. 항목 비교표(기능 비교, 일정표 등) → "tableData" 필드 사용 (표로 렌더링됨)
+4. 핵심 KPI 수치(단일 지표 강조) → "keyMetrics" 배열 사용 (카드로 렌더링됨)
+5. 수치 데이터가 있다면 반드시 위 4가지 중 하나 이상을 사용하세요. 텍스트로만 처리하지 마세요.
+6. 'content' 배열 내부에는 절대 객체({})를 넣지 말고 오직 "단순 문자열"만 넣으세요.
+7. 'notes'는 발표용 구어체 대본으로 작성하되, 슬라이드당 2문장 이내로 간결하게 작성하세요.
+8. 모든 응답은 마크다운 없이 순수 JSON 객체여야 합니다.
+9. JSON이 잘리지 않도록 notes와 content는 간결하게 작성하세요.`;
 
 // ✅ fileData 객체를 올바르게 파싱
 function truncateFileData(fileData: any): string {
@@ -75,7 +79,7 @@ function truncateFileData(fileData: any): string {
       parts.push(`### [${fileName}]:\n${JSON.stringify(v)}`);
     }
 
-    return parts.join('\n\n').slice(0, 80000); // ✅ 80000자로 줄여서 토큰 여유 확보
+    return parts.join('\n\n').slice(0, 80000);
   }
 
   if (Array.isArray(fileData)) {
@@ -237,6 +241,32 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   }
 }
 
+// ✅ 슬라이드 JSON 스키마 설명 (generatePresentation / regenerateSlide 공용)
+const SLIDE_JSON_SCHEMA = `
+슬라이드 JSON 스키마 (각 필드 설명):
+- slideNumber: 슬라이드 번호 (number)
+- type: "title" | "agenda" | "data" | "chart" | "action" | "summary" | "closing" | "kpi"
+- title: 슬라이드 제목 (string)
+- content: 텍스트 불릿 배열 (string[]). 반드시 순수 문자열만.
+- keyMetrics: KPI 카드 배열. 단일 핵심 수치 강조시 사용.
+  형식: [{"label": "지표명", "value": "150억", "trend": "up|down|flat", "description": "부연설명(선택)"}]
+- stats: 바 차트 배열. 여러 항목의 수치 비교시 사용.
+  형식: [{"label": "항목명", "value": "75", "unit": "%"}]
+  ※ value는 숫자 문자열로 입력 (바 길이 계산에 사용됨)
+- chartData: 파이/도넛 차트. 비율/구성 비교시 사용.
+  형식: {"type": "pie", "labels": ["항목A","항목B"], "values": [60, 40]}
+- tableData: 표. 항목별 비교, 일정표 등에 사용.
+  형식: {"headers": ["구분","내용","비고"], "rows": [["행1열1","행1열2","행1열3"]]}
+- notes: 발표자 대본 (2문장 이내 구어체)
+
+[시각화 선택 가이드]
+- 수치가 3개 이상 비교: stats 사용
+- 비율/퍼센트 구성: chartData 사용  
+- 행/열 비교표: tableData 사용
+- 단일 핵심 KPI: keyMetrics 사용
+- 수치 데이터가 전혀 없는 경우에만 content만 사용
+`;
+
 export const aiService = {
 
   async getOutline(body: any) {
@@ -275,7 +305,6 @@ ${fileContent}
     const { fileData, settings, approvedOutline, meetingInfo, template } = body;
     const fileContent = truncateFileData(fileData);
 
-    // ✅ 볼륨별 토큰 할당
     const maxTokens = TOKEN_MAP[settings?.volume || 'standard'];
 
     const outlineHint = approvedOutline
@@ -285,7 +314,8 @@ ${fileContent}
     const prompt = `${SYSTEM_PROMPT_CORE}
 
 [미션] 원본 자료를 바탕으로 슬라이드 내용을 완성하세요.
-수치 데이터가 있다면 keyMetrics 배열에 반드시 넣으세요.
+수치/비교/비율 데이터가 있다면 반드시 stats, chartData, tableData, keyMetrics 중 적절한 필드를 사용하세요.
+텍스트(content)만으로 처리하면 안 됩니다.
 
 [발표 정보]
 - 발표 주제: ${meetingInfo?.week || '미입력'}
@@ -300,8 +330,25 @@ ${outlineHint}
 [원본 자료]
 ${fileContent}
 
+${SLIDE_JSON_SCHEMA}
+
 반드시 아래 JSON 형식만 반환하세요 (notes는 2문장 이내로 간결하게):
-{"title": "제목", "slides": [{"slideNumber": 1, "type": "title|data|chart|action|summary", "title": "슬라이드 제목", "content": ["내용1", "내용2"], "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}], "notes": "발표자 노트"}]}`;
+{
+  "title": "제목",
+  "slides": [
+    {
+      "slideNumber": 1,
+      "type": "title|data|chart|action|summary|kpi",
+      "title": "슬라이드 제목",
+      "content": ["텍스트 불릿1", "텍스트 불릿2"],
+      "keyMetrics": [{"label": "매출", "value": "150억", "trend": "up", "description": "전년比 +23%"}],
+      "stats": [{"label": "항목A", "value": "75", "unit": "%"}],
+      "chartData": {"type": "pie", "labels": ["A","B"], "values": [60, 40]},
+      "tableData": {"headers": ["구분","내용"], "rows": [["행1","값1"]]},
+      "notes": "발표자 노트 (2문장 이내)"
+    }
+  ]
+}`;
 
     const text = await callGeminiAPI(prompt, maxTokens);
     let data = extractJSON(text);
@@ -323,14 +370,27 @@ ${fileContent}
     const prompt = `${SYSTEM_PROMPT_CORE}
 
 [미션] 수정 요청을 반영하되 원본 자료를 참고하세요.
+수치/비교/비율 데이터가 있다면 반드시 stats, chartData, tableData, keyMetrics 중 적절한 필드를 사용하세요.
 - 전체 발표 제목: ${presentation?.title || ''}
 - 슬라이드 번호: ${slideIndex + 1}번
 - 수정 요청: "${userInstruction || '더 좋은 내용으로 전면 재작성해주세요.'}"
 - 현재 슬라이드: ${JSON.stringify(currentSlide)}
 - 원본 자료: ${fileContent}
 
+${SLIDE_JSON_SCHEMA}
+
 슬라이드 JSON 1개만 반환하세요:
-{"slideNumber": ${slideIndex + 1}, "type": "...", "title": "...", "content": ["..."], "keyMetrics": [], "notes": "..."}`;
+{
+  "slideNumber": ${slideIndex + 1},
+  "type": "...",
+  "title": "...",
+  "content": ["..."],
+  "keyMetrics": [],
+  "stats": [],
+  "chartData": null,
+  "tableData": null,
+  "notes": "..."
+}`;
 
     const text = await callGeminiAPI(prompt, 4096);
     return { slide: extractJSON(text) };
@@ -342,12 +402,28 @@ ${fileContent}
     const prompt = `${SYSTEM_PROMPT_CORE}
 
 [미션] 사용자 요청에 따라 슬라이드를 수정하세요.
+수치/비교/비율 데이터가 있다면 반드시 stats, chartData, tableData, keyMetrics 중 적절한 필드를 사용하세요.
 - 전체 발표: ${presentation?.title || ''}
 - 현재 슬라이드 (${(slideIndex || 0) + 1}번): ${JSON.stringify(currentSlide)}
 - 수정 요청: "${userMessage}"
 
+${SLIDE_JSON_SCHEMA}
+
 아래 JSON 형식으로 반환하세요:
-{"slide": {"slideNumber": ${(slideIndex || 0) + 1}, "type": "...", "title": "...", "content": ["..."], "keyMetrics": [], "notes": "..."}, "summary": "변경 내용 한 줄 요약"}`;
+{
+  "slide": {
+    "slideNumber": ${(slideIndex || 0) + 1},
+    "type": "...",
+    "title": "...",
+    "content": ["..."],
+    "keyMetrics": [],
+    "stats": [],
+    "chartData": null,
+    "tableData": null,
+    "notes": "..."
+  },
+  "summary": "변경 내용 한 줄 요약"
+}`;
 
     const text = await callGeminiAPI(prompt, 4096);
     return { result: extractJSON(text) };
@@ -367,10 +443,13 @@ ${fileContent}
     const prompt = `${SYSTEM_PROMPT_CORE}
 
 [미션] 아래 페르소나 스타일로 슬라이드를 재작성하세요.
+수치 데이터가 있다면 stats, chartData, tableData, keyMetrics를 유지하거나 강화하세요.
 - 페르소나: ${personaPrompts[persona] || persona}
 - 현재 슬라이드: ${JSON.stringify(currentSlide)}
 
-슬라이드 JSON 1개만 반환하세요 (slideNumber, type, title, content, keyMetrics, notes 포함).`;
+${SLIDE_JSON_SCHEMA}
+
+슬라이드 JSON 1개만 반환하세요 (slideNumber, type, title, content, keyMetrics, stats, chartData, tableData, notes 포함).`;
 
     const text = await callGeminiAPI(prompt, 4096);
     return { slide: extractJSON(text) };
@@ -395,7 +474,10 @@ ${fileContent}
     const prompt = `${SYSTEM_PROMPT_CORE}
 
 [미션] 아래 발표 자료 전체를 검토하고 논리적 흐름, 내용 완성도, 일관성을 최적화하세요.
+수치 데이터가 있는 슬라이드는 stats, chartData, tableData, keyMetrics를 적극 활용하세요.
 - 원본 발표 자료: ${JSON.stringify(presentation)}
+
+${SLIDE_JSON_SCHEMA}
 
 아래 JSON 형식으로 반환하세요:
 {"presentation": {"title": "...", "slides": [...]}, "summary": "개선된 내용 요약"}`;
