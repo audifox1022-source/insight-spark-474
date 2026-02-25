@@ -1,3 +1,4 @@
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SavedPresentation } from '@/lib/presentation-storage';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,7 @@ function formatDate(iso: string) {
   });
 }
 
-export function HistoryPanel({ open, onClose, items, isLoading, onLoad, onDelete }: HistoryPanelProps) {
+export const HistoryPanel = React.forwardRef<HTMLDivElement, HistoryPanelProps>(function HistoryPanel({ open, onClose, items, isLoading, onLoad, onDelete }, ref) {
   return (
     <AnimatePresence>
       {open && (
@@ -114,4 +115,4 @@ export function HistoryPanel({ open, onClose, items, isLoading, onLoad, onDelete
       )}
     </AnimatePresence>
   );
-}
+});
