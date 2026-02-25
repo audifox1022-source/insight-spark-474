@@ -17,6 +17,10 @@ export type SlideType =
   | 'agenda' 
   | 'closing'
   | 'content' 
+  | 'data'
+  | 'chart'
+  | 'action'
+  | 'summary'
   | 'process' 
   | 'processList' 
   | 'compare' 
@@ -37,6 +41,25 @@ export type SlideType =
   | 'flowChart' 
   | 'stepUp' 
   | 'imageText';
+
+export interface SlideMetric {
+  label: string;
+  value: string;
+  trend: 'up' | 'down' | 'flat';
+  description?: string;
+}
+
+export interface SlideChartData {
+  chartType: 'bar' | 'line' | 'pie' | 'area';
+  title?: string;
+  data: { name: string; value: number; [key: string]: any }[];
+  xAxisLabel?: string;
+  yAxisLabel?: string;
+  series?: { key: string; name: string; color?: string }[];
+  showLegend?: boolean;
+  series1Label?: string;
+  series2Label?: string;
+}
 
 export interface Slide {
   id?: string;
@@ -84,9 +107,11 @@ export interface Slide {
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   visualRatio?: number;
   
-  keyMetrics?: any[];
-  chartData?: any;
+  keyMetrics?: SlideMetric[];
+  chartData?: SlideChartData;
   imageUrl?: string;
+  content?: string[];
+  tableData?: { headers: string[]; rows: string[][] };
 }
 
 export interface Presentation {
