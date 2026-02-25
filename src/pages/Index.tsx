@@ -9,10 +9,11 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { 
-  Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, 
-  LogOut, Palette, MessageSquare, Send, PencilLine, X, BookOpen, 
-  UploadCloud, SlidersHorizontal, Download, FileText 
+import { useVisitorCount } from '@/hooks/useVisitorCount';
+import {
+  Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle,
+  LogOut, Palette, MessageSquare, Send, PencilLine, X, BookOpen,
+  UploadCloud, SlidersHorizontal, Download, FileText, Users, Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,11 +59,14 @@ const PROMPT_PRESETS: Preset[] = [
 const Index = () => {
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false); // ✨ 도움말 모달 상태 추가
-  
+  const [helpOpen, setHelpOpen] = useState(false);
+
   const [activePresetId, setActivePresetId] = useState<string>('manual');
   const [presetData, setPresetData] = useState<Record<string, string>>({});
   const [manualPrompt, setManualPrompt] = useState('');
+
+  // ✅ 방문자 카운트 훅
+  const { stats: visitorStats } = useVisitorCount();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -114,13 +118,12 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
             <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
-            
+
             <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
               <FolderOpen className="w-4 h-4" />
               <span className="text-xs">저장 목록</span>
             </Button>
-            
-            {/* ✨ 도움말 가이드 버튼 추가 */}
+
             <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="사용 가이드 (도움말)">
               <HelpCircle className="w-4 h-4" />
             </Button>
@@ -132,19 +135,19 @@ const Index = () => {
               <AnimatePresence>
                 {themeMenuOpen && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1 overflow-hidden">
-                    <button onClick={() => {changeTheme('blue'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='blue' ? 'font-bold' : ''}`}>
+                    <button onClick={() => { changeTheme('blue'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'blue' ? 'font-bold' : ''}`}>
                       <div className="w-3.5 h-3.5 rounded-full bg-blue-600 border border-border"></div> 블루 (기본)
                     </button>
-                    <button onClick={() => {changeTheme('navy'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='navy' ? 'font-bold' : ''}`}>
+                    <button onClick={() => { changeTheme('navy'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'navy' ? 'font-bold' : ''}`}>
                       <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-border"></div> 네이비 (기업)
                     </button>
-                    <button onClick={() => {changeTheme('purple'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='purple' ? 'font-bold' : ''}`}>
+                    <button onClick={() => { changeTheme('purple'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'purple' ? 'font-bold' : ''}`}>
                       <div className="w-3.5 h-3.5 rounded-full bg-purple-600 border border-border"></div> 퍼플 (크리에이티브)
                     </button>
-                    <button onClick={() => {changeTheme('green'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='green' ? 'font-bold' : ''}`}>
+                    <button onClick={() => { changeTheme('green'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'green' ? 'font-bold' : ''}`}>
                       <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 border border-border"></div> 그린 (친환경)
                     </button>
-                    <button onClick={() => {changeTheme('orange'); setThemeMenuOpen(false);}} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme==='orange' ? 'font-bold' : ''}`}>
+                    <button onClick={() => { changeTheme('orange'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'orange' ? 'font-bold' : ''}`}>
                       <div className="w-3.5 h-3.5 rounded-full bg-orange-500 border border-border"></div> 오렌지 (활력)
                     </button>
                   </motion.div>
@@ -161,7 +164,7 @@ const Index = () => {
         </div>
       </header>
 
-      {/* ── 도움말(Help) 팝업 모달 ── */}
+      {/* ── 도움말 팝업 ── */}
       <AnimatePresence>
         {helpOpen && (
           <>
@@ -183,9 +186,8 @@ const Index = () => {
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-              
+
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
-                
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
                     <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
@@ -193,12 +195,10 @@ const Index = () => {
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-1">1. 프롬프트 직접 입력 & 웹 검색</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      당장 참고할 파일이 없어도 괜찮습니다. <b>[빠른 템플릿]</b> 칩을 클릭하고 빈칸을 채우거나, 자유롭게 기획안 주제를 입력해 보세요. <br/>
-                      특히 <b>'웹 검색으로 최신 정보 반영하기'</b>를 체크하면, AI가 실시간 구글 검색을 통해 최신 통계와 팩트를 기반으로 발표 자료를 작성해 줍니다.
+                      당장 참고할 파일이 없어도 괜찮습니다. <b>[빠른 템플릿]</b> 칩을 클릭하고 빈칸을 채우거나, 자유롭게 기획안 주제를 입력해 보세요.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
                     <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
@@ -206,11 +206,10 @@ const Index = () => {
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-1">2. 참고 문서 업로드</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      가지고 계신 엑셀(데이터), PDF(보고서), Word 파일을 드래그해서 업로드하세요. 여러 개의 파일을 동시에 올려도 AI가 내용을 완벽하게 통합하여 하나의 발표 자료로 요약해 줍니다.
+                      엑셀, PDF, Word 파일을 드래그해서 업로드하세요. 여러 개의 파일을 동시에 올려도 AI가 내용을 완벽하게 통합합니다.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
                     <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -218,24 +217,21 @@ const Index = () => {
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-1">3. Vrew 맞춤형 '구어체 스크립트'</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      슬라이드가 생성되면 각 슬라이드 하단의 <b>'스피커 노트'</b>를 확인해 보세요. 로봇 같은 요약글이 아닌, 실제 무대에서 사람이 발표하듯 작성된 자연스러운 <b>대본</b>이 생성됩니다. 이 대본을 그대로 복사해서 Vrew(AI 목소리)에 붙여넣으면 완벽한 영상 패키지가 완성됩니다.
+                      각 슬라이드 하단의 <b>'스피커 노트'</b>를 확인해 보세요. 자연스러운 대본이 생성됩니다.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
                     <SlidersHorizontal className="w-6 h-6 text-orange-600 dark:text-orange-400" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">4. 마법 같은 '디테일 튜닝' & 스타일 변환</h3>
+                    <h3 className="text-base font-bold text-foreground mb-1">4. 디테일 튜닝 & 스타일 변환</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      에디터 우측 패널에서 <b>[디테일 튜닝]</b> 슬라이더를 조절하여 글자 크기와 화면 비율을 1초 만에 최적화하세요. <br/>
-                      또한 상단의 <b>[스타일 변환]</b> 버튼을 누르면 같은 내용이라도 '임원진 보고용(결론 강조)', '잡스 모드(감성 강조)' 등 청중에 맞게 문체를 완전히 바꿔줍니다.
+                      에디터 우측 패널에서 <b>[디테일 튜닝]</b> 슬라이더로 글자 크기와 화면 비율을 최적화하세요.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center flex-shrink-0">
                     <Download className="w-6 h-6 text-rose-600 dark:text-rose-400" />
@@ -243,11 +239,10 @@ const Index = () => {
                   <div>
                     <h3 className="text-base font-bold text-foreground mb-1">5. 내보내기 & 발표하기</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      작업이 완료되면 상단의 <b>[내보내기]</b>를 눌러 완벽한 PPTX 파일이나 PDF로 다운로드하세요. 앱 내부의 <b>[발표하기]</b> 버튼을 누르면 타이머와 스크립트가 포함된 실전 프레젠테이션 모드가 시작됩니다.
+                      상단의 <b>[내보내기]</b>를 눌러 PPTX 또는 PDF로 다운로드하세요.
                     </p>
                   </div>
                 </div>
-
               </div>
               <div className="p-4 border-t border-border bg-muted/10 text-center">
                 <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
@@ -258,7 +253,6 @@ const Index = () => {
           </>
         )}
       </AnimatePresence>
-      {/* ── 도움말 끝 ── */}
 
       {/* ── 단계 가이드 배너 ── */}
       {step !== 'preview' && (
@@ -293,7 +287,6 @@ const Index = () => {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
-              
               <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
                 <button
                   onClick={() => setActivePresetId('manual')}
@@ -337,29 +330,20 @@ const Index = () => {
                           </div>
                         ))}
                       </div>
-                      
                       <label className="flex items-start gap-3 p-4 mt-2 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
                         <div className="mt-0.5">
-                          <input
-                            type="checkbox"
-                            className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+                          <input type="checkbox" className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
                             checked={settings.useWebSearch || false}
-                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))}
-                          />
+                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))} />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
-                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">
-                            자료 없이 주제만 입력했거나, 최신 정보가 필요할 때 활성화하세요. AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.
-                          </p>
+                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.</p>
                         </div>
                       </label>
-
                       <div className="pt-2 border-t border-border">
-                        <Button 
-                          onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
-                          className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm"
-                        >
+                        <Button onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
+                          className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm">
                           <Sparkles className="w-5 h-5" /> 이 내용으로 AI 생성하기
                         </Button>
                       </div>
@@ -372,7 +356,7 @@ const Index = () => {
                         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
                           <MessageSquare className="w-6 h-6 text-primary" />
                         </div>
-                        <Textarea 
+                        <Textarea
                           value={manualPrompt} onChange={(e) => setManualPrompt(e.target.value)}
                           placeholder="예: 우리 팀의 상반기 워크샵 기획안을 레크레이션 위주로 짜줘"
                           className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
@@ -383,21 +367,15 @@ const Index = () => {
                           <Send className="w-4 h-4" /> AI 생성
                         </Button>
                       </div>
-
                       <label className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
                         <div className="mt-0.5">
-                          <input
-                            type="checkbox"
-                            className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
+                          <input type="checkbox" className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
                             checked={settings.useWebSearch || false}
-                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))}
-                          />
+                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))} />
                         </div>
                         <div>
                           <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
-                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">
-                            자료 없이 주제만 입력했거나, 최신 정보가 필요할 때 활성화하세요. AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.
-                          </p>
+                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.</p>
                         </div>
                       </label>
                     </motion.div>
@@ -412,7 +390,7 @@ const Index = () => {
             </div>
 
             <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
-            
+
             {fileNames.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
                 <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
@@ -458,11 +436,62 @@ const Index = () => {
         <ChatEditPanel open={chatOpen} onClose={() => setChatOpen(false)} currentSlide={presentation.slides[0]} slideIndex={0} onApply={(updatedSlide) => updateSlide(0, updatedSlide)} onRequestEdit={requestChatEdit} />
       )}
       {step === 'preview' && presentation && (
-        <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={(index) => { setReviewOpen(false); }} onApplyFix={applyReviewFix} />
+        <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={() => setReviewOpen(false)} onApplyFix={applyReviewFix} />
       )}
 
-      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 text-center text-xs text-muted-foreground">
-        Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span> · <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">audifox1022@gmail.com</a>
+      {/* ✅ 푸터 — 방문자 카운터 포함 */}
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4">
+        <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* 좌측: 제작자 정보 */}
+          <p className="text-xs text-muted-foreground">
+            Made with ❤️ by{' '}
+            <span className="font-semibold text-foreground">Hyeon</span>
+            {' · '}
+            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
+              audifox1022@gmail.com
+            </a>
+          </p>
+
+          {/* ✅ 우측: 방문자 카운터 */}
+          {visitorStats && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-4"
+            >
+              {/* 총 방문수 */}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Eye className="w-3.5 h-3.5 text-primary/60" />
+                <span>총 방문</span>
+                <span className="font-bold text-foreground">
+                  {visitorStats.total_visits.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="w-px h-3 bg-border" />
+
+              {/* 유니크 유저 */}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="w-3.5 h-3.5 text-primary/60" />
+                <span>유니크</span>
+                <span className="font-bold text-foreground">
+                  {visitorStats.unique_users.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="w-px h-3 bg-border" />
+
+              {/* 오늘 방문 */}
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>오늘</span>
+                <span className="font-bold text-foreground">
+                  {visitorStats.today_visits.toLocaleString()}
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </div>
       </footer>
     </div>
   );
