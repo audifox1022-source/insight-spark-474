@@ -18,6 +18,12 @@ const typeThemes: Record<string, { bg: string; accent: string; badge: string }> 
   kpi:     { bg: 'bg-gradient-to-br from-violet-50 to-white',      accent: '#7c3aed', badge: 'KPI'     },
 };
 
+// ✅ 파이 차트용 색상 팔레트
+const PIE_COLORS = [
+  '#2563eb', '#0d9488', '#7c3aed', '#ea580c', '#0284c7',
+  '#16a34a', '#dc2626', '#d97706', '#9333ea', '#0891b2',
+];
+
 const trendIcon = (trend?: string) => {
   if (trend === 'up')   return <TrendingUp  className="w-[28px] h-[28px] text-emerald-500" />;
   if (trend === 'down') return <TrendingDown className="w-[28px] h-[28px] text-red-500"    />;
@@ -42,7 +48,6 @@ export function ScaledSlide({
   watermark?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  // ✅ 수정: 초기값을 1로 설정 후 첫 측정 전까지 invisible 처리로 깜빡임 방지
   const [scale, setScale] = useState(1);
   const [ready, setReady] = useState(false);
 
@@ -81,6 +86,14 @@ export function ScaledSlide({
   const items    = (slide.items   || []).map(it => typeof it === 'object' ? { ...it, title: safeString(it.title || it) } : safeString(it));
   const content  = (slide.content || slide.points || []).map(safeString);
   const metrics  = slide.keyMetrics || [];
+
+  // ✅ chartData 파싱 (pie/donut 전용)
+  // stats와 겹치지 않도록: slide.chartData가 있고 stats가 없는 경우에 사용
+  const pieData = (slide as any).chartData && !((slide as any).chartData?.stats) ? (slide as any).chartData : null;
+
+  // ✅ tableData 파싱 (headers/rows가 없을 때 폴백)
+  const tableHeaders = headers.length > 0 ? headers : ((slide as any).tableData?.headers || []).map(safeString);
+  const tableRows = rows.length > 0 ? rows : ((slide as any).tableData?.rows || []).map((row: any[]) => Array.isArray(row) ? row.map(safeString) : []);
 
   // ✅ 볼드(**텍스트**) 하이라이트 렌더러
   const renderHighlightedText = (text: string, baseSize: number, appliedScale: number, isBold = false) => {
@@ -125,7 +138,7 @@ export function ScaledSlide({
     </div>
   );
 
-  // ── ✅ keyMetrics 렌더러 (신규) ──
+  // ── ✅ keyMetrics 렌더러 ──
   const renderMetrics = () => {
     if (!metrics.length) return null;
     return (
@@ -152,7 +165,7 @@ export function ScaledSlide({
     );
   };
 
-  // ── ✅ stats 바 차트 렌더러 (신규) ──
+  // ── ✅ stats 바 차트 렌더러 ──
   const renderStats = () => {
     if (!stats.length) return null;
     const maxVal = Math.max(...stats.map((s: any) => parseFloat(safeString(s.value)) || 0), 1);
@@ -182,7 +195,140 @@ export function ScaledSlide({
     );
   };
 
-  // ── ✅ action 타입 전용 렌더러 (신규) ──
+  // ── ✅ 신규: chartData 파이 차트 렌더러 ──
+  const renderPieChart = () => {
+    if (!pieData?.labels?.length || !pieData?.values?.length) return null;
+
+    const labels: string[] = pieData.labels.map(safeString);
+    const values: number[] = pieData.values.map((v: any) => parseFloat(safeString(v)) || 0);
+    const total = values.reduce((a, b) => a + b, 0) || 1;
+
+    // SVG 파이 차트 경로 계산
+    const cx = 300, cy = 300, r = 260;
+    let currentAngle = -Math.PI / 2;
+
+    const slices = values.map((val, i) => {
+      const angle = (val / total) * 2 * Math.PI;
+      const x1 = cx + r * Math.cos(currentAngle);
+      const y1 = cy + r * Math.sin(currentAngle);
+      const x2 = cx + r * Math.cos(currentAngle + angle);
+      const y2 = cy + r * Math.sin(currentAngle + angle);
+      const largeArc = angle > Math.PI ? 1 : 0;
+
+      // 라벨 위치 (슬라이스 중앙)
+      const midAngle = currentAngle + angle / 2;
+      const labelR = r * 0.65;
+      const lx = cx + labelR * Math.cos(midAngle);
+      const ly = cy + labelR * Math.sin(midAngle);
+
+      const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+      currentAngle += angle;
+
+      return { path, color: PIE_COLORS[i % PIE_COLORS.length], lx, ly, pct: Math.round((val / total) * 100) };
+    });
+
+    return (
+      <div className="flex items-center gap-[80px] mt-[32px] flex-1">
+        {/* SVG 파이 차트 */}
+        <div className="flex-shrink-0">
+          <svg width="600" height="600" viewBox="0 0 600 600">
+            {slices.map((s, i) => (
+              <g key={i}>
+                <path d={s.path} fill={s.color} stroke="white" strokeWidth="4" />
+                {s.pct >= 5 && (
+                  <text
+                    x={s.lx} y={s.ly}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fill="white" fontWeight="900"
+                    style={{ fontSize: `${22 * cScale}px` }}
+                  >
+                    {s.pct}%
+                  </text>
+                )}
+              </g>
+            ))}
+            {/* 도넛 구멍 */}
+            <circle cx={cx} cy={cy} r={r * 0.38} fill="white" />
+            <text x={cx} y={cy - 16} textAnchor="middle" fill="#1e293b" fontWeight="900"
+              style={{ fontSize: `${32 * cScale}px` }}>
+              합계
+            </text>
+            <text x={cx} y={cy + 24} textAnchor="middle" fill="#64748b" fontWeight="700"
+              style={{ fontSize: `${24 * cScale}px` }}>
+              {total.toLocaleString()}
+            </text>
+          </svg>
+        </div>
+
+        {/* 범례 */}
+        <div className="flex-1 space-y-[24px]">
+          {labels.map((label, i) => {
+            const pct = Math.round((values[i] / total) * 100);
+            return (
+              <div key={i} className="flex items-center gap-[24px]">
+                <div
+                  className="w-[20px] h-[48px] rounded-[6px] flex-shrink-0"
+                  style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                />
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-[6px]">
+                    <span className="font-bold text-slate-700" style={{ fontSize: `${26 * cScale}px` }}>{label}</span>
+                    <span className="font-black" style={{ color: PIE_COLORS[i % PIE_COLORS.length], fontSize: `${28 * cScale}px` }}>
+                      {pct}%
+                    </span>
+                  </div>
+                  {/* 미니 바 */}
+                  <div className="w-full bg-slate-100 rounded-full h-[10px]">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, background: PIE_COLORS[i % PIE_COLORS.length] }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ── ✅ 신규: tableData 표 렌더러 (헤더/행 통합) ──
+  const renderTable = () => {
+    if (!tableHeaders.length) return null;
+    return (
+      <div className="flex-1 px-[140px] py-[40px] overflow-auto">
+        <table className="w-full text-left border-collapse bg-white rounded-[24px] shadow-xl overflow-hidden">
+          <thead>
+            <tr style={{ background: theme.accent }}>
+              {tableHeaders.map((h, i) => (
+                <th key={i} className="p-[28px] font-black text-white" style={{ fontSize: `${24 * cScale}px` }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row, i) => (
+              <tr
+                key={i}
+                className="border-b border-slate-100"
+                style={{ background: i % 2 === 0 ? '#f8fafc' : '#ffffff' }}
+              >
+                {row.map((cell, j) => (
+                  <td key={j} className="p-[24px] font-medium text-slate-700" style={{ fontSize: `${22 * cScale}px` }}>
+                    {cell}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // ── ✅ action 타입 전용 렌더러 ──
   const renderAction = () => (
     <div className="flex-1 px-[140px] py-[40px] flex flex-col justify-center">
       <div className="space-y-[28px]">
@@ -205,7 +351,7 @@ export function ScaledSlide({
     </div>
   );
 
-  // ── ✅ summary 타입 전용 렌더러 (신규) ──
+  // ── ✅ summary 타입 전용 렌더러 ──
   const renderSummary = () => (
     <div className="flex-1 px-[140px] py-[40px] flex flex-col justify-center">
       <div className={`grid gap-[32px]`} style={{ gridTemplateColumns: content.length > 3 ? 'repeat(2, 1fr)' : '1fr' }}>
@@ -222,7 +368,7 @@ export function ScaledSlide({
     </div>
   );
 
-  // ── ✅ title 타입 표지 슬라이드 (발표자 정보 추가) ──
+  // ── ✅ title 타입 표지 슬라이드 ──
   const renderTitle = () => (
     <div className="flex-1 flex flex-col justify-center items-start px-[180px]">
       <div className="mb-[48px]">
@@ -237,7 +383,6 @@ export function ScaledSlide({
         {renderHighlightedText(slide.title, 96, tScale, true)}
       </h1>
       <div className="h-[6px] rounded-full mt-[48px] w-[240px]" style={{ background: theme.accent }} />
-      {/* ✅ 발표자 / 부서 / 날짜 표시 */}
       <div className="flex items-center gap-[48px] mt-[48px]">
         {slide.reporter && (
           <span className="text-slate-500 font-semibold" style={{ fontSize: `${28 * cScale}px` }}>
@@ -258,7 +403,7 @@ export function ScaledSlide({
     </div>
   );
 
-  // ── 기본 콘텐츠 렌더러 (content + metrics + stats) ──
+  // ── ✅ 기본 콘텐츠 렌더러 (content + metrics + stats + pieChart) ──
   const renderDefault = () => (
     <div className="flex-1 px-[140px] py-[20px] flex flex-col justify-center">
       {content.length > 0 && (
@@ -275,12 +420,14 @@ export function ScaledSlide({
           ))}
         </ul>
       )}
-      {/* ✅ keyMetrics 렌더링 추가 */}
+      {/* ✅ keyMetrics 렌더링 */}
       {metrics.length > 0 && renderMetrics()}
-      {/* ✅ stats 렌더링 추가 */}
+      {/* ✅ stats 바 차트 렌더링 */}
       {stats.length > 0 && renderStats()}
+      {/* ✅ 신규: chartData 파이 차트 렌더링 */}
+      {pieData && renderPieChart()}
       {/* items fallback */}
-      {content.length === 0 && metrics.length === 0 && stats.length === 0 && items.length > 0 && (
+      {content.length === 0 && metrics.length === 0 && stats.length === 0 && !pieData && items.length > 0 && (
         <ul className="space-y-[24px]">
           {items.map((it: any, i) => (
             <li key={i} className="bg-white p-[32px] rounded-[24px] shadow-sm flex items-center gap-6">
@@ -297,34 +444,16 @@ export function ScaledSlide({
     </div>
   );
 
-  // ── 메인 콘텐츠 분기 ──
+  // ── ✅ 메인 콘텐츠 분기 (tableData 우선 처리 추가) ──
   const renderContent = () => {
     if (slide.type === 'title')   return renderTitle();
     if (slide.type === 'action')  return <>{renderHeader()}{renderAction()}</>;
     if (slide.type === 'summary' || slide.type === 'closing') return <>{renderHeader()}{renderSummary()}</>;
-    if (headers.length > 0) return (
+    // ✅ tableData 또는 headers 가 있으면 표 렌더링
+    if (tableHeaders.length > 0) return (
       <>
         {renderHeader()}
-        <div className="flex-1 px-[140px] py-[40px] overflow-hidden">
-          <table className="w-full text-left border-collapse bg-white rounded-[24px] shadow-xl overflow-hidden">
-            <thead className="bg-slate-50 border-b-2 border-slate-100">
-              <tr>
-                {headers.map((h, i) => (
-                  <th key={i} className="p-[24px] font-black text-slate-800" style={{ fontSize: `${24 * cScale}px` }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, i) => (
-                <tr key={i} className="border-b border-slate-50">
-                  {row.map((cell, j) => (
-                    <td key={j} className="p-[24px] font-medium text-slate-600" style={{ fontSize: `${22 * cScale}px` }}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {renderTable()}
       </>
     );
     return <>{renderHeader()}{renderDefault()}</>;
@@ -336,7 +465,6 @@ export function ScaledSlide({
       className={`relative overflow-hidden ${containerClassName}`}
       style={{ aspectRatio: '16/9' }}
     >
-      {/* ✅ 측정 전 깜빡임 방지 */}
       <div
         className="absolute"
         style={{
