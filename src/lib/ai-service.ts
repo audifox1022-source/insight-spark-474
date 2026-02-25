@@ -31,7 +31,7 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
-const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를 완벽하게 분석하여 고품질 프레젠테이션으로 변환하는 '비주얼 전문가'입니다.
+const SYSTEM_PROMPT_CORE = `당신은 데이터를 완벽하게 분석하여 고품질 프레젠테이션으로 변환하는 '비주얼 전문가'입니다.
 
 [🔥 절대 준수: 데이터 소스 우선순위]
 1. 파일 데이터가 있는 경우: 오직 업로드된 파일의 내용만 사용하세요.
@@ -40,22 +40,19 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 [🎨 슬라이드 타입 선택 규칙 — 핵심]
 - "title"     : 표지. 발표 제목 + 발표자 정보
 - "agenda"    : 목차. items 배열에 목차 항목 나열
-- "kpi"       : KPI 수치 강조. keyMetrics 배열 필수 (3~4개 카드)
+- "kpi"       : KPI 수치 강조. keyMetrics 배열 필수
 - "chart"     : 수치 비교/추이. 반드시 chartData 객체 필수 (bar, line, pie 차트)
 - "compare"   : 좌우 2가지 비교. leftTitle/leftItems/rightTitle/rightItems 필수
-- "table"     : 표/데이터 그리드. headers + rows 필수 (절대 stats 사용 금지)
-- "process"   : 순서/단계. steps 배열 필수 (→ 화살표 플로우)
+- "table"     : 표/데이터 그리드. headers + rows 필수
+- "process"   : 순서/단계. steps 배열 필수
 - "cards"     : 카드 나열. items 배열 필수 (각 항목: {title, desc})
-- "timeline"  : 시간 흐름. milestones 배열 필수
 - "content"   : 일반 텍스트. points 배열 사용
-- "summary"   : 마무리/결론. points 배열 + keyMetrics 선택
 - "closing"   : 감사 인사 마지막 슬라이드
 
 [🚫 절대 금지]
 - table 타입에 stats 사용 금지 (표는 반드시 headers + rows만 사용)
 - content 배열에 객체({}) 삽입 금지 — 순수 문자열만
 - chart 타입에 tableData나 stats 사용 금지 (오직 chartData 구조만 허용)
-- notes는 2문장 이내 구어체 대본
 - 모든 응답은 순수 JSON (마크다운 없음)`;
 
 function truncateFileData(fileData: any): string {
@@ -67,11 +64,6 @@ function truncateFileData(fileData: any): string {
       const v = value as any;
       if (v.error) { parts.push(`### [${fileName}]\n⚠️ ${v.note || '파싱 실패'}`); continue; }
       if (v.content) { parts.push(`### [${fileName} (${v.type || 'text'})]:\n${v.content}`); continue; }
-      if (v.type === 'excel' && v.data) {
-        const excelText = typeof v.data === 'string' ? v.data : JSON.stringify(v.data, null, 2);
-        parts.push(`### [${fileName} (Excel)]:\n${excelText}`); continue;
-      }
-      if (v.type === 'image') { parts.push(`### [${fileName} (이미지)]: 이미지 파일`); continue; }
       parts.push(`### [${fileName}]:\n${JSON.stringify(v)}`);
     }
     return parts.join('\n\n').slice(0, 80000);
@@ -89,7 +81,6 @@ function truncateFileData(fileData: any): string {
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
-
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
@@ -112,25 +103,9 @@ function extractJSON(text: string): any | null {
       let brackets = (slidesText.match(/\[/g) || []).length - (slidesText.match(/\]/g) || []).length;
       while (brackets > 0) { slidesText += ']'; brackets--; }
       slidesText = slidesText.replace(/,\s*([\]}])/g, '$1');
-      const slides = JSON.parse(slidesText);
-      const titleMatch = cleanText.match(/"title"\s*:\s*"([^"]+)"/);
-      return { title: titleMatch ? titleMatch[1] : '발표 자료', slides: Array.isArray(slides) ? slides : [] };
+      return { title: '발표 자료', slides: JSON.parse(slidesText) };
     }
-  } catch { console.warn('3차 복구...'); }
-
-  try {
-    const slideObjects: any[] = [];
-    const matches = cleanText.match(/\{[^{}]*"slideNumber"[^{}]*"title"[^{}]*\}/g);
-    if (matches) {
-      for (const m of matches) { try { slideObjects.push(JSON.parse(m)); } catch { /* skip */ } }
-    }
-    if (slideObjects.length > 0) {
-      const titleMatch = cleanText.match(/"title"\s*:\s*"([^"]+)"/);
-      return { title: titleMatch ? titleMatch[1] : '발표 자료', slides: slideObjects };
-    }
-  } catch { /* skip */ }
-
-  console.error('JSON 복구 최종 실패:', cleanText.slice(-100));
+  } catch { return null; }
   return null;
 }
 
@@ -138,309 +113,113 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error('VITE_GEMINI_API_KEY가 설정되지 않았습니다.');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: maxTokens, responseMimeType: 'application/json' },
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+    ],
+  };
 
-  try {
-    const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: maxTokens,
-        responseMimeType: 'application/json',
-      },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-      ],
-    };
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal }
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`AI 서버 통신 오류 (${response.status}): ${errText}`);
-    }
-
-    const data = await response.json();
-    if (!data.candidates?.length) throw new Error('AI 응답이 비어있습니다.');
-
-    const candidate = data.candidates[0];
-    if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-      console.warn(`⚠️ Gemini finishReason: ${candidate.finishReason}`);
-    }
-    return candidate.content.parts[0].text;
-
-  } catch (err: any) {
-    if (err.name === 'AbortError') throw new Error('AI 응답 시간 초과 (60초). 다시 시도해주세요.');
-    throw err;
-  } finally {
-    clearTimeout(timeout);
-  }
+  if (!response.ok) throw new Error(`AI 서버 통신 오류 (${response.status})`);
+  const data = await response.json();
+  return data.candidates[0].content.parts[0].text;
 }
 
-// ✅ 슬라이드 타입별 필드 스키마 (AI가 정확히 따르도록)
 const SLIDE_SCHEMA = `
-[슬라이드 타입별 필수 필드]
-
-"title" 타입:
-  { "slideNumber":1, "type":"title", "title":"발표 제목", "subhead":"부제목(선택)", "notes":"..." }
-
-"agenda" 타입:
-  { "slideNumber":2, "type":"agenda", "title":"목차", "items":[{"title":"1. 현황 분석"},{"title":"2. 문제점"}], "notes":"..." }
-
-"kpi" 타입 (수치 KPI 카드 3~4개):
-  { "slideNumber":3, "type":"kpi", "title":"핵심 지표", "keyMetrics":[{"label":"매출","value":"150억","trend":"up","description":"전년比 +23%"}], "notes":"..." }
-
-"chart" 타입 (막대/선/원형 차트 시각화):
-  { "slideNumber":4, "type":"chart", "title":"분기별 실적", "chartData":{"type":"bar","data":[{"name":"1분기","value":42},{"name":"2분기","value":58}]}, "notes":"..." }
-
-"compare" 타입 (좌우 비교):
-  { "slideNumber":5, "type":"compare", "title":"AS-IS vs TO-BE", "leftTitle":"현재", "leftItems":["문제1","문제2"], "rightTitle":"개선 후", "rightItems":["해결1","해결2"], "notes":"..." }
-
-"table" 타입 (표 — 절대 stats/chartData 사용 금지):
-  { "slideNumber":6, "type":"table", "title":"기능 비교표", "headers":["구분","A안","B안","비고"], "rows":[["비용","100만원","80만원","B안 절감"]], "notes":"..." }
-
-"process" 타입 (단계/프로세스):
-  { "slideNumber":7, "type":"process", "title":"추진 절차", "steps":["1단계: 분석","2단계: 설계","3단계: 구현","4단계: 검증"], "notes":"..." }
-
-"cards" 타입 (카드 나열):
-  { "slideNumber":8, "type":"cards", "title":"핵심 전략", "items":[{"title":"전략1","desc":"설명"},{"title":"전략2","desc":"설명"}], "notes":"..." }
-
-"timeline" 타입:
-  { "slideNumber":9, "type":"timeline", "title":"추진 일정", "milestones":[{"label":"착수","date":"2025.01","state":"done"},{"label":"완료","date":"2025.06","state":"next"}], "notes":"..." }
-
-"content" 타입 (일반 텍스트):
-  { "slideNumber":10, "type":"content", "title":"주요 내용", "points":["핵심 내용1","핵심 내용2","핵심 내용3"], "notes":"..." }
-
-"summary" 타입 (결론):
-  { "slideNumber":11, "type":"summary", "title":"결론 및 제언", "points":["결론1","결론2"], "keyMetrics":[{"label":"기대효과","value":"+30%","trend":"up"}], "notes":"..." }
-
-"closing" 타입:
-  { "slideNumber":12, "type":"closing", "title":"감사합니다", "subhead":"문의: email@company.com", "notes":"..." }
+"chart" 타입 필수 구조:
+  { "slideNumber":4, "type":"chart", "title":"데이터 차트", "chartData":{"type":"bar","data":[{"name":"항목A","value":42},{"name":"항목B","value":58}]}, "notes":"..." }
 
 ⚠️ 절대 규칙:
-- table 타입 → headers + rows 만 사용. 
-- chart 타입 → 반드시 chartData 객체({"type": "bar" | "line" | "pie", "data": [{"name": "A", "value": 10}]})만 사용. chartData.data 안의 value는 무조건 '숫자'만 입력하세요.
-- points/items/steps/rows 내부에는 반드시 순수 문자열 또는 {title,desc} 객체만 허용.
-- 수치 데이터가 있으면 반드시 chart 또는 kpi 타입 슬라이드를 1개 이상 포함.
+- chart 타입은 반드시 chartData 객체를 포함하고, data 배열 안의 value는 순수 "숫자"여야 합니다. (예: "150억" -> 150)
 `;
 
 export const aiService = {
-
   async getOutline(body: any) {
-    const { fileData, settings, meetingInfo, template } = body;
-    const fileContent = truncateFileData(fileData);
-    const maxTokens = TOKEN_MAP[settings?.volume || 'standard'];
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 발표 목차(구성안)만 설계하세요. 상세 내용은 생성하지 마세요.
-
-[발표 정보]
-- 주제: ${meetingInfo?.week || '미입력'}
-- 발표자: ${meetingInfo?.reporter || '미입력'}
-- 부서: ${meetingInfo?.department || '미입력'}
-- 추가 지시: ${meetingInfo?.notes || '없음'}
-- 템플릿: ${TEMPLATE_MAP[template || 'auto']}
-- 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}
-- 분량: ${VOLUME_MAP[settings?.volume || 'standard']}
-
-[원본 자료]
-${fileContent}
-
-반드시 아래 JSON만 반환:
-{"title":"전체 제목","outline":[{"slideNumber":1,"title":"슬라이드 제목","type":"title|agenda|kpi|chart|compare|table|process|cards|timeline|content|summary|closing","description":"한 줄 설명"}]}`;
-
-    const text = await callGeminiAPI(prompt, maxTokens);
+    const { fileData, settings, meetingInfo } = body;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n\n[미션] 발표 목차(구성안)만 설계하세요. 원본 데이터 기반으로 요약하세요.\n${truncateFileData(fileData)}\n\n반드시 아래 JSON만 반환:\n{"title":"전체 제목","outline":[{"slideNumber":1,"title":"제목","type":"title|agenda|kpi|chart|compare|table|process|cards|content|closing","description":"요약"}]}`;
+    const text = await callGeminiAPI(prompt, TOKEN_MAP[settings?.volume || 'standard']);
     let data = extractJSON(text);
-    if (!data) throw new Error('구성안 파싱 실패');
     if (Array.isArray(data)) data = { title: '발표 구성안', outline: data };
     return { outline: data };
   },
 
   async generatePresentation(body: any) {
-    const { fileData, settings, approvedOutline, meetingInfo, template } = body;
-    const fileContent = truncateFileData(fileData);
-    const maxTokens = TOKEN_MAP[settings?.volume || 'standard'];
-
-    const outlineHint = approvedOutline
-      ? `\n[승인된 목차 — 반드시 이 구성과 타입을 그대로 사용하세요]\n${JSON.stringify(approvedOutline, null, 2)}`
-      : '';
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 원본 자료를 바탕으로 고품질 슬라이드를 완성하세요.
-각 슬라이드 타입에 맞는 필드를 정확히 사용하세요. 스키마를 반드시 준수하세요.
-
-[발표 정보]
-- 주제: ${meetingInfo?.week || '미입력'}
-- 발표자: ${meetingInfo?.reporter || '미입력'}
-- 부서: ${meetingInfo?.department || '미입력'}
-- 추가 지시: ${meetingInfo?.notes || '없음'}
-- 템플릿: ${TEMPLATE_MAP[template || 'auto']}
-- 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}
-- 분량: ${VOLUME_MAP[settings?.volume || 'standard']}
-${outlineHint}
-
-[원본 자료]
-${fileContent}
-
-${SLIDE_SCHEMA}
-
-반드시 아래 JSON만 반환:
-{"title":"발표 제목","slides":[/* 타입별 스키마에 맞는 슬라이드 배열 */]}`;
-
-    const text = await callGeminiAPI(prompt, maxTokens);
+    const { fileData, settings, approvedOutline } = body;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n\n[미션] 승인된 목차와 원본 자료를 바탕으로 슬라이드를 완성하세요.\n- 목차: ${JSON.stringify(approvedOutline)}\n- 자료: ${truncateFileData(fileData)}\n${SLIDE_SCHEMA}\n반드시 JSON만 반환하세요: {"title":"발표 제목","slides":[...]}`;
+    
+    const text = await callGeminiAPI(prompt, TOKEN_MAP[settings?.volume || 'standard']);
     let data = extractJSON(text);
     if (!data) throw new Error('발표 자료 파싱 실패');
     if (Array.isArray(data)) data = { title: '발표 자료', slides: data };
 
-    // ✨ 마법의 로직: 차트 데이터 렌더링 강제 정규화 (Normalization)
+    // ✨ 극한의 차트 정규화 로직 (AI가 아무렇게나 줘도 강제로 name, value로 변환)
     data.slides = (data.slides || []).map((s: any, i: number) => {
-      // AI가 chart, chartData, stats 중 어디에 넣었든 무조건 찾아서 변환
       if (s.type === 'chart' || s.chartData || s.stats) {
-        let rawChart = s.chartData || s.stats;
-        let normalizedChart = { type: 'bar', data: [] as any[] };
+        let rawData = [];
+        if (s.chartData && Array.isArray(s.chartData.data)) rawData = s.chartData.data;
+        else if (Array.isArray(s.chartData)) rawData = s.chartData;
+        else if (Array.isArray(s.stats)) rawData = s.stats;
 
-        if (Array.isArray(rawChart)) {
-          normalizedChart.data = rawChart;
-        } else if (rawChart && typeof rawChart === 'object') {
-          normalizedChart.type = rawChart.type || 'bar';
-          normalizedChart.data = rawChart.data || rawChart.items || [];
-        }
+        let normalizedData = rawData.map((item: any, idx: number) => {
+          if (typeof item !== 'object') return { name: `항목 ${idx+1}`, value: Number(String(item).replace(/[^0-9.-]+/g, "")) || 0 };
+          
+          let name = item.name || item.label || item.x || item.항목 || item.구분;
+          let value = item.value !== undefined ? item.value : (item.y !== undefined ? item.y : item.수치);
 
-        // [핵심] Recharts 라이브러리는 value가 문자열("150억")이면 렌더링을 멈춥니다.
-        // 모든 value에서 숫자 외의 문자열(억, %, 만 등)을 싹 지우고 순수 Number로 변환합니다.
-        normalizedChart.data = normalizedChart.data.map((item: any) => {
-          const rawValue = item.value !== undefined ? item.value : item.y;
-          const numValue = typeof rawValue === 'number' 
-            ? rawValue 
-            : Number(String(rawValue).replace(/[^0-9.-]+/g, "")) || 0;
-            
+          // 명시적 키가 없으면 객체 내부를 뒤져서 숫자와 문자를 찾아냄
+          if (value === undefined || name === undefined) {
+            for (const key in item) {
+              const strVal = String(item[key]);
+              if (/[0-9]/.test(strVal) && value === undefined) value = item[key];
+              else if (typeof item[key] === 'string' && name === undefined) name = item[key];
+            }
+          }
+
           return {
-            name: item.name || item.label || item.x || '항목',
-            value: numValue
+            name: String(name || `항목 ${idx + 1}`),
+            value: Number(String(value).replace(/[^0-9.-]+/g, "")) || 0
           };
-        });
+        }).filter((item: any) => item.name !== '항목' || item.value !== 0); // 완전한 빈 데이터 제거
 
-        s.chartData = normalizedChart;
-        s.stats = undefined; // 중복 방지를 위해 stats 키 삭제
+        if (normalizedData.length > 0) {
+          s.type = 'chart';
+          s.chartData = { type: (s.chartData?.type || 'bar'), data: normalizedData };
+        } else {
+          s.type = s.type === 'chart' ? 'content' : s.type; // 데이터 추출 실패 시 텍스트 슬라이드로 폴백
+          s.chartData = undefined;
+        }
+        s.stats = undefined; 
       }
-
-      return {
-        ...s,
-        id: `slide-${Date.now()}-${i}`,
-      };
+      return { ...s, id: `slide-${Date.now()}-${i}` };
     });
 
     return { presentation: data };
   },
 
   async regenerateSlide(body: any) {
-    const { currentSlide, userInstruction, fileData, slideIndex, presentation } = body;
-    const fileContent = truncateFileData(fileData);
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 아래 슬라이드를 수정 요청에 맞게 재작성하세요.
-- 전체 발표: ${presentation?.title || ''}
-- 슬라이드 번호: ${slideIndex + 1}번
-- 수정 요청: "${userInstruction || '더 좋은 내용으로 전면 재작성'}"
-- 현재 슬라이드: ${JSON.stringify(currentSlide)}
-- 원본 자료: ${fileContent}
-
-${SLIDE_SCHEMA}
-
-슬라이드 타입에 맞는 JSON 1개만 반환하세요.`;
-
-    const text = await callGeminiAPI(prompt, 4096);
+    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n수정 요청: "${body.userInstruction}"\n데이터: ${JSON.stringify(body.currentSlide)}\n수정된 슬라이드 JSON 1개만 반환.`, 4096);
     return { slide: extractJSON(text) };
   },
 
   async chatEdit(body: any) {
-    const { userMessage, currentSlide, slideIndex, presentation } = body;
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 사용자 요청에 따라 슬라이드를 수정하세요.
-- 전체 발표: ${presentation?.title || ''}
-- 현재 슬라이드 (${(slideIndex || 0) + 1}번): ${JSON.stringify(currentSlide)}
-- 수정 요청: "${userMessage}"
-
-${SLIDE_SCHEMA}
-
-아래 JSON으로 반환:
-{"slide":{/* 타입에 맞는 슬라이드 */},"summary":"변경 내용 한 줄 요약"}`;
-
-    const text = await callGeminiAPI(prompt, 4096);
+    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n요청: "${body.userMessage}"\n데이터: ${JSON.stringify(body.currentSlide)}\n{"slide":{...},"summary":"..."} 반환.`, 4096);
     return { result: extractJSON(text) };
   },
 
   async changePersona(body: any) {
-    const { currentSlide, persona } = body;
-
-    const personaPrompts: Record<string, string> = {
-      jobs:     '스티브 잡스: 단순하고 강렬한 메시지, 감성적 스토리텔링, 핵심 1가지만',
-      mckinsey: '맥킨지: 데이터 중심, MECE 구조, 논리적 흐름, 숫자로 증명',
-      ceo:      '임원 보고: 두괄식, 핵심 수치 우선, 의사결정 지원',
-      team:     '팀 공유: 친근한 구어체, 협업 강조, 실행 중심',
-      client:   '외부 고객: 전문적이고 설득력 있는 제안 형식',
-    };
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 아래 페르소나 스타일로 슬라이드를 재작성하세요. 슬라이드 타입(${currentSlide.type})은 유지하세요.
-- 페르소나: ${personaPrompts[persona] || persona}
-- 현재 슬라이드: ${JSON.stringify(currentSlide)}
-
-${SLIDE_SCHEMA}
-
-슬라이드 JSON 1개만 반환 (기존 type 유지).`;
-
-    const text = await callGeminiAPI(prompt, 4096);
+    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n페르소나: ${body.persona}\n데이터: ${JSON.stringify(body.currentSlide)}\n슬라이드 JSON 1개만 반환.`, 4096);
     return { slide: extractJSON(text) };
   },
 
-  async review(body: any) {
-    const { presentation } = body;
-
-    const prompt = `발표 자료 전문가로서 아래 발표 자료를 검토하고 개선점을 제안하세요.
-발표 자료: ${JSON.stringify(presentation)}
-
-JSON으로 반환:
-{"overallScore":85,"summary":"전체 평가 한 줄","improvements":[{"slideIndex":0,"issue":"문제점","suggestion":"개선 제안"}]}`;
-
-    const text = await callGeminiAPI(prompt, 4096);
-    return { review: extractJSON(text) };
-  },
-
-  async reviewAndFix(body: any) {
-    const { presentation } = body;
-
-    const prompt = `${SYSTEM_PROMPT_CORE}
-
-[미션] 발표 자료 전체의 논리적 흐름, 내용 완성도, 시각화를 최적화하세요.
-각 슬라이드 타입에 맞는 필드를 올바르게 사용하세요.
-원본: ${JSON.stringify(presentation)}
-
-${SLIDE_SCHEMA}
-
-JSON으로 반환:
-{"presentation":{"title":"...","slides":[...]},"summary":"개선 내용 요약"}`;
-
-    const text = await callGeminiAPI(prompt, 16384);
-    const data = extractJSON(text);
-    if (!data) throw new Error('최적화 파싱 실패');
-
-    if (!data.presentation && data.slides) {
-      return { result: { presentation: data, summary: '전체 발표 자료가 최적화되었습니다.' } };
-    }
-    return { result: data };
-  },
+  async review(body: any) { return { review: extractJSON(await callGeminiAPI(`발표 자료 검토: ${JSON.stringify(body.presentation)}\n{"overallScore":85,"summary":"...","improvements":[]}`, 4096)) }; },
+  async reviewAndFix(body: any) { return { result: extractJSON(await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n자료 최적화: ${JSON.stringify(body.presentation)}\n{"presentation":{...},"summary":"..."}`, 16384)) }; }
 };
