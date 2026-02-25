@@ -26,7 +26,7 @@ const hexToRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-/* ── 💡 가독성 극대화 라이트 테마 ── */
+/* ── 💡 가독성 극대화 라이트 테마 (Closing 슬라이드도 밝게 통일) ── */
 const typeThemes: Record<string, { bg: string; accent: string; badge: string; }> = {
   title: { bg: 'bg-gradient-to-br from-slate-50 to-slate-100', accent: '#2563eb', badge: 'INTRO' },
   section: { bg: 'bg-gradient-to-br from-indigo-50 to-slate-100', accent: '#4f46e5', badge: 'CHAPTER' },
@@ -35,7 +35,7 @@ const typeThemes: Record<string, { bg: string; accent: string; badge: string; }>
   chart: { bg: 'bg-gradient-to-br from-slate-50 to-white', accent: '#0d9488', badge: 'CHART' },
   action: { bg: 'bg-gradient-to-br from-orange-50 to-white', accent: '#ea580c', badge: 'ACTION' },
   summary: { bg: 'bg-gradient-to-br from-blue-50 to-white', accent: '#0284c7', badge: 'SUMMARY' },
-  closing: { bg: 'bg-gradient-to-br from-slate-900 to-slate-800', accent: '#38bdf8', badge: 'FINISH' },
+  closing: { bg: 'bg-gradient-to-br from-slate-50 to-slate-100', accent: '#0ea5e9', badge: 'FINISH' }, // ✨ 다크 테마 제거, 통일성 부여
 };
 
 const trendConfig: Record<string, { icon: React.ReactNode; color: string; }> = {
@@ -73,15 +73,13 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
   const isHighlight = layoutMode === 'highlight';
   const isGrid = layoutMode === 'grid';
 
-  // ✨ 섹터별 글자 크기 스케일 (Base Font Size 대비 곱해지는 비율)
-  const tScale = slide.titleSizeScale ?? slide.textSizeScale ?? 1.0;   // 제목용
-  const cScale = slide.contentSizeScale ?? slide.textSizeScale ?? 1.0; // 본문용
+  const tScale = slide.titleSizeScale ?? slide.textSizeScale ?? 1.0;
+  const cScale = slide.contentSizeScale ?? slide.textSizeScale ?? 1.0;
 
   const vRatio = slide.visualRatio || 50; 
   const tDensity = slide.tableDensity || 'normal';
   const tablePadding = tDensity === 'compact' ? 'py-[12px] px-[16px]' : tDensity === 'relaxed' ? 'py-[28px] px-[32px]' : 'py-[20px] px-[24px]';
 
-  // 특정 강조 텍스트 파싱 함수 (scale을 인자로 받아 크기 적용)
   const renderHighlightedText = (text: string, baseSize: number, appliedScale: number, isBold: boolean = false) => {
     if (!text) return null;
     const parts = text.split(/(\*\*.*?\*\*|\[\[.*?\]\])/g);
@@ -100,7 +98,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
     );
   };
 
-  /* ── 템플릿 렌더링 함수들 ── */
   const renderHeader = () => (
     <div className="px-[140px] pt-[80px] pb-[28px] relative z-[3] flex-shrink-0">
       <div className="flex items-center gap-[16px] mb-[24px]">
@@ -108,8 +105,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
         <div className="w-[3px] h-[24px] bg-slate-300" />
         <span className="font-mono text-slate-400 font-bold tracking-[0.2em]" style={{ fontSize: `${20 * cScale}px` }}>{String(slide.slideNumber).padStart(2, '0')}</span>
       </div>
-      {/* 기본 타이틀 크기 72 -> 64로 약간 하향 (오버플로우 방지) */}
-      <h1 className="font-black leading-[1.2] tracking-[-0.03em] max-w-[1500px] break-words whitespace-pre-wrap" style={{ fontSize: `${64 * tScale}px`, color: slide.type === 'closing' ? 'white' : '#0f172a' }}>
+      <h1 className="font-black leading-[1.2] tracking-[-0.03em] max-w-[1500px] break-words whitespace-pre-wrap text-slate-900" style={{ fontSize: `${64 * tScale}px` }}>
         {renderHighlightedText(slide.title, 64, tScale, true)}
       </h1>
       {slide.subhead && (
@@ -130,7 +126,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale',
         }}
       >
-        <div className={`w-full h-full ${theme.bg} ${slide.type === 'closing' ? 'text-white' : 'text-slate-900'} flex flex-col relative overflow-hidden tracking-tight`}>
+        <div className={`w-full h-full ${theme.bg} text-slate-900 flex flex-col relative overflow-hidden tracking-tight`}>
           
           {slide.imageUrl && (
             <div className="absolute inset-0 z-0">
@@ -164,13 +160,28 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                       <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
                       <span className="font-bold tracking-[0.4em] uppercase font-mono" style={{ color: theme.accent, fontSize: `${22 * cScale}px` }}>{theme.badge || 'TITLE'}</span>
                     </div>
-                    {/* 타이틀 크기 110 -> 96 조정 */}
-                    <h1 className="font-black leading-[1.15] tracking-[-0.03em] max-w-[1400px] break-words whitespace-pre-wrap" style={{ fontSize: `${96 * tScale}px` }}>
+                    <h1 className="font-black leading-[1.15] tracking-[-0.03em] max-w-[1400px] break-words whitespace-pre-wrap text-slate-900" style={{ fontSize: `${96 * tScale}px` }}>
                       {renderHighlightedText(slide.title, 96, tScale, true)}
                     </h1>
                     {slide.subhead && <p className="mt-[32px] font-medium text-slate-500 break-words" style={{ fontSize: `${36 * cScale}px` }}>{slide.subhead}</p>}
                     <div className="mt-[64px] h-[6px] w-[140px] rounded-full" style={{ background: theme.accent }} />
                     {slide.date && <p className="mt-[40px] font-mono text-slate-400 font-bold tracking-widest" style={{ fontSize: `${24 * cScale}px` }}>{slide.date}</p>}
+                  </div>
+                );
+
+              // ✨ closing 슬라이드 전용 레이아웃 추가 (가운데 정렬)
+              case 'closing':
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center px-[100px] relative z-[3] overflow-hidden">
+                    <div className="flex items-center gap-[16px] mb-[40px]">
+                      <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
+                      <span className="font-bold tracking-[0.4em] uppercase font-mono" style={{ color: theme.accent, fontSize: `${22 * cScale}px` }}>{theme.badge || 'FINISH'}</span>
+                      <div className="h-[3px] w-[60px]" style={{ background: theme.accent }} />
+                    </div>
+                    <h1 className="font-black leading-[1.2] tracking-[-0.03em] max-w-[1400px] break-words whitespace-pre-wrap text-slate-900" style={{ fontSize: `${110 * tScale}px` }}>
+                      {renderHighlightedText(slide.title || '감사합니다', 110, tScale, true)}
+                    </h1>
+                    {slide.subhead && <p className="mt-[32px] font-medium text-slate-500 break-words" style={{ fontSize: `${40 * cScale}px` }}>{slide.subhead}</p>}
                   </div>
                 );
 
