@@ -8,6 +8,7 @@ export interface MeetingInfo {
 export interface PresentationSettings {
   difficulty: 'easy' | 'medium' | 'hard' | 'executive';
   volume: 'brief' | 'standard' | 'detailed' | 'comprehensive';
+  useWebSearch?: boolean; // ✨ 웹 검색 기능 활성화 옵션 추가
 }
 
 export interface SlideMetric {
@@ -45,18 +46,17 @@ export interface Slide {
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid'; 
   persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
   
-  // ✨ 디테일 튜닝 속성 추가
-  textSizeScale?: number; // 글자 크기 배율 (기본값: 1.0)
-  tableDensity?: 'compact' | 'normal' | 'relaxed'; // 표 밀집도 (기본값: 'normal')
-  visualRatio?: number; // 텍스트 vs 시각자료 비율 (기본값: 50)
+  textSizeScale?: number;
+  tableDensity?: 'compact' | 'normal' | 'relaxed';
+  visualRatio?: number;
 }
 
 export interface Presentation {
   id?: string;
   title: string;
   slides: Slide[];
-  logoUrl?: string;    // ✨ 마스터 슬라이드: 회사 로고
-  watermark?: string;  // ✨ 마스터 슬라이드: 워터마크 (대외비 등)
+  logoUrl?: string;
+  watermark?: string;
   createdAt?: string;
   updatedAt?: string;
 }
