@@ -41,7 +41,7 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 - "title"     : 표지. 발표 제목 + 발표자 정보
 - "agenda"    : 목차. items 배열에 목차 항목 나열
 - "kpi"       : KPI 수치 강조. keyMetrics 배열 필수 (3~4개 카드)
-- "chart"     : 수치 비교/추이. stats 배열 필수 (바 차트로 렌더링)
+- "chart"     : 수치 비교/추이. 반드시 chartData 객체 필수 (bar, line, pie 차트)
 - "compare"   : 좌우 2가지 비교. leftTitle/leftItems/rightTitle/rightItems 필수
 - "table"     : 표/데이터 그리드. headers + rows 필수 (절대 stats 사용 금지)
 - "process"   : 순서/단계. steps 배열 필수 (→ 화살표 플로우)
@@ -54,7 +54,7 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 [🚫 절대 금지]
 - table 타입에 stats 사용 금지 (표는 반드시 headers + rows만 사용)
 - content 배열에 객체({}) 삽입 금지 — 순수 문자열만
-- chart 타입에 tableData 사용 금지
+- chart 타입에 tableData나 stats 사용 금지 (오직 chartData 구조만 허용)
 - notes는 2문장 이내 구어체 대본
 - 모든 응답은 순수 JSON (마크다운 없음)`;
 
@@ -197,13 +197,13 @@ const SLIDE_SCHEMA = `
 "kpi" 타입 (수치 KPI 카드 3~4개):
   { "slideNumber":3, "type":"kpi", "title":"핵심 지표", "keyMetrics":[{"label":"매출","value":"150억","trend":"up","description":"전년比 +23%"}], "notes":"..." }
 
-"chart" 타입 (바 차트 — 수치 비교/추이):
-  { "slideNumber":4, "type":"chart", "title":"분기별 실적", "stats":[{"label":"1분기","value":"42","unit":"억"},{"label":"2분기","value":"58","unit":"억"}], "notes":"..." }
+"chart" 타입 (막대/선/원형 차트 시각화):
+  { "slideNumber":4, "type":"chart", "title":"분기별 실적", "chartData":{"type":"bar","data":[{"name":"1분기","value":42},{"name":"2분기","value":58}]}, "notes":"..." }
 
 "compare" 타입 (좌우 비교):
   { "slideNumber":5, "type":"compare", "title":"AS-IS vs TO-BE", "leftTitle":"현재", "leftItems":["문제1","문제2"], "rightTitle":"개선 후", "rightItems":["해결1","해결2"], "notes":"..." }
 
-"table" 타입 (표 — 절대 stats 사용 금지):
+"table" 타입 (표 — 절대 stats/chartData 사용 금지):
   { "slideNumber":6, "type":"table", "title":"기능 비교표", "headers":["구분","A안","B안","비고"], "rows":[["비용","100만원","80만원","B안 절감"]], "notes":"..." }
 
 "process" 타입 (단계/프로세스):
@@ -225,8 +225,8 @@ const SLIDE_SCHEMA = `
   { "slideNumber":12, "type":"closing", "title":"감사합니다", "subhead":"문의: email@company.com", "notes":"..." }
 
 ⚠️ 절대 규칙:
-- table 타입 → headers + rows 만 사용. stats 절대 금지.
-- chart 타입 → stats 만 사용. headers/rows 절대 금지.
+- table 타입 → headers + rows 만 사용. 
+- chart 타입 → 반드시 chartData 객체({"type": "bar" | "line" | "pie", "data": [{"name": "A", "value": 10}]})만 사용.
 - points/items/steps/rows 내부에는 반드시 순수 문자열 또는 {title,desc} 객체만 허용.
 - 수치 데이터가 있으면 반드시 chart 또는 kpi 타입 슬라이드를 1개 이상 포함.
 `;
