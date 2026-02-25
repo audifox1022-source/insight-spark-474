@@ -116,20 +116,28 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
-async function callGeminiAPI(prompt: string) {
+// ✨ 클라이언트에서 Google Gemini API 호출 (웹 검색 기능 추가)
+async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다. Vercel 환경변수에 추가해주세요.");
+
+  const payload: any = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.2,
+      maxOutputTokens: 8192,
+    }
+  };
+
+  // ✨ 웹 검색 옵션이 켜져있으면 Google Search Tool 추가
+  if (useWebSearch) {
+    payload.tools = [{ googleSearch: {} }];
+  }
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-      }
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -137,6 +145,7 @@ async function callGeminiAPI(prompt: string) {
     console.error("Gemini API Error:", errorData);
     throw new Error("AI 생성 중 오류가 발생했습니다. 할당량을 초과했거나 네트워크 문제입니다.");
   }
+  
   const data = await response.json();
   return data.candidates[0].content.parts[0].text;
 }
@@ -145,8 +154,10 @@ export const aiService = {
   async getOutline(body: any) {
     const { fileData, meetingInfo, settings, template } = body;
     const fileDataStr = truncateFileData(fileData);
-    const prompt = `${STORYTELLING_PERSONA}\n\n당신은 발표 자료 구성 전문가입니다.\n업로드된 모든 파일 데이터를 종합적으로 분석하여 발표 자료의 목차(구성안)를 제안해주세요. 여러 개의 파일이 업로드되었다면 모든 파일의 내용을 빠짐없이 통합해서 반영해야 합니다.\n\n회의 정보:\n- 발표 주제: ${meetingInfo?.week || '미입력'}\n- 부서: ${meetingInfo?.department || '미입력'}\n- 발표자: ${meetingInfo?.reporter || '미입력'}\n- 추가 지시사항: ${meetingInfo?.notes || '없음'}\n\n설정:\n- 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}\n- 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n- 템플릿: ${TEMPLATE_MAP[template || 'auto']}\n\n업로드된 전체 파일 데이터:\n${fileDataStr}\n\n${CHART_AND_TABLE_INSTRUCTION}\n\n아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "outline": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "description": "이 슬라이드에서 다룰 내용 한 줄 요약"\n    }\n  ]\n}`;
-    const text = await callGeminiAPI(prompt);
+    const searchInstruction = settings?.useWebSearch ? "\n[중요] 최신 웹 검색 결과를 적극 활용하여 객관적인 데이터와 트렌드를 내용에 반영하세요." : "";
+    
+    const prompt = `${STORYTELLING_PERSONA}\n\n당신은 발표 자료 구성 전문가입니다.\n업로드된 모든 파일 데이터와 주제를 분석하여 발표 자료의 목차(구성안)를 제안해주세요.${searchInstruction}\n\n회의 정보:\n- 발표 주제: ${meetingInfo?.week || '미입력'}\n- 부서: ${meetingInfo?.department || '미입력'}\n- 발표자: ${meetingInfo?.reporter || '미입력'}\n- 추가 지시사항: ${meetingInfo?.notes || '없음'}\n\n설정:\n- 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}\n- 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n- 템플릿: ${TEMPLATE_MAP[template || 'auto']}\n\n업로드된 전체 파일 데이터:\n${fileDataStr}\n\n${CHART_AND_TABLE_INSTRUCTION}\n\n아래 JSON 형식으로 목차만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "outline": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "description": "이 슬라이드에서 다룰 내용 한 줄 요약"\n    }\n  ]\n}`;
+    const text = await callGeminiAPI(prompt, settings?.useWebSearch);
     const outline = extractJSON(text);
     if (!outline || !outline.title || !outline.outline) throw new Error("구성안 생성 실패");
     return { outline };
@@ -156,9 +167,13 @@ export const aiService = {
     const { fileData, meetingInfo, settings, template, approvedOutline } = body;
     const fileDataStr = truncateFileData(fileData);
     const outlineHint = approvedOutline ? `\n\n사용자가 승인한 목차 구성:\n${JSON.stringify(approvedOutline, null, 2)}\n위 목차 구성을 반드시 따르세요.` : "";
-    const systemPrompt = `${STORYTELLING_PERSONA}\n\n핵심 작성 원칙:\n- AI 느낌 배제, 자연스러운 문체\n- 파일 데이터 통합\n- 구체적 데이터 기반 보고\n- 완벽한 초기 품질 (리뷰 지적 차단)\n\n📊 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}\n📄 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n📋 템플릿: ${TEMPLATE_MAP[template || 'auto']}\n${outlineHint}\n${CHART_AND_TABLE_INSTRUCTION}\n\n반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "slides": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "content": ["핵심 내용 항목들"],\n      "notes": "발표자 노트",\n      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n      ${CHART_DATA_SCHEMA},\n      ${TABLE_DATA_SCHEMA}\n    }\n  ]\n}`;
+    const searchInstruction = settings?.useWebSearch ? "\n[중요] 구글 웹 검색을 통해 확보한 최신 통계 수치, 연도, 기사 내용 등 사실(Fact) 기반의 데이터를 차트나 테이블 데이터로 적극 구성하세요." : "";
+    
+    const systemPrompt = `${STORYTELLING_PERSONA}\n\n핵심 작성 원칙:\n- AI 느낌 배제, 자연스러운 문체\n- 파일 데이터 통합\n- 구체적 데이터 기반 보고\n- 완벽한 초기 품질 (리뷰 지적 차단)\n\n📊 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}\n📄 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n📋 템플릿: ${TEMPLATE_MAP[template || 'auto']}\n${outlineHint}\n${CHART_AND_TABLE_INSTRUCTION}${searchInstruction}\n\n반드시 아래 JSON 형식으로만 생성하세요. JSON 외의 텍스트는 포함하지 마세요:\n{\n  "title": "전체 발표 제목",\n  "slides": [\n    {\n      "slideNumber": 1,\n      "title": "슬라이드 제목",\n      "type": "title|data|chart|action|summary",\n      "content": ["핵심 내용 항목들"],\n      "notes": "발표자 노트",\n      "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n      ${CHART_DATA_SCHEMA},\n      ${TABLE_DATA_SCHEMA}\n    }\n  ]\n}`;
+    
     const userPrompt = `회의 정보:\n- 발표 주제: ${meetingInfo?.week || '미입력'}\n- 부서: ${meetingInfo?.department || '미입력'}\n- 발표자: ${meetingInfo?.reporter || '미입력'}\n- 추가 지시사항: ${meetingInfo?.notes || '없음'}\n\n업로드된 전체 파일 데이터:\n${fileDataStr}\n\n위 데이터를 종합적으로 분석하여 발표 자료를 생성해주세요. 수치 데이터가 있으면 반드시 차트나 테이블을 포함하세요.`;
-    const text = await callGeminiAPI(`${systemPrompt}\n\n${userPrompt}`);
+    
+    const text = await callGeminiAPI(`${systemPrompt}\n\n${userPrompt}`, settings?.useWebSearch);
     const presentation = extractJSON(text);
     if (!presentation || !presentation.slides) throw new Error("발표자료 파싱 실패");
     return { presentation };
@@ -168,7 +183,7 @@ export const aiService = {
     const { slideIndex, currentSlide, presentation, fileData, userInstruction } = body;
     const fileDataStr = truncateFileData(fileData);
     const prompt = `${STORYTELLING_PERSONA}\n\n아래 슬라이드를 개선하거나 다시 작성해주세요.\n\n전체 발표 제목: ${presentation?.title || ''}\n현재 슬라이드 번호: ${slideIndex + 1}번\n\n현재 슬라이드 내용:\n${JSON.stringify(currentSlide, null, 2)}\n\n${userInstruction ? `사용자 지시사항: ${userInstruction}` : '더 좋은 내용으로 전면 재작성해주세요.'}\n\n업로드된 전체 파일 원본 데이터 (참고):\n${fileDataStr}\n\n아래 JSON 형식으로 슬라이드 1개만 반환하세요:\n{\n  "slideNumber": ${slideIndex + 1},\n  "title": "슬라이드 제목",\n  "type": "title|data|chart|action|summary",\n  "content": ["내용 항목들"],\n  "notes": "발표자 노트",\n  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n  ${CHART_DATA_SCHEMA},\n  ${TABLE_DATA_SCHEMA}\n}`;
-    const text = await callGeminiAPI(prompt);
+    const text = await callGeminiAPI(prompt, false); // 슬라이드 단건 재생성은 속도를 위해 검색 생략 가능
     const slide = extractJSON(text);
     if (!slide) throw new Error("슬라이드 파싱 실패");
     return { slide };
@@ -177,31 +192,23 @@ export const aiService = {
   async chatEdit(body: any) {
     const { userMessage, currentSlide, slideIndex, presentation } = body;
     const prompt = `${STORYTELLING_PERSONA}\n\n사용자의 요청에 따라 슬라이드를 수정해주세요.\n\n전체 발표: ${presentation?.title || ''}\n현재 슬라이드 (${slideIndex + 1}번):\n${JSON.stringify(currentSlide, null, 2)}\n\n사용자 요청: "${userMessage}"\n\n요청을 반영하여 수정하고, JSON 형식으로만 반환하세요:\n{\n  "slide": {\n    "slideNumber": ${slideIndex + 1},\n    "title": "슬라이드 제목",\n    "type": "title|data|chart|action|summary",\n    "content": ["내용 항목들"],\n    "notes": "발표자 노트",\n    "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up|down|flat"}],\n    ${CHART_DATA_SCHEMA},\n    ${TABLE_DATA_SCHEMA}\n  },\n  "summary": "변경 내용 한 줄 요약"\n}`;
-    const text = await callGeminiAPI(prompt);
+    const text = await callGeminiAPI(prompt, false);
     const result = extractJSON(text);
     if (!result) throw new Error("AI 수정 결과 파싱 실패");
     return { result };
   },
 
-  // ✨ 청중 맞춤형 톤앤매너 프롬프트 고도화
   async changePersona(body: any) {
     const { currentSlide, persona } = body;
     let stylePrompt = "";
-    if (persona === 'jobs') {
-      stylePrompt = `🍎 스티브 잡스 스타일: 극도로 간결하게. 텍스트 최소화. 핵심 메시지 1~2개로 압축. 감성적이고 비전 제시형 카피.`;
-    } else if (persona === 'mckinsey') {
-      stylePrompt = `💼 맥킨지 스타일: MECE 원칙 입각. 명확한 결론형 문장. 3가지 논리적 근거. 팩트/수치 중심의 이성적 어조.`;
-    } else if (persona === 'ceo') {
-      stylePrompt = `👔 CEO/임원진 보고용: 두괄식 결론 배치. 핵심 숫자와 기대 효과(ROI) 최우선 강조. 군더더기 없는 극도로 간결하고 확신에 찬 어조. 보고받는 사람의 시간을 아껴주세요.`;
-    } else if (persona === 'team') {
-      stylePrompt = `🤝 팀원 공유용: 친근하고 이해하기 쉬운 설명. 우리가 "무엇을", "왜" 해야 하는지 구체적인 실행 계획(Action Item)과 실무적인 맥락을 강조하세요.`;
-    } else if (persona === 'client') {
-      stylePrompt = `🏢 외부 고객/클라이언트용: 매우 정중하고 프로페셔널한 어조. 우리 회사의 강점과 고객이 얻게 될 최종적인 이익(Benefit)을 부각하는 매력적인 설득 문장으로 작성하세요.`;
-    }
+    if (persona === 'jobs') stylePrompt = `🍎 스티브 잡스 스타일: 극도로 간결하게. 텍스트 최소화. 핵심 메시지 1~2개로 압축. 감성적이고 비전 제시형 카피.`;
+    else if (persona === 'mckinsey') stylePrompt = `💼 맥킨지 스타일: MECE 원칙 입각. 명확한 결론형 문장. 3가지 논리적 근거. 팩트/수치 중심의 이성적 어조.`;
+    else if (persona === 'ceo') stylePrompt = `👔 CEO/임원진 보고용: 두괄식 결론 배치. 핵심 숫자와 기대 효과(ROI) 최우선 강조. 군더더기 없는 극도로 간결하고 확신에 찬 어조.`;
+    else if (persona === 'team') stylePrompt = `🤝 팀원 공유용: 친근하고 이해하기 쉬운 설명. 우리가 "무엇을", "왜" 해야 하는지 구체적인 실행 계획(Action Item)과 실무적인 맥락 강조.`;
+    else if (persona === 'client') stylePrompt = `🏢 외부 고객/클라이언트용: 매우 정중하고 프로페셔널한 어조. 우리 회사의 강점과 고객이 얻게 될 최종적인 이익(Benefit) 부각.`;
 
     const prompt = `당신은 세계 최고 수준의 프레젠테이션 카피라이터입니다.\n현재 슬라이드를 다음 지침에 따라 완전히 새롭게 재작성하세요.\n[적용할 스타일] ${stylePrompt}\n[현재 슬라이드]\n${JSON.stringify(currentSlide, null, 2)}\n\n아래 JSON 형식으로만 반환:\n{\n  "slide": {\n    "slideNumber": ${currentSlide.slideNumber || 1},\n    "title": "스타일이 적용된 제목",\n    "type": "${currentSlide.type || 'data'}",\n    "content": ["스타일이 완벽하게 적용된 내용"],\n    "notes": "발표자 스크립트 대본",\n    "keyMetrics": ${JSON.stringify(currentSlide.keyMetrics || [])},\n    "chartData": ${currentSlide.chartData ? JSON.stringify(currentSlide.chartData) : 'undefined'},\n    "tableData": ${currentSlide.tableData ? JSON.stringify(currentSlide.tableData) : 'undefined'}\n  }\n}`;
-
-    const text = await callGeminiAPI(prompt);
+    const text = await callGeminiAPI(prompt, false);
     const result = extractJSON(text);
     if (!result || !result.slide) throw new Error("스타일 변환 실패");
     return result;
@@ -211,7 +218,7 @@ export const aiService = {
     const { presentation } = body;
     const slideSummary = presentation.slides.map((s: any, i: number) => `[${i + 1}번] ${s.title}`).join('\n');
     const prompt = `${STORYTELLING_PERSONA}\n\n아래 발표자료를 검토하고 개선점을 제안해주세요.\n슬라이드 요약:\n${slideSummary}\n\nJSON 형식으로만 반환:\n{\n  "overallScore": 8,\n  "summary": "평가 한 줄 요약",\n  "strengths": ["잘된 점1"],\n  "improvements": [{"slideIndex": 0, "category": "readability", "severity": "high", "issue": "문제점", "suggestion": "개선방법"}],\n  "generalTips": ["팁1"]\n}`;
-    const text = await callGeminiAPI(prompt);
+    const text = await callGeminiAPI(prompt, false);
     const review = extractJSON(text);
     if (!review) throw new Error("리뷰 결과 파싱 실패");
     return { review };
@@ -220,7 +227,7 @@ export const aiService = {
   async reviewAndFix(body: any) {
     const { presentation } = body;
     const prompt = `${STORYTELLING_PERSONA}\n\n전체 발표 자료를 분석하고 완벽하게 최적화(개선)해주세요.\n현재 자료:\n${JSON.stringify(presentation, null, 2)}\n\nJSON 형식으로 개선된 전체 자료 반환:\n{\n  "summary": "개선 요약",\n  "presentation": {\n    "title": "전체 제목",\n    "slides": [ ...개선된 슬라이드 객체들... ]\n  }\n}`;
-    const text = await callGeminiAPI(prompt);
+    const text = await callGeminiAPI(prompt, false);
     const result = extractJSON(text);
     if (!result) throw new Error("최적화 결과 파싱 실패");
     return { result };
