@@ -9,8 +9,9 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut, Palette } from 'lucide-react';
+import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut, Palette, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -19,6 +20,9 @@ import { toast } from 'sonner';
 const Index = () => {
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  
+  // ✨ 제로 베이스 생성을 위한 프롬프트 입력 상태
+  const [promptInput, setPromptInput] = useState('');
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -43,8 +47,9 @@ const Index = () => {
     isDark, toggleDark,
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
+    handlePromptSubmit, // ✨ 추가된 훅 함수
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
-    changeSlidePersona, cycleLayout, // ✨ 추가된 함수 사용
+    changeSlidePersona, cycleLayout, updatePresentationMaster,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
@@ -126,6 +131,7 @@ const Index = () => {
         </div>
       </header>
 
+      {/* ── 단계 가이드 배너 ── */}
       {step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -161,18 +167,59 @@ const Index = () => {
                 AI 기반 자동 생성
               </div>
               <h2 className="text-4xl font-black tracking-tight leading-tight">
-                파일만 올리면
+                주제만 적어주시면
                 <br />
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
                   발표자료가 완성됩니다
                 </span>
               </h2>
               <p className="text-muted-foreground mt-4 text-base leading-relaxed">
-                엑셀, PDF, Word 등 파일을 업로드하면<br className="hidden sm:block" />
-                AI가 전문적인 발표 자료를 자동으로 생성합니다
+                채팅하듯 기획안 주제를 입력하거나, <br className="hidden sm:block" />
+                기존의 엑셀/PDF 파일을 업로드해 보세요!
               </p>
             </motion.div>
+
+            {/* ✨ 제로 베이스 (프롬프트 입력) UI */}
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="max-w-3xl mx-auto"
+            >
+              <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1">
+                  <MessageSquare className="w-6 h-6 text-primary" />
+                </div>
+                <Input 
+                  value={promptInput}
+                  onChange={(e) => setPromptInput(e.target.value)}
+                  placeholder="예: 다음 주 런칭할 친환경 텀블러 마케팅 기획안 10장짜리 만들어줘"
+                  className="flex-1 h-12 border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handlePromptSubmit(promptInput);
+                    }
+                  }}
+                />
+                <Button 
+                  onClick={() => handlePromptSubmit(promptInput)}
+                  disabled={!promptInput.trim()}
+                  className="h-12 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold"
+                >
+                  <Send className="w-4 h-4" />
+                  AI 생성
+                </Button>
+              </div>
+            </motion.div>
+
+            <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
+              <div className="border-t border-border absolute w-full"></div>
+              <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 참고할 파일 업로드</span>
+            </div>
+
             <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
+            
             {fileNames.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -187,6 +234,7 @@ const Index = () => {
           </div>
         )}
 
+        {/* ── 발표자료 설정 ── */}
         {step === 'info' && dataSummary && (
           <div className="space-y-6">
             <PresentationSetupForm
@@ -203,6 +251,7 @@ const Index = () => {
           </div>
         )}
 
+        {/* ── 구성안 미리보기 ── */}
         {step === 'outline' && (
           <div className="space-y-6">
             {isLoadingOutline || !outline ? (
@@ -210,7 +259,7 @@ const Index = () => {
                 <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
                   <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
                 </div>
-                <p className="text-sm text-muted-foreground">파일을 분석하고 구성안을 생성하는 중...</p>
+                <p className="text-sm text-muted-foreground">내용을 분석하고 구성안을 생성하는 중...</p>
               </div>
             ) : (
               <OutlinePreview
@@ -223,8 +272,10 @@ const Index = () => {
           </div>
         )}
 
+        {/* ── 생성 중 ── */}
         {step === 'generating' && <GeneratingState />}
 
+        {/* ── 슬라이드 에디터 ── */}
         {step === 'preview' && presentation && (
           <SlideEditor
             presentation={presentation}
@@ -242,20 +293,49 @@ const Index = () => {
             onOpenReview={() => setReviewOpen(true)}
             onReviewAndFix={reviewAndFixPresentation}
             isFixing={isFixing}
-            onChangePersona={changeSlidePersona} // ✨ 추가
-            onCycleLayout={cycleLayout}          // ✨ 추가
+            onChangePersona={changeSlidePersona}
+            onCycleLayout={cycleLayout}
+            updatePresentationMaster={updatePresentationMaster}
           />
         )}
       </main>
 
-      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} items={savedList} isLoading={isLoadingList} onLoad={loadFromHistory} onDelete={deleteFromHistory} />
+      {/* ── 히스토리 패널 ── */}
+      <HistoryPanel
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        items={savedList}
+        isLoading={isLoadingList}
+        onLoad={loadFromHistory}
+        onDelete={deleteFromHistory}
+      />
+
+      {/* ── 채팅 수정 패널 ── */}
       {step === 'preview' && presentation && (
-        <ChatEditPanel open={chatOpen} onClose={() => setChatOpen(false)} currentSlide={presentation.slides[0]} slideIndex={0} onApply={(updatedSlide) => updateSlide(0, updatedSlide)} onRequestEdit={requestChatEdit} />
-      )}
-      {step === 'preview' && presentation && (
-        <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={(index) => { setReviewOpen(false); }} onApplyFix={applyReviewFix} />
+        <ChatEditPanel
+          open={chatOpen}
+          onClose={() => setChatOpen(false)}
+          currentSlide={presentation.slides[0]}
+          slideIndex={0}
+          onApply={(updatedSlide) => updateSlide(0, updatedSlide)}
+          onRequestEdit={requestChatEdit}
+        />
       )}
 
+      {/* ── 리뷰 패널 ── */}
+      {step === 'preview' && presentation && (
+        <ReviewPanel
+          open={reviewOpen}
+          onClose={() => setReviewOpen(false)}
+          review={reviewResult}
+          isLoading={isReviewing}
+          onRequestReview={requestReview}
+          onGoToSlide={(index) => { setReviewOpen(false); }}
+          onApplyFix={applyReviewFix}
+        />
+      )}
+
+      {/* ── 푸터 ── */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 text-center text-xs text-muted-foreground">
         Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span> · <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">audifox1022@gmail.com</a>
       </footer>
