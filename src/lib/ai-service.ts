@@ -55,23 +55,76 @@ function truncateFileData(fileData: any): string {
   return raw.length <= MAX_FILE_DATA_LENGTH ? raw : raw.slice(0, MAX_FILE_DATA_LENGTH) + "...";
 }
 
-// 텍스트를 객체로 변환 (마크다운 찌꺼기 제거)
+// ✨ 강력한 JSON 파서: 잘린 텍스트 강제 복구 로직 추가
 function extractJSON(text: string): any | null {
   if (!text) return null;
+  
   let cleanText = text.trim();
+  
+  // 마크다운 블록 제거
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) {
     cleanText = mdMatch[1].trim();
   }
+  
   try {
     return JSON.parse(cleanText);
   } catch (e1) {
-    console.error("JSON 파싱 에러 (텍스트가 잘렸을 확률이 높습니다):", cleanText);
-    return null;
+    console.warn("1차 파싱 실패, 강제 복구 시도...");
+    
+    // ✨ 잘린 텍스트 억지 복구 (MAX_TOKENS 에러 방어)
+    // 1. 열린 괄호 개수 세기
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    let escape = false;
+
+    // 문자열 파싱 중 괄호 무시
+    for (let i = 0; i < cleanText.length; i++) {
+        const char = cleanText[i];
+        if (escape) {
+            escape = false;
+            continue;
+        }
+        if (char === '\\') {
+            escape = true;
+            continue;
+        }
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (!inString) {
+            if (char === '{') openBraces++;
+            if (char === '}') openBraces--;
+            if (char === '[') openBrackets++;
+            if (char === ']') openBrackets--;
+        }
+    }
+
+    // 2. 닫히지 않은 문자열 닫기
+    if (inString) cleanText += '"';
+    
+    // 3. 닫히지 않은 배열/객체 닫기 (역순으로 닫아야 함)
+    // 일반적으로 객체 안의 배열 안의 객체 형식이므로 } ] } 순서 고려
+    // 간단한 휴리스틱: 남은 수만큼 ] } 추가. 엄밀하지 않지만 잘린 JSON 복구에 효과적
+    for (let i = 0; i < openBrackets; i++) cleanText += ']';
+    for (let i = 0; i < openBraces; i++) cleanText += '}';
+    
+    // 4. trailing comma 등 에러 유발 문자 제거
+    cleanText = cleanText.replace(/,\s*([\]}])/g, '$1'); 
+    cleanText = cleanText.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+    cleanText = cleanText.replace(/\\\\n/g, '\\n').replace(/\\\\r/g, '\\r');
+
+    try {
+      return JSON.parse(cleanText);
+    } catch (e2) {
+        console.error("JSON 파싱 완벽 실패:", cleanText);
+        return null;
+    }
   }
 }
 
-// ✨ 안전 필터(Safety Filter) 강제 해제 및 JSON Mode 활성화
 async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다.");
@@ -80,10 +133,9 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 8192,
-      responseMimeType: "application/json", // 🔥 무조건 100% JSON 형식 강제 반환
+      maxOutputTokens: 8192, // Gemini 1.5 Flash 최대 토큰
+      responseMimeType: "application/json", 
     },
-    // 🔥 [핵심 조치] 산업재해, 화상 등의 단어가 폭력성으로 차단되어 텍스트가 잘리는 현상 방지
     safetySettings: [
       { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
       { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
@@ -110,11 +162,11 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   
   const data = await response.json();
   
-  // 예외 종료 사유 검사
   const finishReason = data.candidates?.[0]?.finishReason;
   if (finishReason && finishReason !== 'STOP') {
-    if (finishReason === 'SAFETY') throw new Error("문서 내용에 포함된 단어가 AI 안전 필터에 차단되어 생성이 강제 중단되었습니다.");
     console.warn("AI 생성 비정상 종료 사유:", finishReason);
+    if (finishReason === 'SAFETY') throw new Error("문서 내용에 포함된 단어가 AI 안전 필터에 차단되어 생성이 강제 중단되었습니다.");
+    // MAX_TOKENS 등으로 잘려도 에러 던지지 않고 일단 진행 (extractJSON에서 복구 시도)
   }
   
   if (!data.candidates || data.candidates.length === 0) {
@@ -142,15 +194,20 @@ export const aiService = {
     
     if (!outlineData) throw new Error("AI 생성 텍스트가 손상되었습니다. 다시 시도해주세요.");
     
-    // AI가 배열 형태로만 반환한 경우 자동 복구
     if (Array.isArray(outlineData)) {
       outlineData = { title: meetingInfo?.week || "발표 자료 구성안", outline: outlineData };
     } else if (outlineData.slides && !outlineData.outline) {
       outlineData.outline = outlineData.slides;
     }
 
+    // 만약 복구된 데이터가 최소한의 배열을 가지지 못하면 에러 처리
     if (!outlineData.outline || !Array.isArray(outlineData.outline)) {
-      throw new Error("구성안 구조가 올바르지 않습니다.");
+      // 최후의 수단: 배열 형태로 래핑 시도
+      if (typeof outlineData === 'object' && Object.keys(outlineData).length > 0) {
+          outlineData = { title: "발표 자료 구성안", outline: [outlineData] };
+      } else {
+          throw new Error("구성안 구조가 올바르지 않습니다.");
+      }
     }
     return { outline: outlineData };
   },
@@ -175,7 +232,11 @@ export const aiService = {
     }
 
     if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
-      throw new Error("발표자료 구조가 올바르지 않습니다.");
+      if (typeof presentationData === 'object' && Object.keys(presentationData).length > 0) {
+          presentationData = { title: "발표 자료", slides: [presentationData] };
+      } else {
+        throw new Error("발표자료 구조가 올바르지 않습니다.");
+      }
     }
     
     presentationData.slides = presentationData.slides.map((s: any, idx: number) => ({ ...s, id: `slide-${Date.now()}-${idx}` }));
