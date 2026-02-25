@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import React from 'react';
 import { Slide } from '@/types/presentation';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, CheckCircle2, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, ArrowRight, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
+import { SlideChart } from '@/components/SlideChart';
 
 const SLIDE_W = 1920;
 const SLIDE_H = 1080;
@@ -19,7 +20,7 @@ const typeThemes: Record<string, { bg: string; accent: string; badge: string; da
   timeline: { bg: 'bg-gradient-to-br from-emerald-50 to-white',      accent: '#059669', badge: 'TIMELINE'},
   content:  { bg: 'bg-gradient-to-br from-white to-slate-50',        accent: '#475569', badge: 'CONTENT' },
   summary:  { bg: 'bg-gradient-to-br from-blue-50 to-white',         accent: '#0284c7', badge: 'SUMMARY' },
-  closing:  { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',   accent: '#60a5fa', badge: 'FIN',     dark: true },
+  closing:  { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',   accent: '#60a5fa', badge: 'FIN',      dark: true },
   // 하위 호환
   section:  { bg: 'bg-gradient-to-br from-indigo-50 to-slate-100',   accent: '#4f46e5', badge: 'CHAPTER' },
   data:     { bg: 'bg-gradient-to-br from-white to-slate-50',        accent: '#7c3aed', badge: 'DATA'    },
@@ -69,7 +70,7 @@ export function ScaledSlide({
   const tScale = slide.titleSizeScale ?? 1.0;
   const cScale = slide.contentSizeScale ?? 1.0;
 
-  const textPrimary   = isDark ? 'text-white'       : 'text-slate-900';
+  const textPrimary   = isDark ? 'text-white'        : 'text-slate-900';
   const textSecondary = isDark ? 'text-white/70'     : 'text-slate-500';
   const cardBg        = isDark ? 'bg-white/10'       : 'bg-white';
   const cardBorder    = isDark ? 'border-white/20'   : 'border-slate-100';
@@ -205,18 +206,30 @@ export function ScaledSlide({
   };
 
   // ══════════════════════════════════════════
-  // ── chart 슬라이드 (바 차트) ──
+  // ── chart 슬라이드 (바 차트, SlideChart 연동) ──
   // ══════════════════════════════════════════
   const renderChart = () => {
-    // ✅ stats 전용 — tableData/headers/rows 와 완전 분리
+    // ✨ 1순위: AI가 생성한 chartData가 있을 경우 SlideChart 렌더링
+    if (slide.chartData && slide.chartData.data && slide.chartData.data.length > 0) {
+      return (
+        <>
+          <Header compact />
+          <div className="flex-1 px-[120px] py-[24px] flex justify-center items-center">
+            <div className="w-full h-full max-h-[650px] bg-white rounded-[24px] shadow-sm border border-slate-100 p-[32px]">
+              <SlideChart chartData={slide.chartData} isSlideView={true} />
+            </div>
+          </div>
+        </>
+      );
+    }
+
+    // ✨ 2순위: 과거 호환성 (stats 배열 기반)
     const rawStats = slide.stats || [];
     if (!rawStats.length) return <>{<Header />}<div className="flex-1 flex items-center justify-center"><span className="text-slate-400" style={{ fontSize: `${28 * cScale}px` }}>데이터 없음</span></div></>;
 
-    // leftValue/rightValue 구조(statsCompare)도 수용
     const isCompareStats = rawStats[0] && ('leftValue' in rawStats[0] || 'rightValue' in rawStats[0]);
 
     if (isCompareStats) {
-      // statsCompare 타입 처리
       return (
         <>
           <Header />
@@ -321,7 +334,6 @@ export function ScaledSlide({
   // ── table 슬라이드 ──
   // ══════════════════════════════════════════
   const renderTable = () => {
-    // ✅ headers/rows 전용 — stats와 완전 분리
     const headers = (slide.headers || []).map(safeStr);
     const rows    = (slide.rows    || []).map((r: any[]) => Array.isArray(r) ? r.map(safeStr) : []);
 
@@ -534,9 +546,9 @@ export function ScaledSlide({
       case 'chart':
       case 'data':
       case 'barCompare':
-      case 'statsCompare': return renderChart();
+      case 'statsCompare': return renderChart(); // 🚀 여기에 SlideChart 렌더링 포함!
       case 'compare':   return renderCompare();
-      case 'table':     return renderTable();   // ✅ table은 무조건 표
+      case 'table':     return renderTable(); 
       case 'process':
       case 'processList':
       case 'flowChart':
