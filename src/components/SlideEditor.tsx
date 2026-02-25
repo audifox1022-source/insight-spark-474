@@ -22,7 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate, Stamp // ✨ 아이콘 추가
+  Wand2, LayoutTemplate, Stamp 
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -51,7 +51,7 @@ interface SlideEditorProps {
   isFixing: boolean;
   onChangePersona: (slideIndex: number, persona: string) => Promise<void>;
   onCycleLayout: (slideIndex: number) => void;
-  updatePresentationMaster: (updates: Partial<Presentation>) => void; // ✨ 추가
+  updatePresentationMaster: (updates: Partial<Presentation>) => void; 
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -199,7 +199,8 @@ export function SlideEditor({
   if (!slide) return null;
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-7xl mx-auto">
+    // 💡 전체 컨테이너를 가로로 넓게 사용하도록 수정 (max-w 제한 제거)
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full mx-auto">
       {/* ── 상단 툴바 ── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -225,7 +226,6 @@ export function SlideEditor({
             <Keyboard className="w-4 h-4" />
           </Button>
 
-          {/* ✨ 마스터 슬라이드 설정 버튼 */}
           <div className="relative group/master pb-1 -mb-1">
             <Button size="sm" variant="outline" className="h-9 px-3 text-xs gap-1.5" title="전체 슬라이드 공통 설정">
               <Stamp className="w-3.5 h-3.5" />
@@ -235,9 +235,7 @@ export function SlideEditor({
               <div>
                 <label className="text-xs font-bold text-foreground mb-2 block">🏢 회사 로고 이미지</label>
                 <Input 
-                  type="file" 
-                  accept="image/*" 
-                  className="text-xs text-muted-foreground h-9 cursor-pointer"
+                  type="file" accept="image/*" className="text-xs text-muted-foreground h-9 cursor-pointer"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -255,12 +253,7 @@ export function SlideEditor({
               </div>
               <div>
                 <label className="text-xs font-bold text-foreground mb-2 block">💧 배경 워터마크 텍스트</label>
-                <Input 
-                  placeholder="예: 대외비, CONFIDENTIAL" 
-                  value={presentation.watermark || ''}
-                  onChange={(e) => updatePresentationMaster({ watermark: e.target.value })}
-                  className="h-9 text-sm"
-                />
+                <Input placeholder="예: 대외비, CONFIDENTIAL" value={presentation.watermark || ''} onChange={(e) => updatePresentationMaster({ watermark: e.target.value })} className="h-9 text-sm" />
               </div>
             </div>
           </div>
@@ -306,13 +299,13 @@ export function SlideEditor({
         </div>
 
         {/* ── 메인 영역 ── */}
-        <div className="flex-1 min-w-0 flex flex-col lg:flex-row gap-5">
-          {/* ── 실시간 미리보기 ── */}
-          <div className="lg:w-[55%] flex-shrink-0 lg:sticky lg:top-[80px] lg:self-start space-y-4">
+        <div className="flex-1 min-w-0 flex flex-col lg:flex-row gap-6">
+          
+          {/* 💡 실시간 미리보기 (비율을 70%로 대폭 확대) ── */}
+          <div className="lg:w-[65%] xl:w-[70%] flex-shrink-0 lg:sticky lg:top-[80px] lg:self-start space-y-4">
             <AnimatePresence mode="wait">
               <motion.div key={`preview-${currentSlide}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
-                {/* ✨ 마스터 로고 및 워터마크 props 전달 */}
-                <ScaledSlide slide={slide} containerClassName="w-full rounded-xl overflow-hidden shadow-elevated border border-border" logoUrl={presentation.logoUrl} watermark={presentation.watermark} />
+                <ScaledSlide slide={slide} containerClassName="w-full rounded-xl overflow-hidden shadow-elevated border border-border bg-white" logoUrl={presentation.logoUrl} watermark={presentation.watermark} />
               </motion.div>
             </AnimatePresence>
             <div className="flex items-center justify-center gap-3">
@@ -322,7 +315,7 @@ export function SlideEditor({
             </div>
           </div>
 
-          {/* ── 편집 패널 ── */}
+          {/* ── 편집 패널 (나머지 30% 영역) ── */}
           <div className="flex-1 min-w-0">
             <AnimatePresence mode="wait">
               <motion.div key={currentSlide} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden">
@@ -341,7 +334,6 @@ export function SlideEditor({
                         <LayoutTemplate className="w-3.5 h-3.5" /><span className="hidden xl:inline">레이아웃</span>
                       </Button>
 
-                      {/* ✨ 청중 맞춤형 톤앤매너 확장 드롭다운 */}
                       <div className="relative group/persona pb-1 -mb-1">
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" title="발표 스타일 변환">
                           <Wand2 className="w-3.5 h-3.5" /><span className="hidden xl:inline">스타일 변환</span>
@@ -375,7 +367,6 @@ export function SlideEditor({
                 </div>
 
                 <div className="p-6 space-y-8">
-                  {/* 핵심 지표, 차트, 테이블 렌더링 영역 (기존 유지) */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">핵심 지표</span>
