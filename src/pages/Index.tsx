@@ -12,16 +12,41 @@ import { ReviewPanel } from '@/components/ReviewPanel';
 import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut, Palette, MessageSquare, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea'; // ✨ Textarea 추가
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+// ✨ 빠른 시작 가이드 템플릿 데이터
+const PROMPT_PRESETS = [
+  {
+    icon: "🚀",
+    label: "신제품 기획안",
+    template: "새로운 [제품/서비스명] 런칭 기획안을 작성해줘.\n- 타겟 고객: [타겟층 입력]\n- 핵심 강점: [강점 입력]\n- 기대 효과: [효과 입력]"
+  },
+  {
+    icon: "📊",
+    label: "실적 보고서",
+    template: "[202X년 X분기] 실적 보고서를 작성해줘.\n- 주요 성과: [성과 입력]\n- 아쉬운 점: [문제점 입력]\n- 향후 계획: [계획 입력]"
+  },
+  {
+    icon: "🤝",
+    label: "제안서",
+    template: "[고객사명]을 위한 [솔루션명] 도입 제안서를 작성해줘.\n- 고객의 문제: [문제점 입력]\n- 우리의 해결책: [솔루션 내용]\n- 도입 시 이점: [이점 입력]"
+  },
+  {
+    icon: "🏢",
+    label: "회사 소개서",
+    template: "우리 [회사/팀 이름]을 소개하는 발표자료를 만들어줘.\n- 비전/목표: [비전 입력]\n- 주요 성과: [성과 입력]\n- 핵심 경쟁력: [강점 입력]"
+  }
+];
+
 const Index = () => {
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   
-  // ✨ 제로 베이스 생성을 위한 프롬프트 입력 상태
+  // 프롬프트 입력 상태
   const [promptInput, setPromptInput] = useState('');
 
   const handleLogout = async () => {
@@ -47,7 +72,7 @@ const Index = () => {
     isDark, toggleDark,
     appTheme, changeTheme,
     handleFilesUpload, removeFile,
-    handlePromptSubmit, // ✨ 추가된 훅 함수
+    handlePromptSubmit,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
     reset,
@@ -179,22 +204,44 @@ const Index = () => {
               </p>
             </motion.div>
 
-            {/* ✨ 제로 베이스 (프롬프트 입력) UI */}
+            {/* ✨ 제로 베이스 (프롬프트 입력) UI - 가이드라인 칩 포함 */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="max-w-3xl mx-auto"
+              className="max-w-3xl mx-auto space-y-4"
             >
-              <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-center gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1">
+              {/* 빠른 시작 가이드 칩 */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+                <span className="text-sm font-semibold text-muted-foreground mr-2">💡 빠른 템플릿:</span>
+                {PROMPT_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setPromptInput(preset.template);
+                      // 포커스를 위해 약간의 딜레이 후 처리 (UX 향상)
+                      setTimeout(() => document.getElementById('main-prompt-input')?.focus(), 50);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-sm font-medium hover:border-primary/50 hover:bg-primary/5 hover:text-primary transition-colors shadow-sm"
+                  >
+                    <span>{preset.icon}</span>
+                    <span>{preset.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* 프롬프트 입력창 */}
+              <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
                   <MessageSquare className="w-6 h-6 text-primary" />
                 </div>
-                <Input 
+                <Textarea 
+                  id="main-prompt-input"
                   value={promptInput}
                   onChange={(e) => setPromptInput(e.target.value)}
-                  placeholder="예: 다음 주 런칭할 친환경 텀블러 마케팅 기획안 10장짜리 만들어줘"
-                  className="flex-1 h-12 border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2"
+                  placeholder="예: 다음 주 런칭할 친환경 텀블러 마케팅 기획안 만들어줘"
+                  className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
+                  rows={promptInput.split('\n').length > 1 ? Math.min(promptInput.split('\n').length, 8) : 2}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -205,17 +252,20 @@ const Index = () => {
                 <Button 
                   onClick={() => handlePromptSubmit(promptInput)}
                   disabled={!promptInput.trim()}
-                  className="h-12 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold"
+                  className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm"
                 >
                   <Send className="w-4 h-4" />
                   AI 생성
                 </Button>
               </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Enter키로 생성, Shift+Enter키로 줄바꿈을 할 수 있습니다. 괄호 <span className="font-bold">[ ]</span> 안의 내용을 내 상황에 맞게 수정해 보세요.
+              </p>
             </motion.div>
 
-            <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
+            <div className="relative flex items-center justify-center py-6 max-w-3xl mx-auto">
               <div className="border-t border-border absolute w-full"></div>
-              <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 참고할 파일 업로드</span>
+              <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 참고할 문서 파일 업로드</span>
             </div>
 
             <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
