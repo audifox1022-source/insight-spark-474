@@ -42,15 +42,16 @@ export interface Slide {
   chartData?: SlideChartData;
   tableData?: SlideTableData;
   imageUrl?: string;
-  // ✨ 레이아웃 및 스타일 속성 추가
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid'; 
-  persona?: 'default' | 'jobs' | 'mckinsey';
+  persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
 }
 
 export interface Presentation {
   id?: string;
   title: string;
   slides: Slide[];
+  logoUrl?: string;    // ✨ 마스터 슬라이드: 회사 로고
+  watermark?: string;  // ✨ 마스터 슬라이드: 워터마크 (대외비 등)
   createdAt?: string;
   updatedAt?: string;
 }
