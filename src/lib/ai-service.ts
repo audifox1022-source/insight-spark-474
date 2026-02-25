@@ -226,7 +226,7 @@ const SLIDE_SCHEMA = `
 
 ⚠️ 절대 규칙:
 - table 타입 → headers + rows 만 사용. 
-- chart 타입 → 반드시 chartData 객체({"type": "bar" | "line" | "pie", "data": [{"name": "A", "value": 10}]})만 사용.
+- chart 타입 → 반드시 chartData 객체({"type": "bar" | "line" | "pie", "data": [{"name": "A", "value": 10}]})만 사용. chartData.data 안의 value는 무조건 '숫자'만 입력하세요.
 - points/items/steps/rows 내부에는 반드시 순수 문자열 또는 {title,desc} 객체만 허용.
 - 수치 데이터가 있으면 반드시 chart 또는 kpi 타입 슬라이드를 1개 이상 포함.
 `;
@@ -301,10 +301,43 @@ ${SLIDE_SCHEMA}
     if (!data) throw new Error('발표 자료 파싱 실패');
     if (Array.isArray(data)) data = { title: '발표 자료', slides: data };
 
-    data.slides = (data.slides || []).map((s: any, i: number) => ({
-      ...s,
-      id: `slide-${Date.now()}-${i}`,
-    }));
+    // ✨ 마법의 로직: 차트 데이터 렌더링 강제 정규화 (Normalization)
+    data.slides = (data.slides || []).map((s: any, i: number) => {
+      // AI가 chart, chartData, stats 중 어디에 넣었든 무조건 찾아서 변환
+      if (s.type === 'chart' || s.chartData || s.stats) {
+        let rawChart = s.chartData || s.stats;
+        let normalizedChart = { type: 'bar', data: [] as any[] };
+
+        if (Array.isArray(rawChart)) {
+          normalizedChart.data = rawChart;
+        } else if (rawChart && typeof rawChart === 'object') {
+          normalizedChart.type = rawChart.type || 'bar';
+          normalizedChart.data = rawChart.data || rawChart.items || [];
+        }
+
+        // [핵심] Recharts 라이브러리는 value가 문자열("150억")이면 렌더링을 멈춥니다.
+        // 모든 value에서 숫자 외의 문자열(억, %, 만 등)을 싹 지우고 순수 Number로 변환합니다.
+        normalizedChart.data = normalizedChart.data.map((item: any) => {
+          const rawValue = item.value !== undefined ? item.value : item.y;
+          const numValue = typeof rawValue === 'number' 
+            ? rawValue 
+            : Number(String(rawValue).replace(/[^0-9.-]+/g, "")) || 0;
+            
+          return {
+            name: item.name || item.label || item.x || '항목',
+            value: numValue
+          };
+        });
+
+        s.chartData = normalizedChart;
+        s.stats = undefined; // 중복 방지를 위해 stats 키 삭제
+      }
+
+      return {
+        ...s,
+        id: `slide-${Date.now()}-${i}`,
+      };
+    });
 
     return { presentation: data };
   },
