@@ -22,7 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate, Stamp, SlidersHorizontal // ✨ 아이콘 추가
+  Wand2, LayoutTemplate, Stamp, SlidersHorizontal 
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -93,12 +93,11 @@ function SortableSlideThumbnail({ slide, index, isActive, onClick }: { slide: Sl
           </div>
           <span className="text-[10px] font-mono text-muted-foreground">{String(slide.slideNumber).padStart(2, '0')}</span>
           <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${slideTypeBadgeColors[slide.type] || 'bg-muted text-muted-foreground'}`}>
-            {slideTypeIcons[slide.type]}
-            {slideTypeLabels[slide.type]}
+            {slideTypeIcons[slide.type] || <Layout className="w-3.5 h-3.5" />}
+            {slideTypeLabels[slide.type] || slide.type}
           </span>
         </div>
         <p className="text-xs font-semibold truncate leading-tight">{slide.title}</p>
-        <p className="text-[10px] text-muted-foreground mt-1 truncate">{(slide.content || []).slice(0, 1).join(' · ') || '내용 없음'}</p>
       </button>
     </div>
   );
@@ -323,7 +322,7 @@ export function SlideEditor({
                     <span className="text-xs font-mono opacity-60">{String(slide.slideNumber || currentSlide + 1).padStart(2, '0')}</span>
                     <Select value={slide.type} onValueChange={(v) => onUpdateSlide(currentSlide, { type: v as Slide['type'] })}>
                       <SelectTrigger className="w-auto h-6 text-xs border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground px-2 gap-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[300px]">
                         {Object.entries(slideTypeLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
                       </SelectContent>
                     </Select>
@@ -356,36 +355,49 @@ export function SlideEditor({
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => onDuplicateSlide(currentSlide)}><Copy className="w-3.5 h-3.5" /></Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}><Plus className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                   <div className="relative group/title">
-                    <input value={slide.title} onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })} className="w-full bg-transparent text-2xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight peer" placeholder="슬라이드 제목 입력..." />
+                    <input value={slide.title || ''} onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })} className="w-full bg-transparent text-2xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight peer" placeholder="슬라이드 제목 입력..." />
                     <Pencil className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/30 opacity-0 group-hover/title:opacity-100 peer-focus:opacity-0 transition-opacity pointer-events-none" />
                   </div>
                 </div>
 
                 <div className="p-6 space-y-8">
                   
-                  {/* ✨ 디테일 튜닝 패널 추가 */}
+                  {/* ✨ 섹터별 글자 크기 조절로 개편된 디테일 튜닝 패널 */}
                   <div className="bg-muted/30 rounded-xl p-5 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4 border-b border-border pb-3">
                       <SlidersHorizontal className="w-4 h-4 text-primary" />
                       <span className="text-sm font-bold text-foreground">디테일 튜닝 (크기/비율 조절)</span>
                     </div>
                     <div className="space-y-5">
-                      {/* 글자 크기 슬라이더 */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-xs font-semibold text-muted-foreground">🔠 글자 크기</label>
-                          <span className="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">{Math.round((slide.textSizeScale || 1) * 100)}%</span>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* 1. 제목 크기 슬라이더 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-semibold text-muted-foreground">🔠 제목 크기</label>
+                            <span className="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">{Math.round((slide.titleSizeScale || 1) * 100)}%</span>
+                          </div>
+                          <input type="range" min="0.5" max="1.5" step="0.05" value={slide.titleSizeScale || 1} 
+                            onChange={(e) => onUpdateSlide(currentSlide, { titleSizeScale: parseFloat(e.target.value) })} 
+                            className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
                         </div>
-                        <input type="range" min="0.5" max="1.5" step="0.05" value={slide.textSizeScale || 1} 
-                          onChange={(e) => onUpdateSlide(currentSlide, { textSizeScale: parseFloat(e.target.value) })} 
-                          className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
+                        {/* 2. 본문 크기 슬라이더 */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-semibold text-muted-foreground">🔤 본문 크기</label>
+                            <span className="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">{Math.round((slide.contentSizeScale || 1) * 100)}%</span>
+                          </div>
+                          <input type="range" min="0.5" max="1.5" step="0.05" value={slide.contentSizeScale || 1} 
+                            onChange={(e) => onUpdateSlide(currentSlide, { contentSizeScale: parseFloat(e.target.value) })} 
+                            className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
+                        </div>
                       </div>
                       
-                      {/* 텍스트 vs 자료 화면 비율 슬라이더 */}
+                      {/* 화면 비율 슬라이더 */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-xs font-semibold text-muted-foreground">⚖️ 화면 분할 비율 (텍스트 : 시각자료)</label>
@@ -400,7 +412,7 @@ export function SlideEditor({
                         </div>
                       </div>
 
-                      {/* 표 밀집도 조절 버튼 (테이블이 있을 때만 표시) */}
+                      {/* 표 밀집도 조절 */}
                       {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground mb-2 block">📊 표 행간(밀집도) 조절</label>
