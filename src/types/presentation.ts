@@ -44,6 +44,11 @@ export interface Slide {
   imageUrl?: string;
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid'; 
   persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
+  
+  // ✨ 디테일 튜닝 속성 추가
+  textSizeScale?: number; // 글자 크기 배율 (기본값: 1.0)
+  tableDensity?: 'compact' | 'normal' | 'relaxed'; // 표 밀집도 (기본값: 'normal')
+  visualRatio?: number; // 텍스트 vs 시각자료 비율 (기본값: 50)
 }
 
 export interface Presentation {
