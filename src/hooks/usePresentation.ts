@@ -75,7 +75,7 @@ export function usePresentation() {
     return parsedFiles.map((f) => f.summary).join(' | ');
   }, [parsedFiles]);
 
-  // ✅ 파일 업로드 — parseError 체크 추가
+  // ✅ 파일 업로드 — setStep 제거로 여러 파일 추가 가능
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
       const results = await Promise.all(files.map(parseFile));
@@ -85,11 +85,10 @@ export function usePresentation() {
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
         setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
-        setStep('info');
+        // ✅ setStep('info') 제거 — 업로드 화면 유지하여 파일 추가 계속 가능
         toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
       }
 
-      // ✅ 파싱 실패 파일 구체적으로 알림
       if (failed.length > 0) {
         failed.forEach((f) => {
           if (f.parseError) {
@@ -100,7 +99,6 @@ export function usePresentation() {
         });
       }
 
-      // ✅ 모든 파일이 실패한 경우
       if (succeeded.length === 0 && failed.length > 0) {
         toast.error('파일을 분석할 수 없습니다. 다른 파일을 시도해보세요.');
         return;
