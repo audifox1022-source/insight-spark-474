@@ -3,8 +3,9 @@ import { ParsedExcelData, summarizeForAI } from './excel-parser';
 
 export interface ParsedFileData {
   fileName: string;
-  fileType: 'excel' | 'text' | 'pdf' | 'word' | 'image' | 'unknown';
+  fileType: 'excel' | 'text' | 'text/plain' | 'pdf' | 'word' | 'image' | 'unknown';
   textContent?: string;
+  content?: string;
   excelData?: ParsedExcelData;
   imageDataUrl?: string;
   summary: string;
@@ -81,7 +82,7 @@ async function parsePDF(file: File): Promise<ParsedFileData> {
   try {
     const pdfjsLib = await import('pdfjs-dist');
 
-    // ✅ 수정: unpkg CDN 사용 (버전 고정, .mjs 호환)
+    // ✅ unpkg CDN 사용으로 변경 (버전 안정성 확보)
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
@@ -94,7 +95,7 @@ async function parsePDF(file: File): Promise<ParsedFileData> {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
 
-      // ✅ 수정: 빈 항목 제거 + 공백 정리
+      // ✅ 빈 항목 제거 + 공백 정리
       const text = textContent.items
         .filter((item: any) => item.str && item.str.trim())
         .map((item: any) => item.str)
@@ -107,7 +108,7 @@ async function parsePDF(file: File): Promise<ParsedFileData> {
 
     const fullText = pages.join('\n\n');
 
-    // ✅ 수정: 추출된 텍스트가 너무 짧으면 파싱 실패로 처리
+    // ✅ 추출된 텍스트가 너무 짧으면 파싱 실패로 처리
     if (fullText.trim().length < 10) {
       return {
         fileName: file.name,
@@ -217,7 +218,7 @@ export function buildAIPayload(files: ParsedFileData[]): Record<string, unknown>
   const payload: Record<string, unknown> = {};
 
   for (const file of files) {
-    // ✅ 수정: 파싱 실패 파일도 AI에 알려서 처리 가능하도록
+    // ✅ 파싱 실패 파일도 AI에 알려서 처리 가능하도록
     if (file.parseError) {
       payload[file.fileName] = {
         type: file.fileType,
@@ -236,6 +237,12 @@ export function buildAIPayload(files: ParsedFileData[]): Record<string, unknown>
       payload[file.fileName] = {
         type: file.fileType,
         content: file.textContent,
+      };
+    } else if (file.content) {
+      // ✅ handlePromptSubmit에서 생성된 가상 파일 처리
+      payload[file.fileName] = {
+        type: file.fileType,
+        content: file.content,
       };
     } else if (file.fileType === 'image') {
       payload[file.fileName] = {
