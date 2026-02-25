@@ -22,7 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate, Stamp 
+  Wand2, LayoutTemplate, Stamp, SlidersHorizontal // ✨ 아이콘 추가
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -199,7 +199,6 @@ export function SlideEditor({
   if (!slide) return null;
 
   return (
-    // 💡 전체 컨테이너를 가로로 넓게 사용하도록 수정 (max-w 제한 제거)
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full h-full mx-auto">
       {/* ── 상단 툴바 ── */}
       <div className="flex items-center justify-between mb-6">
@@ -301,7 +300,7 @@ export function SlideEditor({
         {/* ── 메인 영역 ── */}
         <div className="flex-1 min-w-0 flex flex-col lg:flex-row gap-6">
           
-          {/* 💡 실시간 미리보기 (비율을 70%로 대폭 확대) ── */}
+          {/* ── 실시간 미리보기 ── */}
           <div className="lg:w-[65%] xl:w-[70%] flex-shrink-0 lg:sticky lg:top-[80px] lg:self-start space-y-4">
             <AnimatePresence mode="wait">
               <motion.div key={`preview-${currentSlide}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
@@ -315,7 +314,7 @@ export function SlideEditor({
             </div>
           </div>
 
-          {/* ── 편집 패널 (나머지 30% 영역) ── */}
+          {/* ── 편집 패널 ── */}
           <div className="flex-1 min-w-0">
             <AnimatePresence mode="wait">
               <motion.div key={currentSlide} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden">
@@ -357,7 +356,7 @@ export function SlideEditor({
                       </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => onDuplicateSlide(currentSlide)}><Copy className="w-3.5 h-3.5" /></Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}><Plus className="w-3.5 h-3.5" /></Button>
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                   <div className="relative group/title">
@@ -367,6 +366,54 @@ export function SlideEditor({
                 </div>
 
                 <div className="p-6 space-y-8">
+                  
+                  {/* ✨ 디테일 튜닝 패널 추가 */}
+                  <div className="bg-muted/30 rounded-xl p-5 border border-border shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 border-b border-border pb-3">
+                      <SlidersHorizontal className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-bold text-foreground">디테일 튜닝 (크기/비율 조절)</span>
+                    </div>
+                    <div className="space-y-5">
+                      {/* 글자 크기 슬라이더 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-semibold text-muted-foreground">🔠 글자 크기</label>
+                          <span className="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">{Math.round((slide.textSizeScale || 1) * 100)}%</span>
+                        </div>
+                        <input type="range" min="0.5" max="1.5" step="0.05" value={slide.textSizeScale || 1} 
+                          onChange={(e) => onUpdateSlide(currentSlide, { textSizeScale: parseFloat(e.target.value) })} 
+                          className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
+                      </div>
+                      
+                      {/* 텍스트 vs 자료 화면 비율 슬라이더 */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-semibold text-muted-foreground">⚖️ 화면 분할 비율 (텍스트 : 시각자료)</label>
+                          <span className="text-xs font-mono bg-background px-2 py-0.5 rounded border border-border">{100 - (slide.visualRatio || 50)} : {slide.visualRatio || 50}</span>
+                        </div>
+                        <input type="range" min="30" max="70" step="5" value={slide.visualRatio || 50} 
+                          onChange={(e) => onUpdateSlide(currentSlide, { visualRatio: parseInt(e.target.value) })} 
+                          className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
+                        <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
+                          <span>텍스트 넓게</span>
+                          <span>자료 넓게</span>
+                        </div>
+                      </div>
+
+                      {/* 표 밀집도 조절 버튼 (테이블이 있을 때만 표시) */}
+                      {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
+                        <div>
+                          <label className="text-xs font-semibold text-muted-foreground mb-2 block">📊 표 행간(밀집도) 조절</label>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant={slide.tableDensity === 'compact' ? 'default' : 'outline'} className="flex-1 text-xs h-8" onClick={() => onUpdateSlide(currentSlide, { tableDensity: 'compact' })}>좁게 (데이터 많을 때)</Button>
+                            <Button size="sm" variant={!slide.tableDensity || slide.tableDensity === 'normal' ? 'default' : 'outline'} className="flex-1 text-xs h-8" onClick={() => onUpdateSlide(currentSlide, { tableDensity: 'normal' })}>보통 (기본값)</Button>
+                            <Button size="sm" variant={slide.tableDensity === 'relaxed' ? 'default' : 'outline'} className="flex-1 text-xs h-8" onClick={() => onUpdateSlide(currentSlide, { tableDensity: 'relaxed' })}>넓게 (여백 강조)</Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">핵심 지표</span>
