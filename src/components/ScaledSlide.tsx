@@ -10,6 +10,8 @@ interface ScaledSlideProps {
   slide: Slide;
   containerClassName?: string;
   interactive?: boolean;
+  logoUrl?: string;      // ✨ 마스터 로고
+  watermark?: string;    // ✨ 마스터 워터마크
 }
 
 /* ── 슬라이드 타입별 디자인 토큰 (대비 강화) ── */
@@ -69,7 +71,7 @@ const trendConfig: Record<string, { icon: React.ReactNode; color: string; bg: st
   },
 };
 
-export function ScaledSlide({ slide, containerClassName = '', interactive = false }: ScaledSlideProps) {
+export function ScaledSlide({ slide, containerClassName = '', interactive = false, logoUrl, watermark }: ScaledSlideProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.2);
 
@@ -120,7 +122,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           marginTop: -SLIDE_H / 2,
           transform: `scale(${scale})`,
           transformOrigin: 'center center',
-          // 폰트 렌더링 최적화
           WebkitFontSmoothing: 'antialiased',
           MozOsxFontSmoothing: 'grayscale',
         }}
@@ -156,6 +157,22 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
             <div className="absolute -bottom-[200px] -left-[200px] w-[600px] h-[600px] rounded-full blur-[60px]"
               style={{ background: `radial-gradient(circle, ${theme.accent}05 0%, transparent 60%)` }} />
           </div>
+
+          {/* ✨ 마스터 워터마크 (배경 뒤에 은은하게) */}
+          {watermark && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[1] overflow-hidden opacity-[0.04]">
+              <span className="text-[240px] font-black tracking-widest uppercase rotate-[-30deg] whitespace-nowrap select-none">
+                {watermark}
+              </span>
+            </div>
+          )}
+
+          {/* ✨ 마스터 로고 (우측 상단 고정) */}
+          {logoUrl && (
+            <div className="absolute top-[50px] right-[60px] z-[50]">
+              <img src={logoUrl} alt="Company Logo" className="h-[70px] object-contain opacity-90 drop-shadow-lg" />
+            </div>
+          )}
 
           {/* ── 좌측 악센트 바 ── */}
           <div className="absolute left-0 top-0 bottom-0 w-[6px] z-[2]"
@@ -441,7 +458,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                     (hasTable ? 'w-[55%] flex-shrink-0' : 'w-[640px] flex-shrink-0')
                   }`}>
                     
-                    {/* 테이블 */}
                     {hasTable && (
                       <div className={`flex-1 min-h-0 rounded-[24px] shadow-2xl flex flex-col overflow-hidden ${isHighlight || isGrid ? 'w-full' : ''}`}
                         style={{
@@ -476,7 +492,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                       </div>
                     )}
 
-                    {/* 차트 */}
                     {hasChart && (
                       <div className={`flex-1 min-h-[440px] rounded-[24px] p-[32px] shadow-2xl ${isHighlight || isGrid ? 'w-full' : ''}`}
                         style={{
@@ -488,7 +503,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                       </div>
                     )}
 
-                    {/* 메트릭 */}
                     {hasMetrics && !hasChart && !hasTable && (
                       <div className={`flex flex-col gap-[24px] ${isHighlight ? 'flex-row w-full justify-center' : ''}`}>
                         {slide.keyMetrics!.map((m, i) => {
