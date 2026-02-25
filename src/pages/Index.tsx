@@ -9,7 +9,11 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
-import { Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine } from 'lucide-react';
+import { 
+  Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle, 
+  LogOut, Palette, MessageSquare, Send, PencilLine, X, BookOpen, 
+  UploadCloud, SlidersHorizontal, Download, FileText 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,6 +58,7 @@ const PROMPT_PRESETS: Preset[] = [
 const Index = () => {
   const navigate = useNavigate();
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false); // ✨ 도움말 모달 상태 추가
   
   const [activePresetId, setActivePresetId] = useState<string>('manual');
   const [presetData, setPresetData] = useState<Record<string, string>>({});
@@ -69,7 +74,7 @@ const Index = () => {
     step, setStep,
     dataSummary, fileNames,
     meetingInfo, setMeetingInfo,
-    settings, setSettings, // ✨ 설정(Settings) 상태
+    settings, setSettings,
     outline, isLoadingOutline,
     presentation, isGenerating,
     isSaving, handleSave,
@@ -94,6 +99,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300">
+      {/* ── 헤더 ── */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -108,10 +114,17 @@ const Index = () => {
           <div className="flex items-center gap-2">
             <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
             <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+            
             <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
               <FolderOpen className="w-4 h-4" />
               <span className="text-xs">저장 목록</span>
             </Button>
+            
+            {/* ✨ 도움말 가이드 버튼 추가 */}
+            <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="사용 가이드 (도움말)">
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+
             <div className="relative">
               <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="테마 색상 변경">
                 <Palette className="w-4 h-4" />
@@ -148,6 +161,106 @@ const Index = () => {
         </div>
       </header>
 
+      {/* ── 도움말(Help) 팝업 모달 ── */}
+      <AnimatePresence>
+        {helpOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setHelpOpen(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+                <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                  AI 발표자료 앱 100% 활용 가이드
+                </h2>
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full">
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
+                
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                    <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground mb-1">1. 프롬프트 직접 입력 & 웹 검색</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      당장 참고할 파일이 없어도 괜찮습니다. <b>[빠른 템플릿]</b> 칩을 클릭하고 빈칸을 채우거나, 자유롭게 기획안 주제를 입력해 보세요. <br/>
+                      특히 <b>'웹 검색으로 최신 정보 반영하기'</b>를 체크하면, AI가 실시간 구글 검색을 통해 최신 통계와 팩트를 기반으로 발표 자료를 작성해 줍니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                    <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground mb-1">2. 참고 문서 업로드</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      가지고 계신 엑셀(데이터), PDF(보고서), Word 파일을 드래그해서 업로드하세요. 여러 개의 파일을 동시에 올려도 AI가 내용을 완벽하게 통합하여 하나의 발표 자료로 요약해 줍니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground mb-1">3. Vrew 맞춤형 '구어체 스크립트'</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      슬라이드가 생성되면 각 슬라이드 하단의 <b>'스피커 노트'</b>를 확인해 보세요. 로봇 같은 요약글이 아닌, 실제 무대에서 사람이 발표하듯 작성된 자연스러운 <b>대본</b>이 생성됩니다. 이 대본을 그대로 복사해서 Vrew(AI 목소리)에 붙여넣으면 완벽한 영상 패키지가 완성됩니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
+                    <SlidersHorizontal className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground mb-1">4. 마법 같은 '디테일 튜닝' & 스타일 변환</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      에디터 우측 패널에서 <b>[디테일 튜닝]</b> 슬라이더를 조절하여 글자 크기와 화면 비율을 1초 만에 최적화하세요. <br/>
+                      또한 상단의 <b>[스타일 변환]</b> 버튼을 누르면 같은 내용이라도 '임원진 보고용(결론 강조)', '잡스 모드(감성 강조)' 등 청중에 맞게 문체를 완전히 바꿔줍니다.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center flex-shrink-0">
+                    <Download className="w-6 h-6 text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground mb-1">5. 내보내기 & 발표하기</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      작업이 완료되면 상단의 <b>[내보내기]</b>를 눌러 완벽한 PPTX 파일이나 PDF로 다운로드하세요. 앱 내부의 <b>[발표하기]</b> 버튼을 누르면 타이머와 스크립트가 포함된 실전 프레젠테이션 모드가 시작됩니다.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+              <div className="p-4 border-t border-border bg-muted/10 text-center">
+                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
+                  확인했습니다, 시작해볼게요!
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+      {/* ── 도움말 끝 ── */}
+
+      {/* ── 단계 가이드 배너 ── */}
       {step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div key={step} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="border-b border-border bg-accent/5">
@@ -225,7 +338,6 @@ const Index = () => {
                         ))}
                       </div>
                       
-                      {/* ✨ 웹 검색 옵션 체크박스 추가 */}
                       <label className="flex items-start gap-3 p-4 mt-2 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
                         <div className="mt-0.5">
                           <input
@@ -272,7 +384,6 @@ const Index = () => {
                         </Button>
                       </div>
 
-                      {/* ✨ 웹 검색 옵션 체크박스 추가 */}
                       <label className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
                         <div className="mt-0.5">
                           <input
