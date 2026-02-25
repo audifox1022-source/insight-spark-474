@@ -14,11 +14,10 @@ const VOLUME_MAP: Record<string, string> = {
   comprehensive: "16장 이상으로 구성. 모든 데이터를 세밀하게 쪼개어 매우 종합적이고 방대한 보고서를 만드세요.",
 };
 
-// ✨ 프롬프트 개선: JSON 문법 준수 강제
-const SYSTEM_PROMPT_CORE = `당신은 최고 수준의 프레젠테이션 전문가입니다.
+const SYSTEM_PROMPT_CORE = `당신은 최고 수준의 프레젠테이션 전문가이자 완벽한 JSON 생성기입니다.
 [🔥 절대 준수 규칙 🔥]
-1. 당신의 응답은 반드시 마크다운 기호(\`\`\`json 등)나 다른 설명 텍스트 없이 "순수한 JSON 객체(Object)" 문자열로만 이루어져야 합니다.
-2. 큰따옴표(") 이스케이프 오류, 배열 마지막 쉼표(Trailing comma) 오류가 발생하지 않도록 주의하세요.
+1. 인사말이나 부연 설명 없이, 오직 "순수한 JSON 문자열"만 반환하세요.
+2. 큰따옴표(") 이스케이프 오류나 배열 마지막 쉼표(Trailing comma)가 없도록 문법을 완벽히 지키세요.
 
 [디자인 및 내용 원칙]
 1. 단순 텍스트 나열을 피하고, 내용에 맞는 '시각적 레이아웃 타입(type)'을 전략적으로 선택하세요.
@@ -26,7 +25,7 @@ const SYSTEM_PROMPT_CORE = `당신은 최고 수준의 프레젠테이션 전문
 3. 주요 단어나 키워드는 텍스트 내에서 **강조어** 형태로 표시하세요.
 4. 슬라이드 순서: 1번 "title", 2번 "agenda", 챕터 변경 시 "section", 마지막 "closing".
 
-[사용 가능한 슬라이드 타입 및 JSON 스키마 가이드]
+[사용 가능한 슬라이드 타입 및 스키마]
 - "title": {"type": "title", "title": "메인 제목", "subhead": "부제목", "date": "YYYY.MM.DD"}
 - "agenda": {"type": "agenda", "title": "목차", "items": ["1. 서론", "2. 본론"]}
 - "section": {"type": "section", "title": "챕터명", "sectionNo": "01"}
@@ -56,42 +55,52 @@ function truncateFileData(fileData: any): string {
   return raw.length <= MAX_FILE_DATA_LENGTH ? raw : raw.slice(0, MAX_FILE_DATA_LENGTH) + "...";
 }
 
-// ✨ 궁극의 방탄(Bulletproof) JSON 파서: AI의 문법 실수를 스스로 교정
+// ✨ 강력한 JSON 파서: 어떤 형태든 복구해냄
 function extractJSON(text: string): any | null {
   if (!text) return null;
   
   let cleanText = text.trim();
   
-  if (cleanText.startsWith('```')) {
-    const lines = cleanText.split('\n');
-    if (lines[0].startsWith('```')) lines.shift();
-    if (lines[lines.length - 1].startsWith('```')) lines.pop();
-    cleanText = lines.join('\n').trim();
+  // 1. 마크다운 블록 제거
+  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (mdMatch) {
+    cleanText = mdMatch[1].trim();
   }
   
   try {
     return JSON.parse(cleanText);
   } catch (e1) {
-    console.warn("1차 JSON 파싱 실패, 자동 복구 시도...");
+    console.warn("1차 파싱 실패, 강제 복구 시도...");
     try {
+      // 2. 가장 바깥쪽의 { } 또는 [ ] 만 찾아서 강제 추출
       const firstBrace = cleanText.indexOf('{');
       const lastBrace = cleanText.lastIndexOf('}');
+      const firstBracket = cleanText.indexOf('[');
+      const lastBracket = cleanText.lastIndexOf(']');
       
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        let jsonStr = cleanText.slice(firstBrace, lastBrace + 1);
-        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1'); 
+      let startObj = firstBrace !== -1 ? firstBrace : Infinity;
+      let startArr = firstBracket !== -1 ? firstBracket : Infinity;
+      
+      if (startObj === Infinity && startArr === Infinity) return null;
+      
+      const isObj = startObj < startArr;
+      const start = isObj ? startObj : startArr;
+      const end = isObj ? lastBrace : lastBracket;
+      
+      if (start !== -1 && end !== -1 && end > start) {
+        let jsonStr = cleanText.slice(start, end + 1);
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1'); // 쉼표 오류 제거
         jsonStr = jsonStr.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
         jsonStr = jsonStr.replace(/\\\\n/g, '\\n').replace(/\\\\r/g, '\\r');
         return JSON.parse(jsonStr);
       }
     } catch (e2) {
-      console.error("JSON 파싱 최종 실패. 복구 불가. 원본 텍스트:", text);
+      console.error("JSON 파싱 완벽 실패:", text);
     }
   }
   return null;
 }
 
-// ✨ Gemini API 호출
 async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다.");
@@ -99,7 +108,7 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const payload: any = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.1, 
+      temperature: 0.2,
       maxOutputTokens: 8192,
     }
   };
@@ -133,42 +142,71 @@ export const aiService = {
     const { fileData, meetingInfo, settings } = body;
     const searchInst = settings?.useWebSearch ? "\n[웹 검색 필수] 최신 트렌드와 통계를 구글 검색을 통해 적극 반영하세요." : "";
     
-    // 🔥 난이도와 분량 설정이 구성안(Outline) 단계부터 확실히 적용되도록 강제 주입
     const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 제공된 자료와 설정을 바탕으로 프레젠테이션 '목차(구성안)'를 제안하세요. ${searchInst}\n
-[사용자 설정 조건 (매우 중요)]
+[설정 조건]
 - 목표 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}
-- 목표 분량: ${VOLUME_MAP[settings?.volume || 'standard']}
-(위 '목표 분량'에서 요구하는 슬라이드 장수 기준을 철저히 지켜서 목차 항목을 구성하세요.)\n
+- 목표 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n
 [자료]:\n${truncateFileData(fileData)}\n
-반드시 아래와 같은 JSON 객체 형식만 반환하세요 (설명 텍스트 절대 금지):
-{"title": "발표 전체 제목", "outline": [{"slideNumber": 1, "title": "제목", "type": "title", "description": "내용 요약"}]}`;
+출력 형식 예시:
+{"title": "발표 전체 제목", "outline": [{"slideNumber": 1, "title": "제목", "type": "title", "description": "요약"}]}`;
     
     const text = await callGeminiAPI(prompt, settings?.useWebSearch);
-    const outline = extractJSON(text);
-    if (!outline || !outline.outline) throw new Error("구성안 JSON 형식이 올바르지 않습니다.");
-    return { outline };
+    let outlineData = extractJSON(text);
+    
+    if (!outlineData) throw new Error("구성안 JSON을 해석할 수 없습니다.");
+    
+    // ✨ 자동 복구: AI가 { outline: [...] } 껍데기를 빼먹고 [...] 배열만 준 경우 복구
+    if (Array.isArray(outlineData)) {
+      outlineData = {
+        title: meetingInfo?.week || "발표 자료 구성안",
+        outline: outlineData
+      };
+    } else if (outlineData.slides && !outlineData.outline) {
+      // AI가 outline 대신 slides 라는 키를 쓴 경우 복구
+      outlineData.outline = outlineData.slides;
+    }
+
+    if (!outlineData.outline || !Array.isArray(outlineData.outline)) {
+      throw new Error("구성안 구조가 올바르지 않습니다.");
+    }
+    
+    return { outline: outlineData };
   },
 
   async generatePresentation(body: any) {
     const { fileData, meetingInfo, settings, approvedOutline } = body;
     const searchInst = settings?.useWebSearch ? "\n[웹 검색 필수] 슬라이드 내의 팩트, 수치, 통계는 최신 구글 검색 결과를 통해 채우세요." : "";
     
-    // 🔥 난이도와 분량 설정 재강조
     const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 아래 데이터를 바탕으로 완벽한 발표 자료 JSON을 생성하세요. ${searchInst}\n
-[사용자 설정 조건 (매우 중요)]
-- 목표 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}
-- 목표 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n
-[사용자 승인 목차 (반드시 이 순서와 개수를 지킬 것)]:\n${JSON.stringify(approvedOutline, null, 2)}\n
+[사용자 승인 목차 (이 순서와 개수를 엄격히 지킬 것)]:\n${JSON.stringify(approvedOutline, null, 2)}\n
 [입력 데이터]:\n${truncateFileData(fileData)}\n
-반드시 아래 JSON 객체 형식만 반환하세요 (설명 텍스트 절대 금지):
+출력 형식 예시:
 {"title": "발표 제목", "slides": [{"slideNumber": 1, "type": "title", "title": "..."}]}`;
     
     const text = await callGeminiAPI(prompt, settings?.useWebSearch);
-    const presentation = extractJSON(text);
-    if (!presentation || !presentation.slides) throw new Error("발표자료 JSON 형식이 올바르지 않습니다.");
+    let presentationData = extractJSON(text);
     
-    presentation.slides = presentation.slides.map((s: any, idx: number) => ({ ...s, id: `slide-${Date.now()}-${idx}` }));
-    return { presentation };
+    if (!presentationData) throw new Error("발표자료 JSON을 해석할 수 없습니다.");
+
+    // ✨ 자동 복구: AI가 { slides: [...] } 껍데기를 빼먹고 [...] 배열만 준 경우 복구
+    if (Array.isArray(presentationData)) {
+      presentationData = {
+        title: approvedOutline?.title || "발표 자료",
+        slides: presentationData
+      };
+    }
+
+    if (!presentationData.slides || !Array.isArray(presentationData.slides)) {
+      throw new Error("발표자료 구조가 올바르지 않습니다.");
+    }
+    
+    // id 부여 (React Key용)
+    presentationData.slides = presentationData.slides.map((s: any, idx: number) => ({ 
+      ...s, 
+      id: `slide-${Date.now()}-${idx}` 
+    }));
+    
+    return { presentation: presentationData };
   },
 
   async regenerateSlide(body: any) {
@@ -176,7 +214,7 @@ export const aiService = {
     const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 기존 슬라이드를 사용자의 지시사항에 맞게 수정하세요.\n
 [현재 슬라이드]:\n${JSON.stringify(currentSlide, null, 2)}\n
 [지시사항]: ${userInstruction || '내용을 더 명확하고 시각적으로 다듬어주세요.'}\n
-수정된 슬라이드 객체 단 1개만 순수 JSON으로 반환하세요.`;
+수정된 슬라이드 객체 단 1개만 반환하세요.`;
     
     const text = await callGeminiAPI(prompt, false); 
     const slide = extractJSON(text);
@@ -186,7 +224,7 @@ export const aiService = {
 
   async chatEdit(body: any) {
     const { userMessage, currentSlide } = body;
-    const prompt = `${SYSTEM_PROMPT_CORE}\n\n사용자 요청: "${userMessage}"\n현재 슬라이드:\n${JSON.stringify(currentSlide, null, 2)}\n\n아래 JSON 형식만 반환:\n{"slide": { /* 수정된 슬라이드 */ }, "summary": "수정 요약"}`;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n\n사용자 요청: "${userMessage}"\n현재 슬라이드:\n${JSON.stringify(currentSlide, null, 2)}\n\n반환 예시:\n{"slide": { /* 수정된 슬라이드 */ }, "summary": "수정 요약"}`;
     const text = await callGeminiAPI(prompt, false);
     const result = extractJSON(text);
     if (!result || !result.slide) throw new Error("AI 수정 파싱 실패");
@@ -205,7 +243,7 @@ export const aiService = {
   async review(body: any) {
     const { presentation } = body;
     const slideSummary = presentation.slides.map((s: any) => `[${s.slideNumber}] ${s.title}`).join('\n');
-    const prompt = `발표자료 검토 전문가로서 아래 슬라이드 구성의 문제점을 지적해주세요:\n${slideSummary}\n\n순수 JSON 형식만 반환:\n{"overallScore": 8, "summary": "...", "improvements": [{"slideIndex": 0, "issue": "...", "suggestion": "..."}]}`;
+    const prompt = `발표자료 검토 전문가로서 아래 슬라이드 구성의 문제점을 지적해주세요:\n${slideSummary}\n\n반환 예시:\n{"overallScore": 8, "summary": "...", "improvements": [{"slideIndex": 0, "issue": "...", "suggestion": "..."}]}`;
     const text = await callGeminiAPI(prompt, false);
     const review = extractJSON(text);
     if (!review) throw new Error("리뷰 파싱 실패");
@@ -214,7 +252,7 @@ export const aiService = {
 
   async reviewAndFix(body: any) {
     const { presentation } = body;
-    const prompt = `${SYSTEM_PROMPT_CORE}\n\n아래 전체 발표 자료를 논리적이고 일관성 있게 최적화하세요.\n${JSON.stringify(presentation, null, 2)}\n\n순수 JSON 형식만 반환:\n{"summary": "개선 요약", "presentation": {"title": "...", "slides": [...]}}`;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n\n아래 전체 발표 자료를 논리적이고 일관성 있게 최적화하세요.\n${JSON.stringify(presentation, null, 2)}\n\n반환 예시:\n{"summary": "개선 요약", "presentation": {"title": "...", "slides": [...]}}`;
     const text = await callGeminiAPI(prompt, false);
     const result = extractJSON(text);
     if (!result || !result.presentation) throw new Error("최적화 파싱 실패");
