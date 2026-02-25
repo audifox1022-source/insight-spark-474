@@ -22,7 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate // ✨ 아이콘 추가
+  Wand2, LayoutTemplate, Stamp // ✨ 아이콘 추가
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -49,8 +49,9 @@ interface SlideEditorProps {
   onOpenReview: () => void;
   onReviewAndFix: () => Promise<void>;
   isFixing: boolean;
-  onChangePersona: (slideIndex: number, persona: 'jobs' | 'mckinsey') => Promise<void>; // ✨ 추가
-  onCycleLayout: (slideIndex: number) => void; // ✨ 추가
+  onChangePersona: (slideIndex: number, persona: string) => Promise<void>;
+  onCycleLayout: (slideIndex: number) => void;
+  updatePresentationMaster: (updates: Partial<Presentation>) => void; // ✨ 추가
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -79,67 +80,35 @@ const slideTypeBadgeColors: Record<string, string> = {
   summary: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
 };
 
-// ── 드래그 가능한 슬라이드 썸네일 ──
-function SortableSlideThumbnail({
-  slide, index, isActive, onClick,
-}: {
-  slide: Slide; index: number; isActive: boolean; onClick: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `slide-${index}`,
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 50 : 'auto' as any,
-  };
+function SortableSlideThumbnail({ slide, index, isActive, onClick }: { slide: Slide; index: number; isActive: boolean; onClick: () => void; }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `slide-${index}` });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' as any };
 
   return (
     <div ref={setNodeRef} style={style} className="group relative">
-      <button
-        onClick={onClick}
-        className={`
-          w-full text-left p-3 rounded-xl border transition-all
-          ${isActive
-            ? 'bg-primary/5 border-primary shadow-card ring-2 ring-primary/20'
-            : 'bg-card border-border hover:border-primary/30 hover:shadow-card'
-          }
-        `}
-      >
+      <button onClick={onClick} className={`w-full text-left p-3 rounded-xl border transition-all ${isActive ? 'bg-primary/5 border-primary shadow-card ring-2 ring-primary/20' : 'bg-card border-border hover:border-primary/30 hover:shadow-card'}`}>
         <div className="flex items-center gap-2 mb-2">
-          <div
-            {...attributes}
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none" onClick={(e) => e.stopPropagation()}>
             <GripVertical className="w-3 h-3" />
           </div>
-          <span className="text-[10px] font-mono text-muted-foreground">
-            {String(slide.slideNumber).padStart(2, '0')}
-          </span>
+          <span className="text-[10px] font-mono text-muted-foreground">{String(slide.slideNumber).padStart(2, '0')}</span>
           <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ${slideTypeBadgeColors[slide.type] || 'bg-muted text-muted-foreground'}`}>
             {slideTypeIcons[slide.type]}
             {slideTypeLabels[slide.type]}
           </span>
         </div>
         <p className="text-xs font-semibold truncate leading-tight">{slide.title}</p>
-        <p className="text-[10px] text-muted-foreground mt-1 truncate">
-          {(slide.content || []).slice(0, 1).join(' · ') || '내용 없음'}
-        </p>
+        <p className="text-[10px] text-muted-foreground mt-1 truncate">{(slide.content || []).slice(0, 1).join(' · ') || '내용 없음'}</p>
       </button>
     </div>
   );
 }
 
-// ── 메인 SlideEditor ──
 export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
   onRegenerateSlide, onOpenChat, onOpenReview, onReviewAndFix, isFixing,
-  onChangePersona, onCycleLayout // ✨ Props 받기
+  onChangePersona, onCycleLayout, updatePresentationMaster
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -153,21 +122,17 @@ export function SlideEditor({
   const slides = presentation.slides || [];
   const slide = slides[currentSlide];
 
-  // ── 키보드 단축키 ──
   useKeyboardShortcuts({
     onPrev: () => setCurrentSlide((s) => Math.max(0, s - 1)),
     onNext: () => setCurrentSlide((s) => Math.min(slides.length - 1, s + 1)),
-    onSave,
-    onDuplicate: () => onDuplicateSlide(currentSlide),
+    onSave, onDuplicate: () => onDuplicateSlide(currentSlide),
     onDelete: () => handleDeleteSlide(currentSlide),
     onPresent: () => setPresenting(true),
     onAddSlide: () => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); },
-    totalSlides: slides.length,
-    currentSlide,
+    totalSlides: slides.length, currentSlide,
     enabled: !presenting && !exportDialogOpen && !shortcutsHelpOpen,
   });
 
-  // 드래그앤드롭
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -187,11 +152,8 @@ export function SlideEditor({
   const handleExport = async (format: 'pptx' | 'pdf', brand: BrandSettings) => {
     setIsExporting(true);
     try {
-      if (format === 'pptx') {
-        await exportToPptx(presentation, brand);
-      } else {
-        exportToPdf(presentation, brand);
-      }
+      if (format === 'pptx') await exportToPptx(presentation, brand);
+      else await exportToPdf(presentation, brand);
       toast.success(`${format.toUpperCase()} 파일이 다운로드되었습니다.`);
       setExportDialogOpen(false);
     } catch {
@@ -207,18 +169,12 @@ export function SlideEditor({
       return;
     }
     onDeleteSlide(index);
-    if (currentSlide >= slides.length - 1) {
-      setCurrentSlide(Math.max(0, slides.length - 2));
-    }
+    if (currentSlide >= slides.length - 1) setCurrentSlide(Math.max(0, slides.length - 2));
   };
 
   const handleRegenerate = async () => {
     setIsRegenerating(true);
-    try {
-      await onRegenerateSlide(currentSlide);
-    } finally {
-      setIsRegenerating(false);
-    }
+    try { await onRegenerateSlide(currentSlide); } finally { setIsRegenerating(false); }
   };
 
   const startEditTitle = () => { setTitleDraft(presentation.title); setEditingTitle(true); };
@@ -244,7 +200,6 @@ export function SlideEditor({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-7xl mx-auto">
-
       {/* ── 상단 툴바 ── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -266,297 +221,199 @@ export function SlideEditor({
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* 단축키 도움말 */}
-          <Button
-            variant="ghost" size="sm"
-            onClick={() => setShortcutsHelpOpen(true)}
-            className="w-9 h-9 p-0 text-muted-foreground hover:text-foreground"
-            title="키보드 단축키 (?)"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setShortcutsHelpOpen(true)} className="w-9 h-9 p-0 text-muted-foreground hover:text-foreground" title="키보드 단축키 (?)">
             <Keyboard className="w-4 h-4" />
           </Button>
 
-          {/* 자동 최적화 버튼 */}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onReviewAndFix}
-            disabled={isFixing}
-            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm hidden sm:flex"
-            title="전체 슬라이드를 분석하고 자동으로 최적화합니다"
-          >
+          {/* ✨ 마스터 슬라이드 설정 버튼 */}
+          <div className="relative group/master pb-1 -mb-1">
+            <Button size="sm" variant="outline" className="h-9 px-3 text-xs gap-1.5" title="전체 슬라이드 공통 설정">
+              <Stamp className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">마스터 설정</span>
+            </Button>
+            <div className="absolute right-0 top-full mt-0 w-72 bg-card rounded-xl shadow-elevated border border-border opacity-0 invisible group-hover/master:opacity-100 group-hover/master:visible transition-all z-50 p-5 space-y-5">
+              <div>
+                <label className="text-xs font-bold text-foreground mb-2 block">🏢 회사 로고 이미지</label>
+                <Input 
+                  type="file" 
+                  accept="image/*" 
+                  className="text-xs text-muted-foreground h-9 cursor-pointer"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (e) => updatePresentationMaster({ logoUrl: e.target?.result as string });
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {presentation.logoUrl && (
+                  <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs text-destructive hover:bg-destructive/10" onClick={() => updatePresentationMaster({ logoUrl: undefined })}>
+                    로고 삭제
+                  </Button>
+                )}
+              </div>
+              <div>
+                <label className="text-xs font-bold text-foreground mb-2 block">💧 배경 워터마크 텍스트</label>
+                <Input 
+                  placeholder="예: 대외비, CONFIDENTIAL" 
+                  value={presentation.watermark || ''}
+                  onChange={(e) => updatePresentationMaster({ watermark: e.target.value })}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Button variant="default" size="sm" onClick={onReviewAndFix} disabled={isFixing} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm hidden md:flex">
             {isFixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             전체 최적화
           </Button>
-
           <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {presentation.id ? '저장' : '저장하기'}
           </Button>
-          <Button variant="default" size="sm" onClick={() => setPresenting(true)}
-            className="gap-2 gradient-primary text-primary-foreground border-0">
-            <Play className="w-4 h-4" />
-            발표하기
+          <Button variant="default" size="sm" onClick={() => setPresenting(true)} className="gap-2 gradient-primary text-primary-foreground border-0">
+            <Play className="w-4 h-4" /> 발표하기
           </Button>
           <Button variant="outline" size="sm" onClick={onOpenReview} className="gap-2">
-            <Star className="w-4 h-4" />
-            리뷰
+            <Star className="w-4 h-4" /> 리뷰
           </Button>
           <Button variant="outline" size="sm" onClick={() => setExportDialogOpen(true)} className="gap-2">
-            <Download className="w-4 h-4" />
-            내보내기
+            <Download className="w-4 h-4" /> 내보내기
           </Button>
           <Button variant="outline" size="sm" onClick={onReset} className="gap-2">
-            <RotateCcw className="w-4 h-4" />
-            새로 만들기
+            <RotateCcw className="w-4 h-4" /> 새로 만들기
           </Button>
         </div>
       </div>
 
       <div className="flex gap-5">
-
         {/* ── 드래그앤드롭 사이드바 ── */}
         <div className="w-52 flex-shrink-0 max-h-[calc(100vh-200px)] overflow-y-auto pr-1 sticky top-[80px] self-start">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext
-              items={slides.map((_, i) => `slide-${i}`)}
-              strategy={verticalListSortingStrategy}
-            >
+            <SortableContext items={slides.map((_, i) => `slide-${i}`)} strategy={verticalListSortingStrategy}>
               <div className="space-y-2">
                 {slides.map((s, i) => (
-                  <SortableSlideThumbnail
-                    key={`slide-${i}-${s.slideNumber}`}
-                    slide={s} index={i}
-                    isActive={i === currentSlide}
-                    onClick={() => setCurrentSlide(i)}
-                  />
+                  <SortableSlideThumbnail key={`slide-${i}-${s.slideNumber}`} slide={s} index={i} isActive={i === currentSlide} onClick={() => setCurrentSlide(i)} />
                 ))}
               </div>
             </SortableContext>
           </DndContext>
-          <button
-            onClick={() => { onAddSlide(slides.length - 1); setCurrentSlide(slides.length); }}
-            className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            슬라이드 추가
+          <button onClick={() => { onAddSlide(slides.length - 1); setCurrentSlide(slides.length); }} className="mt-2 w-full p-3 rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs">
+            <Plus className="w-3.5 h-3.5" /> 슬라이드 추가
           </button>
         </div>
 
-        {/* ── 메인 영역: 미리보기 + 편집 나란히 ── */}
+        {/* ── 메인 영역 ── */}
         <div className="flex-1 min-w-0 flex flex-col lg:flex-row gap-5">
-
-          {/* ── 실시간 미리보기 (Sticky) ── */}
+          {/* ── 실시간 미리보기 ── */}
           <div className="lg:w-[55%] flex-shrink-0 lg:sticky lg:top-[80px] lg:self-start space-y-4">
             <AnimatePresence mode="wait">
-              <motion.div
-                key={`preview-${currentSlide}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.1 }}
-              >
-                <ScaledSlide slide={slide} containerClassName="w-full rounded-xl overflow-hidden shadow-elevated border border-border" />
+              <motion.div key={`preview-${currentSlide}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.1 }}>
+                {/* ✨ 마스터 로고 및 워터마크 props 전달 */}
+                <ScaledSlide slide={slide} containerClassName="w-full rounded-xl overflow-hidden shadow-elevated border border-border" logoUrl={presentation.logoUrl} watermark={presentation.watermark} />
               </motion.div>
             </AnimatePresence>
-
-            {/* 슬라이드 네비게이션 */}
             <div className="flex items-center justify-center gap-3">
-              <Button variant="outline" size="sm"
-                onClick={() => setCurrentSlide((s) => Math.max(0, s - 1))}
-                disabled={currentSlide === 0}>
-                이전
-              </Button>
-              <span className="text-sm text-muted-foreground font-mono tabular-nums">
-                {currentSlide + 1} / {slides.length}
-              </span>
-              <Button variant="outline" size="sm"
-                onClick={() => setCurrentSlide((s) => Math.min(slides.length - 1, s + 1))}
-                disabled={currentSlide === slides.length - 1}>
-                다음
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentSlide((s) => Math.max(0, s - 1))} disabled={currentSlide === 0}>이전</Button>
+              <span className="text-sm text-muted-foreground font-mono tabular-nums">{currentSlide + 1} / {slides.length}</span>
+              <Button variant="outline" size="sm" onClick={() => setCurrentSlide((s) => Math.min(slides.length - 1, s + 1))} disabled={currentSlide === slides.length - 1}>다음</Button>
             </div>
           </div>
 
-          {/* ── 편집 패널 (스크롤 가능) ── */}
+          {/* ── 편집 패널 ── */}
           <div className="flex-1 min-w-0">
             <AnimatePresence mode="wait">
-              <motion.div
-                key={currentSlide}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.15 }}
-                className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden"
-              >
-                {/* 슬라이드 헤더 */}
+              <motion.div key={currentSlide} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.15 }} className="bg-card rounded-2xl border border-border shadow-elevated overflow-hidden">
                 <div className="gradient-primary px-6 py-5 text-primary-foreground">
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xs font-mono opacity-60">
-                      {String(slide.slideNumber || currentSlide + 1).padStart(2, '0')}
-                    </span>
+                    <span className="text-xs font-mono opacity-60">{String(slide.slideNumber || currentSlide + 1).padStart(2, '0')}</span>
                     <Select value={slide.type} onValueChange={(v) => onUpdateSlide(currentSlide, { type: v as Slide['type'] })}>
-                      <SelectTrigger className="w-auto h-6 text-xs border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground px-2 gap-1">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-auto h-6 text-xs border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground px-2 gap-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {Object.entries(slideTypeLabels).map(([k, v]) => (
-                          <SelectItem key={k} value={k}>{v}</SelectItem>
-                        ))}
+                        {Object.entries(slideTypeLabels).map(([k, v]) => (<SelectItem key={k} value={k}>{v}</SelectItem>))}
                       </SelectContent>
                     </Select>
                     
                     <div className="ml-auto flex items-center gap-1">
-                      
-                      {/* ✨ 1초 레이아웃 마법사 버튼 */}
-                      <Button size="sm" variant="ghost"
-                        className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                        onClick={() => onCycleLayout(currentSlide)} title="1초 레이아웃 마법사">
-                        <LayoutTemplate className="w-3.5 h-3.5" />
-                        <span className="hidden xl:inline">레이아웃</span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" onClick={() => onCycleLayout(currentSlide)} title="1초 레이아웃 마법사">
+                        <LayoutTemplate className="w-3.5 h-3.5" /><span className="hidden xl:inline">레이아웃</span>
                       </Button>
 
-                      {/* ✨ 스타일 변환 (스티브 잡스 / 맥킨지) 드롭다운 */}
+                      {/* ✨ 청중 맞춤형 톤앤매너 확장 드롭다운 */}
                       <div className="relative group/persona pb-1 -mb-1">
-                        <Button size="sm" variant="ghost"
-                          className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                          title="발표 스타일 변환">
-                          <Wand2 className="w-3.5 h-3.5" />
-                          <span className="hidden xl:inline">스타일 변환</span>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" title="발표 스타일 변환">
+                          <Wand2 className="w-3.5 h-3.5" /><span className="hidden xl:inline">스타일 변환</span>
                         </Button>
-                        <div className="absolute right-0 top-full mt-0 w-44 bg-card rounded-xl shadow-elevated border border-border opacity-0 invisible group-hover/persona:opacity-100 group-hover/persona:visible transition-all z-50 overflow-hidden">
-                          <button onClick={() => onChangePersona(currentSlide, 'jobs')} className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground border-b border-border flex items-center gap-2">
-                            🍎 잡스 모드 (감성)
-                          </button>
-                          <button onClick={() => onChangePersona(currentSlide, 'mckinsey')} className="w-full text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground flex items-center gap-2">
-                            💼 맥킨지 모드 (논리)
-                          </button>
+                        <div className="absolute right-0 top-full mt-0 w-52 bg-card rounded-xl shadow-elevated border border-border opacity-0 invisible group-hover/persona:opacity-100 group-hover/persona:visible transition-all z-50 overflow-hidden flex flex-col">
+                          <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/30">유명인 스타일</div>
+                          <button onClick={() => onChangePersona(currentSlide, 'jobs')} className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">🍎 잡스 모드 (감성)</button>
+                          <button onClick={() => onChangePersona(currentSlide, 'mckinsey')} className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">💼 맥킨지 모드 (논리)</button>
+                          <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/30 border-t border-border mt-1">청중 맞춤형 보고</div>
+                          <button onClick={() => onChangePersona(currentSlide, 'ceo')} className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">👔 임원진 보고용 (결론/효과)</button>
+                          <button onClick={() => onChangePersona(currentSlide, 'team')} className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">🤝 팀원 공유용 (친근/맥락)</button>
+                          <button onClick={() => onChangePersona(currentSlide, 'client')} className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">🏢 외부 고객용 (정중/설득)</button>
                         </div>
                       </div>
 
-                      {/* 기존 버튼들 */}
-                      <Button size="sm" variant="ghost"
-                        className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                        onClick={handleRegenerate} disabled={isRegenerating} title="AI로 재생성">
-                        {isRegenerating
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Sparkles className="w-3.5 h-3.5" />
-                        }
-                        <span className="hidden xl:inline">재생성</span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" onClick={handleRegenerate} disabled={isRegenerating}>
+                        {isRegenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}<span className="hidden xl:inline">재생성</span>
                       </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                        onClick={onOpenChat} title="AI 채팅으로 수정">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span className="hidden xl:inline">AI 수정</span>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" onClick={onOpenChat}>
+                        <MessageSquare className="w-3.5 h-3.5" /><span className="hidden xl:inline">AI 수정</span>
                       </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                        onClick={() => onDuplicateSlide(currentSlide)} title="복제">
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
-                        onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }} title="뒤에 추가">
-                        <Plus className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteSlide(currentSlide)} title="삭제" disabled={slides.length <= 1}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => onDuplicateSlide(currentSlide)}><Copy className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10" onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}><Plus className="w-3.5 h-3.5" /></Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </div>
                   <div className="relative group/title">
-                    <input
-                      value={slide.title}
-                      onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })}
-                      className="w-full bg-transparent text-2xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight peer"
-                      placeholder="슬라이드 제목 입력..."
-                    />
+                    <input value={slide.title} onChange={(e) => onUpdateSlide(currentSlide, { title: e.target.value })} className="w-full bg-transparent text-2xl font-extrabold text-primary-foreground border-none outline-none placeholder:text-primary-foreground/40 focus:ring-0 tracking-tight peer" placeholder="슬라이드 제목 입력..." />
                     <Pencil className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-foreground/30 opacity-0 group-hover/title:opacity-100 peer-focus:opacity-0 transition-opacity pointer-events-none" />
                   </div>
                 </div>
 
-                {/* 슬라이드 본문 편집 영역 */}
                 <div className="p-6 space-y-8">
-                  {/* (기존 코드와 동일하게 지표, 차트, 테이블, 이미지 편집 영역 유지) */}
-                  
-                  {/* 핵심 지표 */}
+                  {/* 핵심 지표, 차트, 테이블 렌더링 영역 (기존 유지) */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">핵심 지표</span>
-                      <Button size="sm" variant="ghost" onClick={addMetric} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
-                        <Plus className="w-3 h-3" /> 지표 추가
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={addMetric} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary"><Plus className="w-3 h-3" /> 지표 추가</Button>
                     </div>
                     {(slide.keyMetrics && slide.keyMetrics.length > 0) ? (
                       <div className="grid grid-cols-2 gap-3">
                         {slide.keyMetrics.map((m, i) => (
                           <div key={i} className="rounded-xl bg-gradient-to-br from-muted to-muted/50 border border-border p-4 group/metric relative shadow-card hover:shadow-elevated transition-shadow">
-                            <button onClick={() => removeMetric(i)}
-                              className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/metric:opacity-100 transition-opacity z-10">
-                              <X className="w-3 h-3" />
-                            </button>
+                            <button onClick={() => removeMetric(i)} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/metric:opacity-100 transition-opacity z-10"><X className="w-3 h-3" /></button>
                             <div className="flex items-start justify-between mb-2">
-                              <input value={m.label} onChange={(e) => updateMetric(i, { label: e.target.value })}
-                                className="text-xs font-bold text-muted-foreground bg-transparent border-none outline-none w-full uppercase tracking-widest"
-                                placeholder="지표명" />
-                              <Select value={m.trend} onValueChange={(v) => updateMetric(i, { trend: v as SlideMetric['trend'] })}>
-                                <SelectTrigger className="w-auto h-6 border-0 bg-transparent p-0 px-1 flex-shrink-0">
-                                  {trendIcons[m.trend]}
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="up">▲ 상승</SelectItem>
-                                  <SelectItem value="down">▼ 하락</SelectItem>
-                                  <SelectItem value="flat">― 유지</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <input value={m.label} onChange={(e) => updateMetric(i, { label: e.target.value })} className="text-xs font-bold text-muted-foreground bg-transparent border-none outline-none w-full uppercase tracking-widest" placeholder="지표명" />
+                              <Select value={m.trend} onValueChange={(v) => updateMetric(i, { trend: v as SlideMetric['trend'] })}><SelectTrigger className="w-auto h-6 border-0 bg-transparent p-0 px-1 flex-shrink-0">{trendIcons[m.trend]}</SelectTrigger><SelectContent><SelectItem value="up">▲ 상승</SelectItem><SelectItem value="down">▼ 하락</SelectItem><SelectItem value="flat">― 유지</SelectItem></SelectContent></Select>
                             </div>
-                            <input value={m.value} onChange={(e) => updateMetric(i, { value: e.target.value })}
-                              className="text-3xl font-black bg-transparent border-none outline-none w-full text-foreground tracking-tight leading-none"
-                              placeholder="수치" />
+                            <input value={m.value} onChange={(e) => updateMetric(i, { value: e.target.value })} className="text-3xl font-black bg-transparent border-none outline-none w-full text-foreground tracking-tight leading-none" placeholder="수치" />
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <button onClick={addMetric}
-                        className="w-full rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs py-6">
-                        <Plus className="w-4 h-4" /> 지표 추가
-                      </button>
+                      <button onClick={addMetric} className="w-full rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs py-6"><Plus className="w-4 h-4" /> 지표 추가</button>
                     )}
                   </div>
 
-                  {/* 차트 편집 */}
                   <div>
                     <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">📊 차트</span>
-                    <ChartEditor
-                      chartData={slide.chartData}
-                      onChange={(chartData) => onUpdateSlide(currentSlide, { chartData })}
-                    />
+                    <ChartEditor chartData={slide.chartData} onChange={(chartData) => onUpdateSlide(currentSlide, { chartData })} />
                   </div>
 
-                  {/* 데이터 테이블 편집 */}
                   {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
                     <div>
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-1.5">
-                        <TableProperties className="w-3.5 h-3.5" /> 데이터 테이블
-                      </span>
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-1.5"><TableProperties className="w-3.5 h-3.5" /> 데이터 테이블</span>
                       <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
                         <table className="w-full text-sm text-left whitespace-nowrap">
                           <thead className="bg-muted/50 text-muted-foreground border-b border-border">
                             <tr>
                               {slide.tableData.headers.map((h, cIdx) => (
                                 <th key={`th-${cIdx}`} className="p-0 font-semibold border-r border-border last:border-r-0">
-                                  <input
-                                    value={h}
-                                    onChange={(e) => {
-                                      const newHeaders = [...slide.tableData!.headers];
-                                      newHeaders[cIdx] = e.target.value;
-                                      onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, headers: newHeaders } });
-                                    }}
-                                    className="w-full bg-transparent px-4 py-2.5 outline-none focus:bg-muted/80 transition-colors"
-                                  />
+                                  <input value={h} onChange={(e) => { const newHeaders = [...slide.tableData!.headers]; newHeaders[cIdx] = e.target.value; onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, headers: newHeaders } }); }} className="w-full bg-transparent px-4 py-2.5 outline-none focus:bg-muted/80 transition-colors" />
                                 </th>
                               ))}
                             </tr>
@@ -566,16 +423,7 @@ export function SlideEditor({
                               <tr key={`tr-${rIdx}`} className="hover:bg-muted/20 transition-colors">
                                 {row.map((cell, cIdx) => (
                                   <td key={`td-${rIdx}-${cIdx}`} className="p-0 border-r border-border last:border-r-0">
-                                    <input
-                                      value={cell}
-                                      onChange={(e) => {
-                                        const newRows = [...slide.tableData!.rows];
-                                        newRows[rIdx] = [...newRows[rIdx]];
-                                        newRows[rIdx][cIdx] = e.target.value;
-                                        onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, rows: newRows } });
-                                      }}
-                                      className="w-full bg-transparent px-4 py-2 outline-none focus:bg-muted transition-colors"
-                                    />
+                                    <input value={cell} onChange={(e) => { const newRows = [...slide.tableData!.rows]; newRows[rIdx] = [...newRows[rIdx]]; newRows[rIdx][cIdx] = e.target.value; onUpdateSlide(currentSlide, { tableData: { ...slide.tableData!, rows: newRows } }); }} className="w-full bg-transparent px-4 py-2 outline-none focus:bg-muted transition-colors" />
                                   </td>
                                 ))}
                               </tr>
@@ -586,64 +434,31 @@ export function SlideEditor({
                     </div>
                   )}
 
-                  {/* 이미지 편집 */}
-                  <SlideImageEditor
-                    imageUrl={slide.imageUrl}
-                    slideTitle={slide.title}
-                    slideContent={slide.content || []}
-                    slideType={slide.type}
-                    onChange={(imageUrl) => onUpdateSlide(currentSlide, { imageUrl })}
-                  />
+                  <SlideImageEditor imageUrl={slide.imageUrl} slideTitle={slide.title} slideContent={slide.content || []} slideType={slide.type} onChange={(imageUrl) => onUpdateSlide(currentSlide, { imageUrl })} />
 
-                  {/* 슬라이드 내용 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">슬라이드 내용</span>
-                      <Button size="sm" variant="ghost" onClick={addBullet} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
-                        <Plus className="w-3 h-3" /> 항목 추가
-                      </Button>
+                      <Button size="sm" variant="ghost" onClick={addBullet} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary"><Plus className="w-3 h-3" /> 항목 추가</Button>
                     </div>
                     <div className="space-y-2">
                       {(slide.content || []).map((item, i) => (
                         <div key={i} className="flex items-start gap-3 group/bullet rounded-xl px-3 py-2.5 hover:bg-muted/40 transition-colors relative">
                           <span className="mt-[13px] w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                          <Textarea value={item} onChange={(e) => updateContent(i, e.target.value)}
-                            className="flex-1 min-h-[40px] text-sm font-medium leading-relaxed resize-none border-transparent bg-transparent hover:bg-transparent focus:bg-transparent focus:border-border transition-colors peer"
-                            rows={1}
-                            placeholder="내용을 입력하세요..."
-                            onInput={(e) => {
-                              const t = e.currentTarget;
-                              t.style.height = 'auto';
-                              t.style.height = t.scrollHeight + 'px';
-                            }} />
+                          <Textarea value={item} onChange={(e) => updateContent(i, e.target.value)} className="flex-1 min-h-[40px] text-sm font-medium leading-relaxed resize-none border-transparent bg-transparent hover:bg-transparent focus:bg-transparent focus:border-border transition-colors peer" rows={1} placeholder="내용을 입력하세요..." onInput={(e) => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px'; }} />
                           <Pencil className="absolute right-10 top-3.5 w-3.5 h-3.5 text-muted-foreground/40 opacity-0 group-hover/bullet:opacity-100 peer-focus:opacity-0 transition-opacity pointer-events-none" />
-                          <button onClick={() => removeBullet(i)}
-                            className="mt-1.5 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/bullet:opacity-100 transition-all flex-shrink-0">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                          <button onClick={() => removeBullet(i)} className="mt-1.5 w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/bullet:opacity-100 transition-all flex-shrink-0"><X className="w-3.5 h-3.5" /></button>
                         </div>
                       ))}
                       {(!slide.content || slide.content.length === 0) && (
-                        <button onClick={addBullet}
-                          className="w-full rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs py-6">
-                          <Plus className="w-4 h-4" /> 항목 추가
-                        </button>
+                        <button onClick={addBullet} className="w-full rounded-xl border-2 border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-all flex items-center justify-center gap-2 text-xs py-6"><Plus className="w-4 h-4" /> 항목 추가</button>
                       )}
                     </div>
                   </div>
 
-                  {/* 발표자 노트 */}
                   <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-800/40">
-                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 uppercase tracking-widest">
-                      💡 발표자 노트
-                    </p>
-                    <Textarea
-                      value={slide.notes || ''}
-                      onChange={(e) => onUpdateSlide(currentSlide, { notes: e.target.value })}
-                      placeholder="발표 시 참고할 노트를 입력하세요..."
-                      className="min-h-[50px] text-sm bg-transparent border-0 p-0 resize-none focus-visible:ring-0 text-amber-800 dark:text-amber-300 placeholder:text-amber-400"
-                      rows={2}
-                    />
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 uppercase tracking-widest">💡 발표자 노트</p>
+                    <Textarea value={slide.notes || ''} onChange={(e) => onUpdateSlide(currentSlide, { notes: e.target.value })} placeholder="발표 시 참고할 노트를 입력하세요..." className="min-h-[50px] text-sm bg-transparent border-0 p-0 resize-none focus-visible:ring-0 text-amber-800 dark:text-amber-300 placeholder:text-amber-400" rows={2} />
                   </div>
                 </div>
               </motion.div>
