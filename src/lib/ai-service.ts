@@ -15,9 +15,11 @@ const VOLUME_MAP: Record<string, string> = {
 };
 
 const SYSTEM_PROMPT_CORE = `당신은 최고 수준의 프레젠테이션 전문가이자 완벽한 JSON 생성기입니다.
-[🔥 절대 준수 규칙 🔥]
-1. 인사말이나 부연 설명 없이, 오직 "순수한 JSON" 형식으로만 반환하세요.
-2. JSON 문법을 완벽히 지키고, 올바른 스키마를 사용하세요.
+[🔥 절대 준수 규칙 (Content Grounding) 🔥]
+1. 사용자가 입력한 [주제 및 데이터]를 100% 최우선으로 반영하세요. 사용자의 의도와 전혀 무관한 가상의 회사, 제품, 상황을 임의로 지어내지 마세요.
+2. 주어진 입력 정보가 짧더라도, 그 핵심 주제를 벗어나지 않는 선에서 논리적으로 내용을 전개하세요.
+3. 인사말이나 부연 설명 없이, 오직 "순수한 JSON" 형식으로만 반환하세요.
+4. JSON 문법을 완벽히 지키고, 올바른 스키마를 사용하세요.
 
 [디자인 및 내용 원칙]
 1. 단순 텍스트 나열을 피하고, 내용에 맞는 '시각적 레이아웃 타입(type)'을 전략적으로 선택하세요.
@@ -55,13 +57,12 @@ function truncateFileData(fileData: any): string {
   return raw.length <= MAX_FILE_DATA_LENGTH ? raw : raw.slice(0, MAX_FILE_DATA_LENGTH) + "...";
 }
 
-// ✨ 강력한 JSON 파서 (웹 검색 시 JSON 강제가 풀려도 마크다운을 완벽히 파싱함)
+// ✨ 강력한 JSON 파서
 function extractJSON(text: string): any | null {
   if (!text) return null;
   
   let cleanText = text.trim();
   
-  // 마크다운 블록 제거
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) {
     cleanText = mdMatch[1].trim();
@@ -72,7 +73,6 @@ function extractJSON(text: string): any | null {
   } catch (e1) {
     console.warn("1차 파싱 실패, 강제 복구 시도...");
     
-    // 잘린 텍스트 억지 복구 (MAX_TOKENS 에러 방어)
     let openBraces = 0;
     let openBrackets = 0;
     let inString = false;
@@ -124,7 +124,7 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   const payload: any = {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.1, // 창의성 제한 (사용자 입력 우선)
       maxOutputTokens: 8192, 
     },
     safetySettings: [
@@ -135,12 +135,10 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
     ]
   };
 
-  // ✨ 문제 해결: 웹 검색(Grounding)과 JSON 형식 강제(responseMimeType)의 충돌 방지 로직
+  // ✨ 웹 검색 시 주제 이탈 방지
   if (useWebSearch) {
     payload.tools = [{ googleSearch: {} }];
-    // 웹 검색을 사용할 때는 responseMimeType을 주입하지 않습니다. (대신 extractJSON 함수가 알아서 변환함)
   } else {
-    // 웹 검색을 사용하지 않을 때만 API 차원에서 완벽한 JSON 생성을 강제합니다.
     payload.generationConfig.responseMimeType = "application/json";
   }
 
@@ -153,7 +151,7 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   if (!response.ok) {
     const err = await response.text();
     console.error("API 통신 에러:", err);
-    throw new Error(`AI 통신 중 오류가 발생했습니다. (API 충돌 방지 적용됨)`);
+    throw new Error(`AI 통신 중 오류가 발생했습니다.`);
   }
   
   const data = await response.json();
@@ -174,13 +172,14 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
 export const aiService = {
   async getOutline(body: any) {
     const { fileData, meetingInfo, settings } = body;
-    const searchInst = settings?.useWebSearch ? "\n[웹 검색 필수] 최신 트렌드와 통계를 구글 검색을 통해 적극 반영하세요." : "";
+    // ✨ 웹 검색 시, 주제를 바꾸지 말고 보완 용도로만 쓰도록 강력히 통제
+    const searchInst = settings?.useWebSearch ? "\n[⚠️ 웹 검색 주의사항]: 웹 검색은 최신 통계와 팩트 체크를 위해서만 사용하세요. 검색 결과에 휘둘려 사용자의 원본 주제를 변경하거나 가상의 내용을 지어내면 절대 안 됩니다." : "";
     
-    const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 제공된 자료와 설정을 바탕으로 프레젠테이션 '목차(구성안)'를 제안하세요. ${searchInst}\n
+    const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 제공된 사용자 입력 데이터를 최우선으로 하여 프레젠테이션 '목차(구성안)'를 제안하세요. ${searchInst}\n
 [설정 조건]
 - 목표 난이도: ${DIFFICULTY_MAP[settings?.difficulty || 'medium']}
 - 목표 분량: ${VOLUME_MAP[settings?.volume || 'standard']}\n
-[자료]:\n${truncateFileData(fileData)}\n
+[사용자 입력 주제 및 데이터 (이 내용을 절대 벗어나지 마세요)]:\n${truncateFileData(fileData)}\n
 출력 형식 예시:
 {"title": "발표 전체 제목", "outline": [{"slideNumber": 1, "title": "제목", "type": "title", "description": "요약"}]}`;
     
@@ -207,11 +206,11 @@ export const aiService = {
 
   async generatePresentation(body: any) {
     const { fileData, meetingInfo, settings, approvedOutline } = body;
-    const searchInst = settings?.useWebSearch ? "\n[웹 검색 필수] 슬라이드 내의 팩트, 수치, 통계는 최신 구글 검색 결과를 통해 채우세요." : "";
+    const searchInst = settings?.useWebSearch ? "\n[⚠️ 웹 검색 주의사항]: 웹 검색은 최신 통계와 팩트 체크를 위해서만 사용하세요. 검색 결과에 휘둘려 사용자의 원본 주제를 변경하거나 가상의 내용을 지어내면 절대 안 됩니다." : "";
     
     const prompt = `${SYSTEM_PROMPT_CORE}\n\n[요청] 아래 데이터를 바탕으로 완벽한 발표 자료 JSON을 생성하세요. ${searchInst}\n
 [사용자 승인 목차 (이 순서와 개수를 엄격히 지킬 것)]:\n${JSON.stringify(approvedOutline, null, 2)}\n
-[입력 데이터]:\n${truncateFileData(fileData)}\n
+[사용자 입력 주제 및 데이터 (이 내용에 충실하게 작성할 것)]:\n${truncateFileData(fileData)}\n
 출력 형식 예시:
 {"title": "발표 제목", "slides": [{"slideNumber": 1, "type": "title", "title": "..."}]}`;
     
