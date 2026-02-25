@@ -55,7 +55,7 @@ function truncateFileData(fileData: any): string {
   return raw.length <= MAX_FILE_DATA_LENGTH ? raw : raw.slice(0, MAX_FILE_DATA_LENGTH) + "...";
 }
 
-// ✨ 강력한 JSON 파서: 잘린 텍스트 강제 복구 로직 추가
+// ✨ 강력한 JSON 파서 (웹 검색 시 JSON 강제가 풀려도 마크다운을 완벽히 파싱함)
 function extractJSON(text: string): any | null {
   if (!text) return null;
   
@@ -72,14 +72,12 @@ function extractJSON(text: string): any | null {
   } catch (e1) {
     console.warn("1차 파싱 실패, 강제 복구 시도...");
     
-    // ✨ 잘린 텍스트 억지 복구 (MAX_TOKENS 에러 방어)
-    // 1. 열린 괄호 개수 세기
+    // 잘린 텍스트 억지 복구 (MAX_TOKENS 에러 방어)
     let openBraces = 0;
     let openBrackets = 0;
     let inString = false;
     let escape = false;
 
-    // 문자열 파싱 중 괄호 무시
     for (let i = 0; i < cleanText.length; i++) {
         const char = cleanText[i];
         if (escape) {
@@ -102,16 +100,10 @@ function extractJSON(text: string): any | null {
         }
     }
 
-    // 2. 닫히지 않은 문자열 닫기
     if (inString) cleanText += '"';
-    
-    // 3. 닫히지 않은 배열/객체 닫기 (역순으로 닫아야 함)
-    // 일반적으로 객체 안의 배열 안의 객체 형식이므로 } ] } 순서 고려
-    // 간단한 휴리스틱: 남은 수만큼 ] } 추가. 엄밀하지 않지만 잘린 JSON 복구에 효과적
     for (let i = 0; i < openBrackets; i++) cleanText += ']';
     for (let i = 0; i < openBraces; i++) cleanText += '}';
     
-    // 4. trailing comma 등 에러 유발 문자 제거
     cleanText = cleanText.replace(/,\s*([\]}])/g, '$1'); 
     cleanText = cleanText.replace(/\n/g, '\\n').replace(/\r/g, '\\r');
     cleanText = cleanText.replace(/\\\\n/g, '\\n').replace(/\\\\r/g, '\\r');
@@ -133,8 +125,7 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
     contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 8192, // Gemini 1.5 Flash 최대 토큰
-      responseMimeType: "application/json", 
+      maxOutputTokens: 8192, 
     },
     safetySettings: [
       { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
@@ -144,8 +135,13 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
     ]
   };
 
+  // ✨ 문제 해결: 웹 검색(Grounding)과 JSON 형식 강제(responseMimeType)의 충돌 방지 로직
   if (useWebSearch) {
     payload.tools = [{ googleSearch: {} }];
+    // 웹 검색을 사용할 때는 responseMimeType을 주입하지 않습니다. (대신 extractJSON 함수가 알아서 변환함)
+  } else {
+    // 웹 검색을 사용하지 않을 때만 API 차원에서 완벽한 JSON 생성을 강제합니다.
+    payload.generationConfig.responseMimeType = "application/json";
   }
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
@@ -157,7 +153,7 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   if (!response.ok) {
     const err = await response.text();
     console.error("API 통신 에러:", err);
-    throw new Error("AI 통신 중 오류가 발생했습니다.");
+    throw new Error(`AI 통신 중 오류가 발생했습니다. (API 충돌 방지 적용됨)`);
   }
   
   const data = await response.json();
@@ -166,7 +162,6 @@ async function callGeminiAPI(prompt: string, useWebSearch: boolean = false) {
   if (finishReason && finishReason !== 'STOP') {
     console.warn("AI 생성 비정상 종료 사유:", finishReason);
     if (finishReason === 'SAFETY') throw new Error("문서 내용에 포함된 단어가 AI 안전 필터에 차단되어 생성이 강제 중단되었습니다.");
-    // MAX_TOKENS 등으로 잘려도 에러 던지지 않고 일단 진행 (extractJSON에서 복구 시도)
   }
   
   if (!data.candidates || data.candidates.length === 0) {
@@ -200,9 +195,7 @@ export const aiService = {
       outlineData.outline = outlineData.slides;
     }
 
-    // 만약 복구된 데이터가 최소한의 배열을 가지지 못하면 에러 처리
     if (!outlineData.outline || !Array.isArray(outlineData.outline)) {
-      // 최후의 수단: 배열 형태로 래핑 시도
       if (typeof outlineData === 'object' && Object.keys(outlineData).length > 0) {
           outlineData = { title: "발표 자료 구성안", outline: [outlineData] };
       } else {
