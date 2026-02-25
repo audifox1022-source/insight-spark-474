@@ -38,6 +38,12 @@ const typeThemes: Record<string, { bg: string; accent: string; badge: string; }>
   closing: { bg: 'bg-gradient-to-br from-slate-900 to-slate-800', accent: '#38bdf8', badge: 'FINISH' },
 };
 
+const trendConfig: Record<string, { icon: React.ReactNode; color: string; }> = {
+  up: { icon: <TrendingUp className="w-[32px] h-[32px]" />, color: '#059669' },
+  down: { icon: <TrendingDown className="w-[32px] h-[32px]" />, color: '#dc2626' },
+  flat: { icon: <Minus className="w-[32px] h-[32px]" />, color: '#64748b' },
+};
+
 export function ScaledSlide({ slide, containerClassName = '', interactive = false, logoUrl, watermark }: ScaledSlideProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.2);
@@ -55,9 +61,20 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
     return () => observer.disconnect();
   }, []);
 
-  // 테마 매핑 (알 수 없는 타입은 data 테마 사용)
+  // 테마 매핑
   const theme = typeThemes[slide.type] || typeThemes.data;
   
+  // ✨ 삭제되었던 시각 자료(hasVisual) 및 레이아웃 상태 변수 복구
+  const hasChart = slide.chartData && slide.chartData.data && slide.chartData.data.length > 0;
+  const hasTable = slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0;
+  const hasMetrics = slide.keyMetrics && slide.keyMetrics.length > 0;
+  const hasVisual = hasChart || hasTable || hasMetrics;
+
+  const layoutMode = slide.layout || 'default';
+  const isSplitLeft = layoutMode === 'split-left';
+  const isHighlight = layoutMode === 'highlight';
+  const isGrid = layoutMode === 'grid';
+
   // 디테일 튜닝 파라미터 적용
   const textScale = slide.textSizeScale || 1.0;
   const vRatio = slide.visualRatio || 50; 
@@ -117,7 +134,7 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
           {/* 배경 이미지 & 워터마크 & 로고 */}
           {slide.imageUrl && (
             <div className="absolute inset-0 z-0">
-              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover opacity-30 grayscale" />
+              <img src={slide.imageUrl} alt="" className="w-full h-full object-cover opacity-30 grayscale" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div className="absolute inset-0 bg-white/80 backdrop-blur-[2px]" />
             </div>
           )}
@@ -291,7 +308,6 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                               <span className="font-bold text-slate-400 bg-slate-100 px-[24px] py-[8px] rounded-full" style={{ fontSize: `${24 * textScale}px` }}>{stat.label}</span>
                               <span className="font-black" style={{ fontSize: `${64 * textScale}px`, color: theme.accent }}>{stat.rightValue}</span>
                             </div>
-                            {/* 시각적 바 차트 렌더링 (단순 비율화) */}
                             <div className="w-full h-[24px] bg-slate-100 rounded-full flex overflow-hidden">
                                <div className="h-full bg-slate-300 transition-all" style={{ width: '40%' }}></div>
                                <div className="h-full transition-all" style={{ width: '60%', background: theme.accent }}></div>
@@ -332,13 +348,93 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                   </div>
                 );
 
-              // 기본 처리 (content, data, table, chart 등 기존 엔진 활용)
+              case 'action':
+                return (
+                  <div className="flex-1 flex flex-col relative z-[3]">
+                    {renderHeader()}
+                    <div className={`flex-1 px-[140px] py-[40px] flex gap-[72px] min-h-0 ${isSplitLeft ? 'flex-row-reverse' : 'flex-row'}`}>
+                      <div className="flex-1 flex flex-col justify-center" style={{ width: hasVisual ? `${100 - vRatio}%` : '100%' }}>
+                        {slide.content && slide.content.length > 0 && (
+                          <div className="space-y-[24px]">
+                            <div className="rounded-[24px] p-[48px] relative overflow-hidden shadow-2xl bg-white border-2" style={{ borderColor: theme.accent }}>
+                              <div className="absolute -top-[60px] -right-[60px] w-[240px] h-[240px] rounded-full blur-[40px]" style={{ background: hexToRgba(theme.accent, 0.15) }} />
+                              <div className="flex items-start gap-[24px] relative z-10">
+                                <div className="flex-shrink-0 w-[64px] h-[64px] rounded-[16px] flex items-center justify-center mt-[4px] shadow-lg" style={{ background: theme.accent }}>
+                                  <Zap className="w-[32px] h-[32px] text-white" />
+                                </div>
+                                <div><span className="font-bold leading-[1.4] text-slate-900 break-keep" style={{ fontSize: `${44 * textScale}px` }}>{slide.content[0]}</span></div>
+                              </div>
+                            </div>
+                            {slide.content.slice(1).map((item, i) => (
+                              <div key={i} className="flex items-start gap-[20px] px-[32px] py-[24px] rounded-[20px] bg-white border border-slate-200 shadow-sm">
+                                <CheckCircle2 className="w-[36px] h-[36px] flex-shrink-0 mt-[4px]" style={{ color: theme.accent }} />
+                                <span className="font-medium text-slate-700 leading-[1.6] break-keep" style={{ fontSize: `${32 * textScale}px` }}>{item}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {hasVisual && (
+                        <div className={`flex-shrink-0 flex flex-col justify-center min-h-0`} style={{ width: `${vRatio}%` }}>
+                          {hasChart && (
+                            <div className="w-full min-h-[480px] rounded-[24px] p-[32px] bg-white shadow-xl border border-slate-200">
+                              <SlideChart chartData={slide.chartData!} isSlideView={true} />
+                            </div>
+                          )}
+                          {hasTable && !hasChart && (
+                            <div className="w-full max-h-[600px] overflow-hidden rounded-[24px] bg-white shadow-xl border border-slate-200 flex flex-col">
+                              <div className="w-full flex-1 overflow-y-auto custom-scrollbar p-[16px]">
+                                <table className="w-full text-left border-collapse">
+                                  <thead className="sticky top-0 z-10">
+                                    <tr>
+                                      {slide.tableData!.headers.map((h, i) => (
+                                        <th key={i} className={`${tablePadding} font-bold text-slate-800 bg-slate-100 border-b-2 border-slate-300 whitespace-nowrap shadow-sm`} style={{ fontSize: `${24 * textScale}px` }}>{h}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
+                                    {slide.tableData!.rows.map((row, rIdx) => (
+                                      <tr key={rIdx} className="hover:bg-slate-50 transition-colors">
+                                        {row.map((cell, cIdx) => (
+                                          <td key={cIdx} className={`${tablePadding} leading-[1.5] break-keep`} style={{ fontSize: `${22 * textScale}px` }}>{cell}</td>
+                                        ))}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                          {!hasChart && !hasTable && hasMetrics && (
+                            <div className="flex flex-col gap-[24px]">
+                              {slide.keyMetrics!.map((m, i) => {
+                                const trend = trendConfig[m.trend];
+                                return (
+                                  <div key={i} className="rounded-[24px] p-[40px] relative overflow-hidden bg-white shadow-xl border border-slate-200">
+                                    <div className="flex items-center justify-between mb-[16px]">
+                                      <span className="text-[24px] text-slate-500 font-bold">{m.label}</span>
+                                      <span style={{ color: trend.color }}>{trend.icon}</span>
+                                    </div>
+                                    <div className="text-[64px] font-black tracking-tight leading-none text-slate-900">{m.value}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+
+              // 기본 처리 (content, data, table, chart 등)
               default:
                 const displayContent = slide.content || slide.points || [];
                 return (
                   <div className="flex-1 flex flex-col relative z-[3]">
                     {renderHeader()}
-                    <div className={`flex-1 px-[140px] py-[20px] flex gap-[72px] min-h-0 ${slide.imagePosition === 'right' ? 'flex-row' : 'flex-row-reverse'}`}>
+                    <div className={`flex-1 px-[140px] py-[20px] flex gap-[72px] min-h-0 ${isSplitLeft || slide.imagePosition === 'left' ? 'flex-row-reverse' : 'flex-row'}`}>
                       
                       {/* 텍스트 영역 */}
                       <div className="flex flex-col justify-center min-h-0 overflow-y-auto custom-scrollbar" style={{ width: hasVisual ? `${100 - vRatio}%` : '100%' }}>
@@ -390,6 +486,24 @@ export function ScaledSlide({ slide, containerClassName = '', interactive = fals
                           {hasChart && !hasTable && (
                             <div className="flex-1 min-h-[480px] rounded-[24px] p-[32px] shadow-xl bg-white border border-slate-200 w-full">
                               <SlideChart chartData={slide.chartData!} isSlideView={true} />
+                            </div>
+                          )}
+
+                          {/* 메트릭 렌더링 */}
+                          {hasMetrics && !hasChart && !hasTable && (
+                            <div className={`flex flex-col gap-[24px] ${isHighlight ? 'flex-row w-full justify-center' : ''}`}>
+                              {slide.keyMetrics!.map((m, i) => {
+                                const trend = trendConfig[m.trend];
+                                return (
+                                  <div key={i} className={`rounded-[24px] p-[40px] relative overflow-hidden shadow-xl bg-white border border-slate-200 ${isHighlight ? 'w-[420px]' : ''}`}>
+                                    <div className="flex items-center justify-between mb-[16px]">
+                                      <span className="text-slate-500 font-bold tracking-wide" style={{ fontSize: `${24 * textScale}px` }}>{m.label}</span>
+                                      <span style={{ color: trend.color }}>{trend.icon}</span>
+                                    </div>
+                                    <div className="font-black tracking-tight leading-none text-slate-900" style={{ fontSize: `${72 * textScale}px` }}>{m.value}</div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
