@@ -1,54 +1,42 @@
 import { useRef, useEffect, useState } from 'react';
 import React from 'react';
-import { Slide, SlideChartData } from '@/types/presentation';
+import { Slide } from '@/types/presentation';
+// ✨ ArrowDown 아이콘 임포트 추가
+import { TrendingUp, TrendingDown, Minus, ArrowRight, ArrowDown, CheckCircle2, ChevronRight, AlertCircle } from 'lucide-react';
 import { SlideChart } from '@/components/SlideChart';
-import { TrendingUp, TrendingDown, Minus, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 const SLIDE_W = 1920;
 const SLIDE_H = 1080;
 
+// ✅ 모든 SlideType에 대응하는 테마
 const typeThemes: Record<string, { bg: string; accent: string; badge: string; dark?: boolean }> = {
-  title:    { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',  accent: '#60a5fa', badge: 'INTRO',    dark: true },
-  agenda:   { bg: 'bg-gradient-to-br from-slate-50 to-white',       accent: '#3b82f6', badge: 'INDEX'   },
-  kpi:      { bg: 'bg-gradient-to-br from-violet-50 to-white',      accent: '#7c3aed', badge: 'KPI'     },
-  chart:    { bg: 'bg-gradient-to-br from-slate-50 to-white',       accent: '#0d9488', badge: 'CHART'   },
-  table:    { bg: 'bg-gradient-to-br from-slate-50 to-white',       accent: '#0284c7', badge: 'DATA'    },
-  compare:  { bg: 'bg-gradient-to-br from-slate-50 to-white',       accent: '#2563eb', badge: 'COMPARE' },
-  process:  { bg: 'bg-gradient-to-br from-orange-50 to-white',      accent: '#ea580c', badge: 'PROCESS' },
-  cards:    { bg: 'bg-gradient-to-br from-indigo-50 to-white',      accent: '#4f46e5', badge: 'CARDS'   },
-  timeline: { bg: 'bg-gradient-to-br from-emerald-50 to-white',     accent: '#059669', badge: 'TIMELINE'},
-  content:  { bg: 'bg-gradient-to-br from-white to-slate-50',       accent: '#475569', badge: 'CONTENT' },
-  summary:  { bg: 'bg-gradient-to-br from-blue-50 to-white',        accent: '#0284c7', badge: 'SUMMARY' },
-  closing:  { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',  accent: '#60a5fa', badge: 'FIN',     dark: true },
+  title:    { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',   accent: '#60a5fa', badge: 'INTRO',    dark: true },
+  agenda:   { bg: 'bg-gradient-to-br from-slate-50 to-white',        accent: '#3b82f6', badge: 'INDEX'   },
+  kpi:      { bg: 'bg-gradient-to-br from-violet-50 to-white',       accent: '#7c3aed', badge: 'KPI'     },
+  chart:    { bg: 'bg-gradient-to-br from-slate-50 to-white',        accent: '#0d9488', badge: 'CHART'   },
+  compare:  { bg: 'bg-gradient-to-br from-slate-50 to-white',        accent: '#2563eb', badge: 'COMPARE' },
+  table:    { bg: 'bg-gradient-to-br from-slate-50 to-white',        accent: '#0284c7', badge: 'TABLE'   },
+  process:  { bg: 'bg-gradient-to-br from-orange-50 to-white',       accent: '#ea580c', badge: 'PROCESS' },
+  cards:    { bg: 'bg-gradient-to-br from-indigo-50 to-white',       accent: '#4f46e5', badge: 'CARDS'   },
+  timeline: { bg: 'bg-gradient-to-br from-emerald-50 to-white',      accent: '#059669', badge: 'TIMELINE'},
+  content:  { bg: 'bg-gradient-to-br from-white to-slate-50',        accent: '#475569', badge: 'CONTENT' },
+  summary:  { bg: 'bg-gradient-to-br from-blue-50 to-white',         accent: '#0284c7', badge: 'SUMMARY' },
+  closing:  { bg: 'bg-gradient-to-br from-slate-900 to-slate-700',   accent: '#60a5fa', badge: 'FIN',      dark: true },
   // 하위 호환
-  section:  { bg: 'bg-gradient-to-br from-indigo-50 to-slate-100',  accent: '#4f46e5', badge: 'CHAPTER' },
-  data:     { bg: 'bg-gradient-to-br from-slate-50 to-white',       accent: '#0d9488', badge: 'CHART'   },
-  action:   { bg: 'bg-gradient-to-br from-orange-50 to-white',      accent: '#ea580c', badge: 'ACTION'  },
+  section:  { bg: 'bg-gradient-to-br from-indigo-50 to-slate-100',   accent: '#4f46e5', badge: 'CHAPTER' },
+  data:     { bg: 'bg-gradient-to-br from-white to-slate-50',        accent: '#7c3aed', badge: 'DATA'    },
+  action:   { bg: 'bg-gradient-to-br from-orange-50 to-white',       accent: '#ea580c', badge: 'ACTION'  },
 };
 
-const CARD_COLORS = ['#2563eb','#0d9488','#7c3aed','#ea580c','#0284c7','#16a34a','#dc2626','#d97706','#9333ea','#0891b2'];
+const PIE_COLORS = ['#2563eb','#0d9488','#7c3aed','#ea580c','#0284c7','#16a34a','#dc2626','#d97706','#9333ea','#0891b2'];
 
 const trendIcon = (trend?: string, size = 28) =>
   trend === 'up'   ? <TrendingUp  style={{ width: size, height: size }} className="text-emerald-500" /> :
-  trend === 'down' ? <TrendingDown style={{ width: size, height: size }} className="text-red-500"    /> :
-                     <Minus        style={{ width: size, height: size }} className="text-slate-400"   />;
+  trend === 'down' ? <TrendingDown style={{ width: size, height: size }} className="text-red-500" /> :
+                     <Minus style={{ width: size, height: size }} className="text-slate-400" />;
 
 const trendColor = (trend?: string) =>
   trend === 'up' ? 'text-emerald-600' : trend === 'down' ? 'text-red-600' : 'text-slate-500';
-
-// ✅ stats 배열 → SlideChartData(bar) 변환
-function statsToChartData(stats: any[], safeStr: (v: any) => string): SlideChartData {
-  return {
-    chartType: 'bar',
-    title: '',
-    showLegend: false,
-    data: stats.map((s: any) => ({
-      name:  safeStr(s.label),
-      value: parseFloat(safeStr(s.value)) || 0,
-    })),
-    series1Label: '값',
-  };
-}
 
 export function ScaledSlide({
   slide,
@@ -78,27 +66,27 @@ export function ScaledSlide({
     return () => observer.disconnect();
   }, []);
 
-  const theme  = typeThemes[slide.type] || typeThemes.content;
+  const theme = typeThemes[slide.type] || typeThemes.content;
   const isDark = theme.dark ?? false;
-  const tScale = slide.titleSizeScale   ?? 1.0;
+  const tScale = slide.titleSizeScale ?? 1.0;
   const cScale = slide.contentSizeScale ?? 1.0;
 
-  const textPrimary   = isDark ? 'text-white'     : 'text-slate-900';
-  const textSecondary = isDark ? 'text-white/70'   : 'text-slate-500';
-  const cardBg        = isDark ? 'bg-white/10'     : 'bg-white';
-  const cardBorder    = isDark ? 'border-white/20' : 'border-slate-100';
+  const textPrimary   = isDark ? 'text-white'        : 'text-slate-900';
+  const textSecondary = isDark ? 'text-white/70'     : 'text-slate-500';
+  const cardBg        = isDark ? 'bg-white/10'       : 'bg-white';
+  const cardBorder    = isDark ? 'border-white/20'   : 'border-slate-100';
 
   const safeStr = (val: any): string => {
     if (val == null) return '';
     if (typeof val === 'string') return val;
-    if (typeof val === 'object') return val.content ?? val.text ?? val.title ?? JSON.stringify(val);
+    if (typeof val === 'object') return val.content ?? val.text ?? val.title ?? val.desc ?? JSON.stringify(val);
     return String(val);
   };
 
-  const hl = (text: string, base: number, sc: number, bold = false) => {
+  const hl = (text: string, base: number, scale: number, bold = false) => {
     const parts = safeStr(text).split(/(\*\*.*?\*\*)/g);
     return (
-      <span style={{ fontSize: `${base * sc}px` }}
+      <span style={{ fontSize: `${base * scale}px` }}
         className={`${bold ? 'font-bold' : 'font-medium'} break-words whitespace-pre-wrap leading-[1.55]`}>
         {parts.map((p, i) =>
           p.startsWith('**')
@@ -109,11 +97,10 @@ export function ScaledSlide({
     );
   };
 
-  // ── 공통 헤더 ──
   const Header = ({ compact = false }: { compact?: boolean }) => (
     <div className={`px-[120px] ${compact ? 'pt-[60px] pb-[20px]' : 'pt-[72px] pb-[24px]'} flex-shrink-0 relative z-[3]`}>
       <div className="flex items-center gap-[14px] mb-[20px]">
-        <span className="font-bold uppercase font-mono px-[18px] py-[6px] rounded-full border"
+        <span className={`font-bold uppercase font-mono px-[18px] py-[6px] rounded-full border text-[${16 * cScale}px]`}
           style={{ color: theme.accent, borderColor: `${theme.accent}50`, background: `${theme.accent}12`, fontSize: `${16 * cScale}px` }}>
           {theme.badge}
         </span>
@@ -134,9 +121,6 @@ export function ScaledSlide({
     </div>
   );
 
-  // ══════════════════════════════════════════
-  // ── title / closing ──
-  // ══════════════════════════════════════════
   const renderTitle = () => (
     <div className="flex-1 flex flex-col justify-center px-[160px]">
       <span className="inline-block mb-[40px] font-bold uppercase font-mono px-[24px] py-[10px] rounded-full border w-fit"
@@ -153,22 +137,18 @@ export function ScaledSlide({
       )}
       <div className="h-[5px] rounded-full mt-[48px] w-[200px]" style={{ background: theme.accent }} />
       <div className="flex items-center gap-[48px] mt-[48px]">
-        {(slide as any).reporter   && <span className="text-white/60 font-semibold" style={{ fontSize: `${26 * cScale}px` }}>👤 {safeStr((slide as any).reporter)}</span>}
+        {(slide as any).reporter && <span className="text-white/60 font-semibold" style={{ fontSize: `${26 * cScale}px` }}>👤 {safeStr((slide as any).reporter)}</span>}
         {(slide as any).department && <span className="text-white/60 font-semibold" style={{ fontSize: `${26 * cScale}px` }}>🏢 {safeStr((slide as any).department)}</span>}
-        {slide.date                && <span className="text-white/40 font-medium"   style={{ fontSize: `${22 * cScale}px` }}>📅 {safeStr(slide.date)}</span>}
+        {slide.date && <span className="text-white/40 font-medium" style={{ fontSize: `${22 * cScale}px` }}>📅 {safeStr(slide.date)}</span>}
       </div>
     </div>
   );
 
-  // ══════════════════════════════════════════
-  // ── agenda ──
-  // ══════════════════════════════════════════
   const renderAgenda = () => {
-    const agendaItems = slide.items || (slide as any).points || [];
+    const agendaItems = (slide.items || (slide as any).points || []);
     return (
       <div className="flex-1 px-[120px] py-[32px] flex items-center">
-        <div className="grid gap-[20px] w-full"
-          style={{ gridTemplateColumns: agendaItems.length > 5 ? 'repeat(2,1fr)' : '1fr' }}>
+        <div className="grid gap-[20px] w-full" style={{ gridTemplateColumns: agendaItems.length > 5 ? 'repeat(2,1fr)' : '1fr' }}>
           {agendaItems.map((item: any, i: number) => {
             const label = typeof item === 'object' ? safeStr(item.title || item.label) : safeStr(item);
             return (
@@ -186,15 +166,11 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── kpi ──
-  // ══════════════════════════════════════════
   const renderKpi = () => {
     const metrics = slide.keyMetrics || [];
     return (
       <div className="flex-1 px-[120px] py-[32px] flex items-center">
-        <div className="grid gap-[32px] w-full"
-          style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length || 1, 4)}, 1fr)` }}>
+        <div className="grid gap-[32px] w-full" style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length, 4)}, 1fr)` }}>
           {metrics.map((m: any, i: number) => (
             <div key={i} className="bg-white rounded-[28px] shadow-xl p-[52px] flex flex-col gap-[18px] border border-slate-100 relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[6px] rounded-t-[28px]" style={{ background: theme.accent }} />
@@ -219,91 +195,80 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── ✅ chart — SlideChart(Recharts) 렌더링 ──
-  // ══════════════════════════════════════════
   const renderChart = () => {
-    const stats = (slide as any).stats || [];
-    const rawChartData: SlideChartData | undefined = (slide as any).chartData;
-
-    // chartData가 SlideChartData 형식이면 그대로, 아니면 stats → bar 변환
-    let chartData: SlideChartData | null = null;
-
-    if (rawChartData && rawChartData.chartType && Array.isArray(rawChartData.data)) {
-      chartData = rawChartData;
-    } else if (stats.length > 0) {
-      chartData = statsToChartData(stats, safeStr);
-    }
-
-    if (!chartData) {
+    if (slide.chartData && slide.chartData.data && slide.chartData.data.length > 0) {
       return (
         <>
-          <Header />
-          <div className="flex-1 flex items-center justify-center">
-            <span className={textSecondary} style={{ fontSize: `${28 * cScale}px` }}>데이터 없음</span>
+          <Header compact />
+          <div className="flex-1 px-[120px] py-[24px] flex justify-center items-center">
+            <div className="w-full h-full max-h-[650px] bg-white rounded-[24px] shadow-sm border border-slate-100 p-[32px]">
+              <SlideChart chartData={slide.chartData} isSlideView={true} />
+            </div>
           </div>
         </>
       );
     }
 
+    const rawStats = slide.stats || [];
+    if (!rawStats.length) return <>{<Header />}<div className="flex-1 flex items-center justify-center"><span className="text-slate-400" style={{ fontSize: `${28 * cScale}px` }}>데이터 없음</span></div></>;
+
+    const isCompareStats = rawStats[0] && ('leftValue' in rawStats[0] || 'rightValue' in rawStats[0]);
+
+    if (isCompareStats) {
+      return (
+        <>
+          <Header />
+          <div className="flex-1 px-[120px] py-[24px] space-y-[20px]">
+            {rawStats.map((s: any, i: number) => (
+              <div key={i} className="flex items-center gap-[24px]">
+                <span className="font-bold text-slate-600 w-[280px] flex-shrink-0 text-right" style={{ fontSize: `${22 * cScale}px` }}>{safeStr(s.label)}</span>
+                <div className="flex-1 flex gap-[8px] items-center">
+                  <span className="font-black text-blue-600 w-[120px] text-right flex-shrink-0" style={{ fontSize: `${24 * cScale}px` }}>{safeStr(s.leftValue)}</span>
+                  <div className="flex-1 bg-slate-100 rounded-full h-[20px] overflow-hidden relative">
+                    <div className="absolute left-0 top-0 h-full rounded-full bg-blue-400"
+                      style={{ width: `${Math.min((parseFloat(safeStr(s.leftValue)) || 0) / Math.max(...rawStats.map((x: any) => Math.max(parseFloat(safeStr(x.leftValue)) || 0, parseFloat(safeStr(x.rightValue)) || 0)), 1) * 100, 100)}%` }} />
+                  </div>
+                  <div className="flex-1 bg-slate-100 rounded-full h-[20px] overflow-hidden relative">
+                    <div className="absolute right-0 top-0 h-full rounded-full bg-emerald-400"
+                      style={{ width: `${Math.min((parseFloat(safeStr(s.rightValue)) || 0) / Math.max(...rawStats.map((x: any) => Math.max(parseFloat(safeStr(x.leftValue)) || 0, parseFloat(safeStr(x.rightValue)) || 0)), 1) * 100, 100)}%` }} />
+                  </div>
+                  <span className="font-black text-emerald-600 w-[120px] flex-shrink-0" style={{ fontSize: `${24 * cScale}px` }}>{safeStr(s.rightValue)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    const maxVal = Math.max(...rawStats.map((s: any) => parseFloat(safeStr(s.value)) || 0), 1);
     return (
       <>
-        <Header compact />
-        {/* ✅ SlideChart에 isSlideView=true로 1920x1080 전용 크기 적용 */}
-        <div className="flex-1 px-[120px] py-[24px] min-h-0">
-          <SlideChart chartData={chartData} isSlideView={true} />
+        <Header />
+        <div className="flex-1 px-[120px] py-[24px] flex flex-col justify-center space-y-[22px]">
+          {rawStats.map((s: any, i: number) => {
+            const val = parseFloat(safeStr(s.value)) || 0;
+            const pct = Math.min((val / maxVal) * 100, 100);
+            return (
+              <div key={i} className="flex items-center gap-[28px]">
+                <span className="font-bold text-slate-600 w-[300px] flex-shrink-0 text-right" style={{ fontSize: `${22 * cScale}px` }}>
+                  {safeStr(s.label)}
+                </span>
+                <div className="flex-1 bg-slate-100 rounded-full overflow-hidden" style={{ height: `${32 * cScale}px` }}>
+                  <div className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${theme.accent}, ${theme.accent}cc)` }} />
+                </div>
+                <span className="font-black w-[140px] flex-shrink-0 text-right" style={{ color: theme.accent, fontSize: `${28 * cScale}px` }}>
+                  {safeStr(s.value)}{safeStr(s.unit)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </>
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── table ──
-  // ══════════════════════════════════════════
-  const renderTable = () => {
-    const headers = (slide.headers || []).map(safeStr);
-    const rows    = (slide.rows    || []).map((r: any[]) => Array.isArray(r) ? r.map(safeStr) : [safeStr(r)]);
-
-    if (!headers.length) return (
-      <div className="flex-1 flex items-center justify-center">
-        <span className={textSecondary} style={{ fontSize: `${28 * cScale}px` }}>데이터 없음</span>
-      </div>
-    );
-
-    const rowFontScale = rows.length > 10 ? 0.82 : rows.length > 7 ? 0.9 : 1;
-
-    return (
-      <div className="flex-1 px-[120px] py-[24px] overflow-hidden flex flex-col justify-center">
-        <table className="w-full border-collapse rounded-[20px] overflow-hidden shadow-xl">
-          <thead>
-            <tr style={{ background: theme.accent }}>
-              {headers.map((h, i) => (
-                <th key={i} className="text-white font-black text-left p-[22px]"
-                  style={{ fontSize: `${22 * cScale}px` }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#ffffff' }}
-                className="border-b border-slate-100">
-                {row.map((cell, j) => (
-                  <td key={j} className="p-[20px] text-slate-700 font-medium"
-                    style={{ fontSize: `${20 * cScale * rowFontScale}px` }}>
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  // ══════════════════════════════════════════
-  // ── compare ──
-  // ══════════════════════════════════════════
   const renderCompare = () => {
     const leftItems  = slide.leftItems  || [];
     const rightItems = slide.rightItems || [];
@@ -345,20 +310,61 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── process ──
-  // ══════════════════════════════════════════
+  const renderTable = () => {
+    const headers = (slide.headers || []).map(safeStr);
+    const rows    = (slide.rows    || []).map((r: any[]) => Array.isArray(r) ? r.map(safeStr) : []);
+
+    if (!headers.length) return (
+      <>
+        <Header />
+        <div className="flex-1 flex items-center justify-center">
+          <span className="text-slate-400" style={{ fontSize: `${28 * cScale}px` }}>표 데이터 없음</span>
+        </div>
+      </>
+    );
+
+    return (
+      <>
+        <Header compact />
+        <div className="flex-1 px-[120px] py-[24px] overflow-hidden">
+          <table className="w-full border-collapse rounded-[20px] overflow-hidden shadow-xl">
+            <thead>
+              <tr style={{ background: theme.accent }}>
+                {headers.map((h, i) => (
+                  <th key={i} className="text-white font-black text-left p-[22px]" style={{ fontSize: `${22 * cScale}px` }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? '#f8fafc' : '#ffffff' }} className="border-b border-slate-100">
+                  {row.map((cell, j) => (
+                    <td key={j} className="p-[22px] text-slate-700 font-medium" style={{ fontSize: `${20 * cScale}px` }}>
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  };
+
+  // ✨ 세로 모드일 때 화살표를 아래로 변경하는 수정된 Process 렌더러
   const renderProcess = () => {
     const steps = ((slide as any).steps || slide.points || []).map(safeStr);
+    // 4개를 초과하면 세로 리스트, 4개 이하면 가로 리스트로 간주
     const isVertical = steps.length > 4;
 
     return (
       <>
         <Header compact />
-        <div className={`flex-1 px-[120px] py-[32px] flex ${isVertical ? 'flex-col justify-center space-y-[16px]' : 'items-center gap-[16px]'}`}>
+        <div className={`flex-1 px-[120px] py-[32px] flex ${isVertical ? 'flex-col justify-center space-y-[12px]' : 'items-center gap-[16px]'}`}>
           {steps.map((step, i) => (
             <React.Fragment key={i}>
-              <div className="flex items-center gap-[20px] bg-white rounded-[20px] shadow-md p-[28px] flex-1 border border-slate-100"
+              <div className="flex items-center gap-[20px] bg-white rounded-[20px] shadow-md p-[28px] flex-1 border border-slate-100 w-full"
                 style={{ borderLeft: `6px solid ${theme.accent}` }}>
                 <span className="w-[52px] h-[52px] rounded-full flex items-center justify-center flex-shrink-0 text-white font-black"
                   style={{ background: theme.accent, fontSize: `${22 * cScale}px` }}>
@@ -367,8 +373,14 @@ export function ScaledSlide({
                 <span className="font-bold text-slate-800" style={{ fontSize: `${24 * cScale}px` }}>{step}</span>
               </div>
               {i < steps.length - 1 && (
-                <div className="flex-shrink-0 flex items-center justify-center" style={{ color: theme.accent }}>
-                  <ArrowRight style={{ width: isVertical ? 32 : 40, height: isVertical ? 32 : 40 }} />
+                <div className="flex-shrink-0 flex items-center justify-center"
+                  style={{ color: theme.accent }}>
+                  {/* ✨ 레이아웃에 맞춰 화살표 방향 동적 렌더링 */}
+                  {isVertical ? (
+                    <ArrowDown style={{ width: 32, height: 32 }} />
+                  ) : (
+                    <ArrowRight style={{ width: 40, height: 40 }} />
+                  )}
                 </div>
               )}
             </React.Fragment>
@@ -378,11 +390,8 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── cards ──
-  // ══════════════════════════════════════════
   const renderCards = () => {
-    const cardItems = slide.items || [];
+    const cardItems = (slide.items || []);
     const cols = cardItems.length <= 2 ? cardItems.length : cardItems.length <= 4 ? 2 : 3;
 
     return (
@@ -395,9 +404,9 @@ export function ScaledSlide({
               const desc  = safeStr(typeof item === 'object' ? (item.desc || item.description || item.content) : '');
               return (
                 <div key={i} className="bg-white rounded-[24px] shadow-md border border-slate-100 p-[40px] flex flex-col gap-[16px] relative overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-[5px]" style={{ background: CARD_COLORS[i % CARD_COLORS.length] }} />
+                  <div className="absolute top-0 left-0 right-0 h-[5px]" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
                   <span className="w-[48px] h-[48px] rounded-[14px] flex items-center justify-center text-white font-black flex-shrink-0"
-                    style={{ background: CARD_COLORS[i % CARD_COLORS.length], fontSize: `${20 * cScale}px` }}>
+                    style={{ background: PIE_COLORS[i % PIE_COLORS.length], fontSize: `${20 * cScale}px` }}>
                     {i + 1}
                   </span>
                   <h3 className="font-black text-slate-800" style={{ fontSize: `${26 * cScale}px` }}>{title}</h3>
@@ -411,11 +420,9 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── timeline ──
-  // ══════════════════════════════════════════
   const renderTimeline = () => {
     const milestones = slide.milestones || [];
+
     return (
       <>
         <Header compact />
@@ -424,25 +431,24 @@ export function ScaledSlide({
             <div className="absolute top-[44px] left-0 right-0 h-[4px] rounded-full" style={{ background: `${theme.accent}30` }} />
             <div className="flex justify-between relative">
               {milestones.map((m: any, i: number) => {
-                const state  = safeStr(m.state);
+                const state: string = safeStr(m.state);
                 const isDone = state === 'done';
                 const isNext = state === 'next';
                 return (
-                  <div key={i} className="flex flex-col items-center gap-[16px]"
-                    style={{ width: `${100 / milestones.length}%` }}>
+                  <div key={i} className="flex flex-col items-center gap-[16px]" style={{ width: `${100 / milestones.length}%` }}>
                     <div className="w-[88px] h-[88px] rounded-full border-[4px] flex items-center justify-center font-black text-white z-[2] shadow-md"
                       style={{
-                        background:  isDone ? theme.accent : isNext ? `${theme.accent}80` : '#e2e8f0',
+                        background: isDone ? theme.accent : isNext ? `${theme.accent}80` : '#e2e8f0',
                         borderColor: isDone ? theme.accent : isNext ? `${theme.accent}60` : '#cbd5e1',
-                        color:       isDone || isNext ? 'white' : '#94a3b8',
-                        fontSize:    `${18 * cScale}px`,
+                        color: isDone || isNext ? 'white' : '#94a3b8',
+                        fontSize: `${18 * cScale}px`,
                       }}>
                       {isDone ? '✓' : i + 1}
                     </div>
                     <span className="font-black text-slate-800 text-center" style={{ fontSize: `${22 * cScale}px` }}>{safeStr(m.label)}</span>
-                    <span className="font-medium text-slate-400 text-center"  style={{ fontSize: `${18 * cScale}px` }}>{safeStr(m.date)}</span>
+                    <span className="font-medium text-slate-400 text-center" style={{ fontSize: `${18 * cScale}px` }}>{safeStr(m.date)}</span>
                     {isNext && (
-                      <span className="px-[16px] py-[6px] rounded-full font-bold text-white"
+                      <span className="px-[16px] py-[6px] rounded-full font-bold text-white text-center"
                         style={{ background: theme.accent, fontSize: `${16 * cScale}px` }}>진행중</span>
                     )}
                   </div>
@@ -455,11 +461,8 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── content / summary / 기본 ──
-  // ══════════════════════════════════════════
   const renderContent = () => {
-    const points  = (slide.points || (slide as any).content || []).map(safeStr);
+    const points = (slide.points || (slide as any).content || []).map(safeStr);
     const metrics = slide.keyMetrics || [];
     const isSummary = slide.type === 'summary';
 
@@ -468,7 +471,7 @@ export function ScaledSlide({
         <Header />
         <div className="flex-1 px-[120px] py-[20px] flex flex-col justify-center">
           {points.length > 0 && (
-            <ul className="space-y-[18px]"
+            <ul className={`space-y-[18px] ${isSummary ? 'grid grid-cols-2 gap-x-[32px] space-y-0' : ''}`}
               style={isSummary && points.length > 3 ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '18px' } : {}}>
               {points.map((pt, i) => (
                 <li key={i} className="flex items-start gap-[20px] bg-white p-[28px] rounded-[20px] shadow-sm border border-slate-100">
@@ -484,8 +487,7 @@ export function ScaledSlide({
             </ul>
           )}
           {metrics.length > 0 && (
-            <div className="grid gap-[24px] mt-[28px]"
-              style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length, 4)}, 1fr)` }}>
+            <div className="grid gap-[24px] mt-[28px]" style={{ gridTemplateColumns: `repeat(${Math.min(metrics.length, 4)}, 1fr)` }}>
               {metrics.map((m: any, i: number) => (
                 <div key={i} className="bg-white rounded-[20px] shadow-md p-[32px] flex flex-col gap-[12px] border border-slate-100">
                   <span className="font-bold uppercase text-slate-400 tracking-widest" style={{ fontSize: `${16 * cScale}px` }}>{safeStr(m.label)}</span>
@@ -503,33 +505,30 @@ export function ScaledSlide({
     );
   };
 
-  // ══════════════════════════════════════════
-  // ── 메인 분기 ──
-  // ══════════════════════════════════════════
   const renderSlide = () => {
     switch (slide.type) {
       case 'title':
-      case 'closing':                        return renderTitle();
-      case 'agenda':      return <>{<Header />}{renderAgenda()}</>;
-      case 'kpi':         return <>{<Header />}{renderKpi()}</>;
+      case 'closing':   return renderTitle();
+      case 'agenda':    return <>{<Header />}{renderAgenda()}</>;
+      case 'kpi':       return <>{<Header />}{renderKpi()}</>;
       case 'chart':
       case 'data':
       case 'barCompare':
-      case 'statsCompare': return renderChart();   // ✅ Recharts 렌더링
-      case 'table':       return <>{<Header compact />}{renderTable()}</>;
-      case 'compare':                        return renderCompare();
+      case 'statsCompare': return renderChart();
+      case 'compare':   return renderCompare();
+      case 'table':     return renderTable(); 
       case 'process':
       case 'processList':
       case 'flowChart':
-      case 'stepUp':                         return renderProcess();
+      case 'stepUp':    return renderProcess();
       case 'cards':
       case 'headerCards':
-      case 'bulletCards':                    return renderCards();
-      case 'timeline':                       return renderTimeline();
+      case 'bulletCards': return renderCards();
+      case 'timeline':  return renderTimeline();
       case 'content':
       case 'summary':
       case 'action':
-      default:                               return renderContent();
+      default:          return renderContent();
     }
   };
 
