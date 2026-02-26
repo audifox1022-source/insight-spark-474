@@ -10,10 +10,11 @@ import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
 import { useVisitorCount } from '@/hooks/useVisitorCount';
+import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'; // ✨ AI 번역기 임포트
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight, HelpCircle,
   LogOut, Palette, MessageSquare, Send, PencilLine, X, BookOpen,
-  UploadCloud, SlidersHorizontal, Download, FileText, Users, Eye
+  UploadCloud, SlidersHorizontal, Download, FileText, Users, Eye, Globe // ✨ Globe 아이콘 추가
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +59,9 @@ const PROMPT_PRESETS: Preset[] = [
 
 const Index = () => {
   const navigate = useNavigate();
+  // ✨ 탭 상태 관리: 'presentation' (발표자료) 또는 'translator' (번역기)
+  const [activeApp, setActiveApp] = useState<'presentation' | 'translator'>('presentation');
+
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -65,7 +69,7 @@ const Index = () => {
   const [presetData, setPresetData] = useState<Record<string, string>>({});
   const [manualPrompt, setManualPrompt] = useState('');
 
-  // ✅ 방문자 카운트 훅
+  // 방문자 카운트 훅
   const { stats: visitorStats } = useVisitorCount();
 
   const handleLogout = async () => {
@@ -102,31 +106,55 @@ const Index = () => {
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId);
 
   return (
-    <div className="min-h-screen gradient-surface transition-colors duration-300">
+    <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
       {/* ── 헤더 ── */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-1/3">
             <motion.div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow" whileHover={{ scale: 1.05, rotate: 5 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
+              {activeApp === 'presentation' ? <Sparkles className="w-5 h-5 text-primary-foreground" /> : <Globe className="w-5 h-5 text-primary-foreground" />}
             </motion.div>
             <div>
-              <h1 className="text-base font-extrabold leading-tight tracking-tight">AI 발표자료</h1>
-              <p className="text-[11px] text-muted-foreground font-medium">데이터 → 발표자료 자동 생성</p>
+              <h1 className="text-base font-extrabold leading-tight tracking-tight">
+                {activeApp === 'presentation' ? 'AI 발표자료' : 'AI 전문 번역'}
+              </h1>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                {activeApp === 'presentation' ? '데이터 → 발표자료 자동 생성' : '문맥과 용어까지 완벽한 번역'}
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
-            <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
 
-            <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
-              <FolderOpen className="w-4 h-4" />
-              <span className="text-xs">저장 목록</span>
-            </Button>
+          {/* ✨ 중앙: 앱 전환 탭 스위치 */}
+          <div className="hidden sm:flex items-center bg-muted/50 p-1 rounded-xl border border-border">
+            <button
+              onClick={() => setActiveApp('presentation')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeApp === 'presentation' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Sparkles className="w-4 h-4" /> 발표자료 생성
+            </button>
+            <button
+              onClick={() => setActiveApp('translator')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeApp === 'translator' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              <Globe className="w-4 h-4" /> 전문 번역 워크스페이스
+            </button>
+          </div>
 
-            <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="사용 가이드 (도움말)">
-              <HelpCircle className="w-4 h-4" />
-            </Button>
+          <div className="flex items-center gap-2 w-1/3 justify-end">
+            {/* 번역기 모드가 아닐 때만 발표자료 전용 UI 표시 */}
+            {activeApp === 'presentation' && (
+              <>
+                <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
+                <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
+                <Button variant="ghost" size="sm" onClick={openHistory} className="gap-2 text-muted-foreground hover:text-foreground hidden sm:flex">
+                  <FolderOpen className="w-4 h-4" />
+                  <span className="text-xs">저장 목록</span>
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="사용 가이드 (도움말)">
+                  <HelpCircle className="w-4 h-4" />
+                </Button>
+              </>
+            )}
 
             <div className="relative">
               <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="테마 색상 변경">
@@ -166,96 +194,36 @@ const Index = () => {
 
       {/* ── 도움말 팝업 ── */}
       <AnimatePresence>
-        {helpOpen && (
+        {helpOpen && activeApp === 'presentation' && (
           <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setHelpOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
-            >
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setHelpOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]">
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
                 <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
-                  <BookOpen className="w-5 h-5 text-primary" />
-                  AI 발표자료 앱 100% 활용 가이드
+                  <BookOpen className="w-5 h-5 text-primary" /> AI 발표자료 앱 활용 가이드
                 </h2>
-                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full">
-                  <X className="w-5 h-5" />
-                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full"><X className="w-5 h-5" /></Button>
               </div>
-
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">1. 프롬프트 직접 입력 & 웹 검색</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      당장 참고할 파일이 없어도 괜찮습니다. <b>[빠른 템플릿]</b> 칩을 클릭하고 빈칸을 채우거나, 자유롭게 기획안 주제를 입력해 보세요.
-                    </p>
-                  </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0"><MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" /></div>
+                  <div><h3 className="text-base font-bold text-foreground mb-1">1. 프롬프트 직접 입력 & 웹 검색</h3><p className="text-sm text-muted-foreground leading-relaxed">참고 파일이 없어도 괜찮습니다. 자유롭게 기획안 주제를 입력해 보세요.</p></div>
                 </div>
                 <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                    <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">2. 참고 문서 업로드</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      엑셀, PDF, Word 파일을 드래그해서 업로드하세요. 여러 개의 파일을 동시에 올려도 AI가 내용을 완벽하게 통합합니다.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">3. Vrew 맞춤형 '구어체 스크립트'</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      각 슬라이드 하단의 <b>'스피커 노트'</b>를 확인해 보세요. 자연스러운 대본이 생성됩니다.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
-                    <SlidersHorizontal className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">4. 디테일 튜닝 & 스타일 변환</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      에디터 우측 패널에서 <b>[디테일 튜닝]</b> 슬라이더로 글자 크기와 화면 비율을 최적화하세요.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/30 flex items-center justify-center flex-shrink-0">
-                    <Download className="w-6 h-6 text-rose-600 dark:text-rose-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">5. 내보내기 & 발표하기</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      상단의 <b>[내보내기]</b>를 눌러 PPTX 또는 PDF로 다운로드하세요.
-                    </p>
-                  </div>
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0"><UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" /></div>
+                  <div><h3 className="text-base font-bold text-foreground mb-1">2. 참고 문서 업로드</h3><p className="text-sm text-muted-foreground leading-relaxed">엑셀, PDF, Word 파일을 드래그해서 업로드하세요.</p></div>
                 </div>
               </div>
               <div className="p-4 border-t border-border bg-muted/10 text-center">
-                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
-                  확인했습니다, 시작해볼게요!
-                </Button>
+                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">확인했습니다, 시작해볼게요!</Button>
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      {/* ── 단계 가이드 배너 ── */}
-      {step !== 'preview' && (
+      {/* ── 발표자료: 단계 가이드 배너 ── */}
+      {activeApp === 'presentation' && step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div key={step} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="border-b border-border bg-accent/5">
             <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center gap-3">
@@ -271,223 +239,165 @@ const Index = () => {
         </AnimatePresence>
       )}
 
-      <main className={`mx-auto px-6 py-8 transition-all duration-300 ${step === 'preview' ? 'max-w-[1700px] w-full' : 'max-w-6xl'}`}>
-        {step === 'upload' && (
-          <div className="space-y-10">
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
-                <Sparkles className="w-3 h-3" /> AI 기반 자동 생성
-              </div>
-              <h2 className="text-4xl font-black tracking-tight leading-tight">
-                어떤 내용인지 알려주시면<br /><span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">발표자료가 완성됩니다</span>
-              </h2>
-              <p className="text-muted-foreground mt-4 text-base leading-relaxed">
-                빈칸을 채우거나 자유롭게 대화하듯 입력해 보세요. <br className="hidden sm:block" />기존 엑셀/PDF 파일을 업로드할 수도 있습니다!
-              </p>
-            </motion.div>
+      {/* ── 메인 콘텐츠 영역 ── */}
+      <div className="flex-1 flex flex-col relative">
+        {/* ✨ 번역기 화면 */}
+        {activeApp === 'translator' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-140px)]">
+            <TranslatorWorkspace />
+          </main>
+        )}
 
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
-              <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
-                <button
-                  onClick={() => setActivePresetId('manual')}
-                  className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activePresetId === 'manual' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                >
-                  <PencilLine className="w-4 h-4" /> 직접 입력
-                </button>
-                {PROMPT_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => { setActivePresetId(preset.id); setPresetData({}); }}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activePresetId === preset.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    <span>{preset.icon}</span> <span>{preset.label}</span>
-                  </button>
-                ))}
-              </div>
+        {/* ✨ 발표자료 화면 */}
+        {activeApp === 'presentation' && (
+          <main className={`mx-auto px-6 py-8 transition-all duration-300 w-full ${step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl'}`}>
+            {step === 'upload' && (
+              <div className="space-y-10">
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
+                    <Sparkles className="w-3 h-3" /> AI 기반 자동 생성
+                  </div>
+                  <h2 className="text-4xl font-black tracking-tight leading-tight">
+                    어떤 내용인지 알려주시면<br /><span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">발표자료가 완성됩니다</span>
+                  </h2>
+                  <p className="text-muted-foreground mt-4 text-base leading-relaxed">
+                    빈칸을 채우거나 자유롭게 대화하듯 입력해 보세요. <br className="hidden sm:block" />기존 엑셀/PDF 파일을 업로드할 수도 있습니다!
+                  </p>
+                </motion.div>
 
-              <div className="relative">
-                <AnimatePresence mode="wait">
-                  {activePreset && (
-                    <motion.div key={activePreset.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6">
-                      <div className="space-y-5">
-                        {activePreset.fields.map(field => (
-                          <div key={field.id} className="space-y-2.5">
-                            <label className="text-sm font-bold text-foreground">{field.label}</label>
-                            <div className="flex flex-wrap gap-2">
-                              {field.suggestions.map(sug => (
-                                <button key={sug} onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))}
-                                  className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left">
-                                  {sug}
-                                </button>
-                              ))}
-                            </div>
-                            <Input
-                              value={presetData[field.id] || ''}
-                              onChange={(e) => setPresetData(p => ({ ...p, [field.id]: e.target.value }))}
-                              placeholder={field.placeholder}
-                              className="bg-background h-11"
-                            />
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
+                  <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
+                    <button onClick={() => setActivePresetId('manual')} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activePresetId === 'manual' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+                      <PencilLine className="w-4 h-4" /> 직접 입력
+                    </button>
+                    {PROMPT_PRESETS.map((preset) => (
+                      <button key={preset.id} onClick={() => { setActivePresetId(preset.id); setPresetData({}); }} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${activePresetId === preset.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
+                        <span>{preset.icon}</span> <span>{preset.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="relative">
+                    <AnimatePresence mode="wait">
+                      {activePreset && (
+                        <motion.div key={activePreset.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6">
+                          <div className="space-y-5">
+                            {activePreset.fields.map(field => (
+                              <div key={field.id} className="space-y-2.5">
+                                <label className="text-sm font-bold text-foreground">{field.label}</label>
+                                <div className="flex flex-wrap gap-2">
+                                  {field.suggestions.map(sug => (
+                                    <button key={sug} onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))} className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left">{sug}</button>
+                                  ))}
+                                </div>
+                                <Input value={presetData[field.id] || ''} onChange={(e) => setPresetData(p => ({ ...p, [field.id]: e.target.value }))} placeholder={field.placeholder} className="bg-background h-11" />
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                      <label className="flex items-start gap-3 p-4 mt-2 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
-                        <div className="mt-0.5">
-                          <input type="checkbox" className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
-                            checked={settings.useWebSearch || false}
-                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
-                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.</p>
-                        </div>
-                      </label>
-                      <div className="pt-2 border-t border-border">
-                        <Button onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
-                          className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm">
-                          <Sparkles className="w-5 h-5" /> 이 내용으로 AI 생성하기
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
+                          <div className="pt-2 border-t border-border">
+                            <Button onClick={() => handlePromptSubmit(activePreset.generate(presetData))} className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm">
+                              <Sparkles className="w-5 h-5" /> 이 내용으로 AI 생성하기
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
 
-                  {activePresetId === 'manual' && (
-                    <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
-                      <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
-                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
-                          <MessageSquare className="w-6 h-6 text-primary" />
-                        </div>
-                        <Textarea
-                          value={manualPrompt} onChange={(e) => setManualPrompt(e.target.value)}
-                          placeholder="예: 우리 팀의 상반기 워크샵 기획안을 레크레이션 위주로 짜줘"
-                          className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
-                          rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
-                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }}
-                        />
-                        <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm">
-                          <Send className="w-4 h-4" /> AI 생성
-                        </Button>
-                      </div>
-                      <label className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-950/20 border-2 border-amber-200/60 dark:border-amber-800/40 border-dashed rounded-xl cursor-pointer hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
-                        <div className="mt-0.5">
-                          <input type="checkbox" className="w-5 h-5 accent-amber-600 rounded cursor-pointer"
-                            checked={settings.useWebSearch || false}
-                            onChange={(e) => setSettings(prev => ({ ...prev, useWebSearch: e.target.checked }))} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-amber-900 dark:text-amber-400 mb-1">웹 검색으로 최신 정보 반영하기</p>
-                          <p className="text-xs text-amber-700/80 dark:text-amber-500/80 leading-relaxed">AI가 신뢰할 수 있는 웹사이트를 검색하여 내용을 구성합니다.</p>
-                        </div>
-                      </label>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </motion.div>
+                      {activePresetId === 'manual' && (
+                        <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
+                          <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1"><MessageSquare className="w-6 h-6 text-primary" /></div>
+                            <Textarea value={manualPrompt} onChange={(e) => setManualPrompt(e.target.value)} placeholder="예: 우리 팀의 상반기 워크샵 기획안을 레크레이션 위주로 짜줘" className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed" rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }} />
+                            <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm"><Send className="w-4 h-4" /> AI 생성</Button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
 
-            <div className="relative flex items-center justify-center py-6 max-w-3xl mx-auto">
-              <div className="border-t border-border absolute w-full"></div>
-              <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 참고할 문서 파일 업로드</span>
-            </div>
-
-            <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
-
-            {fileNames.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
-                <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
-                  다음: 설정하기 <ArrowRight className="w-5 h-5" />
-                </Button>
-              </motion.div>
-            )}
-          </div>
-        )}
-
-        {step === 'info' && dataSummary && (
-          <div className="space-y-6">
-            <PresentationSetupForm info={meetingInfo} onChange={setMeetingInfo} settings={settings} onSettingsChange={setSettings} onGenerate={requestOutline} onBack={() => setStep('upload')} isGenerating={isLoadingOutline} fileNames={fileNames} dataSummary={dataSummary} />
-          </div>
-        )}
-
-        {step === 'outline' && (
-          <div className="space-y-6">
-            {isLoadingOutline || !outline ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
-                  <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
+                <div className="relative flex items-center justify-center py-6 max-w-3xl mx-auto">
+                  <div className="border-t border-border absolute w-full"></div>
+                  <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 참고할 문서 파일 업로드</span>
                 </div>
-                <p className="text-sm text-muted-foreground">내용을 분석하고 구성안을 생성하는 중...</p>
+
+                <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
+
+                {fileNames.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+                    <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
+                      다음: 설정하기 <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </motion.div>
+                )}
               </div>
-            ) : (
-              <OutlinePreview outline={outline} isGenerating={isGenerating} onConfirm={(approvedOutline) => generatePresentation(approvedOutline)} onBack={() => setStep('info')} />
             )}
-          </div>
+
+            {step === 'info' && dataSummary && (
+              <div className="space-y-6">
+                <PresentationSetupForm info={meetingInfo} onChange={setMeetingInfo} settings={settings} onSettingsChange={setSettings} onGenerate={requestOutline} onBack={() => setStep('upload')} isGenerating={isLoadingOutline} fileNames={fileNames} dataSummary={dataSummary} />
+              </div>
+            )}
+
+            {step === 'outline' && (
+              <div className="space-y-6">
+                {isLoadingOutline || !outline ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+                      <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">내용을 분석하고 구성안을 생성하는 중...</p>
+                  </div>
+                ) : (
+                  <OutlinePreview outline={outline} isGenerating={isGenerating} onConfirm={(approvedOutline) => generatePresentation(approvedOutline)} onBack={() => setStep('info')} />
+                )}
+              </div>
+            )}
+
+            {step === 'generating' && <GeneratingState />}
+
+            {step === 'preview' && presentation && (
+              <SlideEditor presentation={presentation} onReset={reset} onUpdateSlide={updateSlide} onAddSlide={addSlide} onDeleteSlide={deleteSlide} onDuplicateSlide={duplicateSlide} onMoveSlide={moveSlide} onUpdateTitle={updatePresentationTitle} onSave={handleSave} isSaving={isSaving} onRegenerateSlide={regenerateSlide} onOpenChat={() => setChatOpen(true)} onOpenReview={() => setReviewOpen(true)} onReviewAndFix={reviewAndFixPresentation} isFixing={isFixing} onChangePersona={changeSlidePersona} onCycleLayout={cycleLayout} updatePresentationMaster={updatePresentationMaster} />
+            )}
+          </main>
         )}
+      </div>
 
-        {step === 'generating' && <GeneratingState />}
-
-        {step === 'preview' && presentation && (
-          <SlideEditor
-            presentation={presentation} onReset={reset} onUpdateSlide={updateSlide} onAddSlide={addSlide} onDeleteSlide={deleteSlide} onDuplicateSlide={duplicateSlide} onMoveSlide={moveSlide} onUpdateTitle={updatePresentationTitle} onSave={handleSave} isSaving={isSaving} onRegenerateSlide={regenerateSlide} onOpenChat={() => setChatOpen(true)} onOpenReview={() => setReviewOpen(true)} onReviewAndFix={reviewAndFixPresentation} isFixing={isFixing} onChangePersona={changeSlidePersona} onCycleLayout={cycleLayout} updatePresentationMaster={updatePresentationMaster}
-          />
-        )}
-      </main>
-
-      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} items={savedList} isLoading={isLoadingList} onLoad={loadFromHistory} onDelete={deleteFromHistory} />
-      {step === 'preview' && presentation && (
-        <ChatEditPanel open={chatOpen} onClose={() => setChatOpen(false)} currentSlide={presentation.slides[0]} slideIndex={0} onApply={(updatedSlide) => updateSlide(0, updatedSlide)} onRequestEdit={requestChatEdit} />
-      )}
-      {step === 'preview' && presentation && (
-        <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={() => setReviewOpen(false)} onApplyFix={applyReviewFix} />
+      {/* 발표자료 전용 패널들 */}
+      {activeApp === 'presentation' && (
+        <>
+          <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} items={savedList} isLoading={isLoadingList} onLoad={loadFromHistory} onDelete={deleteFromHistory} />
+          {step === 'preview' && presentation && (
+            <ChatEditPanel open={chatOpen} onClose={() => setChatOpen(false)} currentSlide={presentation.slides[0]} slideIndex={0} onApply={(updatedSlide) => updateSlide(0, updatedSlide)} onRequestEdit={requestChatEdit} />
+          )}
+          {step === 'preview' && presentation && (
+            <ReviewPanel open={reviewOpen} onClose={() => setReviewOpen(false)} review={reviewResult} isLoading={isReviewing} onRequestReview={requestReview} onGoToSlide={() => setReviewOpen(false)} onApplyFix={applyReviewFix} />
+          )}
+        </>
       )}
 
-      {/* ✅ 푸터 — 방문자 카운터 포함 */}
-      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4">
+      {/* ── 푸터 ── */}
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
         <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          {/* 좌측: 제작자 정보 */}
           <p className="text-xs text-muted-foreground">
-            Made with ❤️ by{' '}
-            <span className="font-semibold text-foreground">Hyeon</span>
-            {' · '}
-            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
-              audifox1022@gmail.com
-            </a>
+            Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span> {' · '}
+            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">audifox1022@gmail.com</a>
           </p>
 
-          {/* ✅ 우측: 방문자 카운터 */}
           {visitorStats && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4"
-            >
-              {/* 총 방문수 */}
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Eye className="w-3.5 h-3.5 text-primary/60" />
-                <span>총 방문</span>
-                <span className="font-bold text-foreground">
-                  {visitorStats.total_visits.toLocaleString()}
-                </span>
+                <Eye className="w-3.5 h-3.5 text-primary/60" /> <span>총 방문</span>
+                <span className="font-bold text-foreground">{visitorStats.total_visits.toLocaleString()}</span>
               </div>
-
               <div className="w-px h-3 bg-border" />
-
-              {/* 유니크 유저 */}
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Users className="w-3.5 h-3.5 text-primary/60" />
-                <span>유니크</span>
-                <span className="font-bold text-foreground">
-                  {visitorStats.unique_users.toLocaleString()}
-                </span>
+                <Users className="w-3.5 h-3.5 text-primary/60" /> <span>유니크</span>
+                <span className="font-bold text-foreground">{visitorStats.unique_users.toLocaleString()}</span>
               </div>
-
               <div className="w-px h-3 bg-border" />
-
-              {/* 오늘 방문 */}
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>오늘</span>
-                <span className="font-bold text-foreground">
-                  {visitorStats.today_visits.toLocaleString()}
-                </span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> <span>오늘</span>
+                <span className="font-bold text-foreground">{visitorStats.today_visits.toLocaleString()}</span>
               </div>
             </motion.div>
           )}
