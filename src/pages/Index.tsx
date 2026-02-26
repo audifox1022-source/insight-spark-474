@@ -59,7 +59,7 @@ const PROMPT_PRESETS: Preset[] = [
 
 const Index = () => {
   const navigate = useNavigate();
-  // ✨ 탭 상태 관리: 'presentation' (발표자료) 또는 'translator' (번역기)
+  // ✨ 앱 모드 상태 관리: 'presentation' (발표자료) 또는 'translator' (번역기)
   const [activeApp, setActiveApp] = useState<'presentation' | 'translator'>('presentation');
 
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
@@ -98,6 +98,8 @@ const Index = () => {
     handlePromptSubmit,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
+    // ✨ AI 이미지 생성 관련 상태 및 함수 (추가됨)
+    isGeneratingImage, generateSlideImage,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   } = usePresentation();
@@ -110,7 +112,7 @@ const Index = () => {
       {/* ── 헤더 ── */}
       <header className="border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3 w-1/3">
+          <div className="flex items-center gap-3 w-1/4">
             <motion.div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow" whileHover={{ scale: 1.05, rotate: 5 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
               {activeApp === 'presentation' ? <Sparkles className="w-5 h-5 text-primary-foreground" /> : <Globe className="w-5 h-5 text-primary-foreground" />}
             </motion.div>
@@ -125,7 +127,7 @@ const Index = () => {
           </div>
 
           {/* ✨ 중앙: 앱 전환 탭 스위치 */}
-          <div className="hidden sm:flex items-center bg-muted/50 p-1 rounded-xl border border-border">
+          <div className="hidden md:flex items-center bg-muted/50 p-1 rounded-xl border border-border">
             <button
               onClick={() => setActiveApp('presentation')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeApp === 'presentation' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
@@ -136,12 +138,11 @@ const Index = () => {
               onClick={() => setActiveApp('translator')}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-lg transition-all ${activeApp === 'translator' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Globe className="w-4 h-4" /> 전문 번역 워크스페이스
+              <Globe className="w-4 h-4" /> 전문 번역
             </button>
           </div>
 
-          <div className="flex items-center gap-2 w-1/3 justify-end">
-            {/* 번역기 모드가 아닐 때만 발표자료 전용 UI 표시 */}
+          <div className="flex items-center gap-2 w-1/4 justify-end">
             {activeApp === 'presentation' && (
               <>
                 <StepIndicator currentStep={step === 'outline' ? 'info' : step as any} />
@@ -150,42 +151,33 @@ const Index = () => {
                   <FolderOpen className="w-4 h-4" />
                   <span className="text-xs">저장 목록</span>
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="사용 가이드 (도움말)">
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="도움말">
                   <HelpCircle className="w-4 h-4" />
                 </Button>
               </>
             )}
 
             <div className="relative">
-              <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="테마 색상 변경">
+              <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="테마 변경">
                 <Palette className="w-4 h-4" />
               </Button>
               <AnimatePresence>
                 {themeMenuOpen && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1 overflow-hidden">
-                    <button onClick={() => { changeTheme('blue'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'blue' ? 'font-bold' : ''}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-blue-600 border border-border"></div> 블루 (기본)
-                    </button>
-                    <button onClick={() => { changeTheme('navy'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'navy' ? 'font-bold' : ''}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border border-border"></div> 네이비 (기업)
-                    </button>
-                    <button onClick={() => { changeTheme('purple'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'purple' ? 'font-bold' : ''}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-purple-600 border border-border"></div> 퍼플 (크리에이티브)
-                    </button>
-                    <button onClick={() => { changeTheme('green'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'green' ? 'font-bold' : ''}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-emerald-600 border border-border"></div> 그린 (친환경)
-                    </button>
-                    <button onClick={() => { changeTheme('orange'); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === 'orange' ? 'font-bold' : ''}`}>
-                      <div className="w-3.5 h-3.5 rounded-full bg-orange-500 border border-border"></div> 오렌지 (활력)
-                    </button>
+                    {['blue', 'navy', 'purple', 'green', 'orange'].map((t) => (
+                      <button key={t} onClick={() => { changeTheme(t); setThemeMenuOpen(false); }} className={`w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3 ${appTheme === t ? 'font-bold bg-primary/5' : ''}`}>
+                        <div className={`w-3.5 h-3.5 rounded-full border border-border ${t === 'blue' ? 'bg-blue-600' : t === 'navy' ? 'bg-slate-800' : t === 'purple' ? 'bg-purple-600' : t === 'green' ? 'bg-emerald-600' : 'bg-orange-500'}`}></div>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-            <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="다크 모드 변경">
+            <Button variant="ghost" size="icon" onClick={toggleDark} className="w-9 h-9 text-muted-foreground hover:text-foreground">
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="w-9 h-9 text-muted-foreground hover:text-foreground" title="로그아웃">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="w-9 h-9 text-muted-foreground hover:text-foreground">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -240,17 +232,17 @@ const Index = () => {
       )}
 
       {/* ── 메인 콘텐츠 영역 ── */}
-      <div className="flex-1 flex flex-col relative">
-        {/* ✨ 번역기 화면 */}
+      <div className="flex-1 flex flex-col relative overflow-hidden">
+        {/* 🌐 번역기 워크스페이스 */}
         {activeApp === 'translator' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-140px)]">
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
             <TranslatorWorkspace />
           </main>
         )}
 
-        {/* ✨ 발표자료 화면 */}
+        {/* 📊 발표자료 메인 화면 */}
         {activeApp === 'presentation' && (
-          <main className={`mx-auto px-6 py-8 transition-all duration-300 w-full ${step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl'}`}>
+          <main className={`mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto ${step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl'}`}>
             {step === 'upload' && (
               <div className="space-y-10">
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
@@ -356,7 +348,29 @@ const Index = () => {
             {step === 'generating' && <GeneratingState />}
 
             {step === 'preview' && presentation && (
-              <SlideEditor presentation={presentation} onReset={reset} onUpdateSlide={updateSlide} onAddSlide={addSlide} onDeleteSlide={deleteSlide} onDuplicateSlide={duplicateSlide} onMoveSlide={moveSlide} onUpdateTitle={updatePresentationTitle} onSave={handleSave} isSaving={isSaving} onRegenerateSlide={regenerateSlide} onOpenChat={() => setChatOpen(true)} onOpenReview={() => setReviewOpen(true)} onReviewAndFix={reviewAndFixPresentation} isFixing={isFixing} onChangePersona={changeSlidePersona} onCycleLayout={cycleLayout} updatePresentationMaster={updatePresentationMaster} />
+              <SlideEditor 
+                presentation={presentation} 
+                onReset={reset} 
+                onUpdateSlide={updateSlide} 
+                onAddSlide={addSlide} 
+                onDeleteSlide={deleteSlide} 
+                onDuplicateSlide={duplicateSlide} 
+                onMoveSlide={moveSlide} 
+                onUpdateTitle={updatePresentationTitle} 
+                onSave={handleSave} 
+                isSaving={isSaving} 
+                onRegenerateSlide={regenerateSlide} 
+                onOpenChat={() => setChatOpen(true)} 
+                onOpenReview={() => setReviewOpen(true)} 
+                onReviewAndFix={reviewAndFixPresentation} 
+                isFixing={isFixing} 
+                onChangePersona={changeSlidePersona} 
+                onCycleLayout={cycleLayout} 
+                updatePresentationMaster={updatePresentationMaster}
+                // ✨ AI 이미지 생성 관련 Props 전달 (추가됨)
+                isGeneratingImage={isGeneratingImage}
+                generateSlideImage={generateSlideImage}
+              />
             )}
           </main>
         )}
