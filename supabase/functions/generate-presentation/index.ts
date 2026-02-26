@@ -96,7 +96,7 @@ const RequestSchema = z.object({
 
 const SAFE_ERROR_MESSAGES = new Set([
   "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.",
-  "크레딧이 부족합니다.",
+  "AI 크레딧이 부족합니다. 워크스페이스 설정에서 크레딧을 충전해주세요.",
   "AI가 올바른 JSON 형식으로 응답하지 않았습니다. 다시 시도해주세요.",
   "AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.",
   "AI가 올바른 슬라이드 구조를 생성하지 못했습니다. 다시 시도해주세요.",
@@ -431,8 +431,10 @@ async function callAI(prompt: string, apiKey: string) {
     });
     if (!response.ok) {
       if (response.status === 429) throw new Error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
-      if (response.status === 402) throw new Error("크레딧이 부족합니다.");
-      throw new Error("처리 중 오류가 발생했습니다. 다시 시도해주세요.");
+      if (response.status === 402) throw new Error("AI 크레딧이 부족합니다. 워크스페이스 설정에서 크레딧을 충전해주세요.");
+      const errText = await response.text().catch(() => "");
+      console.error("AI gateway error:", response.status, errText);
+      throw new Error("AI 서비스 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
     return response.json();
   } catch (err) {
