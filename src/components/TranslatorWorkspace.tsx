@@ -9,7 +9,6 @@ import type { AnalysisResults, TranslationAndAnalysisResponse, ContextualTerm, T
 
 import AnalysisPanel from './AnalysisPanel';
 import Loader from './Loader';
-// ✨ 자체 Icon 파일 대신 lucide-react에서 아이콘을 가져옵니다.
 import { Sparkles, ArrowRightLeft, Upload, Copy, Download, HelpCircle, Pencil } from 'lucide-react';
 import ReverseTranslationModal from './ReverseTranslationModal';
 import HelpModal from './HelpModal';
@@ -318,12 +317,14 @@ export const TranslatorWorkspace: React.FC = () => {
         setSaveMenuOpen(false);
     };
 
+    // ✨ 텍스트 색상 및 가독성 개선
     const renderHighlightedTranslation = useCallback(() => {
         if (!translatedText || !analysisResults) {
             return (
                  <div 
                     ref={translationRef as React.RefObject<HTMLDivElement>}
-                    className="absolute inset-0 p-4 text-gray-500 whitespace-pre-wrap overflow-y-auto"
+                    // 글자가 비어있을때만 회색, 결과가 있으면 밝은 회색(text-gray-100) + 줄간격(leading-relaxed)
+                    className={`absolute inset-0 p-4 whitespace-pre-wrap overflow-y-auto ${!translatedText ? 'text-gray-500' : 'text-gray-100 leading-relaxed'}`}
                     onScroll={handleSynchronizedScroll}
                 >
                     {translatedText || "AI 번역 결과가 여기에 표시됩니다..."}
@@ -341,7 +342,8 @@ export const TranslatorWorkspace: React.FC = () => {
             return (
                 <div 
                     ref={translationRef as React.RefObject<HTMLDivElement>}
-                    className="absolute inset-0 p-4 whitespace-pre-wrap overflow-y-auto"
+                    // 가독성을 위한 text-gray-100 및 leading-relaxed 추가
+                    className="absolute inset-0 p-4 text-gray-100 leading-relaxed whitespace-pre-wrap overflow-y-auto"
                     onScroll={handleSynchronizedScroll}
                 >
                     {translatedText}
@@ -371,19 +373,22 @@ export const TranslatorWorkspace: React.FC = () => {
         return (
             <div 
                 ref={translationRef as React.RefObject<HTMLDivElement>} 
-                className="absolute inset-0 p-4 whitespace-pre-wrap overflow-y-auto"
+                // 가독성을 위한 text-gray-100 및 leading-relaxed 추가
+                className="absolute inset-0 p-4 text-gray-100 leading-relaxed whitespace-pre-wrap overflow-y-auto"
                 onScroll={handleSynchronizedScroll}
             >
                 {parts.map((part, index) => {
                     if (uniqueDisplayTerms.some(term => term.toLowerCase() === part.toLowerCase())) {
                         const termData = allTerms.find(t => t.displayTerm.toLowerCase() === part.toLowerCase());
+                        
+                        // ✨ 하이라이트된 텍스트가 더 잘 보이도록 글자색(text-teal-200, text-indigo-200) 및 굵기(font-semibold) 추가
                         const highlightClass = termData?.type === 'terminology' 
-                            ? "bg-teal-900/60 hover:bg-teal-700/80" 
-                            : "bg-indigo-900/60 hover:bg-indigo-700/80";
+                            ? "bg-teal-900/70 text-teal-200 font-semibold hover:bg-teal-700 hover:text-white" 
+                            : "bg-indigo-900/70 text-indigo-200 font-semibold hover:bg-indigo-700 hover:text-white";
                         return (
                             <span 
                                 key={index} 
-                                className={`${highlightClass} rounded px-1 cursor-pointer transition-colors`}
+                                className={`${highlightClass} rounded px-1.5 py-0.5 cursor-pointer transition-colors shadow-sm`}
                                 onMouseEnter={(e) => handleMouseEnter(part, e)}
                                 onMouseLeave={handleMouseLeave}
                             >
@@ -523,7 +528,8 @@ export const TranslatorWorkspace: React.FC = () => {
                                     setTranslationEditing(true);
                                 }}
                                 placeholder="번역할 텍스트를 입력하거나 파일을 업로드하세요..."
-                                className="absolute inset-0 p-4 bg-transparent text-gray-200 resize-none focus:outline-none placeholder-gray-500"
+                                // ✨ 가독성을 위해 text-gray-100 및 leading-relaxed 추가
+                                className="absolute inset-0 p-4 bg-transparent text-gray-100 leading-relaxed resize-none focus:outline-none placeholder-gray-500"
                                 disabled={isLoading}
                              />
                          </div>
@@ -588,7 +594,8 @@ export const TranslatorWorkspace: React.FC = () => {
                                     value={translatedText}
                                     onChange={(e) => setTranslatedText(e.target.value)}
                                     placeholder="AI 번역 결과가 여기에 표시됩니다..."
-                                    className="absolute inset-0 p-4 bg-transparent text-gray-200 resize-none focus:outline-none placeholder-gray-500"
+                                    // ✨ 가독성을 위해 text-gray-100 및 leading-relaxed 추가
+                                    className="absolute inset-0 p-4 bg-transparent text-gray-100 leading-relaxed resize-none focus:outline-none placeholder-gray-500"
                                 />
                             ) : (
                                 renderHighlightedTranslation()
