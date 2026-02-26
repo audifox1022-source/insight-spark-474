@@ -4,13 +4,13 @@ import mammoth from 'mammoth';
 import { Document, Packer, Paragraph } from 'docx';
 import saveAs from 'file-saver';
 
-// ✨ [경로 수정됨] 새로 만든 lib와 types 폴더를 바라보도록 변경되었습니다.
 import { analyzeAndTranslate, reverseTranslate, structureTextAsMarkdown } from '@/lib/translation-service';
 import type { AnalysisResults, TranslationAndAnalysisResponse, ContextualTerm, TerminologyTerm } from '@/types/translation';
 
 import AnalysisPanel from './AnalysisPanel';
 import Loader from './Loader';
-import { IconSparkles, IconSwap, IconUpload, IconCopy, IconDownload, IconQuestionMarkCircle, IconPencil } from './Icon';
+// ✨ 자체 Icon 파일 대신 lucide-react에서 아이콘을 가져옵니다.
+import { Sparkles, ArrowRightLeft, Upload, Copy, Download, HelpCircle, Pencil } from 'lucide-react';
 import ReverseTranslationModal from './ReverseTranslationModal';
 import HelpModal from './HelpModal';
 import AnalysisPopover from './AnalysisPopover';
@@ -421,7 +421,7 @@ export const TranslatorWorkspace: React.FC = () => {
                             className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-sky-600 rounded-md shadow-sm hover:bg-sky-500 transition-colors"
                             aria-label="사용법 보기"
                         >
-                            <IconQuestionMarkCircle className="h-5 w-5" />
+                            <HelpCircle className="h-5 w-5" />
                             <span>사용법</span>
                         </button>
                         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".txt,.pdf,.docx" className="hidden" />
@@ -430,7 +430,7 @@ export const TranslatorWorkspace: React.FC = () => {
                             disabled={isLoading}
                             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-gray-600 rounded-md shadow-sm hover:bg-gray-500 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
                         >
-                            <IconUpload className="h-5 w-5" />
+                            <Upload className="h-5 w-5" />
                             <span>파일 불러오기</span>
                         </button>
                          <button
@@ -445,7 +445,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                 </>
                              ) : (
                                  <>
-                                    <IconSwap className="h-5 w-5" />
+                                    <ArrowRightLeft className="h-5 w-5" />
                                     <span>역번역 확인</span>
                                  </>
                              )}
@@ -455,7 +455,7 @@ export const TranslatorWorkspace: React.FC = () => {
                             disabled={isLoading || !sourceText.trim()}
                             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-500 disabled:bg-indigo-400 disabled:cursor-wait transition-colors"
                         >
-                           <IconSparkles className="h-5 w-5" />
+                           <Sparkles className="h-5 w-5" />
                            <span>번역 및 분석</span>
                         </button>
                     </div>
@@ -479,7 +479,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                         className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
                                         disabled={!sourceText}
                                     >
-                                        <IconCopy className="h-5 w-5" />
+                                        <Copy className="h-5 w-5" />
                                     </button>
                                     {showSourceCopySuccess && (
                                          <span className="absolute -top-8 right-1/2 translate-x-1/2 px-2 py-1 text-xs text-white bg-green-600 rounded-md whitespace-nowrap">
@@ -494,7 +494,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                         className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
                                         disabled={!sourceText}
                                     >
-                                        <IconDownload className="h-5 w-5" />
+                                        <Download className="h-5 w-5" />
                                     </button>
                                     {isSourceSaveMenuOpen && (
                                         <div
@@ -539,7 +539,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                     className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
                                     disabled={!translatedText || !analysisResults}
                                 >
-                                    <IconPencil className="h-5 w-5" />
+                                    <Pencil className="h-5 w-5" />
                                 </button>
                                 <div className="relative">
                                     <button
@@ -548,7 +548,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                         className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
                                         disabled={!translatedText}
                                     >
-                                        <IconCopy className="h-5 w-5" />
+                                        <Copy className="h-5 w-5" />
                                     </button>
                                     {showCopySuccess && (
                                          <span className="absolute -top-8 right-1/2 translate-x-1/2 px-2 py-1 text-xs text-white bg-green-600 rounded-md whitespace-nowrap">
@@ -563,7 +563,7 @@ export const TranslatorWorkspace: React.FC = () => {
                                         className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors disabled:opacity-50"
                                         disabled={!translatedText}
                                     >
-                                        <IconDownload className="h-5 w-5" />
+                                        <Download className="h-5 w-5" />
                                     </button>
                                     {isSaveMenuOpen && (
                                         <div
