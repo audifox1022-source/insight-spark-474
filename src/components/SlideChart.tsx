@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList,
   ResponsiveContainer,
 } from 'recharts';
 import { SlideChartData } from '@/types/presentation';
@@ -23,7 +23,7 @@ interface SlideChartProps {
 export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) {
   const { chartType, data, title, xAxisLabel, yAxisLabel, series1Label, series2Label, showLegend } = chartData;
 
-  const fontSize = isSlideView ? 28 : 12;
+  const fontSize = isSlideView ? 22 : 12; 
   const titleSize = isSlideView ? 36 : 16;
   const hasSeries2 = data.some((d) => d.value2 !== undefined && d.value2 !== null);
 
@@ -34,71 +34,87 @@ export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) 
     [data, CHART_COLORS],
   );
 
+  // ✨ [핵심 수정] 글자가 흰색 배경에 묻히지 않도록 진한 회색(#334155)으로 고정!
+  const TEXT_COLOR = '#334155';
+  const GRID_COLOR = '#e2e8f0';
+
   const commonAxisProps = {
-    tick: { fontSize, fill: isSlideView ? 'rgba(255,255,255,0.7)' : 'hsl(220, 10%, 46%)' },
-    axisLine: { stroke: isSlideView ? 'rgba(255,255,255,0.2)' : 'hsl(220, 13%, 88%)' },
+    tick: { fontSize, fill: TEXT_COLOR, fontWeight: 600 },
+    axisLine: { stroke: '#cbd5e1' },
     tickLine: false,
   };
 
   const gridProps = {
     strokeDasharray: '3 3',
-    stroke: isSlideView ? 'rgba(255,255,255,0.1)' : 'hsl(220, 13%, 92%)',
+    stroke: GRID_COLOR,
+    vertical: false, // 가로선만 렌더링해서 더 깔끔하게
   };
 
   const tooltipStyle = {
     contentStyle: {
-      background: isSlideView ? 'rgba(0,0,0,0.85)' : 'white',
-      border: 'none',
+      background: 'rgba(255, 255, 255, 0.95)',
+      border: '1px solid #cbd5e1',
       borderRadius: 12,
       fontSize: isSlideView ? 24 : 12,
-      color: isSlideView ? 'white' : 'black',
+      color: TEXT_COLOR,
+      fontWeight: 'bold',
       padding: isSlideView ? '16px 24px' : '8px 12px',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
     },
+    itemStyle: { color: TEXT_COLOR }
   };
 
   const legendProps = {
-    wrapperStyle: { fontSize: isSlideView ? 26 : 12 },
+    wrapperStyle: { fontSize: isSlideView ? 22 : 12, fontWeight: 'bold', color: TEXT_COLOR, paddingTop: '10px' },
   };
 
   const renderChart = () => {
     switch (chartType) {
       case 'bar':
         return (
-          <BarChart data={coloredData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <BarChart data={coloredData} margin={{ top: 40, right: 30, left: 20, bottom: 20 }}>
             <CartesianGrid {...gridProps} />
-            <XAxis dataKey="name" {...commonAxisProps} label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, fontSize } : undefined} />
-            <YAxis {...commonAxisProps} label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', fontSize } : undefined} />
+            <XAxis dataKey="name" {...commonAxisProps} label={xAxisLabel ? { value: xAxisLabel, position: 'insideBottom', offset: -10, fontSize, fill: TEXT_COLOR } : undefined} />
+            <YAxis {...commonAxisProps} label={yAxisLabel ? { value: yAxisLabel, angle: -90, position: 'insideLeft', fontSize, fill: TEXT_COLOR } : undefined} />
             <Tooltip {...tooltipStyle} />
             {showLegend && <Legend {...legendProps} />}
             <Bar dataKey="value" name={series1Label || '값'} radius={[6, 6, 0, 0]} barSize={isSlideView ? 60 : 30}>
               {coloredData.map((entry, i) => (
                 <Cell key={i} fill={entry.fill} />
               ))}
+              {/* ✨ 막대 위에 수치 표시 추가 */}
+              <LabelList dataKey="value" position="top" fill={TEXT_COLOR} fontSize={fontSize} fontWeight="bold" />
             </Bar>
             {hasSeries2 && (
-              <Bar dataKey="value2" name={series2Label || '비교값'} radius={[6, 6, 0, 0]} barSize={isSlideView ? 60 : 30} fill="hsl(152, 60%, 45%)" />
+              <Bar dataKey="value2" name={series2Label || '비교값'} radius={[6, 6, 0, 0]} barSize={isSlideView ? 60 : 30} fill="hsl(152, 60%, 45%)">
+                <LabelList dataKey="value2" position="top" fill={TEXT_COLOR} fontSize={fontSize} fontWeight="bold" />
+              </Bar>
             )}
           </BarChart>
         );
 
       case 'line':
         return (
-          <LineChart data={coloredData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <LineChart data={coloredData} margin={{ top: 40, right: 30, left: 20, bottom: 20 }}>
             <CartesianGrid {...gridProps} />
             <XAxis dataKey="name" {...commonAxisProps} />
             <YAxis {...commonAxisProps} />
             <Tooltip {...tooltipStyle} />
             {showLegend && <Legend {...legendProps} />}
-            <Line type="monotone" dataKey="value" name={series1Label || '값'} stroke={CHART_COLORS[0]} strokeWidth={isSlideView ? 5 : 2} dot={{ r: isSlideView ? 8 : 4 }} />
+            <Line type="monotone" dataKey="value" name={series1Label || '값'} stroke={CHART_COLORS[0]} strokeWidth={isSlideView ? 5 : 2} dot={{ r: isSlideView ? 8 : 4 }}>
+               <LabelList dataKey="value" position="top" fill={TEXT_COLOR} fontSize={fontSize} fontWeight="bold" offset={15} />
+            </Line>
             {hasSeries2 && (
-              <Line type="monotone" dataKey="value2" name={series2Label || '비교값'} stroke={CHART_COLORS[1]} strokeWidth={isSlideView ? 5 : 2} dot={{ r: isSlideView ? 8 : 4 }} />
+              <Line type="monotone" dataKey="value2" name={series2Label || '비교값'} stroke={CHART_COLORS[1]} strokeWidth={isSlideView ? 5 : 2} dot={{ r: isSlideView ? 8 : 4 }}>
+                 <LabelList dataKey="value2" position="top" fill={TEXT_COLOR} fontSize={fontSize} fontWeight="bold" offset={15} />
+              </Line>
             )}
           </LineChart>
         );
 
       case 'area':
         return (
-          <AreaChart data={coloredData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+          <AreaChart data={coloredData} margin={{ top: 30, right: 30, left: 20, bottom: 20 }}>
             <CartesianGrid {...gridProps} />
             <XAxis dataKey="name" {...commonAxisProps} />
             <YAxis {...commonAxisProps} />
@@ -133,8 +149,10 @@ export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) 
               paddingAngle={2}
               dataKey="value"
               label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              labelLine={{ stroke: isSlideView ? 'rgba(255,255,255,0.5)' : 'hsl(220, 10%, 60%)' }}
+              labelLine={{ stroke: '#94a3b8' }}
               fontSize={fontSize}
+              fontWeight="bold"
+              fill={TEXT_COLOR}
             >
               {coloredData.map((entry, i) => (
                 <Cell key={i} fill={entry.fill} />
@@ -153,8 +171,8 @@ export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) 
   return (
     <div className="w-full h-full flex flex-col">
       {title && (
-        <div className={`text-center font-semibold mb-2 ${isSlideView ? 'text-white/80' : 'text-foreground'}`}
-          style={{ fontSize: titleSize }}>
+        <div className="text-center font-bold mb-4"
+          style={{ fontSize: titleSize, color: TEXT_COLOR }}>
           {title}
         </div>
       )}
