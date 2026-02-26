@@ -22,7 +22,7 @@ import {
   ClipboardList, Layout, ChevronUp, ChevronDown, Check, X,
   Pencil, Play, Save, GripVertical, Loader2,
   Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate, Stamp, SlidersHorizontal 
+  Wand2, LayoutTemplate, Stamp, SlidersHorizontal, ImagePlus // ✨ ImagePlus 아이콘 추가
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
@@ -52,6 +52,9 @@ interface SlideEditorProps {
   onChangePersona: (slideIndex: number, persona: string) => Promise<void>;
   onCycleLayout: (slideIndex: number) => void;
   updatePresentationMaster: (updates: Partial<Presentation>) => void; 
+  // ✨ AI 이미지 생성 관련 Props 추가
+  isGeneratingImage?: boolean;
+  generateSlideImage?: (slideIndex: number) => Promise<void>;
 }
 
 const slideTypeIcons: Record<string, React.ReactNode> = {
@@ -107,7 +110,9 @@ export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
   onRegenerateSlide, onOpenChat, onOpenReview, onReviewAndFix, isFixing,
-  onChangePersona, onCycleLayout, updatePresentationMaster
+  onChangePersona, onCycleLayout, updatePresentationMaster,
+  // ✨ 연결된 AI 이미지 생성 함수들
+  isGeneratingImage = false, generateSlideImage
 }: SlideEditorProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
@@ -366,7 +371,7 @@ export function SlideEditor({
 
                 <div className="p-6 space-y-8">
                   
-                  {/* ✨ 섹터별 글자 크기 조절로 개편된 디테일 튜닝 패널 */}
+                  {/* 디테일 튜닝 패널 */}
                   <div className="bg-muted/30 rounded-xl p-5 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4 border-b border-border pb-3">
                       <SlidersHorizontal className="w-4 h-4 text-primary" />
@@ -375,7 +380,6 @@ export function SlideEditor({
                     <div className="space-y-5">
                       
                       <div className="grid grid-cols-2 gap-4">
-                        {/* 1. 제목 크기 슬라이더 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">🔠 제목 크기</label>
@@ -385,7 +389,6 @@ export function SlideEditor({
                             onChange={(e) => onUpdateSlide(currentSlide, { titleSizeScale: parseFloat(e.target.value) })} 
                             className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
                         </div>
-                        {/* 2. 본문 크기 슬라이더 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">🔤 본문 크기</label>
@@ -397,7 +400,6 @@ export function SlideEditor({
                         </div>
                       </div>
                       
-                      {/* 화면 비율 슬라이더 */}
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-xs font-semibold text-muted-foreground">⚖️ 화면 분할 비율 (텍스트 : 시각자료)</label>
@@ -412,7 +414,6 @@ export function SlideEditor({
                         </div>
                       </div>
 
-                      {/* 표 밀집도 조절 */}
                       {(slide.tableData && slide.tableData.headers && slide.tableData.headers.length > 0) && (
                         <div>
                           <label className="text-xs font-semibold text-muted-foreground mb-2 block">📊 표 행간(밀집도) 조절</label>
@@ -426,6 +427,26 @@ export function SlideEditor({
                     </div>
                   </div>
 
+                  {/* ✨ AI 이미지 배경 생성 영역 (SlideImageEditor 래핑) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                        <ImagePlus className="w-3.5 h-3.5" /> 배경 이미지
+                      </span>
+                      <Button
+                        size="sm"
+                        className="h-7 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm transition-all"
+                        onClick={() => generateSlideImage && generateSlideImage(currentSlide)}
+                        disabled={isGeneratingImage}
+                      >
+                        {isGeneratingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                        AI 자동 생성
+                      </Button>
+                    </div>
+                    <SlideImageEditor imageUrl={slide.imageUrl} slideTitle={slide.title} slideContent={slide.content || []} slideType={slide.type} onChange={(imageUrl) => onUpdateSlide(currentSlide, { imageUrl })} />
+                  </div>
+
+                  {/* 지표 영역 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">핵심 지표</span>
@@ -483,8 +504,6 @@ export function SlideEditor({
                       </div>
                     </div>
                   )}
-
-                  <SlideImageEditor imageUrl={slide.imageUrl} slideTitle={slide.title} slideContent={slide.content || []} slideType={slide.type} onChange={(imageUrl) => onUpdateSlide(currentSlide, { imageUrl })} />
 
                   <div>
                     <div className="flex items-center justify-between mb-3">
