@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import saveAs from 'file-saver';
 
-// ✨ [경로 수정됨]
 import type { AnalysisResults } from '@/types/translation';
 import { AnalysisType } from '@/types/translation';
 
-import { IconContext, IconTerminology, IconStyle, IconCopy, IconDownload } from './Icon';
+// ✨ 자체 Icon 파일 대신 lucide-react에서 아이콘을 가져옵니다.
+import { BookOpen, Languages, Palette, Copy, Download } from 'lucide-react';
 import Loader from './Loader';
 
 interface AnalysisPanelProps {
@@ -146,8 +146,8 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ results, isLoading }) => 
     if (!results) {
       return (
         <div className="text-center text-gray-400 mt-8 px-4">
-          <IconContext className="mx-auto h-12 w-12 text-gray-500" />
-          <p className="mt-4 text-sm">"번역 및 분석" 버튼을 클릭하여 AI 어시스턴트의 제안을 확인하세요.</p>
+          <BookOpen className="mx-auto h-12 w-12 text-gray-500 mb-4" />
+          <p className="text-sm">"번역 및 분석" 버튼을 클릭하여 AI 어시스턴트의 제안을 확인하세요.</p>
         </div>
       );
     }
@@ -177,7 +177,7 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ results, isLoading }) => 
                             title="용어 목록 복사"
                             className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors"
                         >
-                            <IconCopy className="h-5 w-5" />
+                            <Copy className="h-5 w-5" />
                         </button>
                         {showCopySuccess && (
                              <span className="absolute -top-8 right-1/2 translate-x-1/2 px-2 py-1 text-xs text-white bg-green-600 rounded-md whitespace-nowrap">
@@ -191,7 +191,7 @@ const AnalysisPanel: React.FC<AnalysisPanelProps> = ({ results, isLoading }) => 
                             title="용어 목록 저장"
                             className="p-1.5 text-gray-400 rounded-md hover:bg-gray-700 hover:text-white transition-colors"
                         >
-                            <IconDownload className="h-5 w-5" />
+                            <Download className="h-5 w-5" />
                         </button>
                         {isTermMenuOpen && (
                             <div
