@@ -23,6 +23,10 @@ export function usePresentation() {
   });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // ✨ 이미지 생성 로딩 상태
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  
   const [isLoadingOutline, setIsLoadingOutline] = useState(false);
   const [outline, setOutline] = useState<OutlineData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +79,6 @@ export function usePresentation() {
     return parsedFiles.map((f) => f.summary).join(' | ');
   }, [parsedFiles]);
 
-  // ✅ 파일 업로드 — setStep 제거로 여러 파일 추가 가능
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
       const results = await Promise.all(files.map(parseFile));
@@ -85,7 +88,6 @@ export function usePresentation() {
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
         setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
-        // ✅ setStep('info') 제거 — 업로드 화면 유지하여 파일 추가 계속 가능
         toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
       }
 
@@ -113,7 +115,6 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ── ✨ 파일 없이 직접 텍스트로 시작하기 ──
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
 
@@ -134,7 +135,6 @@ export function usePresentation() {
     toast.success('요청사항이 접수되었습니다! 세부 설정을 확인해주세요.');
   }, []);
 
-  // ── 구성안 미리보기 요청 ──
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -159,7 +159,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ── 전체 발표자료 생성 ──
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -202,7 +201,6 @@ export function usePresentation() {
     });
   }, []);
 
-  // ── 특정 슬라이드 재생성 ──
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -223,7 +221,6 @@ export function usePresentation() {
     }
   }, [presentation, parsedFiles, updateSlide]);
 
-  // ── 채팅형 슬라이드 수정 ──
   const requestChatEdit = useCallback(async (
     message: string,
     slideIndex: number,
@@ -241,7 +238,6 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ── 슬라이드 페르소나 변경 ──
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -269,7 +265,28 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ── 레이아웃 순환 ──
+  // ✨ 신규: AI 배경 이미지 생성 호출 및 슬라이드 업데이트
+  const generateSlideImage = useCallback(async (slideIndex: number) => {
+    if (!presentation) return;
+    const currentSlide = presentation.slides[slideIndex];
+
+    setIsGeneratingImage(true);
+    toast.loading('AI가 내용에 맞는 배경 이미지를 그리고 있습니다... 🎨 (약 5~10초 소요)', { id: 'gen-image' });
+
+    try {
+      // 슬라이드 내용을 문자열로 합쳐 프롬프트 재료로 제공
+      const contentStr = currentSlide.content ? currentSlide.content.join(' ') : '비즈니스 프레젠테이션';
+      const imageUrl = await aiService.generateImage(currentSlide.title, contentStr);
+
+      updateSlide(slideIndex, { imageUrl });
+      toast.success('AI 배경 이미지가 성공적으로 적용되었습니다! ✨', { id: 'gen-image' });
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err, '이미지 생성'), { id: 'gen-image' });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [presentation, updateSlide]);
+
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
@@ -279,7 +296,6 @@ export function usePresentation() {
     toast.success('레이아웃이 변경되었습니다 🪄');
   }, [presentation, updateSlide]);
 
-  // ── 저장 ──
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -298,7 +314,6 @@ export function usePresentation() {
     }
   }, [presentation, meetingInfo, settings, template]);
 
-  // ── 히스토리 ──
   const fetchHistory = useCallback(async () => {
     setIsLoadingList(true);
     try {
@@ -334,7 +349,6 @@ export function usePresentation() {
     }
   }, []);
 
-  // ── 슬라이드 편집 ──
   const addSlide = useCallback((afterIndex: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -394,7 +408,6 @@ export function usePresentation() {
     setReviewResult(null);
   }, []);
 
-  // ── AI 리뷰 ──
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -477,6 +490,8 @@ export function usePresentation() {
     handlePromptSubmit,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
+    // ✨ 반환 목록에 추가
+    isGeneratingImage, generateSlideImage,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
