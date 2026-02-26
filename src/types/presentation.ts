@@ -8,57 +8,60 @@ export interface MeetingInfo {
 export interface PresentationSettings {
   difficulty: 'easy' | 'medium' | 'hard' | 'executive';
   volume: 'brief' | 'standard' | 'detailed' | 'comprehensive';
-  useWebSearch?: boolean; 
+  useWebSearch?: boolean;
 }
 
-export type SlideType = 
-  | 'title' 
-  | 'section' 
-  | 'agenda' 
+export type SlideType =
+  | 'title'
+  | 'section'
+  | 'agenda'
   | 'closing'
-  | 'content' 
-  | 'data'
+  | 'content'
+  | 'process'
+  | 'processList'
+  | 'compare'
+  | 'timeline'
+  | 'diagram'
+  | 'cycle'
+  | 'cards'
+  | 'headerCards'
+  | 'bulletCards'
+  | 'table'
+  | 'progress'
+  | 'quote'
+  | 'kpi'
+  | 'statsCompare'
+  | 'barCompare'
+  | 'triangle'
+  | 'pyramid'
+  | 'flowChart'
+  | 'stepUp'
+  | 'imageText'
   | 'chart'
-  | 'action'
-  | 'summary'
-  | 'process' 
-  | 'processList' 
-  | 'compare' 
-  | 'timeline' 
-  | 'diagram' 
-  | 'cycle' 
-  | 'cards' 
-  | 'headerCards' 
-  | 'bulletCards' 
-  | 'table' 
-  | 'progress' 
-  | 'quote' 
-  | 'kpi' 
-  | 'statsCompare' 
-  | 'barCompare' 
-  | 'triangle' 
-  | 'pyramid' 
-  | 'flowChart' 
-  | 'stepUp' 
-  | 'imageText';
+  | 'data';
 
-export interface SlideMetric {
-  label: string;
-  value: string;
-  trend: 'up' | 'down' | 'flat';
-  description?: string;
-}
-
+// ✅ SlideChart(Recharts) 컴포넌트 전용 타입
 export interface SlideChartData {
-  chartType: 'bar' | 'line' | 'pie' | 'area';
+  chartType: 'bar' | 'line' | 'area' | 'pie';
   title?: string;
-  data: { name: string; value: number; [key: string]: any }[];
+  data: {
+    name: string;
+    value: number;
+    value2?: number;
+    color?: string;
+  }[];
   xAxisLabel?: string;
   yAxisLabel?: string;
-  series?: { key: string; name: string; color?: string }[];
-  showLegend?: boolean;
   series1Label?: string;
   series2Label?: string;
+  showLegend?: boolean;
+}
+
+// ✅ chart 슬라이드 stats 아이템 (AI 반환 형식)
+export interface StatItem {
+  label: string;
+  value: string;  // 숫자 문자열
+  unit?: string;
 }
 
 export interface Slide {
@@ -67,15 +70,14 @@ export interface Slide {
   type: SlideType;
   title: string;
   subhead?: string;
-  notes?: string;   
-  source?: string;  
-
+  notes?: string;
+  source?: string;
   date?: string;
   sectionNo?: string;
   twoColumn?: boolean;
   columns?: number;
   points?: string[];
-  items?: any[]; 
+  items?: any[];
   steps?: string[];
   leftTitle?: string;
   rightTitle?: string;
@@ -85,33 +87,43 @@ export interface Slide {
   lanes?: { title: string; items: string }[];
   centerText?: string;
   headers?: string[];
-  rows?: string[][]; 
+  rows?: string[][];
   text?: string;
   author?: string;
-  stats?: { label: string; leftValue: string; rightValue: string; trend: 'up' | 'down' | 'neutral' }[];
+
+  // ✅ chart 타입 전용 — { label, value, unit } 형식 (AI 반환 형식과 일치)
+  stats?: StatItem[];
+
+  // ✅ statsCompare 타입 전용 — 좌우 비교 (하위 호환)
+  statsLegacy?: { label: string; leftValue: string; rightValue: string; trend?: 'up' | 'down' | 'neutral' }[];
+
   showTrends?: boolean;
   levels?: { title: string; description: string }[];
   flows?: { steps: string }[];
   image?: string;
   imageCaption?: string;
   imagePosition?: 'left' | 'right';
-
-  layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid'; 
+  layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid';
   persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
-  
-  // ✨ 섹터별 글자 크기 튜닝 속성 추가
-  textSizeScale?: number; // (하위 호환성 유지용)
-  titleSizeScale?: number; // 제목 크기 배율
-  contentSizeScale?: number; // 본문 크기 배율
-  
+
+  titleSizeScale?: number;
+  contentSizeScale?: number;
+  textSizeScale?: number;
+
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   visualRatio?: number;
-  
-  keyMetrics?: SlideMetric[];
+
+  keyMetrics?: {
+    label: string;
+    value: string;
+    trend?: 'up' | 'down' | 'flat';
+    description?: string;
+  }[];
+
+  // ✅ SlideChart(Recharts) 직접 데이터 — 고급 차트용
   chartData?: SlideChartData;
+
   imageUrl?: string;
-  content?: string[];
-  tableData?: { headers: string[]; rows: string[][] };
 }
 
 export interface Presentation {
@@ -128,5 +140,10 @@ export type AppStep = 'upload' | 'info' | 'generating' | 'preview';
 
 export interface OutlineData {
   title: string;
-  outline: { slideNumber: number; title: string; type: string; description: string }[];
+  outline: {
+    slideNumber: number;
+    title: string;
+    type: string;
+    description: string;
+  }[];
 }
