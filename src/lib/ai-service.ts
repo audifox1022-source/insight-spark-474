@@ -1,6 +1,6 @@
 /**
  * src/lib/ai-service.ts
- * (🚀 JSON 평탄화 + 화이트스크린 방어 + 100% 무료/무가입 이미지 생성 통합 완벽본)
+ * (🚀 URL 길이 제한 초과 방어 및 영어 키워드 압축 로직 적용본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -52,7 +52,6 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
-// ✨ 본문 텍스트 평탄화 추출기
 function extractTextFromItem(item: any): string[] {
   if (!item) return [];
   
@@ -92,7 +91,6 @@ function extractTextFromItem(item: any): string[] {
   return [String(item)];
 }
 
-// ✨ 화이트스크린 에러 방어 및 정규화
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== 'object') {
     return { id: `slide-${Math.random().toString(36).substr(2, 9)}`, type: 'content', title: '', content: [], chartData: { labels: [], datasets: [] }, tableData: { headers: [], rows: [] }, keyMetrics: [] };
@@ -275,12 +273,28 @@ export const aiService = {
     return { result: data };
   },
 
-  // ✨ Pollinations AI 무료 이미지 생성기 (DeepAI 완전 대체)
+  // ✨ 신규: 긴 본문을 짧은 영어 키워드로 변환하여 URL 길이 초과 에러 방어
   async generateImage(slideTitle: string, slideContent: string) {
-    const prompt = `Professional abstract business presentation background, minimalist corporate style, soft gradient, theme: ${slideTitle}, context: ${slideContent}. High quality, no text, no watermarks, wide screen 16:9.`;
+    let englishKeywords = "abstract business corporate background";
     
     try {
-      const encodedPrompt = encodeURIComponent(prompt);
+      // 1. Gemini를 사용해 본문을 짧은 영어 키워드로 요약 (URL 길이 최적화)
+      const summaryPrompt = `Extract key visual concepts from the following text and return ONLY a short, comma-separated list of 5 English keywords. No explanation.
+      Text: ${slideTitle} ${slideContent}`;
+      
+      const keywordsResult = await callGeminiAPI(summaryPrompt, 50);
+      if (keywordsResult && keywordsResult.length > 3) {
+        englishKeywords = keywordsResult.replace(/['"{}[\].\n]/g, '').trim();
+      }
+    } catch (e) {
+      console.warn("영어 키워드 추출 실패, 기본값 사용");
+    }
+
+    // 2. 압축된 영어 키워드를 사용하여 안전한 길이의 URL 생성
+    const prompt = `Professional presentation background, soft gradient, theme: ${englishKeywords}. High quality, abstract, clean, no text, no watermarks, 16:9.`;
+    
+    try {
+      const encodedPrompt = encodeURIComponent(prompt.slice(0, 300)); // 최후 방어막: 300자로 자름
       const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true`;
       
       const response = await fetch(imageUrl, { method: 'HEAD' });
