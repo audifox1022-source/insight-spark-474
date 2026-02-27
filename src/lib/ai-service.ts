@@ -211,18 +211,14 @@ const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
 };
 
 function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
-  // 첫 슬라이드는 무조건 title
   if (index === 0) return 'title';
-  // 마지막 슬라이드는 무조건 summary
   if (index === total - 1) return 'summary';
 
   const lower = (raw || 'content').toLowerCase().replace(/[_\s-]/g, '');
 
-  // 이미 허용 타입이면 그대로
   if (ALLOWED_SLIDE_TYPES.includes(lower as AllowedSlideType))
     return lower as AllowedSlideType;
 
-  // alias 맵에서 찾기
   return TYPE_ALIAS_MAP[lower] ?? 'content';
 }
 
@@ -242,10 +238,10 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
   s.id    = s.id    || `slide-${Math.random().toString(36).substr(2, 9)}`;
   s.title = s.title || "";
 
-  // ── 1. type 정규화 ─────────────────────────────────────
+  // ── 1. type 정규화
   s.type = normalizeType(s.type || 'content', index, total);
 
-  // ── 2. content 정규화 ──────────────────────────────────
+  // ── 2. content 정규화
   const rawContent =
     s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
@@ -255,11 +251,10 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap(extractTextFromItem);
 
-  // ── 3. chartData → SlideChartData 변환 ────────────────
+  // ── 3. chartData → SlideChartData 변환
   if (s.type === 'chart') {
     const raw = s.chartData || {};
 
-    // 이미 SlideChartData 구조인 경우
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
       s.chartData = {
         chartType:    raw.chartType    ?? raw.type ?? 'bar',
@@ -271,9 +266,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
         xAxisLabel:   raw.xAxisLabel   ?? undefined,
         yAxisLabel:   raw.yAxisLabel   ?? undefined,
       };
-    }
-    // AI 원본 구조 {type, labels, datasets} → 변환
-    else if (Array.isArray(raw.labels) && raw.labels.length > 0 && Array.isArray(raw.datasets)) {
+    } else if (Array.isArray(raw.labels) && raw.labels.length > 0 && Array.isArray(raw.datasets)) {
       const primaryDs   = raw.datasets[0];
       const secondaryDs = raw.datasets[1];
       s.chartData = {
@@ -294,9 +287,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
         xAxisLabel:   raw.xAxisLabel ?? undefined,
         yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
-    }
-    // 데이터 없으면 content로 fallback
-    else {
+    } else {
       s.chartData = null;
       s.type = 'content';
     }
@@ -304,7 +295,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.chartData = null;
   }
 
-  // ── 4. tableData 정규화 ────────────────────────────────
+  // ── 4. tableData 정규화
   if (s.type === 'table') {
     s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
@@ -317,7 +308,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
   }
 
-  // ── 5. keyMetrics 정규화 ───────────────────────────────
+  // ── 5. keyMetrics 정규화
   if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     s.keyMetrics = Array.isArray(rawMetrics)
@@ -332,7 +323,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.keyMetrics = [];
   }
 
-  // ── 6. compare 정규화 ──────────────────────────────────
+  // ── 6. compare 정규화
   if (s.type === 'compare') {
     s.leftItems  = Array.isArray(s.leftItems)  ? s.leftItems  : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
@@ -343,7 +334,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     }
   }
 
-  // ── 7. timeline 정규화 ─────────────────────────────────
+  // ── 7. timeline 정규화
   if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
@@ -355,7 +346,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     if (s.milestones.length === 0) s.type = 'content';
   }
 
-  // ── 8. quote 정규화 ────────────────────────────────────
+  // ── 8. quote 정규화
   if (s.type === 'quote') {
     s.text   = s.text   || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
@@ -473,19 +464,6 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
   );
 }
 
-function verifyImageUrl(url: string, timeoutMs = 30000): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img   = new Image();
-    const timer = setTimeout(() => {
-      img.src = '';
-      reject(new Error('이미지 생성 시간 초과 (30초). 다시 시도해주세요.'));
-    }, timeoutMs);
-    img.onload  = () => { clearTimeout(timer); resolve(url); };
-    img.onerror = () => { clearTimeout(timer); reject(new Error('LOAD_FAILED')); };
-    img.src = url;
-  });
-}
-
 export const aiService = {
 
   // ── 목차 생성 ────────────────────────────────────────
@@ -540,7 +518,6 @@ export const aiService = {
       data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
     }
 
-    // 슬라이드 수 강제 보정
     if (data.outline.length > targetCount)
       data.outline = data.outline.slice(0, targetCount);
 
@@ -554,7 +531,6 @@ export const aiService = {
       });
     }
 
-    // slideNumber 재정렬 + type 정규화
     const total = data.outline.length;
     data.outline = data.outline.map((item: any, i: number) => ({
       ...item,
@@ -573,7 +549,6 @@ export const aiService = {
                       ?? SLIDE_COUNT_MAP[volume]
                       ?? 8;
 
-    // 슬라이드별 타입 지침 생성
     const typeGuide = (body.approvedOutline?.outline || [])
       .map((item: any, i: number) =>
         `  슬라이드 ${i + 1} "${item.title}": type="${item.type}" (고정, 변경 금지)`
@@ -624,7 +599,6 @@ ${typeGuide}
 
     const approvedOutline: any[] = body.approvedOutline?.outline || [];
 
-    // 부족하면 채우기
     if (approvedOutline.length > 0 && data.slides.length < approvedOutline.length) {
       const missing = approvedOutline.slice(data.slides.length);
       missing.forEach((item: any) => {
@@ -632,16 +606,13 @@ ${typeGuide}
         data.slides.push(makeEmptySlide(idx + 1, item, total));
       });
     }
-    // 초과하면 자르기
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
       data.slides = data.slides.slice(0, approvedOutline.length);
     }
 
-    // slideNumber 재정렬 + outline type 강제 덮어쓰기
     data.slides = data.slides.map((s: any, i: number) => ({
       ...s,
       slideNumber: i + 1,
-      // outline에서 승인된 type으로 강제 덮어쓰기
       type: approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
         : s.type,
@@ -767,13 +738,13 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return { result: data };
   },
 
-  // ── AI 이미지 생성 ───────────────────────────────────
+  // ── AI 이미지 생성 (fetch + blob → objectURL 방식) ────
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    let englishKeywords = "abstract business professional corporate";
+    let englishKeywords = 'abstract business professional corporate modern';
 
     try {
       const keywordsResult = await callGeminiAPI(
-        "You are a keyword extractor. Return ONLY a plain comma-separated list, no JSON, no quotes, no markdown.",
+        'You are a keyword extractor. Return ONLY a plain comma-separated list of 5 English keywords, no JSON, no quotes, no markdown.',
         `Extract 5 English visual keywords from: "${slideTitle} ${slideContent}"`,
         100
       );
@@ -785,26 +756,48 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
           .trim()
           .slice(0, 120);
       }
-    } catch {}
+    } catch {
+      // 키워드 추출 실패 시 기본값 유지
+    }
 
-    const prompt = `Professional presentation slide background, ${englishKeywords}, soft gradient, clean, minimal, no text, no watermark, 16:9 aspect ratio`;
+    const prompt = `Professional presentation slide background, ${englishKeywords}, soft gradient, clean minimal design, no text, no watermark, 16:9`;
     const encodedPrompt = encodeURIComponent(prompt);
-    const buildUrl = (seed: number) =>
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}`;
 
-    const seed1 = Math.floor(Math.random() * 9999999);
-    try {
-      return await verifyImageUrl(buildUrl(seed1), 30000);
-    } catch (e: any) {
-      if (e.message === 'LOAD_FAILED') {
-        const seed2 = Math.floor(Math.random() * 9999999);
-        try {
-          return await verifyImageUrl(buildUrl(seed2), 30000);
-        } catch {
-          throw new Error('이미지 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
-        }
+    const buildUrl = (seed: number) =>
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
+
+    // ✅ fetch + blob → objectURL (CORS 우회, Image() 타이밍 문제 해결)
+    const checkImage = async (url: string, timeoutMs = 45000): Promise<string> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { method: 'GET', signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (blob.size < 1000) throw new Error('이미지 크기가 너무 작음');
+        return URL.createObjectURL(blob);
+      } finally {
+        clearTimeout(timer);
       }
-      throw e;
+    };
+
+    const seed1 = Math.floor(Math.random() * 9_999_999);
+    try {
+      return await checkImage(buildUrl(seed1));
+    } catch (e: any) {
+      if (e.name === 'AbortError') {
+        throw new Error('이미지 생성 시간이 초과되었습니다 (45초). 잠시 후 다시 시도해주세요.');
+      }
+      // 재시도 — 다른 seed
+      const seed2 = Math.floor(Math.random() * 9_999_999);
+      try {
+        return await checkImage(buildUrl(seed2), 30000);
+      } catch (e2: any) {
+        if (e2.name === 'AbortError') {
+          throw new Error('이미지 생성 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.');
+        }
+        throw new Error('이미지 생성에 실패했습니다. Pollinations 서버가 일시적으로 불안정할 수 있습니다.');
+      }
     }
   },
 
