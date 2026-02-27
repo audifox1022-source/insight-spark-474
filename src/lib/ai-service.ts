@@ -1,6 +1,7 @@
 /**
  * src/lib/ai-service.ts
  * (🚀 Cloudflare 530 에러 우회 및 이미지 다이렉트 렌더링 적용본)
+ * (✅ callGeminiAPI 안전한 응답 처리 적용)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -174,23 +175,79 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
+// ============================================================
+// ✅ 수정된 callGeminiAPI - 안전한 응답 처리 적용
+// ============================================================
 async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error('VITE_GEMINI_API_KEY 미설정');
   
   const payload = { 
     contents: [{ parts: [{ text: prompt }] }], 
-    generationConfig: { temperature: 0.1, maxOutputTokens: maxTokens, responseMimeType: 'application/json' } 
+    generationConfig: { 
+      temperature: 0.1, 
+      maxOutputTokens: maxTokens, 
+      responseMimeType: 'application/json' 
+    } 
   };
   
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, { 
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) 
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, 
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+  );
   
-  if (!response.ok) throw new Error(`AI 서버 통신 오류 (${response.status})`);
+  // ✅ 변경점 1: HTTP 에러를 상태 코드별로 구분해서 처리합니다.
+  // 기존: throw new Error(`AI 서버 통신 오류 (${response.status})`)
+  // → 모든 에러를 동일하게 처리해 사용자가 원인을 알 수 없었음
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    const message = (errorBody as any)?.error?.message || '알 수 없는 오류';
+
+    if (response.status === 429) {
+      throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    if (response.status === 400) {
+      throw new Error(`잘못된 요청입니다: ${message}`);
+    }
+    if (response.status === 403) {
+      throw new Error('API 키가 유효하지 않습니다. 환경변수를 확인해주세요.');
+    }
+    throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
+  }
+
   const data = await response.json();
-  return data.candidates[0].content.parts[0].text;
+
+  // ✅ 변경점 2: candidates 배열이 없거나 비어있을 때 안전하게 처리합니다.
+  // 기존: data.candidates[0].content.parts[0].text
+  // → candidates가 undefined이거나 빈 배열이면 TypeError 런타임 에러 발생
+  const candidate = data?.candidates?.[0];
+  if (!candidate) {
+    // Gemini가 안전 필터로 요청을 차단한 경우 blockReason이 존재합니다.
+    const blockReason = data?.promptFeedback?.blockReason;
+    if (blockReason) {
+      throw new Error(`콘텐츠 안전 필터에 의해 차단되었습니다: ${blockReason}`);
+    }
+    throw new Error('AI 응답에 결과가 없습니다. 다시 시도해주세요.');
+  }
+
+  // ✅ 변경점 3: 응답이 토큰 한도로 잘렸는지 감지합니다.
+  // finishReason이 MAX_TOKENS이면 슬라이드 내용이 중간에 끊겨 JSON 파싱 실패로 이어집니다.
+  // 콘솔 경고를 남겨 TOKEN_MAP 값을 늘려야 함을 개발자가 알 수 있게 합니다.
+  if (candidate.finishReason === 'MAX_TOKENS') {
+    console.warn('⚠️ AI 응답이 토큰 한도로 잘렸습니다. volume 설정을 줄이거나 TOKEN_MAP 값을 늘려보세요.');
+  }
+
+  // ✅ 변경점 4: 옵셔널 체이닝(?.)으로 text를 안전하게 꺼냅니다.
+  // 기존: data.candidates[0].content.parts[0].text
+  // → 중간 단계 어디서든 undefined이면 즉시 TypeError 발생
+  const text = candidate?.content?.parts?.[0]?.text;
+  if (!text || text.trim() === '') {
+    throw new Error('AI가 빈 응답을 반환했습니다. 다시 시도해주세요.');
+  }
+
+  return text;
 }
+// ============================================================
 
 export const aiService = {
   async getOutline(body: any) {
@@ -293,11 +350,9 @@ export const aiService = {
     
     try {
       const encodedPrompt = encodeURIComponent(prompt.slice(0, 300));
-      // ✨ 랜덤 시드를 주어 새로고침 효과를 주고, HEAD fetch 에러 유발 코드를 삭제했습니다.
       const seed = Math.floor(Math.random() * 1000000); 
       const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
       
-      // UI를 위해 살짝 대기 시간만 주고 바로 이미지를 반환합니다.
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       return imageUrl;
@@ -315,6 +370,8 @@ export const aiService = {
   },
 
   async exportToExternal(presentation: any, platform: 'notion' | 'google') {
+    // TODO: 실제 Notion / Google Slides 연동 구현 필요
+    console.warn(`exportToExternal(${platform}) 는 아직 구현되지 않았습니다.`);
     return new Promise((resolve) => setTimeout(resolve, 1500));
   }
 };
