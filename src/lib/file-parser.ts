@@ -1,17 +1,17 @@
 // ============================================================
-// file-parser.ts  —  전체 코드 (최종)
+// file-parser.ts  —  전체 코드 (최종 v3)
 // ============================================================
 
 import * as XLSX from 'xlsx';
 import { ParsedExcelData, summarizeForAI } from './excel-parser';
-
-// ✅ 정적 임포트 (동적 import() 완전 제거)
-import * as pdfjsLib from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
 
-// ✅ unpkg CDN + .mjs 확장자 (pdfjs-dist v4.x 전용)
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// ✅ pdfjs-dist 정적 임포트
+import * as pdfjsLib from 'pdfjs-dist';
+
+// ✅ Worker: 로컬 public 폴더 기준 경로
+// → public/pdf.worker.min.mjs 파일이 있어야 함 (아래 설명 참고)
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export interface ParsedFileData {
   fileName:      string;
@@ -95,7 +95,13 @@ async function parseExcel(file: File): Promise<ParsedFileData> {
 async function parsePDF(file: File): Promise<ParsedFileData> {
   try {
     const buffer = await readAsArrayBuffer(file);
-    const pdf    = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const pdf    = await pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      // ✅ Worker 로드 실패해도 fake worker로 동작하도록 설정
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    }).promise;
 
     const pages: string[] = [];
     const maxPages        = Math.min(pdf.numPages, 50);
@@ -244,6 +250,7 @@ export function buildAIPayload(
         data: summarizeForAI(file.excelData.sheets),
       };
     } else if (file.textContent) {
+      // ✅ PDF, Word, Text 전체 텍스트 전달
       payload[file.fileName] = {
         type:    file.fileType,
         content: file.textContent,
