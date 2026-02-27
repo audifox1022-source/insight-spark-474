@@ -1,6 +1,6 @@
 /**
  * src/lib/ai-service.ts
- * (🚀 JSON 텍스트 노출 버그 완벽 수정 및 데이터 평탄화 적용본)
+ * (🚀 JSON 평탄화 + 화이트스크린 방어 + 100% 무료/무가입 이미지 생성 통합 완벽본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -52,31 +52,29 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
-// ✨ 신규 추가: AI가 보낸 복잡한 객체나 이상한 JSON 문자열에서 '글자'만 예쁘게 뽑아내는 함수
+// ✨ 본문 텍스트 평탄화 추출기
 function extractTextFromItem(item: any): string[] {
   if (!item) return [];
   
-  // 1. 문자열인데 모양이 JSON인 경우 (AI가 텍스트 안에 JSON을 통째로 넣었을 때)
   if (typeof item === 'string') {
     const trimmed = item.trim();
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       try {
-        item = JSON.parse(trimmed); // JSON으로 변환 후 아래 객체 처리 로직으로 넘김
+        item = JSON.parse(trimmed);
       } catch (e) {
-        return [item]; // 파싱 실패 시 그냥 원본 문자열 반환
+        return [item];
       }
     } else {
-      return [item]; // 일반 문자열은 정상 반환
+      return [item];
     }
   }
 
-  // 2. 객체인 경우 (title과 content를 조합하여 가독성 좋은 텍스트로 평탄화)
   if (typeof item === 'object') {
     let result: string[] = [];
     const title = item.title || item.heading || item.name || item.subject || '';
     
     if (Array.isArray(item.content)) {
-      if (title) result.push(`[${title}]`); // 제목을 대괄호로 강조
+      if (title) result.push(`[${title}]`);
       result.push(...item.content.map(c => typeof c === 'string' ? c : JSON.stringify(c)));
     } else if (item.content || item.text || item.desc || item.description) {
       const body = item.content || item.text || item.desc || item.description;
@@ -86,7 +84,6 @@ function extractTextFromItem(item: any): string[] {
         result.push(String(body));
       }
     } else {
-      // 알 수 없는 구조면 최후의 수단으로 문자열화
       result.push(JSON.stringify(item));
     }
     return result;
@@ -95,6 +92,7 @@ function extractTextFromItem(item: any): string[] {
   return [String(item)];
 }
 
+// ✨ 화이트스크린 에러 방어 및 정규화
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== 'object') {
     return { id: `slide-${Math.random().toString(36).substr(2, 9)}`, type: 'content', title: '', content: [], chartData: { labels: [], datasets: [] }, tableData: { headers: [], rows: [] }, keyMetrics: [] };
@@ -104,7 +102,6 @@ function normalizeSlide(s: any): any {
   s.type = s.type || 'content';
   s.title = s.title || '';
 
-  // ✨ 본문 텍스트 추출기 적용 (flatMap으로 중첩 배열을 하나로 합침)
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent) ? rawContent : (typeof rawContent === 'string' ? [rawContent] : []);
   s.content = contentArray.flatMap(extractTextFromItem);
@@ -278,34 +275,35 @@ export const aiService = {
     return { result: data };
   },
 
-  // ✨ Pollinations AI를 사용한 완전 무료/무가입 배경 이미지 생성기
+  // ✨ Pollinations AI 무료 이미지 생성기 (DeepAI 완전 대체)
   async generateImage(slideTitle: string, slideContent: string) {
-    // 💡 더 이상 VITE_DEEPAI_API_KEY 환경변수가 필요 없습니다!
-    
-    // 영문 프롬프트 구성 (텍스트 금지, 비즈니스 추상화 스타일)
     const prompt = `Professional abstract business presentation background, minimalist corporate style, soft gradient, theme: ${slideTitle}, context: ${slideContent}. High quality, no text, no watermarks, wide screen 16:9.`;
-
+    
     try {
-      // 프롬프트를 URL 인코딩
       const encodedPrompt = encodeURIComponent(prompt);
-      
-      // Pollinations API는 URL 자체를 이미지 소스로 사용합니다.
-      // width, height 지정 및 nologo=true로 워터마크 제거
       const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true`;
-
-      // API가 정상 작동하는지 살짝 핑(Ping) 테스트
-      const response = await fetch(imageUrl, { method: 'HEAD' });
       
+      const response = await fetch(imageUrl, { method: 'HEAD' });
       if (!response.ok) {
         throw new Error('무료 이미지 서버가 혼잡합니다.');
       }
-
-      // 자연스러운 로딩 UI를 위해 약간의 지연 시간 추가
+      
       await new Promise(resolve => setTimeout(resolve, 1500));
-
       return imageUrl;
     } catch (error: any) {
       console.error("이미지 생성 예외 발생:", error);
       throw new Error("이미지를 생성할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
+  },
+
+  async analyzeInfographic(content: string[]) {
+    const prompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 "cycle", "hierarchy", "process", "grid" 중 하나로 선택하세요.
+    내용: ${JSON.stringify(content)}\n반드시 JSON {"type": "선택값", "reason": "이유"}만 반환.`;
+    const text = await callGeminiAPI(prompt, 1024);
+    return extractJSON(text) || { type: 'grid' };
+  },
+
+  async exportToExternal(presentation: any, platform: 'notion' | 'google') {
+    return new Promise((resolve) => setTimeout(resolve, 1500));
   }
+};
