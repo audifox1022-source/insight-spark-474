@@ -1,3 +1,7 @@
+// ============================================================
+// ai-service.ts  —  전체 코드
+// ============================================================
+
 const DIFFICULTY_MAP: Record<string, string> = {
   easy:      "초보자용. 쉬운 설명 위주, 전문 용어 최소화.",
   medium:    "실무자용. 표준 비즈니스 분석 및 전문 용어 사용.",
@@ -26,7 +30,6 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
-// ✅ 허용 타입 12개 고정
 const ALLOWED_SLIDE_TYPES = [
   'title', 'agenda', 'content', 'process',
   'compare', 'chart', 'table', 'kpi',
@@ -49,7 +52,6 @@ function getSystemPromptCore(difficulty = "medium"): string {
 - 배열 내부에 { } 객체를 절대 넣지 마세요.`;
 }
 
-// ✅ 슬라이드 타입 12개 고정 스키마
 const SLIDE_SCHEMA = `
 [📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
 
@@ -122,7 +124,6 @@ function truncateFileData(fileData: any): string {
 
 function extractTextFromItem(item: any): string[] {
   if (!item) return [];
-
   if (typeof item === "string") {
     let cleanStr = item.trim();
     cleanStr = cleanStr.replace(/^[^a-zA-Z0-9가-힣{[]+/, "").trim();
@@ -136,7 +137,6 @@ function extractTextFromItem(item: any): string[] {
       return [cleanStr];
     }
   }
-
   if (typeof item === "object") {
     const result: string[] = [];
     const title =
@@ -145,7 +145,6 @@ function extractTextFromItem(item: any): string[] {
       item.content || item.items  || item.points ||
       item.bullets || item.text   || item.desc   ||
       item.description || [];
-
     if (Array.isArray(bodyData)) {
       if (title) result.push(`[${title}]`);
       result.push(
@@ -166,45 +165,31 @@ function extractTextFromItem(item: any): string[] {
     }
     return result;
   }
-
   return [String(item)];
 }
 
-// ✅ 타입 정규화 맵 — AI가 반환할 수 있는 alias를 허용 타입으로 변환
 const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
-  // title 계열
   'cover': 'title', 'intro': 'title', 'introduction': 'title', 'opening': 'title',
-  // agenda 계열
   'toc': 'agenda', 'tableofcontents': 'agenda', 'index': 'agenda', 'outline': 'agenda',
-  // content 계열
   'text': 'content', 'bullet': 'content', 'bullets': 'content',
   'overview': 'content', 'detail': 'content', 'description': 'content',
   'information': 'content', 'info': 'content', 'data': 'content',
-  // process 계열
   'steps': 'process', 'step': 'process', 'flow': 'process',
   'workflow': 'process', 'procedure': 'process', 'processlist': 'process',
-  // compare 계열
   'comparison': 'compare', 'versus': 'compare', 'barcompare': 'compare',
   'statscompare': 'compare', 'vs': 'compare',
-  // chart 계열
   'bar': 'chart', 'line': 'chart', 'pie': 'chart', 'area': 'chart',
   'barchart': 'chart', 'linechart': 'chart', 'piechart': 'chart',
   'graph': 'chart', 'visualization': 'chart',
-  // table 계열
   'tabledata': 'table', 'grid': 'table', 'matrix': 'table', 'spreadsheet': 'table',
-  // kpi 계열
   'metric': 'kpi', 'metrics': 'kpi', 'stats': 'kpi',
   'scorecard': 'kpi', 'indicator': 'kpi', 'dashboard': 'kpi',
-  // cards 계열
   'card': 'cards', 'headercard': 'cards', 'headercards': 'cards',
   'bulletcard': 'cards', 'bulletcards': 'cards', 'features': 'cards',
   'grid_cards': 'cards',
-  // quote 계열
   'quotation': 'quote', 'citation': 'quote',
-  // timeline 계열
   'roadmap': 'timeline', 'schedule': 'timeline', 'milestone': 'timeline',
   'milestones': 'timeline', 'gantt': 'timeline',
-  // summary 계열
   'conclusion': 'summary', 'closing': 'summary', 'end': 'summary',
   'finale': 'summary', 'wrap': 'summary', 'wrapup': 'summary',
   'takeaway': 'summary', 'takeaways': 'summary',
@@ -213,12 +198,9 @@ const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
 function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
   if (index === 0) return 'title';
   if (index === total - 1) return 'summary';
-
   const lower = (raw || 'content').toLowerCase().replace(/[_\s-]/g, '');
-
   if (ALLOWED_SLIDE_TYPES.includes(lower as AllowedSlideType))
     return lower as AllowedSlideType;
-
   return TYPE_ALIAS_MAP[lower] ?? 'content';
 }
 
@@ -237,11 +219,8 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 
   s.id    = s.id    || `slide-${Math.random().toString(36).substr(2, 9)}`;
   s.title = s.title || "";
+  s.type  = normalizeType(s.type || 'content', index, total);
 
-  // ── 1. type 정규화
-  s.type = normalizeType(s.type || 'content', index, total);
-
-  // ── 2. content 정규화
   const rawContent =
     s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
@@ -251,10 +230,8 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap(extractTextFromItem);
 
-  // ── 3. chartData → SlideChartData 변환
   if (s.type === 'chart') {
     const raw = s.chartData || {};
-
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
       s.chartData = {
         chartType:    raw.chartType    ?? raw.type ?? 'bar',
@@ -295,7 +272,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.chartData = null;
   }
 
-  // ── 4. tableData 정규화
   if (s.type === 'table') {
     s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
@@ -308,7 +284,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
   }
 
-  // ── 5. keyMetrics 정규화
   if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     s.keyMetrics = Array.isArray(rawMetrics)
@@ -323,18 +298,14 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.keyMetrics = [];
   }
 
-  // ── 6. compare 정규화
   if (s.type === 'compare') {
     s.leftItems  = Array.isArray(s.leftItems)  ? s.leftItems  : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
     s.leftTitle  = s.leftTitle  || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
-    if (s.leftItems.length === 0 && s.rightItems.length === 0) {
-      s.type = 'content';
-    }
+    if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
   }
 
-  // ── 7. timeline 정규화
   if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
@@ -346,7 +317,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     if (s.milestones.length === 0) s.type = 'content';
   }
 
-  // ── 8. quote 정규화
   if (s.type === 'quote') {
     s.text   = s.text   || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
@@ -359,7 +329,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
-
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
@@ -390,7 +359,6 @@ function extractJSON(text: string): any | null {
       firstBrace !== -1 && firstBracket !== -1
         ? Math.min(firstBrace, firstBracket)
         : Math.max(firstBrace, firstBracket);
-
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
       let braces   = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
@@ -464,6 +432,94 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
   );
 }
 
+// ── 이미지 생성 헬퍼 1: Gemini Imagen ─────────────────────────────────────
+async function generateWithGeminiImagen(
+  slideTitle: string,
+  slideContent: string
+): Promise<string | null> {
+  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!API_KEY) return null;
+
+  const prompt = [
+    'Professional presentation slide background image.',
+    `Topic: ${slideTitle}`,
+    slideContent ? `Context: ${slideContent.slice(0, 100)}` : '',
+    'Style: soft gradient, clean minimal corporate design, abstract shapes, no text, no watermark, 16:9 landscape.',
+  ].filter(Boolean).join(' ');
+
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+  };
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${API_KEY}`,
+    {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) return null;
+
+  const data  = await res.json();
+  const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
+
+  for (const part of parts) {
+    if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+  }
+  return null;
+}
+
+// ── 이미지 생성 헬퍼 2: Pollinations (img 태그 + Canvas 변환, CORS 우회) ──
+function generateWithPollinationsImg(
+  _slideTitle: string,
+  _slideContent: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const safeKeywords = 'professional corporate abstract minimal gradient';
+    const prompt = `Professional presentation background, ${safeKeywords}, 16:9, no text, no watermark`;
+    const seed   = Math.floor(Math.random() * 9_999_999);
+    const url    = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
+
+    const img        = new Image();
+    img.crossOrigin  = 'anonymous';
+
+    const timer = setTimeout(() => {
+      img.src = '';
+      reject(new Error('Pollinations 타임아웃 (30초)'));
+    }, 30_000);
+
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const canvas    = document.createElement('canvas');
+        canvas.width    = img.naturalWidth  || 1280;
+        canvas.height   = img.naturalHeight || 720;
+        const ctx       = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.9));
+      } catch {
+        // Canvas taint 시 URL 자체를 반환 (슬라이드 <img src>에는 사용 가능)
+        resolve(url);
+      }
+    };
+
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('Pollinations 서버 오류'));
+    };
+
+    img.src = url;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// aiService 메인 객체
+// ══════════════════════════════════════════════════════════════
 export const aiService = {
 
   // ── 목차 생성 ────────────────────────────────────────
@@ -738,67 +794,31 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return { result: data };
   },
 
-  // ── AI 이미지 생성 (fetch + blob → objectURL 방식) ────
+  // ── AI 이미지 생성 ────────────────────────────────────
+  // 1순위: Gemini Imagen API (base64 직접 반환, CORS 없음)
+  // 2순위: Pollinations img 태그 + Canvas 변환 (CORS 우회)
+  // ──────────────────────────────────────────────────────
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    let englishKeywords = 'abstract business professional corporate modern';
 
+    // ── 1순위: Gemini Imagen ──────────────────────────────
     try {
-      const keywordsResult = await callGeminiAPI(
-        'You are a keyword extractor. Return ONLY a plain comma-separated list of 5 English keywords, no JSON, no quotes, no markdown.',
-        `Extract 5 English visual keywords from: "${slideTitle} ${slideContent}"`,
-        100
-      );
-      if (keywordsResult && keywordsResult.trim().length > 3) {
-        englishKeywords = keywordsResult
-          .replace(/```[\s\S]*?```/g, '')
-          .replace(/[{}\[\]"'\n\r`]/g, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 120);
-      }
+      const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
+      if (imgDataUrl) return imgDataUrl;
     } catch {
-      // 키워드 추출 실패 시 기본값 유지
+      // 실패 시 2순위로
     }
 
-    const prompt = `Professional presentation slide background, ${englishKeywords}, soft gradient, clean minimal design, no text, no watermark, 16:9`;
-    const encodedPrompt = encodeURIComponent(prompt);
-
-    const buildUrl = (seed: number) =>
-      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
-
-    // ✅ fetch + blob → objectURL (CORS 우회, Image() 타이밍 문제 해결)
-    const checkImage = async (url: string, timeoutMs = 45000): Promise<string> => {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { method: 'GET', signal: controller.signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (blob.size < 1000) throw new Error('이미지 크기가 너무 작음');
-        return URL.createObjectURL(blob);
-      } finally {
-        clearTimeout(timer);
-      }
-    };
-
-    const seed1 = Math.floor(Math.random() * 9_999_999);
+    // ── 2순위: Pollinations img 태그 방식 ────────────────
     try {
-      return await checkImage(buildUrl(seed1));
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
-        throw new Error('이미지 생성 시간이 초과되었습니다 (45초). 잠시 후 다시 시도해주세요.');
-      }
-      // 재시도 — 다른 seed
-      const seed2 = Math.floor(Math.random() * 9_999_999);
-      try {
-        return await checkImage(buildUrl(seed2), 30000);
-      } catch (e2: any) {
-        if (e2.name === 'AbortError') {
-          throw new Error('이미지 생성 시간이 초과되었습니다. 네트워크 상태를 확인해주세요.');
-        }
-        throw new Error('이미지 생성에 실패했습니다. Pollinations 서버가 일시적으로 불안정할 수 있습니다.');
-      }
+      const url = await generateWithPollinationsImg(slideTitle, slideContent);
+      if (url) return url;
+    } catch {
+      // 완전 실패
     }
+
+    throw new Error(
+      '이미지 생성에 실패했습니다. 잠시 후 다시 시도하거나 직접 이미지를 업로드해주세요.'
+    );
   },
 
   // ── 인포그래픽 분석 ──────────────────────────────────
