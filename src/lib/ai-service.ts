@@ -7,9 +7,9 @@ const DIFFICULTY_MAP: Record<string, string> = {
 
 const VOLUME_MAP: Record<string, string> = {
   brief:         "정확히 4장.  표지 1 + 핵심내용 2 + 마무리 1.",
-  standard:      "정확히 8장.  표지 1 + 본문 6 + 마무리 1.",
-  detailed:      "정확히 13장. 표지 1 + 본문 11 + 마무리 1.",
-  comprehensive: "정확히 18장. 표지 1 + 본문 16 + 마무리 1.",
+  standard:      "정확히 8장.  표지 1 + 목차 1 + 본문 5 + 마무리 1.",
+  detailed:      "정확히 13장. 표지 1 + 목차 1 + 본문 10 + 마무리 1.",
+  comprehensive: "정확히 18장. 표지 1 + 목차 1 + 본문 15 + 마무리 1.",
 };
 
 const SLIDE_COUNT_MAP: Record<string, number> = {
@@ -26,29 +26,92 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
+// ✅ 허용 타입 12개 고정
+const ALLOWED_SLIDE_TYPES = [
+  'title', 'agenda', 'content', 'process',
+  'compare', 'chart', 'table', 'kpi',
+  'cards', 'quote', 'timeline', 'summary',
+] as const;
+type AllowedSlideType = typeof ALLOWED_SLIDE_TYPES[number];
+
 function getSystemPromptCore(difficulty = "medium"): string {
   const tone = DIFFICULTY_MAP[difficulty] ?? DIFFICULTY_MAP.medium;
   return `당신은 글로벌 상위 1% 전략 컨설턴트이자 TED 프레젠테이션 전문가입니다.
 [🎯 톤 & 수준]: ${tone}
 
-[👑 최고급 가독성 및 텍스트 제한 절대 규칙]
-1. 극단적 간결화 (명사형 종결): 슬라이드 본문에 서술형 문장("~했습니다")을 절대 쓰지 마세요.
-2. 글자 수 엄격 제한: 제목 20자, 소제목 30자, 포인트 항목당 25자 이내로 쪼개세요.
-3. 스피커 노트(notes): 화면에 담지 못한 긴 설명이나 대본은 전부 'notes' 필드에 넣으세요.
+[👑 텍스트 제한 절대 규칙]
+1. 슬라이드 본문에 서술형 문장("~했습니다")을 절대 쓰지 마세요. 명사형 종결만 허용.
+2. 제목 20자 이내, content 항목당 25자 이내로 간결하게 작성하세요.
+3. 긴 설명·대본은 전부 'notes' 필드에 넣으세요.
 
-[🚫 절대 금지 규칙 - JSON 삽입 금지]
-- "content", "points", "items" 등 배열 안에는 오직 '순수한 일반 문자열'만 넣어야 합니다.
-- 절대 배열 내부에 객체({ "title":... })를 넣거나 문자열 안에 JSON 형식을 적지 마세요.`;
+[🚫 JSON 삽입 금지]
+- content/items/points 배열 안에는 순수 문자열만 넣으세요.
+- 배열 내부에 { } 객체를 절대 넣지 마세요.`;
 }
 
+// ✅ 슬라이드 타입 12개 고정 스키마
 const SLIDE_SCHEMA = `
-[📊 특수 슬라이드 타입 필수 JSON 구조]
-- "chart" 타입:
-  "chartData": {"type": "bar" | "line" | "pie" | "area", "labels": ["항목1","항목2"], "datasets": [{"label": "데이터명", "data": [10, 20]}]}
-- "kpi" 타입:
-  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up" | "down" | "flat"}]
-- "table" 타입:
-  "tableData": {"headers": ["열1", "열2"], "rows": [["값1", "값2"]]}
+[📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
+
+type     | 용도                        | 필수 필드
+---------|-----------------------------|-----------------------------------------
+title    | 표지 (1번 슬라이드 전용)      | content: [부제목] (1~2개)
+agenda   | 목차                         | content: [항목들] (3~8개)
+content  | 일반 불릿                    | content: [항목들] (3~6개)
+process  | 순서/단계                    | content: [단계들] (3~7개, 순서 중요)
+compare  | 좌우 비교                    | leftTitle, rightTitle, leftItems[], rightItems[]
+chart    | 차트                         | chartData (labels + datasets 필수)
+table    | 표                           | tableData (headers + rows 필수)
+kpi      | 수치 지표                    | keyMetrics [{label, value, trend}]
+cards    | 카드 그리드                  | content: [항목들] (3~6개)
+quote    | 인용구                       | text, author
+timeline | 타임라인                     | milestones [{label, date, state}]
+summary  | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
+
+[📊 chart 타입 chartData 구조 예시]
+"chartData": {
+  "type": "bar",
+  "labels": ["1분기", "2분기", "3분기"],
+  "datasets": [{"label": "매출(억)", "data": [120, 145, 168]}]
+}
+type은 "bar" | "line" | "pie" | "area" 중 하나.
+
+[📋 table 타입 tableData 구조 예시]
+"tableData": {
+  "headers": ["항목", "현황", "목표"],
+  "rows": [["생산량", "1,200톤", "1,500톤"], ["불량률", "2.1%", "1.5%"]]
+}
+
+[🎯 kpi 타입 keyMetrics 구조 예시]
+"keyMetrics": [
+  {"label": "생산량", "value": "1,200톤", "trend": "up"},
+  {"label": "불량률", "value": "2.1%",   "trend": "down"},
+  {"label": "가동률", "value": "87%",    "trend": "flat"}
+]
+trend는 "up" | "down" | "flat" 중 하나.
+
+[🔄 compare 타입 구조 예시]
+"leftTitle": "AS-IS",
+"rightTitle": "TO-BE",
+"leftItems": ["수작업 공정", "품질 편차 큼"],
+"rightItems": ["자동화 공정", "품질 균일화"]
+
+[📅 timeline 타입 milestones 구조 예시]
+"milestones": [
+  {"label": "착수", "date": "2025.01", "state": "done"},
+  {"label": "중간점검", "date": "2025.06", "state": "next"},
+  {"label": "완료", "date": "2025.12", "state": "todo"}
+]
+state는 "done" | "next" | "todo" 중 하나.
+
+[🔥 타입 사용 절대 규칙]
+1. type은 반드시 위 12개 중 하나여야 합니다. 다른 값은 오답입니다.
+2. 첫 번째 슬라이드 type = 반드시 "title".
+3. 마지막 슬라이드 type = 반드시 "summary".
+4. chart / table / kpi 타입에는 반드시 해당 데이터 필드가 있어야 합니다.
+5. compare 타입에는 반드시 leftItems[], rightItems[]가 있어야 합니다.
+6. timeline 타입에는 반드시 milestones[]가 있어야 합니다.
+7. content 배열 안에는 순수 문자열만 허용. JSON 객체 금지.
 `;
 
 function truncateFileData(fileData: any): string {
@@ -107,11 +170,67 @@ function extractTextFromItem(item: any): string[] {
   return [String(item)];
 }
 
-function normalizeSlide(s: any): any {
+// ✅ 타입 정규화 맵 — AI가 반환할 수 있는 alias를 허용 타입으로 변환
+const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
+  // title 계열
+  'cover': 'title', 'intro': 'title', 'introduction': 'title', 'opening': 'title',
+  // agenda 계열
+  'toc': 'agenda', 'tableofcontents': 'agenda', 'index': 'agenda', 'outline': 'agenda',
+  // content 계열
+  'text': 'content', 'bullet': 'content', 'bullets': 'content',
+  'overview': 'content', 'detail': 'content', 'description': 'content',
+  'information': 'content', 'info': 'content', 'data': 'content',
+  // process 계열
+  'steps': 'process', 'step': 'process', 'flow': 'process',
+  'workflow': 'process', 'procedure': 'process', 'processlist': 'process',
+  // compare 계열
+  'comparison': 'compare', 'versus': 'compare', 'barcompare': 'compare',
+  'statscompare': 'compare', 'vs': 'compare',
+  // chart 계열
+  'bar': 'chart', 'line': 'chart', 'pie': 'chart', 'area': 'chart',
+  'barchart': 'chart', 'linechart': 'chart', 'piechart': 'chart',
+  'graph': 'chart', 'visualization': 'chart',
+  // table 계열
+  'tabledata': 'table', 'grid': 'table', 'matrix': 'table', 'spreadsheet': 'table',
+  // kpi 계열
+  'metric': 'kpi', 'metrics': 'kpi', 'stats': 'kpi',
+  'scorecard': 'kpi', 'indicator': 'kpi', 'dashboard': 'kpi',
+  // cards 계열
+  'card': 'cards', 'headercard': 'cards', 'headercards': 'cards',
+  'bulletcard': 'cards', 'bulletcards': 'cards', 'features': 'cards',
+  'grid_cards': 'cards',
+  // quote 계열
+  'quotation': 'quote', 'citation': 'quote',
+  // timeline 계열
+  'roadmap': 'timeline', 'schedule': 'timeline', 'milestone': 'timeline',
+  'milestones': 'timeline', 'gantt': 'timeline',
+  // summary 계열
+  'conclusion': 'summary', 'closing': 'summary', 'end': 'summary',
+  'finale': 'summary', 'wrap': 'summary', 'wrapup': 'summary',
+  'takeaway': 'summary', 'takeaways': 'summary',
+};
+
+function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
+  // 첫 슬라이드는 무조건 title
+  if (index === 0) return 'title';
+  // 마지막 슬라이드는 무조건 summary
+  if (index === total - 1) return 'summary';
+
+  const lower = (raw || 'content').toLowerCase().replace(/[_\s-]/g, '');
+
+  // 이미 허용 타입이면 그대로
+  if (ALLOWED_SLIDE_TYPES.includes(lower as AllowedSlideType))
+    return lower as AllowedSlideType;
+
+  // alias 맵에서 찾기
+  return TYPE_ALIAS_MAP[lower] ?? 'content';
+}
+
+function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
       id:         `slide-${Math.random().toString(36).substr(2, 9)}`,
-      type:       "content",
+      type:       index === 0 ? 'title' : index === total - 1 ? 'summary' : 'content',
       title:      "",
       content:    [],
       chartData:  null,
@@ -123,7 +242,10 @@ function normalizeSlide(s: any): any {
   s.id    = s.id    || `slide-${Math.random().toString(36).substr(2, 9)}`;
   s.title = s.title || "";
 
-  // ── 1. content 정규화 ──────────────────────────────────
+  // ── 1. type 정규화 ─────────────────────────────────────
+  s.type = normalizeType(s.type || 'content', index, total);
+
+  // ── 2. content 정규화 ──────────────────────────────────
   const rawContent =
     s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
@@ -133,24 +255,8 @@ function normalizeSlide(s: any): any {
     : [];
   s.content = contentArray.flatMap(extractTextFromItem);
 
-  // ── 2. type 정규화 ─────────────────────────────────────
-  const CHART_ALIASES = [
-    'bar','line','pie','area',
-    'barchart','linechart','piechart','areachart',
-    'chart','graph','visualization',
-  ];
-  const TABLE_ALIASES = ['table','tabledata','grid','matrix'];
-  const KPI_ALIASES   = ['kpi','metric','metrics','stats','scorecard','indicator'];
-
-  const rawType = (s.type || "content").toLowerCase();
-
-  if      (TABLE_ALIASES.includes(rawType) && (s.tableData  || s.headers))   s.type = 'table';
-  else if (KPI_ALIASES.includes(rawType)   && (s.keyMetrics || s.metrics))   s.type = 'kpi';
-  else if (CHART_ALIASES.includes(rawType) || s.chartData)                    s.type = 'chart';
-  else                                                                         s.type = s.type || 'content';
-
   // ── 3. chartData → SlideChartData 변환 ────────────────
-  if (s.type === 'chart' || s.chartData) {
+  if (s.type === 'chart') {
     const raw = s.chartData || {};
 
     // 이미 SlideChartData 구조인 경우
@@ -189,19 +295,17 @@ function normalizeSlide(s: any): any {
         yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
     }
-    // 파싱 불가 → content fallback
+    // 데이터 없으면 content로 fallback
     else {
       s.chartData = null;
       s.type = 'content';
     }
-
-    if (s.chartData) s.type = 'chart';
   } else {
     s.chartData = null;
   }
 
   // ── 4. tableData 정규화 ────────────────────────────────
-  if (s.type === 'table' || s.tableData) {
+  if (s.type === 'table') {
     s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
     s.tableData.rows    = Array.isArray(s.tableData.rows)    ? s.tableData.rows    : [];
@@ -220,12 +324,42 @@ function normalizeSlide(s: any): any {
       ? rawMetrics.map((m: any) => ({
           label: m.label || m.name  || '',
           value: m.value || m.score || '',
-          trend: m.trend || m.direction || 'flat',
+          trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
       : [];
     if (s.keyMetrics.length === 0) s.type = 'content';
   } else {
     s.keyMetrics = [];
+  }
+
+  // ── 6. compare 정규화 ──────────────────────────────────
+  if (s.type === 'compare') {
+    s.leftItems  = Array.isArray(s.leftItems)  ? s.leftItems  : [];
+    s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
+    s.leftTitle  = s.leftTitle  || 'AS-IS';
+    s.rightTitle = s.rightTitle || 'TO-BE';
+    if (s.leftItems.length === 0 && s.rightItems.length === 0) {
+      s.type = 'content';
+    }
+  }
+
+  // ── 7. timeline 정규화 ─────────────────────────────────
+  if (s.type === 'timeline') {
+    s.milestones = Array.isArray(s.milestones)
+      ? s.milestones.map((m: any) => ({
+          label: m.label || m.title || m.name || '',
+          date:  m.date  || '',
+          state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
+        }))
+      : [];
+    if (s.milestones.length === 0) s.type = 'content';
+  }
+
+  // ── 8. quote 정규화 ────────────────────────────────────
+  if (s.type === 'quote') {
+    s.text   = s.text   || s.quote || s.content?.[0] || '';
+    s.author = s.author || s.source || s.content?.[1] || '';
+    if (!s.text) s.type = 'content';
   }
 
   return s;
@@ -238,16 +372,25 @@ function extractJSON(text: string): any | null {
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
-  try {
-    const parsed = JSON.parse(cleanText);
-    if (parsed && Array.isArray(parsed.slides))
-      parsed.slides = parsed.slides.map(normalizeSlide);
-    if (parsed && Array.isArray(parsed.outline))
-      parsed.outline = parsed.outline.map((item: any) => ({
-        ...item, type: item.type || "content",
+  const tryParse = (str: string) => {
+    const parsed = JSON.parse(str);
+    if (parsed && Array.isArray(parsed.slides)) {
+      const total = parsed.slides.length;
+      parsed.slides = parsed.slides.map((s: any, i: number) =>
+        normalizeSlide(s, i, total)
+      );
+    }
+    if (parsed && Array.isArray(parsed.outline)) {
+      const total = parsed.outline.length;
+      parsed.outline = parsed.outline.map((item: any, i: number) => ({
+        ...item,
+        type: normalizeType(item.type || 'content', i, total),
       }));
+    }
     return parsed;
-  } catch {}
+  };
+
+  try { return tryParse(cleanText); } catch {}
 
   try {
     const firstBrace   = cleanText.indexOf("{");
@@ -265,15 +408,7 @@ function extractJSON(text: string): any | null {
       while (brackets > 0) { repaired += "]"; brackets--; }
       while (braces   > 0) { repaired += "}"; braces--;   }
       repaired = repaired.replace(/,\s*([\]}])/g, "$1");
-
-      const parsed = JSON.parse(repaired);
-      if (parsed && Array.isArray(parsed.slides))
-        parsed.slides = parsed.slides.map(normalizeSlide);
-      if (parsed && Array.isArray(parsed.outline))
-        parsed.outline = parsed.outline.map((item: any) => ({
-          ...item, type: item.type || "content",
-        }));
-      return parsed;
+      return tryParse(repaired);
     }
   } catch {}
 
@@ -324,39 +459,36 @@ async function callGeminiAPI(
   return text;
 }
 
-function makeEmptySlide(slideNumber: number, outlineItem?: any) {
-  return normalizeSlide({
-    slideNumber,
-    title:   outlineItem?.title ?? `슬라이드 ${slideNumber}`,
-    type:    outlineItem?.type  ?? "content",
-    content: ["내용을 입력하세요."],
-  });
+function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
+  const index = slideNumber - 1;
+  return normalizeSlide(
+    {
+      slideNumber,
+      title:   outlineItem?.title ?? `슬라이드 ${slideNumber}`,
+      type:    outlineItem?.type  ?? 'content',
+      content: ["내용을 입력하세요."],
+    },
+    index,
+    total
+  );
 }
 
-// ✅ 수정: 이미지 실제 로드 검증 유틸
 function verifyImageUrl(url: string, timeoutMs = 30000): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-
+    const img   = new Image();
     const timer = setTimeout(() => {
       img.src = '';
       reject(new Error('이미지 생성 시간 초과 (30초). 다시 시도해주세요.'));
     }, timeoutMs);
-
-    img.onload = () => {
-      clearTimeout(timer);
-      resolve(url);
-    };
-    img.onerror = () => {
-      clearTimeout(timer);
-      reject(new Error('LOAD_FAILED'));
-    };
+    img.onload  = () => { clearTimeout(timer); resolve(url); };
+    img.onerror = () => { clearTimeout(timer); reject(new Error('LOAD_FAILED')); };
     img.src = url;
   });
 }
 
 export const aiService = {
 
+  // ── 목차 생성 ────────────────────────────────────────
   async getOutline(body: any) {
     const volume      = body.settings?.volume     || "standard";
     const difficulty  = body.settings?.difficulty || "medium";
@@ -368,24 +500,36 @@ export const aiService = {
 [원본]\n${truncateFileData(body.fileData)}
 
 [🔥 절대 규칙]
-1. 슬라이드 수: 반드시 정확히 ${targetCount}장이어야 합니다.
-   - ${volumeGuideline}
-   - outline 배열의 길이가 정확히 ${targetCount}개가 아니면 오답입니다.
-2. 배열 내부에 절대 JSON 형식이나 큰따옴표를 쓰지 마세요.
+1. 슬라이드 수: 반드시 정확히 ${targetCount}장.
+   ${volumeGuideline}
+2. 슬라이드 타입은 반드시 아래 12개 중 하나만 사용하세요:
+   title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary
+3. 슬라이드 1번 type = 반드시 "title"
+4. 슬라이드 2번 type = 반드시 "agenda" (4장 이상일 때)
+5. 마지막 슬라이드 type = 반드시 "summary"
+6. 수치/데이터가 있으면 chart 또는 kpi 사용 권장
+7. 단계/절차가 있으면 process 사용 권장
+8. 비교가 있으면 compare 사용 권장
+9. outline 배열 길이가 정확히 ${targetCount}개가 아니면 오답
 
-반드시 아래 형식만 반환 (outline 배열 길이 = ${targetCount}):
-{"title": "제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "설명"}]}`;
+반드시 아래 형식만 반환:
+{"title":"발표 제목","outline":[
+  {"slideNumber":1,"title":"표지","type":"title","description":"설명"},
+  {"slideNumber":2,"title":"목차","type":"agenda","description":"설명"},
+  ...
+  {"slideNumber":${targetCount},"title":"마무리","type":"summary","description":"설명"}
+]}`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     let data   = extractJSON(text);
 
     if (!data) {
       data = {
-        title: "기획안 요약",
+        title: "기획안",
         outline: Array.from({ length: targetCount }, (_, i) => ({
           slideNumber: i + 1,
-          title: i === 0 ? "표지" : i === targetCount - 1 ? "마무리" : `내용 ${i}`,
-          type:  i === 0 ? "title" : i === targetCount - 1 ? "summary" : "content",
+          title: i === 0 ? "표지" : i === 1 ? "목차" : i === targetCount - 1 ? "마무리" : `내용 ${i}`,
+          type:  i === 0 ? "title" : i === 1 ? "agenda" : i === targetCount - 1 ? "summary" : "content",
           description: "내용 작성 필요",
         })),
       };
@@ -396,6 +540,7 @@ export const aiService = {
       data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
     }
 
+    // 슬라이드 수 강제 보정
     if (data.outline.length > targetCount)
       data.outline = data.outline.slice(0, targetCount);
 
@@ -409,13 +554,18 @@ export const aiService = {
       });
     }
 
+    // slideNumber 재정렬 + type 정규화
+    const total = data.outline.length;
     data.outline = data.outline.map((item: any, i: number) => ({
-      ...item, slideNumber: i + 1,
+      ...item,
+      slideNumber: i + 1,
+      type: normalizeType(item.type || 'content', i, total),
     }));
 
     return { title: data.title ?? "새 발표 자료", outline: data.outline };
   },
 
+  // ── 슬라이드 생성 ────────────────────────────────────
   async generatePresentation(body: any) {
     const difficulty = body.settings?.difficulty || "medium";
     const volume     = body.settings?.volume     || "standard";
@@ -423,18 +573,30 @@ export const aiService = {
                       ?? SLIDE_COUNT_MAP[volume]
                       ?? 8;
 
+    // 슬라이드별 타입 지침 생성
+    const typeGuide = (body.approvedOutline?.outline || [])
+      .map((item: any, i: number) =>
+        `  슬라이드 ${i + 1} "${item.title}": type="${item.type}" (고정, 변경 금지)`
+      ).join('\n');
+
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
 
-[미션] 아래 구성안을 기반으로 슬라이드를 완성하세요.
+[미션] 아래 구성안을 기반으로 완성도 높은 슬라이드를 생성하세요.
 
-[🔥 절대 규칙]
-1. slides 배열의 길이는 반드시 정확히 ${slideCount}개여야 합니다.
-2. 각 슬라이드는 구성안의 순서와 제목을 반드시 따릅니다.
-3. 배열 내부에 JSON 객체를 절대 넣지 마세요.
-4. chart 타입 슬라이드는 반드시 chartData 필드를 포함하세요.
-5. kpi 타입 슬라이드는 반드시 keyMetrics 필드를 포함하세요.
-6. table 타입 슬라이드는 반드시 tableData 필드를 포함하세요.
+[🔥 생성 절대 규칙]
+1. slides 배열 길이 = 반드시 정확히 ${slideCount}개.
+2. 각 슬라이드의 type은 반드시 구성안의 type 그대로 유지 (변경 금지).
+3. chart 타입 → chartData 필수 포함.
+4. table 타입 → tableData 필수 포함.
+5. kpi 타입 → keyMetrics 필수 포함.
+6. compare 타입 → leftItems[], rightItems[] 필수 포함.
+7. timeline 타입 → milestones[] 필수 포함.
+8. content 배열 안에는 순수 문자열만. JSON 객체 금지.
+9. 제목 20자 이내, content 항목 25자 이내.
+
+[슬라이드별 타입 지침 (절대 준수)]
+${typeGuide}
 
 [원본]\n${truncateFileData(body.fileData)}
 [구성안]\n${JSON.stringify(body.approvedOutline)}
@@ -448,75 +610,100 @@ export const aiService = {
     if (!data) {
       data = {
         title: body.approvedOutline?.title || "자동 생성 발표자료",
-        slides: (body.approvedOutline?.outline || []).map((item: any) =>
-          makeEmptySlide(item.slideNumber, item)
+        slides: (body.approvedOutline?.outline || []).map((item: any, i: number) =>
+          makeEmptySlide(item.slideNumber, item, slideCount)
         ),
       };
     }
 
     if (Array.isArray(data)) data = { title: "새 발표 자료", slides: data };
     if (!data.slides || !Array.isArray(data.slides)) data.slides = [];
-    data.slides = data.slides.map(normalizeSlide);
+
+    const total = slideCount;
+    data.slides = data.slides.map((s: any, i: number) => normalizeSlide(s, i, total));
 
     const approvedOutline: any[] = body.approvedOutline?.outline || [];
 
+    // 부족하면 채우기
     if (approvedOutline.length > 0 && data.slides.length < approvedOutline.length) {
       const missing = approvedOutline.slice(data.slides.length);
       missing.forEach((item: any) => {
-        data.slides.push(makeEmptySlide(data.slides.length + 1, item));
+        const idx = data.slides.length;
+        data.slides.push(makeEmptySlide(idx + 1, item, total));
       });
     }
+    // 초과하면 자르기
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
       data.slides = data.slides.slice(0, approvedOutline.length);
     }
 
+    // slideNumber 재정렬 + outline type 강제 덮어쓰기
     data.slides = data.slides.map((s: any, i: number) => ({
-      ...s, slideNumber: i + 1,
+      ...s,
+      slideNumber: i + 1,
+      // outline에서 승인된 type으로 강제 덮어쓰기
+      type: approvedOutline[i]
+        ? normalizeType(approvedOutline[i].type, i, total)
+        : s.type,
     }));
 
     return { presentation: data };
   },
 
+  // ── 단일 슬라이드 재생성 ────────────────────────────
   async regenerateSlide(body: any) {
     const systemInstruction = getSystemPromptCore(body.settings?.difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 아래 슬라이드를 재작성하세요.
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 요청사항: ${body.userInstruction || "더 풍부하고 임팩트 있게"}
-chart/kpi/table 타입이면 반드시 해당 데이터 필드를 포함하세요.
+
+[규칙]
+- type은 "${body.currentSlide?.type}"으로 고정. 변경 금지.
+- 해당 type의 필수 필드를 반드시 포함하세요.
 JSON만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
     if (!json) throw new Error("재생성 파싱 실패");
-    return { slide: normalizeSlide(json) };
+    return { slide: normalizeSlide(json, 1, 3) };
   },
 
+  // ── 채팅 편집 ────────────────────────────────────────
   async chatEdit(body: any) {
     const systemInstruction = getSystemPromptCore();
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 아래 요청을 반영해 슬라이드를 수정하세요.
 요청: ${body.userMessage}
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
-chart/kpi/table 타입이면 반드시 해당 데이터 필드를 포함하세요.
+
+[규칙]
+- type은 "${body.currentSlide?.type}"으로 고정 (사용자가 변경을 명시 요청하지 않는 한).
+- 해당 type의 필수 필드를 반드시 포함하세요.
 JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
-    if (json?.slide) json.slide = normalizeSlide(json.slide);
+    if (json?.slide) json.slide = normalizeSlide(json.slide, 1, 3);
     return { result: json || {} };
   },
 
+  // ── 페르소나 변환 ────────────────────────────────────
   async changePersona(body: any) {
     const systemInstruction = getSystemPromptCore(body.persona);
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] "${body.persona}" 스타일로 슬라이드를 변환하세요.
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
+
+[규칙]
+- type은 "${body.currentSlide?.type}"으로 고정.
+- 해당 type의 필수 필드를 반드시 유지하세요.
 JSON만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
     if (!json) throw new Error("스타일 변환 파싱 실패");
-    return { slide: normalizeSlide(json) };
+    return { slide: normalizeSlide(json, 1, 3) };
   },
 
+  // ── 검토 ─────────────────────────────────────────────
   async review(body: any) {
     const systemInstruction = "당신은 프레젠테이션 전문 검토자입니다.";
     const userPrompt = `다음 프레젠테이션을 검토하고 반드시 아래 JSON 형식만 반환하세요.
@@ -537,11 +724,11 @@ JSON만 반환.`;
       "suggestion": "개선 제안"
     }
   ],
-  "generalTips": ["전반적인 팁 1", "팁 2", "팁 3"]
+  "generalTips": ["팁 1", "팁 2", "팁 3"]
 }
-category는 반드시 readability, content, structure, visual, data 중 하나.
-severity는 반드시 high, medium, low 중 하나.
-strengths는 반드시 3개 이상 작성하세요.`;
+category: readability | content | structure | visual | data
+severity: high | medium | low
+strengths: 반드시 3개 이상.`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     let data   = extractJSON(text);
@@ -558,25 +745,29 @@ strengths는 반드시 3개 이상 작성하세요.`;
     };
   },
 
+  // ── 전체 최적화 ──────────────────────────────────────
   async reviewAndFix(body: any) {
     const difficulty = body.settings?.difficulty || "medium";
     const volume     = body.settings?.volume     || "detailed";
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 전체 발표자료를 최적화하세요.
-chart/kpi/table 타입 슬라이드는 반드시 해당 데이터 필드를 유지하세요.
+- 각 슬라이드의 type을 유지하고 해당 type 필수 필드를 반드시 보존하세요.
 현재 발표자료: ${JSON.stringify(body.presentation)}
 JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume]);
     let data   = extractJSON(text);
     if (!data) throw new Error("전체 최적화 실패");
     if (data.presentation && Array.isArray(data.presentation.slides)) {
-      data.presentation.slides = data.presentation.slides.map(normalizeSlide);
+      const total = data.presentation.slides.length;
+      data.presentation.slides = data.presentation.slides.map(
+        (s: any, i: number) => normalizeSlide(s, i, total)
+      );
     }
     return { result: data };
   },
 
-  // ✅ 수정: 이미지 실제 로드 검증 + 재시도 포함
+  // ── AI 이미지 생성 ───────────────────────────────────
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
     let englishKeywords = "abstract business professional corporate";
 
@@ -598,22 +789,17 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
 
     const prompt = `Professional presentation slide background, ${englishKeywords}, soft gradient, clean, minimal, no text, no watermark, 16:9 aspect ratio`;
     const encodedPrompt = encodeURIComponent(prompt);
-
     const buildUrl = (seed: number) =>
       `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}`;
 
     const seed1 = Math.floor(Math.random() * 9999999);
-    const url1  = buildUrl(seed1);
-
     try {
-      return await verifyImageUrl(url1, 30000);
+      return await verifyImageUrl(buildUrl(seed1), 30000);
     } catch (e: any) {
       if (e.message === 'LOAD_FAILED') {
-        // 1회 재시도 — 다른 seed
         const seed2 = Math.floor(Math.random() * 9999999);
-        const url2  = buildUrl(seed2);
         try {
-          return await verifyImageUrl(url2, 30000);
+          return await verifyImageUrl(buildUrl(seed2), 30000);
         } catch {
           throw new Error('이미지 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
         }
@@ -622,20 +808,23 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     }
   },
 
+  // ── 인포그래픽 분석 ──────────────────────────────────
   async analyzeInfographic(content: string[]) {
     const systemInstruction = "당신은 데이터 시각화 전문가입니다.";
-    const userPrompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 "cycle", "hierarchy", "process", "grid" 중 하나로 선택하세요.
+    const userPrompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 아래 중 하나로 선택하세요.
+선택지: "cycle", "hierarchy", "process", "grid"
 내용: ${JSON.stringify(content)}
-반드시 JSON {"type": "선택값", "reason": "이유"}만 반환.`;
+반드시 JSON {"type":"선택값","reason":"이유"}만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 1024);
     return extractJSON(text) || { type: "grid" };
   },
 
+  // ── 템플릿 분석 ──────────────────────────────────────
   async analyzeTemplate(templateData: string) {
     const systemInstruction = "당신은 디자인 분석 전문가입니다.";
     const userPrompt = `다음 템플릿 데이터를 분석하여 주요 색상과 스타일을 추출하세요.
 템플릿: ${templateData.slice(0, 1000)}
-반드시 JSON만 반환: {"primaryColor": "#1B3A5C", "accentColor": "#0D8ECF", "description": "스타일 설명"}`;
+반드시 JSON만 반환: {"primaryColor":"#1B3A5C","accentColor":"#0D8ECF","description":"스타일 설명"}`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 512);
     return extractJSON(text) || {
       primaryColor: "#1B3A5C",
@@ -644,6 +833,7 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     };
   },
 
+  // ── 외부 내보내기 ────────────────────────────────────
   async exportToExternal(
     _presentation: any,
     _platform: "notion" | "google"
