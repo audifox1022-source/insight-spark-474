@@ -14,8 +14,8 @@ import { TranslatorWorkspace } from '@/components/TranslatorWorkspace';
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
   HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
-  X, BookOpen, UploadCloud, SlidersHorizontal, Download,
-  FileText, Users, Eye, Globe, CheckCircle2,
+  X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
+  Users, Eye, Globe, CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
+// ── 프리셋 타입 ────────────────────────────────────────────────
 type PresetField = {
   id: string;
   label: string;
@@ -57,9 +58,9 @@ const PROMPT_PRESETS: Preset[] = [
     icon: '📊',
     label: '성과 보고',
     fields: [
-      { id: 'period',      label: '보고 기간',    placeholder: '예: 2025년 1분기',       suggestions: ['2026년 1분기', '상반기', '2025년 연간'] },
-      { id: 'achievement', label: '주요 성과',    placeholder: '예: 매출 25% 성장',      suggestions: ['매출 25% 성장', '신규 고객 1만명', 'NPS 15점 상승'] },
-      { id: 'plan',        label: 'Next Step',   placeholder: '예: 신시장 진출 2건',     suggestions: ['채용 확대', '글로벌 진출', '신규 라인업 출시'] },
+      { id: 'period',      label: '보고 기간',   placeholder: '예: 2025년 1분기',      suggestions: ['2026년 1분기', '상반기', '2025년 연간'] },
+      { id: 'achievement', label: '주요 성과',   placeholder: '예: 매출 25% 성장',     suggestions: ['매출 25% 성장', '신규 고객 1만명', 'NPS 15점 상승'] },
+      { id: 'plan',        label: 'Next Step',  placeholder: '예: 신시장 진출 2건',    suggestions: ['채용 확대', '글로벌 진출', '신규 라인업 출시'] },
     ],
     generate: d => `${d.period} 성과 보고.\n주요 성과: ${d.achievement}\nNext Step: ${d.plan}`,
   },
@@ -76,16 +77,17 @@ const PROMPT_PRESETS: Preset[] = [
   },
 ];
 
+// ══════════════════════════════════════════════════════════════
 const Index = () => {
   const navigate = useNavigate();
 
   type AppMode = 'presentation' | 'translator';
-  const [activeApp, setActiveApp] = useState<AppMode>('presentation');
+  const [activeApp, setActiveApp]         = useState<AppMode>('presentation');
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [helpOpen, setHelpOpen]           = useState(false);
   const [activePresetId, setActivePresetId] = useState<string>('manual');
-  const [presetData, setPresetData] = useState<Record<string, string>>({});
-  const [manualPrompt, setManualPrompt] = useState('');
+  const [presetData, setPresetData]         = useState<Record<string, string>>({});
+  const [manualPrompt, setManualPrompt]     = useState('');
 
   const visitorStats = useVisitorCount();
 
@@ -132,19 +134,19 @@ const Index = () => {
     updatePresentationTitle,
   } = usePresentation();
 
-  const guide = getStepGuide(step);
+  const guide       = getStepGuide(step);
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId);
 
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           HEADER
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
 
-          {/* ── 왼쪽: 로고 + 타이틀 ── */}
+          {/* 왼쪽: 로고 + 타이틀 */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <motion.div
               className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
@@ -166,7 +168,7 @@ const Index = () => {
             </div>
           </div>
 
-          {/* ── 가운데: 앱 전환 탭 ── */}
+          {/* 가운데: 앱 전환 탭 */}
           <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
             <button
               onClick={() => setActiveApp('presentation')}
@@ -194,10 +196,9 @@ const Index = () => {
             </button>
           </div>
 
-          {/* ── 오른쪽: StepIndicator + 액션 버튼 ── */}
+          {/* 오른쪽: StepIndicator + 액션 버튼 */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
 
-            {/* StepIndicator */}
             {activeApp === 'presentation' && (
               <>
                 <StepIndicator currentStep={step} />
@@ -205,7 +206,7 @@ const Index = () => {
               </>
             )}
 
-            {/* 기록 버튼 */}
+            {/* 기록 */}
             <Button
               variant="ghost"
               size="sm"
@@ -300,14 +301,14 @@ const Index = () => {
             >
               <LogOut className="w-4 h-4" />
             </Button>
-          </div>
 
+          </div>
         </div>
       </header>
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           도움말 모달
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       <AnimatePresence>
         {helpOpen && activeApp === 'presentation' && (
           <motion.div
@@ -324,23 +325,16 @@ const Index = () => {
               onClick={e => e.stopPropagation()}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
             >
-              {/* 모달 헤더 */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
                 <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
                   <BookOpen className="w-5 h-5 text-primary" />
                   AI 발표자료 생성기 사용 가이드
                 </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setHelpOpen(false)}
-                  className="w-8 h-8 rounded-full"
-                >
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full">
                   <X className="w-5 h-5" />
                 </Button>
               </div>
 
-              {/* 모달 본문 */}
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
                 <div className="flex gap-4">
                   <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
@@ -404,9 +398,9 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           단계 안내 바 (preview 제외)
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       {activeApp === 'presentation' && step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -429,9 +423,9 @@ const Index = () => {
         </AnimatePresence>
       )}
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           MAIN CONTENT
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
 
         {/* 번역 작업실 */}
@@ -514,10 +508,11 @@ const Index = () => {
                     ))}
                   </div>
 
-                  {/* 프리셋 입력 폼 or 직접 입력 */}
+                  {/* 입력 영역 */}
                   <div className="relative">
                     <AnimatePresence mode="wait">
                       {activePreset ? (
+                        /* 프리셋 폼 */
                         <motion.div
                           key={activePreset.id}
                           initial={{ opacity: 0, scale: 0.98 }}
@@ -577,7 +572,7 @@ const Index = () => {
                             <Textarea
                               value={manualPrompt}
                               onChange={e => setManualPrompt(e.target.value)}
-                              placeholder="발표 주제나 내용을 자유롭게 입력하세요&#10;예: 2026년 상반기 마케팅 전략 보고 — 디지털 채널 전환 현황과 하반기 로드맵"
+                              placeholder={`발표 주제나 내용을 자유롭게 입력하세요\n예: 2026년 상반기 마케팅 전략 보고 — 디지털 채널 전환 현황과 하반기 로드맵`}
                               className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
                               rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
                               onKeyDown={e => {
@@ -603,7 +598,7 @@ const Index = () => {
                 </motion.div>
 
                 {/* 구분선 */}
-                <div className="relative flex items-center justify-center py-6 max-w-3xl mx-auto">
+                <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
                   <div className="border-t border-border absolute w-full" />
                   <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">
                     또는 파일 업로드
@@ -708,9 +703,9 @@ const Index = () => {
         )}
       </div>
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           패널들 (History / Chat / Review)
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       {activeApp === 'presentation' && (
         <HistoryPanel
           open={historyOpen}
@@ -745,9 +740,9 @@ const Index = () => {
         />
       )}
 
-      {/* ════════════════════════════════════════
+      {/* ══════════════════════════════════════════
           FOOTER
-      ════════════════════════════════════════ */}
+      ══════════════════════════════════════════ */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
         <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
@@ -772,7 +767,7 @@ const Index = () => {
                 <Eye className="w-3.5 h-3.5 text-primary/60" />
                 <span>누적 방문</span>
                 <span className="font-bold text-foreground">
-                  {visitorStats.totalvisits.toLocaleString()}
+                  {(visitorStats.totalvisits ?? 0).toLocaleString()}
                 </span>
               </div>
               <div className="w-px h-3 bg-border" />
@@ -780,7 +775,7 @@ const Index = () => {
                 <Users className="w-3.5 h-3.5 text-primary/60" />
                 <span>유니크</span>
                 <span className="font-bold text-foreground">
-                  {visitorStats.uniqueusers.toLocaleString()}
+                  {(visitorStats.uniqueusers ?? 0).toLocaleString()}
                 </span>
               </div>
               <div className="w-px h-3 bg-border" />
@@ -788,7 +783,7 @@ const Index = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>오늘</span>
                 <span className="font-bold text-foreground">
-                  {visitorStats.todayvisits.toLocaleString()}
+                  {(visitorStats.todayvisits ?? 0).toLocaleString()}
                 </span>
               </div>
             </motion.div>
