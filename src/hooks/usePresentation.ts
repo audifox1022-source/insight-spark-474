@@ -302,8 +302,10 @@ export function usePresentation() {
     setPresentation((prev) => {
       if (!prev) return prev;
       const slides = [...prev.slides];
-      // 🔧 슬라이드 업데이트 시에도 정규화 적용
-      slides[index] = normalizeSlideForApp({ ...slides[index], ...updated }, index);
+      // ✅ 단순 merge: normalizeSlideForApp 재호출 제거
+      // normalizeSlideForApp은 AI 응답 수신 시에만 적용해야 하며,
+      // 사용자 직접 편집(튜닝값 등)에 재적용하면 값이 덮어씌워질 수 있음
+      slides[index] = { ...slides[index], ...updated };
       return { ...prev, slides };
     });
   }, []);
