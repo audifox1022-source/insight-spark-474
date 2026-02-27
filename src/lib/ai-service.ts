@@ -1,6 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
- * (🚀 무한 로딩 방지 및 파싱 안전장치 완벽 적용)
+ * (🚀 JSON 잘림 방지 및 토큰 용량 최적화 완료)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -58,37 +58,59 @@ function normalizeSlide(s: any): any {
   return s;
 }
 
-// ✨ JSON 강제 추출 및 복구 로직 (에러 방지)
+// ✨ JSON 강제 추출 및 복구 로직 (에러 완벽 방어)
 function extractJSON(text: string): any | null {
+  if (!text) return null;
+  let cleanText = text.trim();
+
+  // 1. 마크다운 블록 제거
+  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (mdMatch) cleanText = mdMatch[1].trim();
+
+  // 2. 일반적인 파싱 시도
   try {
-    let cleanText = text.trim();
-    const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (mdMatch) cleanText = mdMatch[1].trim();
-    
     const parsed = JSON.parse(cleanText);
-    
     if (parsed.slides && Array.isArray(parsed.slides)) {
       parsed.slides = parsed.slides.map(normalizeSlide);
     }
-    
     return parsed;
-  } catch (e) {
-    console.error("JSON 파싱 1차 실패, 복구 시도...", e);
-    // JSON이 깨졌을 경우를 대비한 2차 복구 시도
-    try {
-      let repaired = text.trim().replace(/```(?:json)?/g, '').replace(/```/g, '');
-      const firstBrace = repaired.indexOf('{');
-      const firstBracket = repaired.indexOf('[');
-      const startIdx = (firstBrace !== -1 && firstBracket !== -1) ? Math.min(firstBrace, firstBracket) : Math.max(firstBrace, firstBracket);
-      if (startIdx !== -1) {
-        repaired = repaired.substring(startIdx);
-        return JSON.parse(repaired);
-      }
-    } catch(e2) {
-      console.error("JSON 파싱 최종 실패");
-    }
-    return null; // 완전히 실패 시 null 반환
+  } catch (e1) {
+    console.warn("JSON 1차 파싱 실패. 구조 복구를 시도합니다.");
   }
+
+  // 3. JSON이 중간에 잘리거나 쓰레기 값이 붙은 경우 강제 복구
+  try {
+    const firstBrace = cleanText.indexOf('{');
+    const firstBracket = cleanText.indexOf('[');
+    const startIdx = (firstBrace !== -1 && firstBracket !== -1) ? Math.min(firstBrace, firstBracket) : Math.max(firstBrace, firstBracket);
+    
+    if (startIdx !== -1) {
+      let repaired = cleanText.substring(startIdx);
+      
+      // 잘린 괄호 강제 닫기 (휴리스틱 복구)
+      let braces = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
+      let brackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
+      
+      // 마지막 쉼표 제거
+      repaired = repaired.replace(/,\s*$/, '');
+      
+      while (brackets > 0) { repaired += ']'; brackets--; }
+      while (braces > 0) { repaired += '}'; braces--; }
+
+      // 배열/객체 끝의 불필요한 쉼표 제거 (e.g., [1, 2, ] -> [1, 2])
+      repaired = repaired.replace(/,\s*([\]}])/g, '$1');
+
+      const parsed = JSON.parse(repaired);
+      if (parsed.slides && Array.isArray(parsed.slides)) {
+        parsed.slides = parsed.slides.map(normalizeSlide);
+      }
+      return parsed;
+    }
+  } catch (e2) {
+    console.error("JSON 파싱 최종 실패:", e2);
+  }
+  
+  return null; // 복구 불가능 시
 }
 
 async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
@@ -110,7 +132,7 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
-  // 🚀 구성안 생성 로직 (방어 로직 추가)
+  // 🚀 구성안 생성 로직 (토큰 넉넉하게 확보 + 예외 처리)
   async getOutline(body: any) {
     const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 빠르게 설계하세요.
     [원본]
@@ -121,32 +143,31 @@ export const aiService = {
     - 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
     {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "핵심 내용"}]}`;
     
-    const text = await callGeminiAPI(prompt, 1024);
+    // ✨ 변경점: 토큰 제한을 1024 -> 4096으로 늘려서 잘림 현상 원천 차단
+    const text = await callGeminiAPI(prompt, 4096); 
     let data = extractJSON(text);
 
-    // ✨ 중요: 데이터가 null이면 무한 로딩에 빠지지 않도록 강제로 에러를 던져 UI 복구
     if (!data) throw new Error("AI가 구성안 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
 
-    // ✨ 중요: AI가 {"title":..., "outline":[]} 형식이 아니라 그냥 배열 [...] 로 던졌을 경우를 대비한 보정
+    // AI가 배열 형태로 던졌을 경우 객체로 포장
     if (Array.isArray(data)) {
       data = { title: "새 발표 자료", outline: data };
     } else if (!data.outline && data.slides) {
-      // slides라는 이름으로 줬을 경우 outline으로 치환
       data.outline = data.slides;
+    } else if (!data.outline) {
+      // 그 외의 경우 억지로라도 형식을 맞춰줌
+      data.outline = [{ slideNumber: 1, title: data.title || "도입", type: "content", description: "내용" }];
     }
 
     return { outline: data };
   },
 
-  // 🚀 전체 발표자료 생성 로직 (방어 로직 추가)
   async generatePresentation(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 완성\n[원본]\n${truncateFileData(body.fileData)}\nJSON 반환: {"title":"제목","slides":[]}`, TOKEN_MAP[body.settings?.volume || 'standard']);
     let data = extractJSON(text);
 
-    // 무한 로딩 방지
     if (!data) throw new Error("AI가 슬라이드 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
 
-    // 배열로만 반환했을 경우 보정
     if (Array.isArray(data)) {
       data = { title: "새 발표 자료", slides: data };
     }
@@ -217,7 +238,7 @@ export const aiService = {
     내용: ${JSON.stringify(content)}
     반드시 JSON {"type": "선택값", "reason": "이유"}만 반환.`;
     const text = await callGeminiAPI(prompt, 1024);
-    return extractJSON(text);
+    return extractJSON(text) || { type: 'grid' };
   },
 
   // ✨ 연동 목업
