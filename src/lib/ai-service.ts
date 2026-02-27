@@ -1,6 +1,6 @@
 /**
  * src/lib/ai-service.ts
- * (🚀 Supabase 서버를 거치지 않고 프론트엔드에서 100% 직접 처리하는 무적 방어본)
+ * (🚀 JSON 텍스트 노출 버그 완벽 수정 및 데이터 평탄화 적용본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -52,6 +52,49 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
+// ✨ 신규 추가: AI가 보낸 복잡한 객체나 이상한 JSON 문자열에서 '글자'만 예쁘게 뽑아내는 함수
+function extractTextFromItem(item: any): string[] {
+  if (!item) return [];
+  
+  // 1. 문자열인데 모양이 JSON인 경우 (AI가 텍스트 안에 JSON을 통째로 넣었을 때)
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        item = JSON.parse(trimmed); // JSON으로 변환 후 아래 객체 처리 로직으로 넘김
+      } catch (e) {
+        return [item]; // 파싱 실패 시 그냥 원본 문자열 반환
+      }
+    } else {
+      return [item]; // 일반 문자열은 정상 반환
+    }
+  }
+
+  // 2. 객체인 경우 (title과 content를 조합하여 가독성 좋은 텍스트로 평탄화)
+  if (typeof item === 'object') {
+    let result: string[] = [];
+    const title = item.title || item.heading || item.name || item.subject || '';
+    
+    if (Array.isArray(item.content)) {
+      if (title) result.push(`[${title}]`); // 제목을 대괄호로 강조
+      result.push(...item.content.map(c => typeof c === 'string' ? c : JSON.stringify(c)));
+    } else if (item.content || item.text || item.desc || item.description) {
+      const body = item.content || item.text || item.desc || item.description;
+      if (title) {
+        result.push(`[${title}] ${body}`);
+      } else {
+        result.push(String(body));
+      }
+    } else {
+      // 알 수 없는 구조면 최후의 수단으로 문자열화
+      result.push(JSON.stringify(item));
+    }
+    return result;
+  }
+
+  return [String(item)];
+}
+
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== 'object') {
     return { id: `slide-${Math.random().toString(36).substr(2, 9)}`, type: 'content', title: '', content: [], chartData: { labels: [], datasets: [] }, tableData: { headers: [], rows: [] }, keyMetrics: [] };
@@ -61,10 +104,10 @@ function normalizeSlide(s: any): any {
   s.type = s.type || 'content';
   s.title = s.title || '';
 
+  // ✨ 본문 텍스트 추출기 적용 (flatMap으로 중첩 배열을 하나로 합침)
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
-  s.content = Array.isArray(rawContent)
-    ? rawContent.map((p: any) => typeof p === 'object' ? (p.title || p.text || JSON.stringify(p)) : String(p))
-    : (typeof rawContent === 'string' ? [rawContent] : []);
+  const contentArray = Array.isArray(rawContent) ? rawContent : (typeof rawContent === 'string' ? [rawContent] : []);
+  s.content = contentArray.flatMap(extractTextFromItem);
 
   if (s.type === 'chart' || s.chartData) {
     s.chartData = s.chartData || {};
@@ -136,7 +179,6 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
-// ✨ 핵심: Supabase 서버를 거치지 않고 프론트에서 즉시 Gemini API를 호출합니다.
 async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error('VITE_GEMINI_API_KEY 미설정');
