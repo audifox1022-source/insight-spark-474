@@ -1,5 +1,5 @@
 // ============================================================
-// ScaledSlide.tsx  —  전체 코드 (최종)
+// ScaledSlide.tsx  —  전체 코드 (A4 버전)
 // ============================================================
 import React from 'react';
 import {
@@ -11,14 +11,14 @@ import { SlideChart } from '@/components/SlideChart';
 
 // ── 타입 정의 ─────────────────────────────────────────────────
 interface ChartDataNew {
-  chartType:    'bar' | 'line' | 'pie' | 'area';
-  title?:       string;
-  data:         { name: string; value: number; value2?: number }[];
+  chartType:     'bar' | 'line' | 'pie' | 'area';
+  title?:        string;
+  data:          { name: string; value: number; value2?: number }[];
   series1Label?: string;
   series2Label?: string;
-  showLegend?:  boolean;
-  xAxisLabel?:  string;
-  yAxisLabel?:  string;
+  showLegend?:   boolean;
+  xAxisLabel?:   string;
+  yAxisLabel?:   string;
 }
 
 interface ChartDataLegacy {
@@ -28,46 +28,39 @@ interface ChartDataLegacy {
 }
 
 interface Slide {
-  id?:             string;
-  type?:           string;
-  title?:          string;
-  content?:        string[];
-  points?:         string[];
-  items?:          string[];
+  id?:              string;
+  type?:            string;
+  title?:           string;
+  content?:         string[];
+  points?:          string[];
+  items?:           string[];
   infographicType?: string;
-  // chart
-  chartData?:      ChartDataNew | ChartDataLegacy | null;
-  // table
-  tableData?:      { headers?: string[]; rows?: string[][] } | null;
-  // kpi
-  keyMetrics?:     { label: string; value: string; trend?: string }[];
-  // compare
-  leftTitle?:      string;
-  rightTitle?:     string;
-  leftItems?:      string[];
-  rightItems?:     string[];
-  // timeline
-  milestones?:     { label: string; date?: string; state?: 'done' | 'next' | 'todo' }[];
-  // quote
-  text?:           string;
-  author?:         string;
-  // misc
-  notes?:          string;
-  slideNumber?:    number;
-  titleSizeScale?: number;
+  chartData?:       ChartDataNew | ChartDataLegacy | null;
+  tableData?:       { headers?: string[]; rows?: string[][] } | null;
+  keyMetrics?:      { label: string; value: string; trend?: string }[];
+  leftTitle?:       string;
+  rightTitle?:      string;
+  leftItems?:       string[];
+  rightItems?:      string[];
+  milestones?:      { label: string; date?: string; state?: 'done' | 'next' | 'todo' }[];
+  text?:            string;
+  author?:          string;
+  notes?:           string;
+  slideNumber?:     number;
+  titleSizeScale?:  number;
   contentSizeScale?: number;
-  visualRatio?:    number;
-  tableDensity?:   'compact' | 'normal' | 'relaxed';
-  imageUrl?:       string;
-  layout?:         string;
-  persona?:        string;
+  visualRatio?:     number;
+  tableDensity?:    'compact' | 'normal' | 'relaxed';
+  imageUrl?:        string;
+  layout?:          string;
+  persona?:         string;
 }
 
 interface ScaledSlideProps {
-  slide:             Slide;
+  slide:              Slide;
   containerClassName?: string;
-  logoUrl?:          string;
-  watermark?:        string;
+  logoUrl?:           string;
+  watermark?:         string;
 }
 
 // ── 유틸 ──────────────────────────────────────────────────────
@@ -87,14 +80,17 @@ function isNewChartData(d: ChartDataNew | ChartDataLegacy): d is ChartDataNew {
     (d as ChartDataNew).data?.[0]?.name !== undefined;
 }
 
-// ── 메인 컴포넌트 ─────────────────────────────────────────────
+// ── A4 비율 래퍼 컴포넌트 ────────────────────────────────────
+// A4 비율 = 1 : 1.4142 (√2)
+// 인쇄 기준 → 가로 고정, 세로를 141.42%로
+const A4_RATIO = 141.42; // paddingBottom %
+
 export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   slide,
   containerClassName = '',
   logoUrl,
   watermark,
 }) => {
-  // ── 기본값
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content    = Array.isArray(rawContent) ? rawContent : [];
 
@@ -103,68 +99,68 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   const visualRatio      = slide.visualRatio      ?? 50;
   const textRatio        = 100 - visualRatio;
 
-  const titleFontSize   = `${3   * titleSizeScale}rem`;
-  const contentFontSize = `${1.45 * contentSizeScale}rem`;
+  const titleFontSize   = `${2.4 * titleSizeScale}rem`;    // A4는 약간 작게
+  const contentFontSize = `${1.2 * contentSizeScale}rem`;  // A4는 약간 작게
 
   const tablePaddingY =
-    slide.tableDensity === 'compact'  ? 'py-1.5' :
-    slide.tableDensity === 'relaxed'  ? 'py-5'   : 'py-3';
+    slide.tableDensity === 'compact'  ? 'py-1'   :
+    slide.tableDensity === 'relaxed'  ? 'py-3.5' : 'py-2';
 
-  // ── ① title 슬라이드 ───────────────────────────────────────
+  // ── ① title 슬라이드 ─────────────────────────────────────
   const renderTitle = () => (
-    <div className="h-full flex flex-col items-center justify-center text-center px-20 gap-6">
+    <div className="h-full flex flex-col items-center justify-center text-center px-14 gap-5">
       <h1
         className="font-black text-gray-900 tracking-tight leading-tight"
-        style={{ fontSize: `${3.6 * titleSizeScale}rem` }}
+        style={{ fontSize: `${3 * titleSizeScale}rem` }}
       >
         {slide.title}
       </h1>
       {content[0] && (
-        <p className="text-gray-500 font-medium" style={{ fontSize: `${1.6 * contentSizeScale}rem` }}>
+        <p className="text-gray-500 font-medium" style={{ fontSize: `${1.4 * contentSizeScale}rem` }}>
           {content[0]}
         </p>
       )}
       {content[1] && (
-        <p className="text-gray-400" style={{ fontSize: `${1.3 * contentSizeScale}rem` }}>
+        <p className="text-gray-400" style={{ fontSize: `${1.1 * contentSizeScale}rem` }}>
           {content[1]}
         </p>
       )}
-      <div className="w-24 h-1.5 rounded-full bg-primary mt-4" />
+      <div className="w-20 h-1.5 rounded-full bg-primary mt-3" />
     </div>
   );
 
-  // ── ② agenda 슬라이드 ─────────────────────────────────────
+  // ── ② agenda 슬라이드 ────────────────────────────────────
   const renderAgenda = () => (
-    <div className="h-full flex flex-col justify-center gap-4 px-4">
+    <div className="h-full flex flex-col justify-center gap-3 px-2">
       {content.map((item, i) => (
-        <div key={i} className="flex items-center gap-5 p-4 rounded-2xl hover:bg-gray-50 transition-colors">
-          <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center font-black text-xl flex-shrink-0">
+        <div key={i} className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+          <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center font-black text-base flex-shrink-0">
             {String(i + 1).padStart(2, '0')}
           </div>
           <span className="font-semibold text-gray-800" style={{ fontSize: contentFontSize }}>
             {safeStr(item)}
           </span>
-          <ChevronRight className="ml-auto text-gray-300 w-5 h-5 flex-shrink-0" />
+          <ChevronRight className="ml-auto text-gray-300 w-4 h-4 flex-shrink-0" />
         </div>
       ))}
     </div>
   );
 
-  // ── ③ content / 기본 불릿 ─────────────────────────────────
+  // ── ③ content 불릿 ───────────────────────────────────────
   const renderBullets = () => {
     if (content.length === 0) {
       return (
-        <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-4 border-2 border-dashed border-gray-100 rounded-3xl">
-          <Layers className="w-16 h-16 opacity-20" />
-          <p className="text-xl font-medium">내용을 입력하세요</p>
+        <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-3 border-2 border-dashed border-gray-100 rounded-2xl">
+          <Layers className="w-12 h-12 opacity-20" />
+          <p className="text-base font-medium">내용을 입력하세요</p>
         </div>
       );
     }
     return (
-      <ul className="space-y-5 h-full flex flex-col justify-center">
+      <ul className="space-y-4 h-full flex flex-col justify-center">
         {content.map((item, i) => (
-          <li key={i} className="flex items-start gap-4 leading-snug text-gray-800" style={{ fontSize: contentFontSize }}>
-            <span className="mt-2 w-3 h-3 rounded-full bg-primary flex-shrink-0" />
+          <li key={i} className="flex items-start gap-3 leading-snug text-gray-800" style={{ fontSize: contentFontSize }}>
+            <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0" />
             {safeStr(item)}
           </li>
         ))}
@@ -174,17 +170,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── ④ process 슬라이드 ───────────────────────────────────
   const renderProcess = () => (
-    <div className="h-full flex flex-col justify-center gap-3">
+    <div className="h-full flex flex-col justify-center gap-2.5">
       {content.map((item, i) => (
-        <div key={i} className="flex items-center gap-4">
-          <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg flex-shrink-0">
+        <div key={i} className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-base flex-shrink-0">
             {i + 1}
           </div>
-          <div className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 font-medium text-gray-800" style={{ fontSize: contentFontSize }}>
+          <div className="flex-1 p-3 bg-gray-50 rounded-lg border border-gray-200 font-medium text-gray-800" style={{ fontSize: contentFontSize }}>
             {safeStr(item)}
           </div>
           {i < content.length - 1 && (
-            <ArrowRight className="text-primary w-5 h-5 flex-shrink-0" />
+            <ArrowRight className="text-primary w-4 h-4 flex-shrink-0" />
           )}
         </div>
       ))}
@@ -197,42 +193,36 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const rightItems = Array.isArray(slide.rightItems) ? slide.rightItems : [];
     const leftTitle  = slide.leftTitle  || 'AS-IS';
     const rightTitle = slide.rightTitle || 'TO-BE';
-
     return (
-      <div className="h-full flex gap-6 items-stretch">
-        {/* 왼쪽 */}
-        <div className="flex-1 flex flex-col rounded-2xl overflow-hidden border border-gray-200">
-          <div className="bg-gray-700 text-white text-center py-3 font-bold text-xl">
+      <div className="h-full flex gap-4 items-stretch">
+        <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-gray-200">
+          <div className="bg-gray-700 text-white text-center py-2.5 font-bold text-base">
             {leftTitle}
           </div>
-          <div className="flex-1 bg-gray-50 p-6 flex flex-col gap-3 justify-center">
+          <div className="flex-1 bg-gray-50 p-4 flex flex-col gap-2.5 justify-center">
             {leftItems.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 text-gray-700" style={{ fontSize: contentFontSize }}>
-                <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-gray-400 flex-shrink-0" />
+              <div key={i} className="flex items-start gap-2.5 text-gray-700" style={{ fontSize: contentFontSize }}>
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-gray-400 flex-shrink-0" />
                 {safeStr(item)}
               </div>
             ))}
           </div>
         </div>
-
-        {/* 중간 구분선 */}
         <div className="flex flex-col items-center justify-center gap-2 flex-shrink-0">
           <div className="w-0.5 flex-1 bg-gray-200" />
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <ArrowRight className="w-4 h-4 text-primary" />
+          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+            <ArrowRight className="w-3 h-3 text-primary" />
           </div>
           <div className="w-0.5 flex-1 bg-gray-200" />
         </div>
-
-        {/* 오른쪽 */}
-        <div className="flex-1 flex flex-col rounded-2xl overflow-hidden border border-primary/30">
-          <div className="bg-primary text-white text-center py-3 font-bold text-xl">
+        <div className="flex-1 flex flex-col rounded-xl overflow-hidden border border-primary/30">
+          <div className="bg-primary text-white text-center py-2.5 font-bold text-base">
             {rightTitle}
           </div>
-          <div className="flex-1 bg-primary/5 p-6 flex flex-col gap-3 justify-center">
+          <div className="flex-1 bg-primary/5 p-4 flex flex-col gap-2.5 justify-center">
             {rightItems.map((item, i) => (
-              <div key={i} className="flex items-start gap-3 text-gray-800" style={{ fontSize: contentFontSize }}>
-                <span className="mt-1.5 w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0" />
+              <div key={i} className="flex items-start gap-2.5 text-gray-800" style={{ fontSize: contentFontSize }}>
+                <span className="mt-1.5 w-2 h-2 rounded-full bg-primary flex-shrink-0" />
                 {safeStr(item)}
               </div>
             ))}
@@ -247,14 +237,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const chartData = slide.chartData;
     if (!chartData) {
       return (
-        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-          <BarChart3 className="w-12 h-12 mb-3 opacity-20" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
+          <BarChart3 className="w-10 h-10 mb-2 opacity-20" />
           <p>차트 데이터 없음</p>
         </div>
       );
     }
-
-    // ✅ SlideChart 컴포넌트 사용 (Recharts 기반 — 신규 포맷)
     if (isNewChartData(chartData)) {
       return (
         <div className="h-full flex flex-col">
@@ -269,33 +257,29 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         </div>
       );
     }
-
-    // ── 레거시 포맷 (labels + datasets) 폴백 렌더러
     const legacy = chartData as ChartDataLegacy;
     if (!Array.isArray(legacy.labels) || !Array.isArray(legacy.datasets)) {
       return (
-        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-          <BarChart3 className="w-12 h-12 mb-3 opacity-20" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
+          <BarChart3 className="w-10 h-10 mb-2 opacity-20" />
           <p>차트 데이터 형식 오류</p>
         </div>
       );
     }
     return (
-      <div className="h-full flex flex-col justify-end gap-4 pt-6">
-        {/* 범례 */}
+      <div className="h-full flex flex-col justify-end gap-3 pt-4">
         <div className="flex justify-center gap-4 mb-2">
           {legacy.datasets.map((ds, i) => (
             <div key={i} className="flex items-center gap-2 text-sm font-bold text-gray-600">
-              <span className="w-3 h-3 rounded-full bg-primary inline-block" style={{ opacity: 1 - i * 0.4 }} />
+              <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" style={{ opacity: 1 - i * 0.4 }} />
               {ds.label}
             </div>
           ))}
         </div>
-        {/* 바 차트 */}
         <div className="flex-1 flex items-end justify-around border-b-2 border-gray-300 pb-2">
           {legacy.labels.map((label, idx) => (
-            <div key={idx} className="flex flex-col items-center gap-2 flex-1">
-              <div className="w-full flex justify-center items-end h-48 gap-1">
+            <div key={idx} className="flex flex-col items-center gap-1 flex-1">
+              <div className="w-full flex justify-center items-end h-36 gap-1">
                 {legacy.datasets?.map((ds, dsIdx) => {
                   const value  = ds.data[idx] ?? 0;
                   const maxVal = Math.max(...ds.data, 1);
@@ -303,7 +287,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                   return (
                     <div
                       key={dsIdx}
-                      className="w-12 bg-primary rounded-t-md transition-all duration-500 flex items-start justify-center pt-2 text-xs font-bold text-white/90 overflow-hidden"
+                      className="w-10 bg-primary rounded-t-md transition-all duration-500 flex items-start justify-center pt-1 text-xs font-bold text-white/90 overflow-hidden"
                       style={{ height, opacity: 1 - dsIdx * 0.4 }}
                     >
                       {value}
@@ -311,7 +295,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                   );
                 })}
               </div>
-              <span className="text-sm font-semibold text-gray-700">{label}</span>
+              <span className="text-xs font-semibold text-gray-700">{label}</span>
             </div>
           ))}
         </div>
@@ -324,8 +308,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const tableData = slide.tableData;
     if (!tableData || !Array.isArray(tableData.headers) || !Array.isArray(tableData.rows)) {
       return (
-        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-          <TableIcon className="w-12 h-12 mb-3 opacity-20" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
+          <TableIcon className="w-10 h-10 mb-2 opacity-20" />
           <p>표 데이터 없음</p>
         </div>
       );
@@ -336,7 +320,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           <thead className="bg-primary text-white">
             <tr>
               {tableData.headers.map((header, i) => (
-                <th key={i} className={`px-6 ${tablePaddingY} font-bold`}>{header}</th>
+                <th key={i} className={`px-4 ${tablePaddingY} font-bold`}>{header}</th>
               ))}
             </tr>
           </thead>
@@ -344,7 +328,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             {tableData.rows.map((row, i) => (
               <tr key={i} className="hover:bg-gray-50">
                 {row.map((cell, j) => (
-                  <td key={j} className={`px-6 ${tablePaddingY} text-gray-700`}>{cell}</td>
+                  <td key={j} className={`px-4 ${tablePaddingY} text-gray-700`}>{cell}</td>
                 ))}
               </tr>
             ))}
@@ -359,16 +343,16 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const keyMetrics = slide.keyMetrics;
     if (!keyMetrics || !Array.isArray(keyMetrics) || keyMetrics.length === 0) {
       return (
-        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
-          <Target className="w-12 h-12 mb-3 opacity-20" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
+          <Target className="w-10 h-10 mb-2 opacity-20" />
           <p>KPI 데이터 없음</p>
         </div>
       );
     }
     const TrendIcon = ({ trend }: { trend?: string }) => {
-      if (trend === 'up')   return <TrendingUp   className="w-4 h-4 text-green-600" />;
-      if (trend === 'down') return <TrendingDown className="w-4 h-4 text-red-600"   />;
-      return <Minus className="w-4 h-4 text-gray-400" />;
+      if (trend === 'up')   return <TrendingUp   className="w-3.5 h-3.5 text-green-600" />;
+      if (trend === 'down') return <TrendingDown className="w-3.5 h-3.5 text-red-600"   />;
+      return <Minus className="w-3.5 h-3.5 text-gray-400" />;
     };
     const trendClass = (trend?: string) =>
       trend === 'up'   ? 'bg-green-100 text-green-700' :
@@ -380,16 +364,16 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
     return (
       <div
-        className="h-full grid gap-5 content-center"
+        className="h-full grid gap-4 content-center"
         style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
         {keyMetrics.map((kpi, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-md flex flex-col items-center text-center gap-2">
-            <h3 className="text-lg font-bold text-gray-500">{kpi.label}</h3>
-            <p className="font-black text-primary" style={{ fontSize: `${3.2 * contentSizeScale}rem` }}>
+          <div key={i} className="bg-white p-5 rounded-xl border border-gray-100 shadow-md flex flex-col items-center text-center gap-2">
+            <h3 className="text-sm font-bold text-gray-500">{kpi.label}</h3>
+            <p className="font-black text-primary" style={{ fontSize: `${2.4 * contentSizeScale}rem` }}>
               {kpi.value}
             </p>
-            <span className={`flex items-center gap-1 text-sm font-bold px-3 py-1 rounded-full ${trendClass(kpi.trend)}`}>
+            <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${trendClass(kpi.trend)}`}>
               <TrendIcon trend={kpi.trend} />
               {trendLabel(kpi.trend)}
             </span>
@@ -404,21 +388,20 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const cols = content.length <= 3 ? content.length : content.length <= 4 ? 2 : 3;
     return (
       <div
-        className="h-full grid gap-5 content-center"
+        className="h-full grid gap-4 content-center"
         style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
       >
         {content.map((item, i) => {
-          const text = safeStr(item);
-          const colonIdx = text.indexOf(':');
-          const hasColon = colonIdx > 0 && colonIdx < 30;
+          const text      = safeStr(item);
+          const colonIdx  = text.indexOf(':');
+          const hasColon  = colonIdx > 0 && colonIdx < 30;
           const cardTitle = hasColon ? text.slice(0, colonIdx).trim() : '';
           const cardBody  = hasColon ? text.slice(colonIdx + 1).trim() : text;
-
           return (
-            <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-md flex flex-col gap-3 h-full">
-              <div className="w-10 h-1 rounded-full bg-primary" />
+            <div key={i} className="bg-white p-4 rounded-xl border border-gray-100 shadow-md flex flex-col gap-2 h-full">
+              <div className="w-8 h-1 rounded-full bg-primary" />
               {cardTitle && (
-                <h3 className="font-bold text-gray-800" style={{ fontSize: `${1.3 * contentSizeScale}rem` }}>
+                <h3 className="font-bold text-gray-800" style={{ fontSize: `${1.1 * contentSizeScale}rem` }}>
                   {cardTitle}
                 </h3>
               )}
@@ -438,32 +421,30 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     if (milestones.length === 0) return renderBullets();
 
     const StateIcon = ({ state }: { state?: string }) => {
-      if (state === 'done') return <CheckCircle2 className="w-6 h-6 text-green-500 flex-shrink-0" />;
-      if (state === 'next') return <Clock        className="w-6 h-6 text-primary flex-shrink-0"   />;
-      return                       <Circle       className="w-6 h-6 text-gray-300 flex-shrink-0"  />;
+      if (state === 'done') return <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />;
+      if (state === 'next') return <Clock        className="w-5 h-5 text-primary flex-shrink-0"   />;
+      return                       <Circle       className="w-5 h-5 text-gray-300 flex-shrink-0"  />;
     };
     const stateClass = (state?: string) =>
       state === 'done' ? 'border-green-200 bg-green-50'   :
       state === 'next' ? 'border-primary/30 bg-primary/5' : 'border-gray-200 bg-gray-50';
 
     return (
-      <div className="h-full flex flex-col justify-center gap-3">
+      <div className="h-full flex flex-col justify-center gap-2.5">
         {milestones.map((m, i) => (
-          <div key={i} className="flex items-center gap-4">
-            {/* 연결선 */}
+          <div key={i} className="flex items-center gap-3">
             <div className="flex flex-col items-center flex-shrink-0">
               <StateIcon state={m.state} />
               {i < milestones.length - 1 && (
-                <div className="w-0.5 h-6 bg-gray-200 mt-1" />
+                <div className="w-0.5 h-5 bg-gray-200 mt-1" />
               )}
             </div>
-            {/* 내용 */}
-            <div className={`flex-1 flex items-center justify-between p-4 rounded-xl border ${stateClass(m.state)}`}>
+            <div className={`flex-1 flex items-center justify-between p-3 rounded-lg border ${stateClass(m.state)}`}>
               <span className="font-semibold text-gray-800" style={{ fontSize: contentFontSize }}>
                 {m.label}
               </span>
               {m.date && (
-                <span className="text-sm font-mono text-gray-400 flex-shrink-0 ml-4">
+                <span className="text-xs font-mono text-gray-400 flex-shrink-0 ml-3">
                   {m.date}
                 </span>
               )}
@@ -476,11 +457,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── ⑪ quote 슬라이드 ─────────────────────────────────────
   const renderQuote = () => (
-    <div className="h-full flex flex-col items-center justify-center gap-8 px-8">
-      <Quote className="w-16 h-16 text-primary/20 flex-shrink-0" />
+    <div className="h-full flex flex-col items-center justify-center gap-6 px-8">
+      <Quote className="w-12 h-12 text-primary/20 flex-shrink-0" />
       <blockquote
         className="text-center font-semibold text-gray-800 leading-relaxed"
-        style={{ fontSize: `${2 * contentSizeScale}rem` }}
+        style={{ fontSize: `${1.6 * contentSizeScale}rem` }}
       >
         {slide.text || content[0] || ''}
       </blockquote>
@@ -494,10 +475,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── ⑫ summary 슬라이드 ───────────────────────────────────
   const renderSummary = () => (
-    <div className="h-full flex flex-col justify-center gap-4">
+    <div className="h-full flex flex-col justify-center gap-3">
       {content.map((item, i) => (
-        <div key={i} className="flex items-start gap-4 p-4 bg-primary/5 rounded-xl border-l-4 border-primary">
-          <span className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center font-black text-sm flex-shrink-0 mt-0.5">
+        <div key={i} className="flex items-start gap-3 p-3 bg-primary/5 rounded-lg border-l-4 border-primary">
+          <span className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center font-black text-xs flex-shrink-0 mt-0.5">
             {i + 1}
           </span>
           <span className="font-medium text-gray-800 leading-snug" style={{ fontSize: contentFontSize }}>
@@ -513,14 +494,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     switch (slide.infographicType) {
       case 'cycle':
         return (
-          <div className="flex items-center justify-around h-full gap-4">
+          <div className="flex items-center justify-around h-full gap-3">
             {content.map((item, i) => (
               <div key={i} className="relative flex flex-col items-center">
-                <div className="w-32 h-32 rounded-full border-4 border-primary flex items-center justify-center p-4 text-center text-sm font-bold bg-white shadow-lg z-10">
+                <div className="w-24 h-24 rounded-full border-4 border-primary flex items-center justify-center p-3 text-center text-xs font-bold bg-white shadow-lg z-10">
                   {safeStr(item)}
                 </div>
                 {i < content.length - 1 && (
-                  <ArrowRight className="absolute -right-8 top-12 text-primary w-8 h-8" />
+                  <ArrowRight className="absolute -right-6 top-9 text-primary w-6 h-6" />
                 )}
               </div>
             ))}
@@ -550,9 +531,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       default:
         if (content.length === 0) {
           return (
-            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-4 border-2 border-dashed border-gray-100 rounded-3xl">
-              <Layers className="w-16 h-16 opacity-20" />
-              <p className="text-xl font-medium">내용을 입력하세요</p>
+            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-3 border-2 border-dashed border-gray-100 rounded-2xl">
+              <Layers className="w-12 h-12 opacity-20" />
+              <p className="text-base font-medium">내용을 입력하세요</p>
             </div>
           );
         }
@@ -560,83 +541,76 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     }
   };
 
-  // ── title 타입은 전용 풀스크린 레이아웃 ──────────────────
-  const isTitleSlide   = slide.type === 'title';
-  const isQuoteSlide   = slide.type === 'quote';
-  // title/quote는 별도 레이아웃 (헤더 없이 전체 사용)
-  const useFullLayout  = isTitleSlide || isQuoteSlide;
+  const isTitleSlide  = slide.type === 'title';
+  const isQuoteSlide  = slide.type === 'quote';
+  const useFullLayout = isTitleSlide || isQuoteSlide;
 
-  // ── 최종 렌더 ────────────────────────────────────────────
+  // ── 최종 렌더 — A4 비율 래퍼 ────────────────────────────
+  // paddingBottom trick: 부모 width 기준으로 높이를 141.42%로 강제
   return (
-    // ✅ aspect-video → w-full h-full 로 변경 (발표 모드 비율 정상화)
-    <div className={`w-full h-full relative bg-white overflow-hidden ${containerClassName}`}>
+    <div
+      className={`relative w-full ${containerClassName}`}
+      style={{ paddingBottom: `${A4_RATIO}%` }}
+    >
+      {/* 실제 콘텐츠 — absolute로 꽉 채움 */}
+      <div className="absolute inset-0 bg-white overflow-hidden">
 
-      {/* 워터마크 */}
-      {watermark && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] -rotate-[30deg] text-9xl font-black select-none z-0">
-          {watermark}
-        </div>
-      )}
-
-      {/* 로고 */}
-      {logoUrl && (
-        <div className="absolute top-8 right-10 w-24 h-12 flex items-center justify-end z-10">
-          <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
-        </div>
-      )}
-
-      {/* ── title / quote 전용 레이아웃 (헤더 없이 전체) */}
-      {useFullLayout ? (
-        <div className="w-full h-full flex flex-col">
-          {renderContent()}
-        </div>
-      ) : (
-        /* ── 일반 레이아웃: 상단 제목 + 하단 콘텐츠 */
-        <div className="p-16 h-full flex flex-col">
-
-          {/* 슬라이드 제목 */}
-          {slide.title && (
-            <h2
-              className="font-black text-gray-900 tracking-tight border-l-[6px] border-primary pl-6 mb-10 flex-shrink-0 leading-tight"
-              style={{ fontSize: titleFontSize }}
-            >
-              {slide.title}
-            </h2>
-          )}
-
-          {/* 콘텐츠 영역 */}
-          <div className="flex-1 overflow-hidden flex gap-8 min-h-0">
-            {/* 텍스트/비주얼 영역 */}
-            <div
-              style={{ width: slide.imageUrl ? `${textRatio}%` : '100%' }}
-              className="overflow-hidden"
-            >
-              {renderContent()}
-            </div>
-
-            {/* 이미지 영역 (있을 때만) */}
-            {slide.imageUrl && (
-              <div
-                style={{ width: `${visualRatio}%` }}
-                className="rounded-2xl overflow-hidden flex-shrink-0"
-              >
-                <img
-                  src={slide.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+        {/* 워터마크 */}
+        {watermark && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] -rotate-[30deg] text-8xl font-black select-none z-0">
+            {watermark}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 슬라이드 번호 */}
-      {slide.slideNumber !== undefined && (
-        <div className="absolute bottom-6 left-10 text-sm font-mono text-gray-300">
-          {String(slide.slideNumber).padStart(2, '0')}
-        </div>
-      )}
+        {/* 로고 */}
+        {logoUrl && (
+          <div className="absolute top-6 right-8 w-20 h-10 flex items-center justify-end z-10">
+            <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+          </div>
+        )}
+
+        {/* title / quote → 전용 풀스크린 레이아웃 */}
+        {useFullLayout ? (
+          <div className="w-full h-full flex flex-col">
+            {renderContent()}
+          </div>
+        ) : (
+          /* 일반 레이아웃: 상단 제목 + 하단 콘텐츠 */
+          <div className="p-10 h-full flex flex-col">
+            {slide.title && (
+              <h2
+                className="font-black text-gray-900 tracking-tight border-l-[6px] border-primary pl-5 mb-7 flex-shrink-0 leading-tight"
+                style={{ fontSize: titleFontSize }}
+              >
+                {slide.title}
+              </h2>
+            )}
+            <div className="flex-1 overflow-hidden flex gap-6 min-h-0">
+              <div
+                style={{ width: slide.imageUrl ? `${textRatio}%` : '100%' }}
+                className="overflow-hidden"
+              >
+                {renderContent()}
+              </div>
+              {slide.imageUrl && (
+                <div
+                  style={{ width: `${visualRatio}%` }}
+                  className="rounded-xl overflow-hidden flex-shrink-0"
+                >
+                  <img src={slide.imageUrl} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 슬라이드 번호 */}
+        {slide.slideNumber !== undefined && (
+          <div className="absolute bottom-4 left-8 text-xs font-mono text-gray-300">
+            {String(slide.slideNumber).padStart(2, '0')}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
