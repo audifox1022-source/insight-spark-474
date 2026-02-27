@@ -21,9 +21,12 @@ interface SlideChartProps {
 }
 
 export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) {
-  const { chartType, data, title, xAxisLabel, yAxisLabel, series1Label, series2Label, showLegend } = chartData;
+  const { chartType, data: rawData, title, xAxisLabel, yAxisLabel, series1Label, series2Label, showLegend } = chartData;
 
-  const fontSize = isSlideView ? 22 : 12; 
+  // 🔧 data가 undefined/null인 경우 빈 배열로 보장 (.some() TypeError 방지)
+  const data = Array.isArray(rawData) ? rawData : [];
+
+  const fontSize = isSlideView ? 22 : 12;
   const titleSize = isSlideView ? 36 : 16;
   const hasSeries2 = data.some((d) => d.value2 !== undefined && d.value2 !== null);
 
@@ -33,6 +36,16 @@ export function SlideChart({ chartData, isSlideView = false }: SlideChartProps) 
     () => data.map((d, i) => ({ ...d, fill: d.color || CHART_COLORS[i % CHART_COLORS.length] })),
     [data, CHART_COLORS],
   );
+
+  // 🔧 데이터가 없으면 안내 문구 표시 (빈 차트 렌더링 시도 방지)
+  if (data.length === 0) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 gap-3">
+        <span className="text-4xl">📊</span>
+        <p className="text-sm font-medium">차트 데이터를 불러오는 중입니다...</p>
+      </div>
+    );
+  }
 
   // ✨ [핵심 수정] 글자가 흰색 배경에 묻히지 않도록 진한 회색(#334155)으로 고정!
   const TEXT_COLOR = '#334155';
