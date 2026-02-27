@@ -1,68 +1,75 @@
+// ============================================================
+// usePresentation.ts  —  전체 코드 (안정성 강화 최종)
+// ============================================================
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
-import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
-import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
-import { OutlineData } from '@/components/OutlinePreview';
+import {
+  MeetingInfo, PresentationSettings, Presentation,
+  Slide, AppStep, SlideChartData,
+} from '@/types/presentation';
+import {
+  savePresentation, loadPresentations,
+  deletePresentation, SavedPresentation,
+} from '@/lib/presentation-storage';
+import { OutlineData }  from '@/components/OutlinePreview';
 import { ReviewResult } from '@/components/ReviewPanel';
-import { toast } from 'sonner';
+import { toast }        from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
-import { aiService } from '@/lib/ai-service';
+import { aiService }    from '@/lib/ai-service';
 
 export type ExtendedStep = AppStep | 'outline';
 
+// ── chartData 변환 ────────────────────────────────────────────
 function convertAIChartData(rawChartData: any): SlideChartData | undefined {
   if (!rawChartData) return undefined;
-
   if (Array.isArray(rawChartData.data) && rawChartData.data[0]?.name !== undefined) {
     return rawChartData as SlideChartData;
   }
-
-  const labels: string[] = Array.isArray(rawChartData.labels) ? rawChartData.labels : [];
-  const datasets: any[] = Array.isArray(rawChartData.datasets) ? rawChartData.datasets : [];
-
+  const labels   = Array.isArray(rawChartData.labels)   ? rawChartData.labels   : [];
+  const datasets = Array.isArray(rawChartData.datasets) ? rawChartData.datasets : [];
   if (labels.length === 0) return undefined;
 
-  const primaryDataset = datasets[0]?.data;
+  const primaryDataset   = datasets[0];
   const secondaryDataset = datasets[1];
-
-  const data = labels.map((label, i) => ({
-    name: String(label),
-    value: Number(primaryDataset?.[i] ?? 0),
+  const data = (labels as string[]).map((label: string, i: number) => ({
+    name:   String(label),
+    value:  Number(primaryDataset?.data?.[i]   ?? 0),
     ...(secondaryDataset ? { value2: Number(secondaryDataset.data?.[i] ?? 0) } : {}),
   }));
-
   return {
-    chartType: rawChartData.type === 'line' ? 'line' : rawChartData.type === 'pie' ? 'pie' : rawChartData.type === 'area' ? 'area' : 'bar',
-    title: rawChartData.title ?? '',
+    chartType:    rawChartData.type === 'line' ? 'line' :
+                  rawChartData.type === 'pie'  ? 'pie'  :
+                  rawChartData.type === 'area' ? 'area' : 'bar',
+    title:        rawChartData.title ?? '',
     data,
-    series1Label: primaryDataset?.label ?? '',
+    series1Label: primaryDataset?.label   ?? '',
     series2Label: secondaryDataset?.label,
-    showLegend: datasets.length > 1,
+    showLegend:   datasets.length > 1,
   } as SlideChartData;
 }
 
+// ── 슬라이드 정규화 ───────────────────────────────────────────
 function normalizeSlideForApp(raw: any, index: number): Slide {
   if (!raw || typeof raw !== 'object') {
     return { slideNumber: index + 1, type: 'content', title: '', content: [], keyMetrics: [] };
   }
-
   const rawContent = raw.content ?? raw.points ?? raw.bullets ?? raw.items ?? raw.list ?? [];
   const content: string[] = Array.isArray(rawContent)
     ? rawContent.map((p: any) =>
-        typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p)
+        typeof p === 'object'
+          ? String(p.title ?? p.text ?? JSON.stringify(p))
+          : String(p)
       )
-    : typeof rawContent === 'string'
-    ? [rawContent]
-    : [];
+    : typeof rawContent === 'string' ? [rawContent] : [];
 
   const keyMetrics = Array.isArray(raw.keyMetrics) ? raw.keyMetrics : [];
-  const chartData = convertAIChartData(raw.chartData);
+  const chartData  = convertAIChartData(raw.chartData);
 
   return {
     ...raw,
     slideNumber: raw.slideNumber ?? index + 1,
-    type: raw.type ?? 'content',
-    title: raw.title ?? '',
+    type:        raw.type        ?? 'content',
+    title:       raw.title       ?? '',
     content,
     keyMetrics,
     chartData,
@@ -79,46 +86,54 @@ function normalizePresentationSlides(presentation: any): Presentation {
   };
 }
 
+// ══════════════════════════════════════════════════════════════
 export function usePresentation() {
-  const [step, setStep] = useState<ExtendedStep>('upload');
-  const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
-  const [fileNames, setFileNames] = useState<string[]>([]);
-  const [template, setTemplate] = useState<string>('auto');
-  const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({ week: '', department: '', reporter: '', notes: '' });
-  const [settings, setSettings] = useState<PresentationSettings>({ difficulty: 'medium', volume: 'standard' });
-  const [presentation, setPresentation] = useState<Presentation | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [step,          setStep]          = useState<ExtendedStep>('upload');
+  const [parsedFiles,   setParsedFiles]   = useState<ParsedFileData[]>([]);
+  const [fileNames,     setFileNames]     = useState<string[]>([]);
+  const [template,      setTemplate]      = useState<string>('auto');
+  const [meetingInfo,   setMeetingInfo]   = useState<MeetingInfo>({ week: '', department: '', reporter: '', notes: '' });
+  const [settings,      setSettings]      = useState<PresentationSettings>({ difficulty: 'medium', volume: 'standard' });
+  const [presentation,  setPresentation]  = useState<Presentation | null>(null);
+  const [isGenerating,  setIsGenerating]  = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [isLoadingOutline, setIsLoadingOutline] = useState(false);
-  const [outline, setOutline] = useState<OutlineData | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [savedList, setSavedList] = useState<SavedPresentation[]>([]);
+  const [isLoadingOutline,  setIsLoadingOutline]  = useState(false);
+  const [outline,       setOutline]       = useState<OutlineData | null>(null);
+  const [isSaving,      setIsSaving]      = useState(false);
+  const [savedList,     setSavedList]     = useState<SavedPresentation[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [historyOpen,   setHistoryOpen]   = useState(false);
+  const [chatOpen,      setChatOpen]      = useState(false);
   const [currentChatSlideIndex, setCurrentChatSlideIndex] = useState(0);
-  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
-  const [isReviewing, setIsReviewing] = useState(false);
-  const [reviewOpen, setReviewOpen] = useState(false);
-  const [isFixing, setIsFixing] = useState(false);
+  const [reviewResult,  setReviewResult]  = useState<ReviewResult | null>(null);
+  const [isReviewing,   setIsReviewing]   = useState(false);
+  const [reviewOpen,    setReviewOpen]    = useState(false);
+  const [isFixing,      setIsFixing]      = useState(false);
 
   const [appTheme, setAppTheme] = useState<string>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('apptheme') || 'blue';
     return 'blue';
   });
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
+    return false;
+  });
+
+  useEffect(() => {
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDark(true);
+    }
+    changeTheme(appTheme);
+  }, []);
 
   const changeTheme = useCallback((theme: string) => {
     document.documentElement.classList.remove('theme-navy', 'theme-purple', 'theme-green', 'theme-orange');
     if (theme !== 'blue') document.documentElement.classList.add(`theme-${theme}`);
     localStorage.setItem('apptheme', theme);
     setAppTheme(theme);
-    toast.success(`테마가 변경되었습니다.`);
+    toast.success(`🎨 테마가 변경되었습니다.`);
   }, []);
-
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('theme') === 'dark';
-    return false;
-  });
 
   const toggleDark = useCallback(() => {
     setIsDark((prev) => {
@@ -129,88 +144,130 @@ export function usePresentation() {
     });
   }, []);
 
-  useEffect(() => {
-    if (localStorage.getItem('theme') === 'dark') {
-      document.documentElement.classList.add('dark');
-      setIsDark(true);
-    }
-    changeTheme(appTheme);
-  }, []);
-
+  // ── 파일 데이터 요약 ────────────────────────────────────────
   const dataSummary = useCallback((): string => {
     if (parsedFiles.length === 0) return '';
-    return parsedFiles.map((f) => f.summary).join(' ');
+    return parsedFiles.map((f) => f.summary).join(' | ');
   }, [parsedFiles]);
 
+  // ── 파일 업로드 ─────────────────────────────────────────────
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
-      const results = await Promise.all(files.map(parseFile));
-      const failed = results.filter((r) => r.fileType === 'unknown' || r.parseError);
+      const results  = await Promise.all(files.map(parseFile));
+      const failed   = results.filter((r) => r.fileType === 'unknown' || r.parseError);
       const succeeded = results.filter((r) => r.fileType !== 'unknown' && !r.parseError);
+
+      // ✅ 디버깅: 파싱 결과 확인
+      console.log('[파일 파싱 결과]', results.map((r) => ({
+        name:    r.fileName,
+        type:    r.fileType,
+        error:   r.parseError,
+        chars:   r.textContent?.length ?? 0,
+        summary: r.summary,
+      })));
 
       if (succeeded.length > 0) {
         setParsedFiles((prev) => [...prev, ...succeeded]);
-        setFileNames((prev) => [...prev, ...succeeded.map((f) => f.fileName)]);
-        toast.success(`${succeeded.length}개 파일이 업로드되었습니다.`);
+        setFileNames((prev)   => [...prev, ...succeeded.map((f) => f.fileName)]);
+        toast.success(`${succeeded.length}개 파일 업로드 완료`);
       }
       if (failed.length > 0) {
         failed.forEach((f) => {
-          if (f.parseError) toast.error(`${f.fileName}: PDF 파싱 오류`);
-          else toast.error(`${f.fileName}: 지원하지 않는 형식입니다.`);
+          if (f.parseError) toast.error(`${f.fileName}: PDF 파싱 실패`);
+          else              toast.error(`${f.fileName}: 지원하지 않는 형식`);
         });
       }
       if (succeeded.length === 0 && failed.length === 0) {
-        toast.error('업로드할 파일이 없습니다.');
+        toast.error('업로드된 파일이 없습니다.');
       }
     } catch {
-      toast.error('파일 처리 중 오류가 발생했습니다.');
+      toast.error('파일 업로드 중 오류가 발생했습니다.');
     }
   }, []);
 
   const removeFile = useCallback((index: number) => {
     setParsedFiles((prev) => prev.filter((_, i) => i !== index));
-    setFileNames((prev) => prev.filter((_, i) => i !== index));
+    setFileNames((prev)   => prev.filter((_, i) => i !== index));
   }, []);
 
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
     const dummyFile: ParsedFileData = {
       fileName: '직접입력.txt',
-      fileType: 'text/plain',
-      content: prompt,
-      summary: prompt.length > 30 ? prompt.slice(0, 30) + '...' : prompt,
+      fileType: 'textplain',
+      content:  prompt,
+      summary:  prompt.length > 30 ? prompt.slice(0, 30) + '...' : prompt,
     };
     setParsedFiles([dummyFile]);
     setFileNames([dummyFile.fileName]);
-    setMeetingInfo((prev) => ({ ...prev, week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt }));
+    setMeetingInfo((prev) => ({
+      ...prev,
+      week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt,
+    }));
     setStep('info');
-    toast.success('프롬프트가 입력되었습니다!');
+    toast.success('입력 완료! 발표 설정을 진행해주세요.');
   }, []);
 
-  // ✅ 수정: resData 자체가 { title, outline[] } 구조
+  // ── 구성안 생성 ─────────────────────────────────────────────
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
     setStep('outline' as ExtendedStep);
+
     try {
       const payload = buildAIPayload(parsedFiles);
+
+      // ✅ 디버깅: payload 내용 확인
+      console.log('[AI Payload 확인]', JSON.stringify(payload).slice(0, 500));
+
       const resData = await retryWithBackoff(
-        async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
+        async () => await aiService.getOutline({
+          fileData:    payload,
+          meetingInfo,
+          settings,
+          template,
+        }),
         {
-          maxRetries: 1,
-          onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'outline-retry' }),
+          // ✅ 재시도 횟수 3으로 증가
+          maxRetries: 3,
+          onRetry: (attempt, max) => {
+            toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' });
+          },
         }
       );
       toast.dismiss('outline-retry');
 
-      // ✅ 수정: resData = { title, outline[] } 직접 사용
-      const outlineData: OutlineData = {
-        title: resData.title ?? '새 발표 자료',
-        outline: Array.isArray(resData.outline) ? resData.outline : [],
-      };
-      setOutline(outlineData);
+      // ✅ 구성안 내용 검증
+      const outlineItems = Array.isArray(resData?.outline) ? resData.outline : [];
+      const hasRealContent = outlineItems.some(
+        (item: any) => item.description && item.description !== '내용 작성 필요' && item.description !== '세부 내용 작성 필요'
+      );
+
+      if (!hasRealContent && outlineItems.length > 0) {
+        // 내용이 없으면 한 번 더 재시도
+        console.warn('[구성안 경고] 내용이 비어있어 재시도합니다.');
+        toast.loading('내용을 보완하는 중...', { id: 'outline-retry2' });
+
+        const retryData = await retryWithBackoff(
+          async () => await aiService.getOutline({
+            fileData:    payload,
+            meetingInfo,
+            settings,
+            template,
+          }),
+          { maxRetries: 2 }
+        );
+        toast.dismiss('outline-retry2');
+
+        const retryOutline = Array.isArray(retryData?.outline) ? retryData.outline : outlineItems;
+        setOutline({ title: retryData?.title ?? '발표 자료', outline: retryOutline });
+      } else {
+        setOutline({ title: resData?.title ?? '발표 자료', outline: outlineItems });
+      }
+
     } catch (err: any) {
       toast.dismiss('outline-retry');
+      toast.dismiss('outline-retry2');
       toast.error(getKoreanErrorMessage(err));
       setStep('info');
     } finally {
@@ -218,6 +275,7 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  // ── 발표자료 생성 ────────────────────────────────────────────
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -226,21 +284,24 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
         async () => await aiService.generatePresentation({
-          fileData: payload,
+          fileData:        payload,
           meetingInfo,
           settings,
           template,
           approvedOutline: approvedOutline ?? null,
         }),
         {
-          maxRetries: 1,
-          onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'gen-retry' }),
+          // ✅ 재시도 횟수 3으로 증가
+          maxRetries: 3,
+          onRetry: (attempt, max) => {
+            toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' });
+          },
         }
       );
       toast.dismiss('gen-retry');
       setPresentation(normalizePresentationSlides(resData.presentation));
       setStep('preview');
-      toast.success('발표자료가 생성되었습니다!');
+      toast.success('🎉 발표자료가 완성되었습니다!');
     } catch (err: any) {
       toast.dismiss('gen-retry');
       toast.error(getKoreanErrorMessage(err));
@@ -250,8 +311,9 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  // ── 발표자료 업데이트 ────────────────────────────────────────
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
-    setPresentation((prev) => (prev ? { ...prev, ...updates } : prev));
+    setPresentation((prev) => prev ? { ...prev, ...updates } : prev);
   }, []);
 
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
@@ -263,6 +325,7 @@ export function usePresentation() {
     });
   }, []);
 
+  // ── 슬라이드 재생성 ──────────────────────────────────────────
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -270,25 +333,30 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction }),
-        { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
+        async () => await aiService.regenerateSlide({
+          slideIndex, currentSlide, presentation,
+          fileData: payload, userInstruction,
+        }),
+        { maxRetries: 2 }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
-      toast.success('재생성 완료!', { id: 'regen' });
+      toast.success('슬라이드 재생성 완료!', { id: 'regen' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'regen' });
     }
   }, [presentation, parsedFiles, updateSlide]);
 
+  // ── 채팅 편집 ────────────────────────────────────────────────
   const requestChatEdit = useCallback(async (
-    message: string,
-    slideIndex: number,
-    currentSlide: Slide,
+    message: string, slideIndex: number,
+    currentSlide: Slide
   ): Promise<{ slide: Slide; summary: string } | null> => {
     try {
       const resData = await retryWithBackoff(
-        async () => await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation }),
-        { maxRetries: 1 }
+        async () => await aiService.chatEdit({
+          userMessage: message, currentSlide, slideIndex, presentation,
+        }),
+        { maxRetries: 2 }
       );
       if (resData.result?.slide) {
         resData.result.slide = normalizeSlideForApp(resData.result.slide, slideIndex);
@@ -300,38 +368,41 @@ export function usePresentation() {
     }
   }, [presentation]);
 
+  // ── 페르소나 변경 ────────────────────────────────────────────
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
     const personaLabels: Record<string, string> = {
-      jobs: 'Jobs 스타일',
-      mckinsey: 'McKinsey 스타일',
-      ceo: 'CEO 스타일',
-      team: '팀 공유용',
-      client: '클라이언트용',
+      jobs: 'Jobs 스타일', mckinsey: 'McKinsey 스타일',
+      ceo: 'CEO 스타일', team: '팀 발표용', client: '고객 제안용',
     };
     toast.loading(`${personaLabels[persona] || persona} 변환 중...`, { id: 'persona' });
     try {
       const resData = await retryWithBackoff(
         async () => await aiService.changePersona({ currentSlide, persona }),
-        { maxRetries: 1 }
+        { maxRetries: 2 }
       );
-      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona: persona as Slide['persona'] });
+      updateSlide(slideIndex, {
+        ...resData.slide,
+        slideNumber: slideIndex + 1,
+        layout:  currentSlide.layout,
+        persona: persona as Slide['persona'],
+      });
       toast.success('스타일 변환 완료!', { id: 'persona' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'persona' });
     }
   }, [presentation, updateSlide]);
 
+  // ── 이미지 생성 ──────────────────────────────────────────────
   const generateSlideImage = useCallback(async (slideIndex: number) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
     setIsGeneratingImage(true);
-    toast.loading('AI 배경 이미지 생성 중...', { id: 'gen-image' });
+    toast.loading('AI 이미지 생성 중...', { id: 'gen-image' });
     try {
       const contentStr = Array.isArray(currentSlide.content) && currentSlide.content.length > 0
-        ? currentSlide.content.join(' ')
-        : '';
+        ? currentSlide.content.join(' ') : '';
       const imageUrl = await aiService.generateImage(currentSlide.title, contentStr);
       updateSlide(slideIndex, { imageUrl });
       toast.success('AI 이미지 생성 완료!', { id: 'gen-image' });
@@ -342,23 +413,25 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
+  // ── 레이아웃 순환 ────────────────────────────────────────────
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
     const currentLayout = presentation.slides[slideIndex].layout || 'default';
-    const nextLayout = layouts[(layouts.indexOf(currentLayout) + 1) % layouts.length];
+    const nextLayout    = layouts[(layouts.indexOf(currentLayout) + 1) % layouts.length];
     updateSlide(slideIndex, { layout: nextLayout });
-    toast.success(`레이아웃 변경됨`);
+    toast.success(`레이아웃 변경: ${nextLayout}`);
   }, [presentation, updateSlide]);
 
+  // ── 저장 / 불러오기 ─────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
     try {
       const id = await savePresentation(presentation, meetingInfo, settings, template);
       if (id) {
-        setPresentation((prev) => (prev ? { ...prev, id } : prev));
-        toast.success('저장되었습니다.');
+        setPresentation((prev) => prev ? { ...prev, id } : prev);
+        toast.success('저장 완료.');
         const list = await loadPresentations();
         setSavedList(list);
       } else {
@@ -391,29 +464,26 @@ export function usePresentation() {
     setTemplate(saved.template);
     setStep('preview');
     setHistoryOpen(false);
-    toast.success(`"${saved.title}" 불러오기 완료`);
+    toast.success(`'${saved.title}' 불러오기 완료`);
   }, []);
 
   const deleteFromHistory = useCallback(async (id: string) => {
     const ok = await deletePresentation(id);
     if (ok) {
       setSavedList((prev) => prev.filter((p) => p.id !== id));
-      toast.success('삭제되었습니다.');
+      toast.success('삭제 완료.');
     } else {
-      toast.error('삭제에 실패했습니다.');
+      toast.error('삭제 실패.');
     }
   }, []);
 
+  // ── 슬라이드 추가 / 삭제 / 복제 / 이동 ─────────────────────
   const addSlide = useCallback((afterIndex: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
       const newSlide: Slide = {
         slideNumber: afterIndex + 2,
-        title: '',
-        type: 'content',
-        content: [],
-        notes: '',
-        keyMetrics: [],
+        title: '', type: 'content', content: [], notes: '', keyMetrics: [],
       };
       const slides = [...prev.slides];
       slides.splice(afterIndex + 1, 0, newSlide);
@@ -434,8 +504,8 @@ export function usePresentation() {
   const duplicateSlide = useCallback((index: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
-      const slides = [...prev.slides];
-      const clone = JSON.parse(JSON.stringify(slides[index])) as Slide;
+      const slides  = [...prev.slides];
+      const clone   = JSON.parse(JSON.stringify(slides[index])) as Slide;
       slides.splice(index + 1, 0, clone);
       slides.forEach((s, i) => { s.slideNumber = i + 1; });
       return { ...prev, slides };
@@ -454,24 +524,15 @@ export function usePresentation() {
   }, []);
 
   const updatePresentationTitle = useCallback((title: string) => {
-    setPresentation((prev) => (prev ? { ...prev, title } : prev));
+    setPresentation((prev) => prev ? { ...prev, title } : prev);
   }, []);
 
-  const reset = useCallback(() => {
-    setStep('upload');
-    setParsedFiles([]);
-    setFileNames([]);
-    setPresentation(null);
-    setOutline(null);
-    setTemplate('auto');
-    setReviewResult(null);
-  }, []);
-
+  // ── 검토 ─────────────────────────────────────────────────────
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
     try {
-      const resData = await aiService.review({ presentation });
+      const resData = await aiService.review(presentation);
       setReviewResult(resData.review);
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err));
@@ -481,21 +542,21 @@ export function usePresentation() {
   }, [presentation]);
 
   const applyReviewFix = useCallback(async (
-    slideIndex: number,
-    issue: string,
-    suggestion: string
+    slideIndex: number, issue: string, suggestion: string
   ): Promise<boolean> => {
     if (!presentation) return false;
-    const currentSlide = presentation.slides[slideIndex];
-    const instruction = `문제: ${issue}\n개선사항: ${suggestion}\n위 내용을 반영하여 슬라이드를 개선해주세요.`;
+    const currentSlide  = presentation.slides[slideIndex];
+    const instruction   = `${issue} → ${suggestion}`;
     try {
       const resData = await retryWithBackoff(
-        async () => await aiService.chatEdit({ userMessage: instruction, currentSlide, slideIndex, presentation }),
-        { maxRetries: 1 }
+        async () => await aiService.chatEdit({
+          userMessage: instruction, currentSlide, slideIndex, presentation,
+        }),
+        { maxRetries: 2 }
       );
       if (resData.result) {
         updateSlide(slideIndex, resData.result.slide);
-        toast.success(`슬라이드 ${slideIndex + 1} 개선 완료!`);
+        toast.success(`슬라이드 ${slideIndex + 1} 수정 완료!`);
         return true;
       }
       return false;
@@ -508,17 +569,17 @@ export function usePresentation() {
   const reviewAndFixPresentation = useCallback(async () => {
     if (!presentation) return;
     setIsFixing(true);
-    toast.loading('AI 전체 최적화 중...', { id: 'review-fix' });
+    toast.loading('AI 전체 검토 및 수정 중...', { id: 'review-fix' });
     try {
       const resData = await retryWithBackoff(
-        async () => await aiService.reviewAndFix({ presentation, settings }),
+        async () => await aiService.reviewAndFix(presentation, settings),
         {
-          maxRetries: 1,
-          onRetry: () => toast.loading('재시도 중...', { id: 'review-fix' }),
+          maxRetries: 2,
+          onRetry: () => { toast.loading('재시도 중...', { id: 'review-fix' }); },
         }
       );
       setPresentation(normalizePresentationSlides(resData.result.presentation));
-      toast.success(`최적화 완료! ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
+      toast.success(`✅ 전체 수정 완료! ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'review-fix' });
     } finally {
@@ -526,10 +587,19 @@ export function usePresentation() {
     }
   }, [presentation, settings]);
 
-  // ✅ 추가: 채팅 패널 열 때 현재 슬라이드 인덱스 함께 세팅
   const openChatWithSlide = useCallback((slideIndex: number) => {
     setCurrentChatSlideIndex(slideIndex);
     setChatOpen(true);
+  }, []);
+
+  const reset = useCallback(() => {
+    setStep('upload');
+    setParsedFiles([]);
+    setFileNames([]);
+    setPresentation(null);
+    setOutline(null);
+    setTemplate('auto');
+    setReviewResult(null);
   }, []);
 
   return {
@@ -537,28 +607,50 @@ export function usePresentation() {
     dataSummary: dataSummary(),
     fileNames,
     meetingInfo, setMeetingInfo,
-    settings, setSettings,
-    template, setTemplate,
-    outline, isLoadingOutline,
-    presentation, isGenerating,
-    isSaving, handleSave,
-    savedList, isLoadingList,
-    historyOpen, setHistoryOpen, openHistory, loadFromHistory, deleteFromHistory,
-    chatOpen, setChatOpen,
-    currentChatSlideIndex, openChatWithSlide,
-    reviewOpen, setReviewOpen,
-    reviewResult, isReviewing, requestReview, applyReviewFix,
-    isFixing, reviewAndFixPresentation,
-    isDark, toggleDark,
+    settings,    setSettings,
+    template,    setTemplate,
+    outline,
+    isLoadingOutline,
+    presentation,
+    isGenerating,
+    isSaving,
+    handleSave,
+    savedList,
+    isLoadingList,
+    historyOpen,  setHistoryOpen,
+    openHistory,
+    loadFromHistory,
+    deleteFromHistory,
+    chatOpen,     setChatOpen,
+    currentChatSlideIndex,
+    openChatWithSlide,
+    reviewOpen,   setReviewOpen,
+    reviewResult,
+    isReviewing,
+    requestReview,
+    applyReviewFix,
+    isFixing,
+    reviewAndFixPresentation,
+    isDark,  toggleDark,
     appTheme, changeTheme,
-    handleFilesUpload, removeFile, handlePromptSubmit,
-    requestOutline, generatePresentation,
-    regenerateSlide, requestChatEdit,
-    changeSlidePersona, cycleLayout,
+    handleFilesUpload,
+    removeFile,
+    handlePromptSubmit,
+    requestOutline,
+    generatePresentation,
+    regenerateSlide,
+    requestChatEdit,
+    changeSlidePersona,
+    cycleLayout,
     updatePresentationMaster,
-    isGeneratingImage, generateSlideImage,
-    reset, updateSlide,
-    addSlide, deleteSlide, duplicateSlide, moveSlide,
+    isGeneratingImage,
+    generateSlideImage,
+    reset,
+    updateSlide,
+    addSlide,
+    deleteSlide,
+    duplicateSlide,
+    moveSlide,
     updatePresentationTitle,
   };
 }
