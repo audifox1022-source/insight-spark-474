@@ -79,8 +79,8 @@ function extractTextFromItem(item: any): string[] {
     const title =
       item.title || item.heading || item.name || item.subject || "";
     const bodyData =
-      item.content || item.items || item.points ||
-      item.bullets || item.text || item.desc ||
+      item.content || item.items  || item.points ||
+      item.bullets || item.text   || item.desc   ||
       item.description || [];
 
     if (Array.isArray(bodyData)) {
@@ -88,8 +88,8 @@ function extractTextFromItem(item: any): string[] {
       result.push(
         ...bodyData.map((c: any) => {
           if (typeof c === "string") return c;
-          if (c.title && c.desc)   return `${c.title}: ${c.desc}`;
-          if (c.label && c.value)  return `${c.label}: ${c.value}`;
+          if (c.title && c.desc)    return `${c.title}: ${c.desc}`;
+          if (c.label && c.value)   return `${c.label}: ${c.value}`;
           return JSON.stringify(c);
         })
       );
@@ -107,16 +107,15 @@ function extractTextFromItem(item: any): string[] {
   return [String(item)];
 }
 
-// ✅ normalizeSlide — 타입 정규화 + chartData 구조 변환 포함
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== "object") {
     return {
-      id: `slide-${Math.random().toString(36).substr(2, 9)}`,
-      type: "content",
-      title: "",
-      content: [],
-      chartData: null,
-      tableData: { headers: [], rows: [] },
+      id:         `slide-${Math.random().toString(36).substr(2, 9)}`,
+      type:       "content",
+      title:      "",
+      content:    [],
+      chartData:  null,
+      tableData:  { headers: [], rows: [] },
       keyMetrics: [],
     };
   }
@@ -134,30 +133,30 @@ function normalizeSlide(s: any): any {
     : [];
   s.content = contentArray.flatMap(extractTextFromItem);
 
-  // ── 2. 슬라이드 type 정규화 ────────────────────────────
+  // ── 2. type 정규화 ─────────────────────────────────────
   const CHART_ALIASES = [
-    'bar', 'line', 'pie', 'area',
-    'barChart', 'lineChart', 'pieChart', 'areaChart',
-    'chart', 'graph', 'visualization',
+    'bar','line','pie','area',
+    'barchart','linechart','piechart','areachart',
+    'chart','graph','visualization',
   ];
-  const TABLE_ALIASES = ['table', 'tabledata', 'grid', 'matrix'];
-  const KPI_ALIASES   = ['kpi', 'metric', 'metrics', 'stats', 'scorecard', 'indicator'];
+  const TABLE_ALIASES = ['table','tabledata','grid','matrix'];
+  const KPI_ALIASES   = ['kpi','metric','metrics','stats','scorecard','indicator'];
 
   const rawType = (s.type || "content").toLowerCase();
 
-  if      (TABLE_ALIASES.includes(rawType) && (s.tableData || s.headers))   s.type = 'table';
-  else if (KPI_ALIASES.includes(rawType)   && (s.keyMetrics || s.metrics))  s.type = 'kpi';
-  else if (CHART_ALIASES.includes(rawType) || s.chartData)                   s.type = 'chart';
-  else                                                                        s.type = s.type || 'content';
+  if      (TABLE_ALIASES.includes(rawType) && (s.tableData  || s.headers))   s.type = 'table';
+  else if (KPI_ALIASES.includes(rawType)   && (s.keyMetrics || s.metrics))   s.type = 'kpi';
+  else if (CHART_ALIASES.includes(rawType) || s.chartData)                    s.type = 'chart';
+  else                                                                         s.type = s.type || 'content';
 
-  // ── 3. chartData 정규화 → SlideChartData 구조로 변환 ───
+  // ── 3. chartData → SlideChartData 변환 ────────────────
   if (s.type === 'chart' || s.chartData) {
     const raw = s.chartData || {};
 
-    // 이미 SlideChartData 구조인 경우 ({chartType, data:[{name,value}]})
+    // 이미 SlideChartData 구조인 경우
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
       s.chartData = {
-        chartType:    raw.chartType ?? raw.type ?? 'bar',
+        chartType:    raw.chartType    ?? raw.type ?? 'bar',
         title:        raw.title        ?? '',
         data:         raw.data,
         series1Label: raw.series1Label ?? '값',
@@ -167,18 +166,17 @@ function normalizeSlide(s: any): any {
         yAxisLabel:   raw.yAxisLabel   ?? undefined,
       };
     }
-    // AI 원본 구조 ({type, labels, datasets}) → SlideChartData로 변환
+    // AI 원본 구조 {type, labels, datasets} → 변환
     else if (Array.isArray(raw.labels) && raw.labels.length > 0 && Array.isArray(raw.datasets)) {
       const primaryDs   = raw.datasets[0];
       const secondaryDs = raw.datasets[1];
-
       s.chartData = {
         chartType: (
           raw.type === 'line' ? 'line' :
           raw.type === 'pie'  ? 'pie'  :
           raw.type === 'area' ? 'area' : 'bar'
         ) as 'bar' | 'line' | 'pie' | 'area',
-        title: raw.title ?? '',
+        title:        raw.title ?? '',
         data: (raw.labels as string[]).map((label: string, i: number) => ({
           name:   String(label),
           value:  Number(primaryDs?.data?.[i]   ?? 0),
@@ -191,7 +189,7 @@ function normalizeSlide(s: any): any {
         yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
     }
-    // chartData 없거나 파싱 불가 → content로 fallback
+    // 파싱 불가 → content fallback
     else {
       s.chartData = null;
       s.type = 'content';
@@ -204,7 +202,7 @@ function normalizeSlide(s: any): any {
 
   // ── 4. tableData 정규화 ────────────────────────────────
   if (s.type === 'table' || s.tableData) {
-    s.tableData = s.tableData || {};
+    s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
     s.tableData.rows    = Array.isArray(s.tableData.rows)    ? s.tableData.rows    : [];
     if (s.tableData.headers.length === 0) {
@@ -218,11 +216,13 @@ function normalizeSlide(s: any): any {
   // ── 5. keyMetrics 정규화 ───────────────────────────────
   if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
-    s.keyMetrics = Array.isArray(rawMetrics) ? rawMetrics.map((m: any) => ({
-      label: m.label || m.name  || '',
-      value: m.value || m.score || '',
-      trend: m.trend || m.direction || 'flat',
-    })) : [];
+    s.keyMetrics = Array.isArray(rawMetrics)
+      ? rawMetrics.map((m: any) => ({
+          label: m.label || m.name  || '',
+          value: m.value || m.score || '',
+          trend: m.trend || m.direction || 'flat',
+        }))
+      : [];
     if (s.keyMetrics.length === 0) s.type = 'content';
   } else {
     s.keyMetrics = [];
@@ -321,7 +321,6 @@ async function callGeminiAPI(
   if (!candidate) throw new Error("AI 응답에 결과가 없습니다.");
   const text = candidate?.content?.parts?.[0]?.text;
   if (!text || text.trim() === "") throw new Error("빈 응답이 반환되었습니다.");
-
   return text;
 }
 
@@ -331,6 +330,28 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any) {
     title:   outlineItem?.title ?? `슬라이드 ${slideNumber}`,
     type:    outlineItem?.type  ?? "content",
     content: ["내용을 입력하세요."],
+  });
+}
+
+// ✅ 수정: 이미지 실제 로드 검증 유틸
+function verifyImageUrl(url: string, timeoutMs = 30000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+
+    const timer = setTimeout(() => {
+      img.src = '';
+      reject(new Error('이미지 생성 시간 초과 (30초). 다시 시도해주세요.'));
+    }, timeoutMs);
+
+    img.onload = () => {
+      clearTimeout(timer);
+      resolve(url);
+    };
+    img.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error('LOAD_FAILED'));
+    };
+    img.src = url;
   });
 }
 
@@ -396,11 +417,11 @@ export const aiService = {
   },
 
   async generatePresentation(body: any) {
-    const difficulty  = body.settings?.difficulty || "medium";
-    const volume      = body.settings?.volume     || "standard";
-    const slideCount  = body.approvedOutline?.outline?.length
-                       ?? SLIDE_COUNT_MAP[volume]
-                       ?? 8;
+    const difficulty = body.settings?.difficulty || "medium";
+    const volume     = body.settings?.volume     || "standard";
+    const slideCount = body.approvedOutline?.outline?.length
+                      ?? SLIDE_COUNT_MAP[volume]
+                      ?? 8;
 
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
@@ -411,12 +432,9 @@ export const aiService = {
 1. slides 배열의 길이는 반드시 정확히 ${slideCount}개여야 합니다.
 2. 각 슬라이드는 구성안의 순서와 제목을 반드시 따릅니다.
 3. 배열 내부에 JSON 객체를 절대 넣지 마세요.
-4. chart 타입 슬라이드는 반드시 chartData 필드를 포함하세요:
-   {"type":"bar","labels":["A","B"],"datasets":[{"label":"값","data":[10,20]}]}
-5. kpi 타입 슬라이드는 반드시 keyMetrics 필드를 포함하세요:
-   [{"label":"지표명","value":"수치","trend":"up"}]
-6. table 타입 슬라이드는 반드시 tableData 필드를 포함하세요:
-   {"headers":["열1","열2"],"rows":[["값1","값2"]]}
+4. chart 타입 슬라이드는 반드시 chartData 필드를 포함하세요.
+5. kpi 타입 슬라이드는 반드시 keyMetrics 필드를 포함하세요.
+6. table 타입 슬라이드는 반드시 tableData 필드를 포함하세요.
 
 [원본]\n${truncateFileData(body.fileData)}
 [구성안]\n${JSON.stringify(body.approvedOutline)}
@@ -448,7 +466,6 @@ export const aiService = {
         data.slides.push(makeEmptySlide(data.slides.length + 1, item));
       });
     }
-
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
       data.slides = data.slides.slice(0, approvedOutline.length);
     }
@@ -559,24 +576,50 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return { result: data };
   },
 
-  async generateImage(slideTitle: string, slideContent: string) {
-    let englishKeywords = "abstract business corporate background";
+  // ✅ 수정: 이미지 실제 로드 검증 + 재시도 포함
+  async generateImage(slideTitle: string, slideContent: string): Promise<string> {
+    let englishKeywords = "abstract business professional corporate";
+
     try {
       const keywordsResult = await callGeminiAPI(
-        "You are a keyword extractor. Return ONLY raw JSON.",
-        `Extract key visual concepts and return ONLY a comma-separated list of 5 English keywords. Text: ${slideTitle} ${slideContent}`,
-        50
+        "You are a keyword extractor. Return ONLY a plain comma-separated list, no JSON, no quotes, no markdown.",
+        `Extract 5 English visual keywords from: "${slideTitle} ${slideContent}"`,
+        100
       );
-      if (keywordsResult && keywordsResult.length > 3) {
-        englishKeywords = keywordsResult.replace(/['"{}\[\].\n]/g, "").trim();
+      if (keywordsResult && keywordsResult.trim().length > 3) {
+        englishKeywords = keywordsResult
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/[{}\[\]"'\n\r`]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 120);
       }
     } catch {}
 
-    const encodedPrompt = encodeURIComponent(
-      `Professional presentation background, soft gradient, theme: ${englishKeywords.slice(0, 100)}. High quality, abstract, clean, no text, no watermarks, 16:9.`
-    );
-    const seed = Math.floor(Math.random() * 1000000);
-    return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
+    const prompt = `Professional presentation slide background, ${englishKeywords}, soft gradient, clean, minimal, no text, no watermark, 16:9 aspect ratio`;
+    const encodedPrompt = encodeURIComponent(prompt);
+
+    const buildUrl = (seed: number) =>
+      `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}`;
+
+    const seed1 = Math.floor(Math.random() * 9999999);
+    const url1  = buildUrl(seed1);
+
+    try {
+      return await verifyImageUrl(url1, 30000);
+    } catch (e: any) {
+      if (e.message === 'LOAD_FAILED') {
+        // 1회 재시도 — 다른 seed
+        const seed2 = Math.floor(Math.random() * 9999999);
+        const url2  = buildUrl(seed2);
+        try {
+          return await verifyImageUrl(url2, 30000);
+        } catch {
+          throw new Error('이미지 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        }
+      }
+      throw e;
+    }
   },
 
   async analyzeInfographic(content: string[]) {
