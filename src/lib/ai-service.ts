@@ -1,5 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
+ * (🚀 구성안 생성 속도 대폭 최적화 버전)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -23,6 +24,7 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
+// 💡 실제 슬라이드 생성 시에만 사용하는 무거운 프롬프트
 const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를 완벽하게 분석하여 고품질 프레젠테이션으로 변환하는 '비주얼 전문가'입니다.
 [🔥 절대 준수: 데이터 소스 우선순위]
 1. 파일 데이터가 있는 경우: 오직 업로드된 파일의 내용만 사용하세요.
@@ -97,11 +99,23 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
+  // 🚀 속도 최적화: 구성안 전용 초경량 프롬프트 적용
   async getOutline(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 목차 설계\n[원본]\n${truncateFileData(body.fileData)}\nJSON 반환: {"title":"제목","outline":[{"slideNumber":1,"title":"제목","type":"content","description":"설명"}]}`, 4096);
+    const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 빠르게 설계하세요.
+    [원본]
+    ${truncateFileData(body.fileData)}
+    
+    [규칙]
+    - 전체적인 흐름만 파악하여 목차를 작성하세요.
+    - 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
+    {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "이 슬라이드의 핵심 내용 한 줄"}]}`;
+    
+    // 구성안은 짧게 반환하므로 토큰 수를 1024로 제한하여 AI가 불필요하게 말을 늘어놓지 못하게 차단 (속도 대폭 향상)
+    const text = await callGeminiAPI(prompt, 1024);
     return { outline: extractJSON(text) };
   },
 
+  // 발표자료 전체 생성 (여기서는 무거운 프롬프트 사용)
   async generatePresentation(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 완성\n[원본]\n${truncateFileData(body.fileData)}\nJSON 반환: {"title":"제목","slides":[]}`, TOKEN_MAP[body.settings?.volume || 'standard']);
     return { presentation: extractJSON(text) };
