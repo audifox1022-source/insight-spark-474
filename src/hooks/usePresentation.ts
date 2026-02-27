@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
-import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep } from '@/types/presentation';
+import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { OutlineData } from '@/components/OutlinePreview';
 import { ReviewResult } from '@/components/ReviewPanel';
@@ -9,6 +9,111 @@ import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backof
 import { aiService } from '@/lib/ai-service';
 
 export type ExtendedStep = AppStep | 'outline';
+
+// ─────────────────────────────────────────────────────────────────
+// 🔧 핵심 수정: AI 반환 슬라이드를 앱 내부 Slide 타입으로 안전하게 변환
+//
+// AI가 반환하는 chartData 형식:
+//   { type: 'bar', labels: ['A','B'], datasets: [{ label: '값', data: [10,20] }] }
+//
+// SlideChart(Recharts)가 기대하는 SlideChartData 형식:
+//   { chartType: 'bar', data: [{ name: 'A', value: 10 }, { name: 'B', value: 20 }] }
+//
+// 이 변환이 없으면 SlideChart 내부의 data.some() 호출에서 TypeError 발생
+// ─────────────────────────────────────────────────────────────────
+function convertAIChartData(rawChartData: any): SlideChartData | undefined {
+  if (!rawChartData) return undefined;
+
+  // 이미 SlideChartData 형식인 경우 (data 배열이 name/value 구조)
+  if (Array.isArray(rawChartData.data) && rawChartData.data[0]?.name !== undefined) {
+    return rawChartData as SlideChartData;
+  }
+
+  // AI 반환 형식 (labels + datasets) → SlideChartData 변환
+  const labels: string[] = Array.isArray(rawChartData.labels) ? rawChartData.labels : [];
+  const datasets: any[] = Array.isArray(rawChartData.datasets) ? rawChartData.datasets : [];
+
+  if (labels.length === 0) return undefined;
+
+  const primaryDataset = datasets[0] || { data: [] };
+  const secondaryDataset = datasets[1];
+
+  const data = labels.map((label, i) => ({
+    name: String(label),
+    value: Number(primaryDataset.data?.[i] ?? 0),
+    ...(secondaryDataset ? { value2: Number(secondaryDataset.data?.[i] ?? 0) } : {}),
+  }));
+
+  return {
+    chartType: (rawChartData.type === 'line' ? 'line'
+      : rawChartData.type === 'pie' ? 'pie'
+      : rawChartData.type === 'area' ? 'area'
+      : 'bar') as SlideChartData['chartType'],
+    title: rawChartData.title || '',
+    data,
+    series1Label: primaryDataset.label || '값',
+    series2Label: secondaryDataset?.label,
+    showLegend: datasets.length > 1,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 🔧 AI 반환 슬라이드 전체를 안전하게 정규화
+//   - content, keyMetrics 등 배열 필드 보장
+//   - chartData 포맷 변환 적용
+// ─────────────────────────────────────────────────────────────────
+function normalizeSlideForApp(raw: any, index: number): Slide {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      slideNumber: index + 1,
+      type: 'content',
+      title: '',
+      content: [],
+      keyMetrics: [],
+    };
+  }
+
+  // content 배열 보장 (AI가 points, bullets 등 다양한 키로 반환할 수 있음)
+  const rawContent = raw.content ?? raw.points ?? raw.bullets ?? raw.items ?? raw.list ?? [];
+  const content: string[] = Array.isArray(rawContent)
+    ? rawContent.map((p: any) =>
+        p && typeof p === 'object'
+          ? String(p.title ?? p.text ?? JSON.stringify(p))
+          : String(p)
+      )
+    : typeof rawContent === 'string'
+    ? [rawContent]
+    : [];
+
+  // keyMetrics 배열 보장
+  const keyMetrics = Array.isArray(raw.keyMetrics) ? raw.keyMetrics : [];
+
+  // chartData 포맷 변환 (핵심: .some() 에러 방지)
+  const chartData = convertAIChartData(raw.chartData);
+
+  return {
+    ...raw,
+    slideNumber: raw.slideNumber ?? index + 1,
+    type: raw.type ?? 'content',
+    title: raw.title ?? '',
+    content,
+    keyMetrics,
+    chartData,
+  } as Slide;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// presentation 전체 슬라이드 정규화
+// ─────────────────────────────────────────────────────────────────
+function normalizePresentationSlides(presentation: any): Presentation {
+  if (!presentation || !Array.isArray(presentation.slides)) {
+    return { title: presentation?.title ?? '새 발표 자료', slides: [] };
+  }
+  return {
+    ...presentation,
+    slides: presentation.slides.map(normalizeSlideForApp),
+  };
+}
 
 export function usePresentation() {
   const [step, setStep] = useState<ExtendedStep>('upload');
@@ -23,10 +128,9 @@ export function usePresentation() {
   });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  
-  // ✨ 이미지 생성 로딩 상태
+
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  
+
   const [isLoadingOutline, setIsLoadingOutline] = useState(false);
   const [outline, setOutline] = useState<OutlineData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -176,7 +280,9 @@ export function usePresentation() {
         }
       );
       toast.dismiss('gen-retry');
-      setPresentation(resData.presentation);
+
+      // 🔧 핵심 수정: AI 응답을 앱 타입에 맞게 변환 후 저장
+      setPresentation(normalizePresentationSlides(resData.presentation));
       setStep('preview');
       toast.success('발표 자료가 생성되었습니다!');
     } catch (err: any) {
@@ -196,7 +302,8 @@ export function usePresentation() {
     setPresentation((prev) => {
       if (!prev) return prev;
       const slides = [...prev.slides];
-      slides[index] = { ...slides[index], ...updated };
+      // 🔧 슬라이드 업데이트 시에도 정규화 적용
+      slides[index] = normalizeSlideForApp({ ...slides[index], ...updated }, index);
       return { ...prev, slides };
     });
   }, []);
@@ -214,6 +321,7 @@ export function usePresentation() {
         }),
         { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
       );
+      // 🔧 재생성된 슬라이드도 정규화
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('슬라이드가 재생성되었습니다!', { id: 'regen' });
     } catch (err: any) {
@@ -231,6 +339,10 @@ export function usePresentation() {
         async () => await aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation }),
         { maxRetries: 1 }
       );
+      // 🔧 채팅 수정 결과도 정규화
+      if (resData.result?.slide) {
+        resData.result.slide = normalizeSlideForApp(resData.result.slide, slideIndex);
+      }
       return resData.result;
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, 'AI 채팅 수정'));
@@ -265,7 +377,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ✨ 신규: AI 배경 이미지 생성 호출 및 슬라이드 업데이트
   const generateSlideImage = useCallback(async (slideIndex: number) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -274,8 +385,9 @@ export function usePresentation() {
     toast.loading('AI가 내용에 맞는 배경 이미지를 그리고 있습니다... 🎨 (약 5~10초 소요)', { id: 'gen-image' });
 
     try {
-      // 슬라이드 내용을 문자열로 합쳐 프롬프트 재료로 제공
-      const contentStr = currentSlide.content ? currentSlide.content.join(' ') : '비즈니스 프레젠테이션';
+      const contentStr = Array.isArray(currentSlide.content) && currentSlide.content.length > 0
+        ? currentSlide.content.join(' ')
+        : '비즈니스 프레젠테이션';
       const imageUrl = await aiService.generateImage(currentSlide.title, contentStr);
 
       updateSlide(slideIndex, { imageUrl });
@@ -330,7 +442,12 @@ export function usePresentation() {
   }, [fetchHistory]);
 
   const loadFromHistory = useCallback((saved: SavedPresentation) => {
-    setPresentation({ id: saved.id, title: saved.title, slides: saved.slides });
+    // 🔧 히스토리에서 불러올 때도 정규화 적용 (저장 당시 포맷이 달랐을 수 있음)
+    setPresentation(normalizePresentationSlides({
+      id: saved.id,
+      title: saved.title,
+      slides: saved.slides,
+    }));
     setMeetingInfo(saved.meetingInfo);
     setSettings(saved.settings);
     setTemplate(saved.template);
@@ -460,7 +577,8 @@ export function usePresentation() {
           onRetry: () => toast.loading('최적화 재시도 중...', { id: 'review-fix' }),
         }
       );
-      setPresentation(resData.result.presentation);
+      // 🔧 전체 최적화 결과도 정규화
+      setPresentation(normalizePresentationSlides(resData.result.presentation));
       toast.success(`최적화 완료! ✨ ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err, '전체 최적화'), { id: 'review-fix' });
@@ -490,7 +608,6 @@ export function usePresentation() {
     handlePromptSubmit,
     requestOutline, generatePresentation, regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
-    // ✨ 반환 목록에 추가
     isGeneratingImage, generateSlideImage,
     reset,
     updateSlide, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
