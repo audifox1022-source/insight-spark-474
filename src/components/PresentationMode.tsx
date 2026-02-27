@@ -1,12 +1,15 @@
+// ============================================================
+// PresentationMode.tsx  —  전체 코드 (A4 가로 최종)
+// ============================================================
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Presentation } from '@/types/presentation';
-import { ScaledSlide } from '@/components/ScaledSlide';
+import { ScaledSlide }  from '@/components/ScaledSlide';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface PresentationModeProps {
   presentation: Presentation;
-  startSlide?: number;
-  onExit: () => void;
+  startSlide?:  number;
+  onExit:       () => void;
 }
 
 export function PresentationMode({
@@ -14,7 +17,7 @@ export function PresentationMode({
   startSlide = 0,
   onExit,
 }: PresentationModeProps) {
-  const [current, setCurrent]             = useState(startSlide);
+  const [current,       setCurrent]       = useState(startSlide);
   const [cursorVisible, setCursorVisible] = useState(true);
   const cursorTimer  = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -25,7 +28,7 @@ export function PresentationMode({
   const next = useCallback(() => setCurrent((c) => Math.min(c + 1, total - 1)), [total]);
   const prev = useCallback(() => setCurrent((c) => Math.max(c - 1, 0)), []);
 
-  // 전체화면
+  // ── 전체화면
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -35,7 +38,7 @@ export function PresentationMode({
     return () => document.removeEventListener('fullscreenchange', handleFSChange);
   }, [onExit]);
 
-  // 키보드
+  // ── 키보드
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       switch (e.key) {
@@ -56,7 +59,7 @@ export function PresentationMode({
     return () => window.removeEventListener('keydown', handler);
   }, [next, prev, onExit, total]);
 
-  // 커서 자동숨김
+  // ── 커서 자동숨김
   useEffect(() => {
     const handleMove = () => {
       setCursorVisible(true);
@@ -74,23 +77,21 @@ export function PresentationMode({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] bg-gray-800 flex items-center justify-center select-none"
+      className="fixed inset-0 z-[9999] bg-gray-900 flex items-center justify-center select-none"
       style={{ cursor: cursorVisible ? 'default' : 'none' }}
       onClick={(e) => {
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const x    = e.clientX - rect.left;
-        if (x < rect.width / 3) prev(); else next();
+        if (e.clientX - rect.left < rect.width / 3) prev(); else next();
       }}
     >
-      {/* ✅ A4 비율: 화면 높이 기준으로 너비 계산 (100vh / 1.4142) */}
+      {/* ✅ A4 가로 비율: width:height = 1.4142:1
+          width  = min(100vw, 100vh * 1.4142)
+          height = min(100vh, 100vw / 1.4142)       */}
       <div
         className="relative shadow-2xl"
         style={{
-          // 화면 높이에 맞춘 A4 너비 = height / 1.4142
-          // 화면 너비에 맞춘 A4 높이 = width * 1.4142
-          // 둘 중 화면을 넘지 않는 쪽 선택
-          width:     'min(100vw, calc(100vh / 1.4142))',
-          height:    'min(100vh, calc(100vw * 1.4142))',
+          width:     'min(100vw, calc(100vh * 1.4142))',
+          height:    'min(100vh, calc(100vw / 1.4142))',
           maxWidth:  '100vw',
           maxHeight: '100vh',
         }}
@@ -102,17 +103,12 @@ export function PresentationMode({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="w-full h-full"
+            className="absolute inset-0"
           >
-            {/* ✅ A4 비율 슬라이드 — paddingBottom trick 대신 absolute fill 사용 */}
-            <div className="relative w-full h-full">
-              <div className="absolute inset-0">
-                <ScaledSlide
-                  slide={slides[current]}
-                  containerClassName="w-full h-full"
-                />
-              </div>
-            </div>
+            <ScaledSlide
+              slide={slides[current]}
+              containerClassName="w-full h-full"
+            />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -128,7 +124,7 @@ export function PresentationMode({
       {/* 진행 바 */}
       <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
         <div
-          className="h-full bg-white/40 transition-all duration-300"
+          className="h-full bg-white/50 transition-all duration-300"
           style={{ width: `${((current + 1) / total) * 100}%` }}
         />
       </div>
