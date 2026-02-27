@@ -5,13 +5,13 @@
 import * as XLSX from 'xlsx';
 import { ParsedExcelData, summarizeForAI } from './excel-parser';
 
-// ✅ pdfjs-dist 정적 임포트 (동적 임포트 제거 → Vercel 404 해결)
+// ✅ 정적 임포트 (동적 import() 완전 제거)
 import * as pdfjsLib from 'pdfjs-dist';
+import * as mammoth from 'mammoth';
 
-// ✅ Worker를 CDN URL로 직접 지정 (Vercel 빌드 시 청크 분리 문제 회피)
-//    pdfjs-dist 버전과 반드시 일치시켜야 함
+// ✅ unpkg CDN + .mjs 확장자 (pdfjs-dist v4.x 전용)
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export interface ParsedFileData {
   fileName:      string;
@@ -92,8 +92,6 @@ async function parseExcel(file: File): Promise<ParsedFileData> {
 }
 
 // ── PDF 파싱 ─────────────────────────────────────────────────
-// ✅ 동적 import() 완전 제거
-// ✅ pdfjs-dist 정적 임포트 + CDN Worker 사용
 async function parsePDF(file: File): Promise<ParsedFileData> {
   try {
     const buffer = await readAsArrayBuffer(file);
@@ -145,14 +143,10 @@ async function parsePDF(file: File): Promise<ParsedFileData> {
 }
 
 // ── Word 파싱 ────────────────────────────────────────────────
-// mammoth는 용량이 작아 동적 임포트 유지해도 무방하지만
-// 안정성을 위해 정적 임포트로 변경
-import mammoth from 'mammoth';
-
 async function parseWord(file: File): Promise<ParsedFileData> {
   try {
     const buffer = await readAsArrayBuffer(file);
-    const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+    const result = await (mammoth as any).extractRawText({ arrayBuffer: buffer });
     const text   = result.value;
 
     if (!text || text.trim().length < 5) {
@@ -250,7 +244,6 @@ export function buildAIPayload(
         data: summarizeForAI(file.excelData.sheets),
       };
     } else if (file.textContent) {
-      // ✅ PDF, Word, Text 전체 텍스트 전달
       payload[file.fileName] = {
         type:    file.fileType,
         content: file.textContent,
