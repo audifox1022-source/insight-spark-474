@@ -1,6 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
- * (🚀 차트, 표, KPI 스키마 복구 및 무한 로딩 방지 완벽 적용)
+ * (🚀 슬라이드 장수 제한 및 분량 조절 완벽 적용)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -36,7 +36,7 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 - 모든 응답은 순수 JSON (마크다운 없음)으로 반환하세요.
 - 일반 설명은 "content" 배열(string[])에 넣고, 특수 타입(표, 차트 등)은 반드시 아래 스키마를 따르세요.`;
 
-// ✨ AI에게 차트, 표, KPI를 그리는 방법을 알려주는 필수 가이드 (복구됨!)
+// ✨ AI에게 차트, 표, KPI를 그리는 방법을 알려주는 필수 가이드
 const SLIDE_SCHEMA = `
 [📊 특수 슬라이드 타입 필수 JSON 구조 (반드시 준수)]
 - "kpi" 타입: 
@@ -136,15 +136,19 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
-  // 🚀 구성안 생성 로직
+  // 🚀 구성안 생성 로직 (분량 제한 엄격 적용!)
   async getOutline(body: any) {
+    // ✨ 사용자가 설정한 분량(volume) 값을 가져와서 프롬프트에 강력하게 주입합니다.
+    const volumeGuideline = VOLUME_MAP[body.settings?.volume || 'standard'];
+    
     const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 설계하세요.
     [원본]
     ${truncateFileData(body.fileData)}
     
-    [규칙]
-    - 전체적인 흐름만 파악하여 목차를 작성하세요.
-    - 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
+    [🔥 분량 및 규칙 제한]
+    1. 슬라이드 개수: 반드시 "${volumeGuideline}" 규칙을 엄격하게 지켜서 목차의 총 개수를 맞춰주세요.
+    2. 전체적인 흐름만 파악하여 목차를 작성하세요.
+    3. 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
     {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "chart", "description": "핵심 내용"}]}`;
     
     const text = await callGeminiAPI(prompt, 4096); 
@@ -163,7 +167,7 @@ export const aiService = {
     return { outline: data };
   },
 
-  // 🚀 전체 발표자료 생성 로직 (표/차트 스키마 탑재!)
+  // 🚀 전체 발표자료 생성 로직
   async generatePresentation(body: any) {
     const prompt = `${SYSTEM_PROMPT_CORE}
     ${SLIDE_SCHEMA}
