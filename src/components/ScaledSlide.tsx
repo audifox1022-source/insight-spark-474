@@ -1,21 +1,34 @@
-/**
- * ScaledSlide.tsx
- *
- * 수정 사항:
- * 1. [차트 수정] SlideChart(Recharts) 컴포넌트를 실제로 사용하도록 연결.
- *    기존에는 오래된 chartData.labels/datasets 구조를 기대했지만,
- *    실제 Slide 타입은 SlideChartData({ chartType, data[] }) 구조이므로 타입 맞춤.
- * 2. [배경 수정] 단순 흰 배경 → 슬라이드 타입별 세련된 그라디언트/디자인 배경 적용.
- * 3. ScaledSlide는 16:9 비율 내부에서 1920×1080 기준으로 렌더링되며,
- *    부모가 CSS transform scale로 크기를 조정합니다.
- */
-
 import React from 'react';
 import { ArrowRight, Layers, BarChart3, Table as TableIcon, Target } from 'lucide-react';
-import { SlideChart } from '@/components/SlideChart';
 
-// presentation.ts 의 Slide 타입 사용 (경로는 프로젝트에 맞게 유지)
-import type { Slide, SlideChartData } from '@/types/presentation';
+// 슬라이드 데이터 타입 정의 (안전한 렌더링을 위해)
+interface Slide {
+  id?: string;
+  type?: string;
+  title?: string;
+  content?: string[];
+  points?: string[];
+  items?: string[];
+  infographicType?: string;
+  chartData?: {
+    type?: string;
+    labels?: string[];
+    datasets?: { label: string; data: number[] }[];
+  };
+  tableData?: {
+    headers?: string[];
+    rows?: string[][];
+  };
+  keyMetrics?: { label: string; value: string; trend?: string }[];
+  slideNumber?: number;
+  // ✅ 디테일 튜닝 필드
+  titleSizeScale?: number;
+  contentSizeScale?: number;
+  visualRatio?: number;
+  tableDensity?: 'compact' | 'normal' | 'relaxed';
+  imageUrl?: string;
+  layout?: string;
+}
 
 interface ScaledSlideProps {
   slide: Slide;
@@ -24,106 +37,40 @@ interface ScaledSlideProps {
   watermark?: string;
 }
 
-// ─── 슬라이드 타입별 배경 스타일 ────────────────────────────────────────────
-function getSlideBackground(type: string | undefined, imageUrl?: string): React.CSSProperties {
-  if (imageUrl) {
-    return {
-      backgroundImage: `linear-gradient(to bottom, rgba(15,23,42,0.55) 0%, rgba(15,23,42,0.75) 100%), url(${imageUrl})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      color: '#fff',
-    };
-  }
+export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassName = '', logoUrl, watermark }) => {
+  // 🛡️ 1단계 방어: 본문 내용이 배열이 아니면 강제로 빈 배열 반환
+  const rawContent = slide.content || slide.points || slide.items;
+  const content = Array.isArray(rawContent) ? rawContent : [];
 
-  switch (type) {
-    case 'title':
-      return {
-        background: 'linear-gradient(135deg, hsl(215,60%,22%) 0%, hsl(200,80%,30%) 100%)',
-        color: '#fff',
-      };
-    case 'section':
-      return {
-        background: 'linear-gradient(135deg, hsl(215,55%,18%) 0%, hsl(215,60%,26%) 100%)',
-        color: '#fff',
-      };
-    case 'closing':
-      return {
-        background: 'linear-gradient(135deg, hsl(200,80%,28%) 0%, hsl(215,60%,20%) 100%)',
-        color: '#fff',
-      };
-    case 'kpi':
-      return {
-        background: 'linear-gradient(160deg, #f8fafc 0%, #e8f4fd 100%)',
-      };
-    case 'chart':
-    case 'data':
-      return {
-        background: 'linear-gradient(160deg, #f8fafc 0%, #eef6fb 100%)',
-      };
-    default:
-      return {
-        background: 'linear-gradient(160deg, #ffffff 0%, #f1f5f9 100%)',
-      };
-  }
-}
+  // ✅ 디테일 튜닝 값 계산
+  const titleSizeScale = slide.titleSizeScale ?? 1;
+  const contentSizeScale = slide.contentSizeScale ?? 1;
+  const visualRatio = slide.visualRatio ?? 50; // 시각자료 영역 비율 (30~70%)
+  const textRatio = 100 - visualRatio;
 
-// ─── 제목 텍스트 색 (배경에 따라) ────────────────────────────────────────────
-function getTitleColor(type: string | undefined, imageUrl?: string): string {
-  if (imageUrl) return '#fff';
-  switch (type) {
-    case 'title':
-    case 'section':
-    case 'closing':
-      return '#fff';
-    default:
-      return 'hsl(215,60%,22%)';
-  }
-}
+  // 제목 기본 크기(text-5xl = 3rem = 48px) * scale
+  const titleFontSize = `${3 * titleSizeScale}rem`;
+  // 본문 기본 크기(text-2xl = 1.5rem) * scale
+  const contentFontSize = `${1.5 * contentSizeScale}rem`;
 
-// ─── 액센트 바 색상 ───────────────────────────────────────────────────────────
-function getAccentColor(type: string | undefined, imageUrl?: string): string {
-  if (imageUrl || type === 'title' || type === 'section' || type === 'closing') {
-    return 'rgba(255,255,255,0.5)';
-  }
-  return 'hsl(200,80%,44%)';
-}
+  // tableDensity → padding 매핑
+  const tablePaddingY =
+    slide.tableDensity === 'compact' ? 'py-1.5' :
+    slide.tableDensity === 'relaxed' ? 'py-5' :
+    'py-4'; // normal (기본)
 
-export const ScaledSlide: React.FC<ScaledSlideProps> = ({
-  slide,
-  containerClassName = '',
-  logoUrl,
-  watermark,
-}) => {
-  const bgStyle = getSlideBackground(slide.type, slide.imageUrl);
-  const isDark =
-    !!slide.imageUrl ||
-    slide.type === 'title' ||
-    slide.type === 'section' ||
-    slide.type === 'closing';
-  const titleColor = getTitleColor(slide.type, slide.imageUrl);
-  const accentColor = getAccentColor(slide.type, slide.imageUrl);
-
-  // ── 일반 불릿 컨텐츠 ──────────────────────────────────────────────────────
-  const rawContent = slide.points || slide.items || (slide as any).content;
-  const content: string[] = Array.isArray(rawContent) ? rawContent : [];
-
-  // ── 인포그래픽 렌더링 ─────────────────────────────────────────────────────
+  // 🎨 인포그래픽 렌더링
   const renderInfographic = () => {
-    switch ((slide as any).infographicType) {
+    switch (slide.infographicType) {
       case 'cycle':
         return (
           <div className="flex items-center justify-around h-full gap-4">
             {content.map((item, i) => (
               <div key={i} className="relative flex flex-col items-center">
-                <div
-                  className="w-32 h-32 rounded-full border-4 flex items-center justify-center p-4 text-center text-sm font-bold shadow-lg z-10"
-                  style={{ borderColor: accentColor, background: isDark ? 'rgba(255,255,255,0.12)' : 'white', color: isDark ? '#fff' : 'hsl(215,60%,22%)' }}
-                >
+                <div className="w-32 h-32 rounded-full border-4 border-primary flex items-center justify-center p-4 text-center text-sm font-bold bg-white shadow-lg z-10">
                   {typeof item === 'string' ? item : JSON.stringify(item)}
                 </div>
-                {i < content.length - 1 && (
-                  <ArrowRight className="absolute -right-8 top-1/2 -translate-y-1/2 w-8 h-8 z-0" style={{ color: accentColor }} />
-                )}
+                {i < content.length - 1 && <ArrowRight className="absolute -right-8 top-1/2 -translate-y-1/2 text-primary w-8 h-8 z-0" />}
               </div>
             ))}
           </div>
@@ -133,20 +80,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           <div className="space-y-4">
             {content.map((item, i) => (
               <div key={i} className="flex items-center gap-4">
-                <div
-                  className="w-10 h-10 rounded-lg text-white flex items-center justify-center font-bold flex-shrink-0"
-                  style={{ background: accentColor }}
-                >
+                <div className="w-10 h-10 rounded-lg bg-primary text-white flex items-center justify-center font-bold flex-shrink-0">
                   {i + 1}
                 </div>
-                <div
-                  className="flex-1 p-4 rounded-xl border font-medium"
-                  style={{
-                    background: isDark ? 'rgba(255,255,255,0.1)' : '#f8fafc',
-                    borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0',
-                    color: isDark ? '#fff' : '#1e293b',
-                  }}
-                >
+                <div className="flex-1 p-4 bg-gray-50 rounded-xl border border-gray-200 font-medium">
                   {typeof item === 'string' ? item : JSON.stringify(item)}
                 </div>
               </div>
@@ -157,15 +94,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         return (
           <ul className="space-y-6">
             {content.map((item, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-4 text-2xl leading-snug"
-                style={{ color: isDark ? 'rgba(255,255,255,0.9)' : '#334155' }}
-              >
-                <span
-                  className="mt-2.5 w-3 h-3 rounded-full flex-shrink-0"
-                  style={{ background: accentColor }}
-                />
+              <li key={i} className="flex items-start gap-4 leading-snug text-gray-800"
+                style={{ fontSize: contentFontSize }}>
+                <span className="mt-2.5 w-3 h-3 rounded-full bg-primary flex-shrink-0" />
                 <span>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
               </li>
             ))}
@@ -174,58 +105,84 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     }
   };
 
-  // ── ✅ 차트 렌더링 - SlideChart(Recharts) 컴포넌트 사용 ──────────────────
+  // 📊 2단계 방어: 차트 데이터 렌더링 (라이브러리 크래시 방지)
   const renderChart = () => {
-    const chartData: SlideChartData | undefined = slide.chartData;
-
-    if (!chartData || !Array.isArray(chartData.data) || chartData.data.length === 0) {
+    const { chartData } = slide;
+    // 데이터가 완벽하지 않으면 에러 대신 안내 문구 표시
+    if (!chartData || !Array.isArray(chartData.labels) || !Array.isArray(chartData.datasets)) {
       return (
-        <div
-          className="h-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed"
-          style={{ borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#e2e8f0', color: isDark ? 'rgba(255,255,255,0.4)' : '#94a3b8' }}
-        >
-          <BarChart3 className="w-12 h-12 mb-3 opacity-40" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+          <BarChart3 className="w-12 h-12 mb-3 opacity-20" />
           <p>차트 데이터를 분석 중입니다...</p>
         </div>
       );
     }
 
+    // CSS를 활용한 안전한 기본 막대 차트 (외부 라이브러리 의존성 없음)
     return (
-      // ✨ isSlideView=true → 큰 폰트로 전체 슬라이드 크기에 맞게 렌더링
-      <SlideChart chartData={chartData} isSlideView={true} />
+      <div className="h-full flex flex-col justify-end gap-6 pt-10">
+        <div className="flex justify-center gap-4 mb-4">
+          {chartData.datasets.map((ds, i) => (
+            <div key={i} className="flex items-center gap-2 text-sm font-bold text-gray-600">
+              <span className="w-3 h-3 rounded-full bg-primary inline-block" style={{ opacity: 1 - i * 0.4 }} />
+              {ds.label}
+            </div>
+          ))}
+        </div>
+        <div className="flex-1 flex items-end justify-around border-b-2 border-gray-300 pb-2">
+          {chartData.labels.map((label, idx) => (
+            <div key={idx} className="flex flex-col items-center gap-2 flex-1">
+              <div className="w-full flex justify-center items-end h-48 gap-1">
+                {chartData.datasets?.map((ds, dsIdx) => {
+                  const value = ds.data[idx] || 0;
+                  const maxVal = Math.max(...ds.data, 1); // 0으로 나누기 방지
+                  const height = `${(value / maxVal) * 100}%`;
+                  return (
+                    <div 
+                      key={dsIdx} 
+                      className="w-12 bg-primary rounded-t-md transition-all duration-500 flex items-start justify-center pt-2 text-xs font-bold text-white/90 overflow-hidden"
+                      style={{ height, opacity: 1 - dsIdx * 0.4 }}
+                    >
+                      {value}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="text-sm font-semibold text-gray-700">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     );
   };
 
-  // ── 테이블 렌더링 ─────────────────────────────────────────────────────────
+  // 📋 3단계 방어: 테이블 데이터 렌더링
   const renderTable = () => {
-    const tableData = (slide as any).tableData;
+    const { tableData } = slide;
     if (!tableData || !Array.isArray(tableData.headers) || !Array.isArray(tableData.rows)) {
       return (
-        <div
-          className="h-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed"
-          style={{ borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#e2e8f0', color: isDark ? 'rgba(255,255,255,0.4)' : '#94a3b8' }}
-        >
-          <TableIcon className="w-12 h-12 mb-3 opacity-40" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+          <TableIcon className="w-12 h-12 mb-3 opacity-20" />
           <p>표 데이터를 구성 중입니다...</p>
         </div>
       );
     }
 
     return (
-      <div className="w-full overflow-hidden rounded-xl border shadow-sm" style={{ borderColor: '#e2e8f0' }}>
+      <div className="w-full overflow-hidden rounded-xl border border-gray-200 shadow-sm">
         <table className="w-full text-left text-lg">
-          <thead style={{ background: 'hsl(215,60%,22%)', color: '#fff' }}>
+          <thead className="bg-primary text-white">
             <tr>
-              {tableData.headers.map((header: string, i: number) => (
-                <th key={i} className="px-6 py-4 font-bold">{header}</th>
+              {tableData.headers.map((header, i) => (
+                <th key={i} className={`px-6 ${tablePaddingY} font-bold`}>{header}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y bg-white" style={{ divideColor: '#f1f5f9' }}>
-            {tableData.rows.map((row: string[], i: number) => (
-              <tr key={i} className="hover:bg-slate-50">
+          <tbody className="divide-y divide-gray-100 bg-white">
+            {tableData.rows.map((row, i) => (
+              <tr key={i} className="hover:bg-gray-50">
                 {row.map((cell, j) => (
-                  <td key={j} className="px-6 py-4 text-gray-700">{cell}</td>
+                  <td key={j} className={`px-6 ${tablePaddingY} text-gray-700`}>{cell}</td>
                 ))}
               </tr>
             ))}
@@ -235,16 +192,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   };
 
-  // ── KPI 렌더링 ────────────────────────────────────────────────────────────
+  // 🎯 4단계 방어: KPI 지표 렌더링
   const renderKPI = () => {
     const { keyMetrics } = slide;
     if (!keyMetrics || !Array.isArray(keyMetrics)) {
       return (
-        <div
-          className="h-full flex flex-col items-center justify-center rounded-2xl border-2 border-dashed"
-          style={{ borderColor: isDark ? 'rgba(255,255,255,0.2)' : '#e2e8f0', color: isDark ? 'rgba(255,255,255,0.4)' : '#94a3b8' }}
-        >
-          <Target className="w-12 h-12 mb-3 opacity-40" />
+        <div className="h-full flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400">
+          <Target className="w-12 h-12 mb-3 opacity-20" />
           <p>핵심 지표를 도출 중입니다...</p>
         </div>
       );
@@ -253,32 +207,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     return (
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 h-full content-center">
         {keyMetrics.map((kpi, i) => (
-          <div
-            key={i}
-            className="p-8 rounded-2xl border flex flex-col items-center text-center shadow-md"
-            style={{
-              background: isDark ? 'rgba(255,255,255,0.1)' : '#fff',
-              borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0',
-            }}
-          >
-            <h3 className="text-xl font-bold mb-4" style={{ color: isDark ? 'rgba(255,255,255,0.7)' : '#64748b' }}>
-              {kpi.label}
-            </h3>
-            <p className="text-5xl font-black mb-2" style={{ color: isDark ? '#fff' : 'hsl(215,60%,22%)' }}>
-              {kpi.value}
-            </p>
+          <div key={i} className="bg-white p-8 rounded-2xl border border-gray-100 shadow-md flex flex-col items-center text-center">
+            <h3 className="text-xl font-bold text-gray-500 mb-4">{kpi.label}</h3>
+            <p className="text-5xl font-black text-primary mb-2">{kpi.value}</p>
             {kpi.trend && (
-              <span
-                className="text-sm font-bold px-3 py-1 rounded-full"
-                style={{
-                  background:
-                    kpi.trend === 'up' ? '#dcfce7' :
-                    kpi.trend === 'down' ? '#fee2e2' : '#f1f5f9',
-                  color:
-                    kpi.trend === 'up' ? '#15803d' :
-                    kpi.trend === 'down' ? '#b91c1c' : '#475569',
-                }}
-              >
+              <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                kpi.trend === 'up' ? 'bg-green-100 text-green-700' : 
+                kpi.trend === 'down' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+              }`}>
                 {kpi.trend === 'up' ? '▲ 상승' : kpi.trend === 'down' ? '▼ 하락' : '■ 유지'}
               </span>
             )}
@@ -288,159 +224,74 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   };
 
-  // ── 슬라이드 타입 분기 ────────────────────────────────────────────────────
+  // 슬라이드 타입에 따른 메인 렌더러 분기
   const renderContent = () => {
-    const type = slide.type;
-
-    if (type === 'chart' || type === 'data') return renderChart();
-    if (type === 'table') return renderTable();
-    if (type === 'kpi') return renderKPI();
-
-    if (type === 'title') {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-center gap-6">
-          <div
-            className="w-16 h-1 rounded-full"
-            style={{ background: 'rgba(255,255,255,0.4)' }}
-          />
-          {slide.subhead && (
-            <p className="text-3xl font-medium" style={{ color: 'rgba(255,255,255,0.75)' }}>
-              {slide.subhead}
-            </p>
-          )}
-          {slide.notes && (
-            <p className="text-2xl mt-4" style={{ color: 'rgba(255,255,255,0.55)' }}>
-              {slide.notes}
-            </p>
-          )}
-        </div>
-      );
+    switch (slide.type) {
+      case 'chart': return renderChart();
+      case 'table': return renderTable();
+      case 'kpi': return renderKPI();
+      default:
+        // 일반 content 슬라이드인데 내용마저 없으면 방어
+        if (content.length === 0) {
+          return (
+            <div className="h-full flex flex-col items-center justify-center text-gray-300 gap-4 border-2 border-dashed border-gray-100 rounded-3xl">
+              <Layers className="w-16 h-16 opacity-20" />
+              <p className="text-xl font-medium">슬라이드 내용을 구성 중입니다...</p>
+            </div>
+          );
+        }
+        return renderInfographic();
     }
-
-    if (content.length === 0) {
-      return (
-        <div
-          className="h-full flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-3xl"
-          style={{ borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0', color: isDark ? 'rgba(255,255,255,0.3)' : '#cbd5e1' }}
-        >
-          <Layers className="w-16 h-16 opacity-30" />
-          <p className="text-xl font-medium">슬라이드 내용을 구성 중입니다...</p>
-        </div>
-      );
-    }
-
-    return renderInfographic();
   };
 
   return (
-    <div
-      className={`aspect-video w-full relative overflow-hidden ${containerClassName}`}
-      style={bgStyle}
-    >
-      {/* ── 장식 요소 (다크 슬라이드) ── */}
-      {isDark && (
-        <>
-          <div
-            className="absolute -top-20 -right-20 w-96 h-96 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, hsl(200,80%,60%) 0%, transparent 70%)' }}
-          />
-          <div
-            className="absolute -bottom-24 -left-10 w-72 h-72 rounded-full opacity-10"
-            style={{ background: 'radial-gradient(circle, hsl(200,80%,60%) 0%, transparent 70%)' }}
-          />
-        </>
-      )}
-
-      {/* ── 워터마크 ── */}
+    <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
+      {/* 워터마크 */}
       {watermark && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03] rotate-[-30deg] text-9xl font-black select-none">
           {watermark}
         </div>
       )}
 
-      {/* ── 로고 ── */}
+      {/* 로고 */}
       {logoUrl && (
         <div className="absolute top-8 right-10 w-24 h-12 flex items-center justify-end">
-          <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" style={{ filter: isDark ? 'brightness(0) invert(1)' : 'none' }} />
+          <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
         </div>
       )}
 
-      <div className="p-16 h-full flex flex-col relative z-10">
-        {/* ── 슬라이드 번호 배지 ── */}
-        {slide.slideNumber && (
-          <div
-            className="absolute top-8 left-16 text-xs font-mono px-2 py-1 rounded-md"
-            style={{
-              background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.05)',
-              color: isDark ? 'rgba(255,255,255,0.5)' : '#94a3b8',
-            }}
-          >
-            {String(slide.slideNumber).padStart(2, '0')}
-          </div>
-        )}
+      <div className="p-16 h-full flex flex-col">
+        {/* 제목 — titleSizeScale 반영 */}
+        <h2
+          className="font-black mb-12 text-gray-900 tracking-tight border-l-[12px] border-primary pl-6"
+          style={{ fontSize: titleFontSize }}
+        >
+          {slide.title || "제목 없음"}
+        </h2>
 
-        {/* ── 제목 ── */}
-        {slide.type !== 'title' && (
-          <div className="mb-10 flex items-start gap-5">
-            <div
-              className="w-1.5 flex-shrink-0 rounded-full mt-1"
-              style={{ background: accentColor, height: '3rem' }}
-            />
-            <div>
-              <h2
-                className="text-5xl font-black tracking-tight leading-tight"
-                style={{ color: titleColor }}
-              >
-                {slide.title || '제목 없음'}
-              </h2>
-              {slide.subhead && (
-                <p
-                  className="text-2xl mt-2 font-medium"
-                  style={{ color: isDark ? 'rgba(255,255,255,0.6)' : '#64748b' }}
-                >
-                  {slide.subhead}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── 타이틀 슬라이드 제목 (가운데 정렬) ── */}
-        {slide.type === 'title' && (
-          <div className="flex flex-col items-center justify-center flex-1 text-center">
-            <h1
-              className="text-7xl font-black tracking-tight leading-tight mb-4"
-              style={{ color: '#fff' }}
-            >
-              {slide.title || '제목 없음'}
-            </h1>
-          </div>
-        )}
-
-        {/* ── 본문 콘텐츠 ── */}
-        {slide.type !== 'title' && (
-          <div className="flex-1 overflow-hidden">
+        {/* 본문 콘텐츠 영역 — visualRatio에 따른 분할 */}
+        <div className="flex-1 overflow-hidden flex gap-8">
+          {/* 텍스트 영역 */}
+          <div style={{ width: `${textRatio}%` }} className="overflow-hidden">
             {renderContent()}
           </div>
-        )}
+          {/* 시각자료 / 배경 이미지 영역 (imageUrl이 있을 때만) */}
+          {slide.imageUrl && (
+            <div style={{ width: `${visualRatio}%` }} className="rounded-2xl overflow-hidden flex-shrink-0">
+              <img
+                src={slide.imageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+        </div>
 
-        {/* ── title 슬라이드 전용 서브 콘텐츠 ── */}
-        {slide.type === 'title' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {/* h1은 위에서 렌더링되므로 여기서 subhead/notes만 추가로 표시 */}
+        {/* 하단 페이지 번호 */}
+        {slide.slideNumber && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm font-mono text-gray-400">
+            {slide.slideNumber}
           </div>
-        )}
-
-        {/* ── 하단 발표자 노트 (슬라이드에서는 표시 안 함) ── */}
-
-        {/* ── 출처 표기 ── */}
-        {slide.source && (
-          <p
-            className="absolute bottom-6 right-16 text-sm"
-            style={{ color: isDark ? 'rgba(255,255,255,0.3)' : '#94a3b8' }}
-          >
-            출처: {slide.source}
-          </p>
         )}
       </div>
     </div>
