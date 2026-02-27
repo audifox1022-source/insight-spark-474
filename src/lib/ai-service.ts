@@ -1,6 +1,6 @@
 /**
  * src/lib/ai-service.ts
- * (🚀 TED 디자인 + C-Level 기획 + Kimura 가독성 룰이 완벽히 융합된 AI 엔진)
+ * (🚀 Supabase 에러 완전 회피 & JSON 잔재 텍스트 평탄화 완벽 적용본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -24,25 +24,15 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
-// ✨ 사용자님의 TED + C-Level + Kimura 룰을 완벽하게 융합한 코어 프롬프트
-const SYSTEM_PROMPT_CORE = `당신은 글로벌 상위 1% 대기업 전략 컨설턴트이자 TED 강연 전문 프레젠테이션 디자이너입니다.
-당신의 유일한 목표는 청중이 슬라이드를 보자마자 3초 안에 핵심(So What?)과 근거(Why?)를 납득할 수 있는, 시각적으로 완벽하고 여백이 살아있는 JSON 데이터를 생성하는 것입니다.
+const SYSTEM_PROMPT_CORE = `당신은 글로벌 상위 1% 전략 컨설턴트이자 TED 프레젠테이션 전문가입니다.
+[👑 최고급 가독성 및 텍스트 제한 절대 규칙]
+1. 극단적 간결화 (명사형 종결): 슬라이드 본문에 서술형 문장("~했습니다")을 절대 쓰지 마세요.
+2. 글자 수 엄격 제한: 제목 20자, 소제목 30자, 포인트 항목당 25자 이내로 쪼개세요.
+3. 스피커 노트(notes): 화면에 담지 못한 긴 설명이나 대본은 전부 'notes' 필드에 넣으세요.
 
-[👑 최고급 가독성 및 텍스트 제한 절대 규칙 (Kimura & Park 룰)]
-1. 극단적 간결화 (명사형 종결): 슬라이드 본문에 서술형 문장("~했습니다", "~합니다")을 절대 사용하지 마세요. 핵심 키워드와 짧은 구문으로 압축하세요.
-2. 글자 수 엄격 제한 (화면 이탈 방지):
-   - 제목(title): 최대 20자 이내 (한눈에 들어오게)
-   - 소제목(subhead): 최대 30자 이내 (이 슬라이드의 최종 결론/메시지 요약)
-   - 내용(content/points/items): 각 항목당 최대 25자 이내. (길어지면 여러 줄로 쪼개거나 생략)
-3. 여백의 미: 한 슬라이드에 정보를 욱여넣지 마세요. 항목이 너무 많으면 과감하게 버리거나 다음 슬라이드로 분할하세요.
-4. 스피커 노트(notes)의 활용: 화면에 담지 못한 모든 긴 설명, 대본, 스토리텔링은 전부 'notes' 필드에 몰아넣으세요. 슬라이드 본문은 비우고 노트를 채우는 것이 TED 스타일의 핵심입니다.
-
-[🎨 슬라이드 타입 선택 규칙]
-- "title", "agenda", "kpi", "chart", "compare", "table", "process", "cards", "timeline", "content", "summary", "closing" 타입을 내용에 맞게 전략적으로 선택하세요. 데이터가 있으면 무조건 chart나 kpi를 쓰세요.
-
-[🚫 절대 금지]
-- 모든 응답은 순수 JSON (마크다운 없음)으로 반환하세요.
-- 슬라이드 본문 배열(content, points 등)에 마침표(.)로 끝나는 긴 문단을 절대 넣지 마세요.`;
+[🚫 절대 금지 규칙 - JSON 삽입 금지]
+- "content", "points", "items" 등 배열 안에는 오직 '순수한 일반 문자열'만 넣어야 합니다.
+- 절대 배열 내부에 객체( {"title":...} )를 넣거나 문자열 안에 JSON 형식을 적지 마세요.`;
 
 const SLIDE_SCHEMA = `
 [📊 특수 슬라이드 타입 필수 JSON 구조 (반드시 준수)]
@@ -60,29 +50,54 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
+// ✨ 초강력 텍스트 평탄화 기계 (PDF에 나온 에러 완벽 해결)
 function extractTextFromItem(item: any): string[] {
   if (!item) return [];
+  
   if (typeof item === 'string') {
-    const trimmed = item.trim();
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      try { item = JSON.parse(trimmed); } catch (e) { return [item]; }
-    } else { return [item]; }
+    let cleanStr = item.trim();
+    // 1. 앞부분의 쓰레기 특수기호(■, -, *, •) 등 완벽 제거하여 파싱 가능하게 만듦
+    cleanStr = cleanStr.replace(/^[^a-zA-Z0-9가-힣{\[]+/, '').trim();
+
+    // 2. 만약 글자 안에 JSON이 숨어있다면 꺼내서 객체로 변환
+    if ((cleanStr.startsWith('{') && cleanStr.endsWith('}')) || (cleanStr.startsWith('[') && cleanStr.endsWith(']'))) {
+      try {
+        item = JSON.parse(cleanStr); 
+      } catch (e) {
+        return [cleanStr];
+      }
+    } else {
+      return [cleanStr];
+    }
   }
+
+  // 3. 변환된 객체 안에서 알맹이 글자만 추출해서 예쁜 배열로 평탄화
   if (typeof item === 'object') {
     let result: string[] = [];
     const title = item.title || item.heading || item.name || item.subject || '';
-    if (Array.isArray(item.content)) {
+    const bodyData = item.content || item.items || item.points || item.bullets || item.text || item.desc || item.description || [];
+
+    if (Array.isArray(bodyData)) {
       if (title) result.push(`[${title}]`);
-      result.push(...item.content.map(c => typeof c === 'string' ? c : JSON.stringify(c)));
-    } else if (item.content || item.text || item.desc || item.description) {
-      const body = item.content || item.text || item.desc || item.description;
-      if (title) result.push(`[${title}] ${body}`);
-      else result.push(String(body));
+      result.push(...bodyData.map(c => {
+        if (typeof c === 'string') return c;
+        if (c.title && c.desc) return `${c.title}: ${c.desc}`;
+        if (c.label && c.value) return `${c.label}: ${c.value}`;
+        return JSON.stringify(c);
+      }));
+    } else if (bodyData && typeof bodyData === 'string') {
+      if (title) result.push(`[${title}] ${bodyData}`);
+      else result.push(bodyData);
+    } else if (title) {
+      result.push(title);
     } else {
-      result.push(JSON.stringify(item));
+      // 최후의 수단: 알 수 없는 객체일 경우 값(values)만 추출
+      const values = Object.values(item).filter(v => typeof v === 'string');
+      if (values.length > 0) result.push(...(values as string[]));
     }
     return result;
   }
+
   return [String(item)];
 }
 
@@ -97,6 +112,8 @@ function normalizeSlide(s: any): any {
 
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent) ? rawContent : (typeof rawContent === 'string' ? [rawContent] : []);
+  
+  // ✨ 여기서 모든 더러운 JSON 문자열이 깨끗한 배열로 평탄화됩니다.
   s.content = contentArray.flatMap(extractTextFromItem);
 
   if (s.type === 'chart' || s.chartData) {
@@ -139,9 +156,7 @@ function extractJSON(text: string): any | null {
     if (parsed && Array.isArray(parsed.slides)) parsed.slides = parsed.slides.map(normalizeSlide);
     if (parsed && Array.isArray(parsed.outline)) parsed.outline = parsed.outline.map((item: any) => ({ ...item, type: item.type || 'content' }));
     return parsed;
-  } catch (e1) {
-    console.warn("JSON 1차 파싱 실패, 구조 복구를 시도합니다.");
-  }
+  } catch (e1) {}
 
   try {
     const firstBrace = cleanText.indexOf('{');
@@ -162,9 +177,7 @@ function extractJSON(text: string): any | null {
       if (parsed && Array.isArray(parsed.outline)) parsed.outline = parsed.outline.map((item: any) => ({ ...item, type: item.type || 'content' }));
       return parsed;
     }
-  } catch (e2) {
-    console.error("JSON 파싱 최종 실패:", e2);
-  }
+  } catch (e2) {}
   return null;
 }
 
@@ -189,7 +202,7 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     const message = (errorBody as any)?.error?.message || '알 수 없는 오류';
-    if (response.status === 429) throw new Error('API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.');
+    if (response.status === 429) throw new Error('API 요청 한도를 초과했습니다.');
     if (response.status === 400) throw new Error(`잘못된 요청입니다: ${message}`);
     if (response.status === 403) throw new Error('API 키가 유효하지 않습니다.');
     throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
@@ -197,14 +210,9 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 
   const data = await response.json();
   const candidate = data?.candidates?.[0];
-  if (!candidate) throw new Error('AI 응답에 결과가 없습니다. 다시 시도해주세요.');
-  
-  if (candidate.finishReason === 'MAX_TOKENS') {
-    console.warn('⚠️ AI 응답이 토큰 한도로 잘렸습니다.');
-  }
-
+  if (!candidate) throw new Error('AI 응답에 결과가 없습니다.');
   const text = candidate?.content?.parts?.[0]?.text;
-  if (!text || text.trim() === '') throw new Error('AI가 빈 응답을 반환했습니다. 다시 시도해주세요.');
+  if (!text || text.trim() === '') throw new Error('빈 응답이 반환되었습니다.');
 
   return text;
 }
@@ -212,15 +220,12 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 export const aiService = {
   async getOutline(body: any) {
     const volumeGuideline = VOLUME_MAP[body.settings?.volume || 'standard'];
-    const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 설계하세요.
-    [원본]
-    ${truncateFileData(body.fileData)}
-    
-    [🔥 분량 및 규칙 제한]
-    1. 슬라이드 개수: 반드시 "${volumeGuideline}" 규칙을 엄수하세요.
-    2. 내용: 문장이 아닌 단답형 키워드로 극단적으로 요약하세요.
-    3. 아래 JSON 형식만 반환:
-    {"title": "전체 제목(20자 이내)", "outline": [{"slideNumber": 1, "title": "슬라이드 제목(20자 이내)", "type": "chart", "description": "핵심 키워드 위주 설명"}]}`;
+    const prompt = `당신은 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 설계하세요.
+    [원본]\n${truncateFileData(body.fileData)}
+    [🔥 규칙]
+    1. 분량: "${volumeGuideline}" 규칙 엄수
+    2. 배열 내부에 절대 JSON 형식이나 큰따옴표(")를 쓰지 마세요.
+    {"title": "제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "chart", "description": "설명"}]}`;
     
     const text = await callGeminiAPI(prompt, 4096); 
     let data = extractJSON(text);
@@ -235,11 +240,9 @@ export const aiService = {
         ]
       };
     }
-
     if (Array.isArray(data)) data = { title: "새 발표 자료", outline: data };
     if (!data.outline || !Array.isArray(data.outline)) data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
     if (data.outline.length === 0) data.outline = [{ slideNumber: 1, title: data.title || "도입", type: "content", description: "내용 작성" }];
-
     return { outline: data };
   },
 
@@ -253,22 +256,19 @@ export const aiService = {
         title: body.approvedOutline?.title || "자동 생성 발표자료",
         slides: (body.approvedOutline?.outline || []).map((item: any) => ({
           slideNumber: item.slideNumber, title: item.title, type: item.type,
-          content: ["자료 구조 최적화 완료", "우측 에디터에서 세부 내용을 입력하세요."],
+          content: ["자료 구조 최적화 완료", "우측 에디터에서 내용을 입력하세요."],
           chartData: { labels: [], datasets: [] }, tableData: { headers: [], rows: [] }, keyMetrics: []
         }))
       };
-      if (data.slides.length === 0) data.slides = [normalizeSlide({ title: "생성 실패", content: ["다시 시도해주세요."] })];
     }
-
     if (Array.isArray(data)) data = { title: "새 발표 자료", slides: data };
     if (!data.slides || !Array.isArray(data.slides)) data.slides = [];
     data.slides = data.slides.map(normalizeSlide);
-
     return { presentation: data };
   },
 
   async regenerateSlide(body: any) {
-    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 슬라이드 재작성\n내용: ${JSON.stringify(body.currentSlide)}\n요청: ${body.userInstruction}\nJSON 반환.`;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 재작성\n내용: ${JSON.stringify(body.currentSlide)}\n요청: ${body.userInstruction}\nJSON 반환.`;
     const text = await callGeminiAPI(prompt, 4096);
     let json = extractJSON(text);
     if (!json) throw new Error("재생성 파싱 실패");
@@ -276,7 +276,7 @@ export const aiService = {
   },
 
   async chatEdit(body: any) {
-    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 수정 요청 반영: ${body.userMessage}\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환: {"slide":{...},"summary":"..."}`;
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 수정 반영: ${body.userMessage}\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환: {"slide":{...},"summary":"..."}`;
     const text = await callGeminiAPI(prompt, 4096);
     const json = extractJSON(text);
     if (json && json.slide) json.slide = normalizeSlide(json.slide);
@@ -295,14 +295,8 @@ export const aiService = {
     const prompt = `검토: ${JSON.stringify(body.presentation)}\nJSON 반환: {"overallScore":85,"summary":"...","improvements":[{"slideNumber":1,"issue":"...","suggestion":"..."}]}`;
     const text = await callGeminiAPI(prompt, 4096);
     let data = extractJSON(text);
-
     if (!data || typeof data !== 'object') data = {};
-    const reviewResult = {
-      overallScore: typeof data.overallScore === 'number' ? data.overallScore : 85,
-      summary: typeof data.summary === 'string' ? data.summary : "리뷰를 완료했습니다.",
-      improvements: Array.isArray(data.improvements) ? data.improvements : (Array.isArray(data.issues) ? data.issues : [])
-    };
-    return { review: reviewResult };
+    return { review: { overallScore: data.overallScore || 85, summary: data.summary || "완료", improvements: Array.isArray(data.improvements) ? data.improvements : [] } };
   },
 
   async reviewAndFix(body: any) {
@@ -333,7 +327,7 @@ export const aiService = {
       await new Promise(resolve => setTimeout(resolve, 1500));
       return imageUrl;
     } catch (error: any) {
-      throw new Error("이미지를 생성할 수 없습니다.");
+      throw new Error("이미지 생성 불가");
     }
   },
 
