@@ -22,8 +22,8 @@ import {
   saveFavoriteTemplate, loadFavoriteTemplates,
   deleteFavoriteTemplate, FavoriteTemplate,
 } from '@/lib/favorite-templates';
-import { toast } from 'sonner';
-import { aiService } from '@/lib/ai-service';
+import { toast }       from 'sonner';
+import { aiService }   from '@/lib/ai-service';
 
 interface PresentationSetupFormProps {
   info:             MeetingInfo;
@@ -40,25 +40,25 @@ interface PresentationSetupFormProps {
 }
 
 const TEMPLATES = [
-  { id: 'auto',     icon: Wand2,     label: 'AI 자동',   desc: 'AI가 최적 스타일 자동 선택',   color: 'from-violet-500 to-purple-600' },
-  { id: 'report',   icon: FileText,  label: '보고서',     desc: '깔끔한 비즈니스 보고서 형식',  color: 'from-blue-500 to-indigo-600'  },
-  { id: 'analysis', icon: BarChart3, label: '분석자료',   desc: '데이터 중심 분석 발표',         color: 'from-cyan-500 to-blue-600'    },
-  { id: 'proposal', icon: Lightbulb, label: '기획안',     desc: '아이디어 제안 및 기획서',       color: 'from-amber-500 to-orange-600' },
-  { id: 'summary',  icon: Layout,    label: '요약자료',   desc: '핵심만 간결하게 정리',          color: 'from-emerald-500 to-teal-600' },
+  { id: 'auto',     icon: Wand2,     label: 'AI 자동',  desc: 'AI가 최적 스타일 자동 선택',  color: 'from-violet-500 to-purple-600' },
+  { id: 'report',   icon: FileText,  label: '보고서',    desc: '깔끔한 비즈니스 보고서 형식', color: 'from-blue-500 to-indigo-600'  },
+  { id: 'analysis', icon: BarChart3, label: '분석자료',  desc: '데이터 중심 분석 발표',        color: 'from-cyan-500 to-blue-600'    },
+  { id: 'proposal', icon: Lightbulb, label: '기획안',    desc: '아이디어 제안 및 기획서',      color: 'from-amber-500 to-orange-600' },
+  { id: 'summary',  icon: Layout,    label: '요약자료',  desc: '핵심만 간결하게 정리',         color: 'from-emerald-500 to-teal-600' },
 ];
 
 const DIFFICULTY_OPTIONS = [
   { value: 'easy',      label: '입문',   desc: '쉬운 설명' },
   { value: 'medium',    label: '실무',   desc: '표준 비즈니스' },
   { value: 'hard',      label: '전문가', desc: '심층 분석' },
-  { value: 'executive', label: '임원',   desc: '전략적 제언 · ROI' },
+  { value: 'executive', label: '임원',   desc: '전략 · ROI' },
 ];
 
 const VOLUME_OPTIONS = [
-  { value: 'brief',         label: '간략형',   desc: '3-5장' },
-  { value: 'standard',      label: '표준형',   desc: '6-10장' },
-  { value: 'detailed',      label: '상세형',   desc: '11-15장' },
-  { value: 'comprehensive', label: '종합형',   desc: '16장+' },
+  { value: 'brief',         label: '간략형', desc: '3-5장'  },
+  { value: 'standard',      label: '표준형', desc: '6-10장' },
+  { value: 'detailed',      label: '상세형', desc: '11-15장'},
+  { value: 'comprehensive', label: '종합형', desc: '16장+'  },
 ];
 
 export function PresentationSetupForm({
@@ -66,14 +66,14 @@ export function PresentationSetupForm({
   onGenerate, onBack, isGenerating,
   fileNames, dataSummary, template, setTemplate,
 }: PresentationSetupFormProps) {
-  const [favorites,      setFavorites]      = useState<FavoriteTemplate[]>([]);
-  const [showFavorites,  setShowFavorites]  = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [favName,        setFavName]        = useState('내 PPT 설정');
-  const [templateFile,   setTemplateFile]   = useState<string | null>(null);
+  const [favorites,        setFavorites]        = useState<FavoriteTemplate[]>([]);
+  const [showFavorites,    setShowFavorites]    = useState(false);
+  const [showSaveDialog,   setShowSaveDialog]   = useState(false);
+  const [favName,          setFavName]          = useState('내 PPT 설정');
+  const [templateFile,     setTemplateFile]     = useState<string | null>(null);
   const [templateFileName, setTemplateFileName] = useState('');
-  const [isAnalyzing,    setIsAnalyzing]    = useState(false);
-  const [extractedStyle, setExtractedStyle] = useState<{
+  const [isAnalyzing,      setIsAnalyzing]      = useState(false);
+  const [extractedStyle,   setExtractedStyle]   = useState<{
     primaryColor: string; accentColor: string; description: string;
   } | null>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
@@ -156,7 +156,7 @@ export function PresentationSetupForm({
       animate={{ opacity: 1, x: 0 }}
       className="w-full max-w-2xl mx-auto space-y-5"
     >
-      {/* ── 업로드된 파일 표시 */}
+      {/* ── 업로드된 파일 */}
       {fileNames.length > 0 && (
         <div className="rounded-xl bg-card border border-border p-4 shadow-sm">
           <div className="flex items-center gap-3">
@@ -198,10 +198,7 @@ export function PresentationSetupForm({
               >
                 <div className="px-5 pb-4 space-y-2 border-t border-border pt-3">
                   {favorites.map((fav) => (
-                    <div
-                      key={fav.id}
-                      className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors group"
-                    >
+                    <div key={fav.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors group">
                       <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">{fav.name}</p>
@@ -232,9 +229,9 @@ export function PresentationSetupForm({
       )}
 
       {/* ══════════════════════════════════════════
-          ✅ 발표 유형 선택 (선택 표시 대폭 개선)
+          ✅ 발표 유형 선택
       ══════════════════════════════════════════ */}
-      <div className="rounded-xl bg-card border border-border p-5 shadow-sm space-y-4">
+      <div className="rounded-xl bg-card border border-border p-5 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layout className="w-4 h-4 text-primary" />
@@ -278,57 +275,75 @@ export function PresentationSetupForm({
           )}
         </AnimatePresence>
 
-        {/* ✅ 발표 유형 버튼 — 선택 시 강조 표시 */}
+        {/* ✅ 발표 유형 버튼 그리드 */}
         <div className="grid grid-cols-1 gap-2">
           {TEMPLATES.map((tpl) => {
             const isSelected = template === tpl.id;
             return (
               <button
                 key={tpl.id}
+                type="button"
                 onClick={() => setTemplate(tpl.id)}
-                className={`
-                  relative flex items-center gap-4 p-4 rounded-xl border-2 text-left
-                  transition-all duration-200
-                  ${isSelected
-                    ? 'border-primary bg-primary/8 shadow-md ring-1 ring-primary/20'
-                    : 'border-border bg-muted/20 hover:border-primary/40 hover:bg-muted/50'
-                  }
-                `}
+                style={{
+                  // ✅ Tailwind 동적 클래스 문제 우회 → style로 직접 지정
+                  borderWidth:  '2px',
+                  borderStyle:  'solid',
+                  borderColor:  isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                  background:   isSelected ? 'hsl(var(--primary) / 0.08)' : 'hsl(var(--muted) / 0.2)',
+                  borderRadius: '0.75rem',
+                  position:     'relative',
+                  overflow:     'hidden',
+                }}
+                className="flex items-center gap-4 p-4 text-left transition-all duration-200 hover:opacity-90 w-full"
               >
+                {/* ✅ 선택된 항목 좌측 강조 바 */}
+                {isSelected && (
+                  <div
+                    style={{
+                      position:        'absolute',
+                      left:            0,
+                      top:             '10%',
+                      bottom:          '10%',
+                      width:           '4px',
+                      borderRadius:    '0 4px 4px 0',
+                      backgroundColor: 'hsl(var(--primary))',
+                    }}
+                  />
+                )}
+
                 {/* 아이콘 */}
-                <div className={`
-                  w-11 h-11 rounded-xl bg-gradient-to-br ${tpl.color}
-                  flex items-center justify-center text-white flex-shrink-0
-                  transition-transform duration-200
-                  ${isSelected ? 'scale-110 shadow-lg' : ''}
-                `}>
+                <div
+                  className={`w-11 h-11 rounded-xl bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white flex-shrink-0 transition-transform duration-200`}
+                  style={{ transform: isSelected ? 'scale(1.1)' : 'scale(1)' }}
+                >
                   <tpl.icon className="w-5 h-5" />
                 </div>
 
                 {/* 텍스트 */}
                 <div className="min-w-0 flex-1">
-                  <p className={`font-semibold text-sm ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                  <p
+                    className="font-semibold text-sm"
+                    style={{ color: isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))' }}
+                  >
                     {tpl.label}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</p>
                 </div>
 
-                {/* ✅ 선택 표시 — 체크마크 원형 배지 */}
-                <div className={`
-                  w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0
-                  transition-all duration-200
-                  ${isSelected
-                    ? 'bg-primary scale-100 opacity-100'
-                    : 'bg-border scale-75 opacity-40'
-                  }
-                `}>
-                  <Check className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-muted-foreground'}`} />
+                {/* ✅ 체크마크 — style로 직접 색상 지정 */}
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                  style={{
+                    backgroundColor: isSelected ? 'hsl(var(--primary))' : 'transparent',
+                    border:          isSelected ? 'none' : '2px solid hsl(var(--border))',
+                    transform:       isSelected ? 'scale(1)' : 'scale(0.85)',
+                  }}
+                >
+                  <Check
+                    className="w-3.5 h-3.5"
+                    style={{ color: isSelected ? 'white' : 'transparent' }}
+                  />
                 </div>
-
-                {/* ✅ 선택된 항목 좌측 강조 바 */}
-                {isSelected && (
-                  <div className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-primary" />
-                )}
               </button>
             );
           })}
@@ -341,9 +356,8 @@ export function PresentationSetupForm({
           <SlidersHorizontal className="w-4 h-4 text-primary" />
           상세 설정
         </div>
-
         <div className="grid grid-cols-2 gap-4">
-          {/* 난이도 */}
+          {/* 수준 */}
           <div className="space-y-2">
             <Label htmlFor="difficulty">수준</Label>
             <Select
@@ -382,21 +396,24 @@ export function PresentationSetupForm({
           </div>
         </div>
 
-        {/* ✅ 수준/분량 선택 카드형으로도 표시 (선택된 것 강조) */}
-        <div className="grid grid-cols-4 gap-2 pt-1">
+        {/* ✅ 분량 카드형 빠른 선택 */}
+        <div className="grid grid-cols-4 gap-2">
           {VOLUME_OPTIONS.map((opt) => {
             const isSelected = settings.volume === opt.value;
             return (
               <button
                 key={opt.value}
+                type="button"
                 onClick={() => updateSetting('volume', opt.value as PresentationSettings['volume'])}
-                className={`
-                  p-2.5 rounded-lg border text-center transition-all duration-200 text-xs
-                  ${isSelected
-                    ? 'border-primary bg-primary/10 text-primary font-bold shadow-sm'
-                    : 'border-border bg-muted/20 text-muted-foreground hover:border-primary/30 hover:bg-muted/40'
-                  }
-                `}
+                className="p-2.5 rounded-lg text-center transition-all duration-200 text-xs"
+                style={{
+                  borderWidth:  '1.5px',
+                  borderStyle:  'solid',
+                  borderColor:  isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                  background:   isSelected ? 'hsl(var(--primary) / 0.1)' : 'hsl(var(--muted) / 0.2)',
+                  fontWeight:   isSelected ? 700 : 400,
+                  color:        isSelected ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
+                }}
               >
                 <div className="font-semibold">{opt.label}</div>
                 <div className="text-[10px] mt-0.5 opacity-70">{opt.desc}</div>
