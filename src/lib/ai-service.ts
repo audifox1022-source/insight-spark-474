@@ -1,6 +1,6 @@
 /**
  * src/lib/ai-service.ts
- * (🚀 URL 길이 제한 초과 방어 및 영어 키워드 압축 로직 적용본)
+ * (🚀 Cloudflare 530 에러 우회 및 이미지 다이렉트 렌더링 적용본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -273,12 +273,11 @@ export const aiService = {
     return { result: data };
   },
 
-  // ✨ 신규: 긴 본문을 짧은 영어 키워드로 변환하여 URL 길이 초과 에러 방어
+  // ✨ 서버 차단을 우회하고 즉시 이미지를 렌더링하도록 핑(Ping) 코드를 제거했습니다.
   async generateImage(slideTitle: string, slideContent: string) {
     let englishKeywords = "abstract business corporate background";
     
     try {
-      // 1. Gemini를 사용해 본문을 짧은 영어 키워드로 요약 (URL 길이 최적화)
       const summaryPrompt = `Extract key visual concepts from the following text and return ONLY a short, comma-separated list of 5 English keywords. No explanation.
       Text: ${slideTitle} ${slideContent}`;
       
@@ -290,19 +289,17 @@ export const aiService = {
       console.warn("영어 키워드 추출 실패, 기본값 사용");
     }
 
-    // 2. 압축된 영어 키워드를 사용하여 안전한 길이의 URL 생성
     const prompt = `Professional presentation background, soft gradient, theme: ${englishKeywords}. High quality, abstract, clean, no text, no watermarks, 16:9.`;
     
     try {
-      const encodedPrompt = encodeURIComponent(prompt.slice(0, 300)); // 최후 방어막: 300자로 자름
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true`;
+      const encodedPrompt = encodeURIComponent(prompt.slice(0, 300));
+      // ✨ 랜덤 시드를 주어 새로고침 효과를 주고, HEAD fetch 에러 유발 코드를 삭제했습니다.
+      const seed = Math.floor(Math.random() * 1000000); 
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
       
-      const response = await fetch(imageUrl, { method: 'HEAD' });
-      if (!response.ok) {
-        throw new Error('무료 이미지 서버가 혼잡합니다.');
-      }
-      
+      // UI를 위해 살짝 대기 시간만 주고 바로 이미지를 반환합니다.
       await new Promise(resolve => setTimeout(resolve, 1500));
+      
       return imageUrl;
     } catch (error: any) {
       console.error("이미지 생성 예외 발생:", error);
