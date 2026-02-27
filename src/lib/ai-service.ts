@@ -1,6 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
- * (🚀 JSON 잘림 방지 및 토큰 용량 최적화 완료)
+ * (🚀 차트, 표, KPI 스키마 복구 및 무한 로딩 방지 완벽 적용)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -34,7 +34,18 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 
 [🚫 절대 금지]
 - 모든 응답은 순수 JSON (마크다운 없음)으로 반환하세요.
-- 슬라이드의 본문 내용은 반드시 "content"라는 이름의 문자열 배열(string[])로 작성하세요.`;
+- 일반 설명은 "content" 배열(string[])에 넣고, 특수 타입(표, 차트 등)은 반드시 아래 스키마를 따르세요.`;
+
+// ✨ AI에게 차트, 표, KPI를 그리는 방법을 알려주는 필수 가이드 (복구됨!)
+const SLIDE_SCHEMA = `
+[📊 특수 슬라이드 타입 필수 JSON 구조 (반드시 준수)]
+- "kpi" 타입: 
+  "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up" | "down" | "flat"}]
+- "chart" 타입: 
+  "chartData": {"type": "bar" | "line" | "pie", "labels": ["항목1", "항목2"], "datasets": [{"label": "데이터명", "data": [10, 20]}]}
+- "table" 타입: 
+  "tableData": {"headers": ["열1", "열2"], "rows": [["값1", "값2"], ["값3", "값4"]]}
+`;
 
 function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
@@ -58,16 +69,14 @@ function normalizeSlide(s: any): any {
   return s;
 }
 
-// ✨ JSON 강제 추출 및 복구 로직 (에러 완벽 방어)
+// ✨ JSON 강제 추출 및 복구 로직 (에러 방어)
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
 
-  // 1. 마크다운 블록 제거
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
-  // 2. 일반적인 파싱 시도
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed.slides && Array.isArray(parsed.slides)) {
@@ -78,7 +87,6 @@ function extractJSON(text: string): any | null {
     console.warn("JSON 1차 파싱 실패. 구조 복구를 시도합니다.");
   }
 
-  // 3. JSON이 중간에 잘리거나 쓰레기 값이 붙은 경우 강제 복구
   try {
     const firstBrace = cleanText.indexOf('{');
     const firstBracket = cleanText.indexOf('[');
@@ -87,17 +95,13 @@ function extractJSON(text: string): any | null {
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
       
-      // 잘린 괄호 강제 닫기 (휴리스틱 복구)
       let braces = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
       let brackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
       
-      // 마지막 쉼표 제거
       repaired = repaired.replace(/,\s*$/, '');
       
       while (brackets > 0) { repaired += ']'; brackets--; }
       while (braces > 0) { repaired += '}'; braces--; }
-
-      // 배열/객체 끝의 불필요한 쉼표 제거 (e.g., [1, 2, ] -> [1, 2])
       repaired = repaired.replace(/,\s*([\]}])/g, '$1');
 
       const parsed = JSON.parse(repaired);
@@ -110,7 +114,7 @@ function extractJSON(text: string): any | null {
     console.error("JSON 파싱 최종 실패:", e2);
   }
   
-  return null; // 복구 불가능 시
+  return null;
 }
 
 async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
@@ -132,38 +136,46 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
-  // 🚀 구성안 생성 로직 (토큰 넉넉하게 확보 + 예외 처리)
+  // 🚀 구성안 생성 로직
   async getOutline(body: any) {
-    const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 빠르게 설계하세요.
+    const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 설계하세요.
     [원본]
     ${truncateFileData(body.fileData)}
     
     [규칙]
     - 전체적인 흐름만 파악하여 목차를 작성하세요.
     - 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
-    {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "핵심 내용"}]}`;
+    {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "chart", "description": "핵심 내용"}]}`;
     
-    // ✨ 변경점: 토큰 제한을 1024 -> 4096으로 늘려서 잘림 현상 원천 차단
     const text = await callGeminiAPI(prompt, 4096); 
     let data = extractJSON(text);
 
     if (!data) throw new Error("AI가 구성안 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
 
-    // AI가 배열 형태로 던졌을 경우 객체로 포장
     if (Array.isArray(data)) {
       data = { title: "새 발표 자료", outline: data };
     } else if (!data.outline && data.slides) {
       data.outline = data.slides;
     } else if (!data.outline) {
-      // 그 외의 경우 억지로라도 형식을 맞춰줌
       data.outline = [{ slideNumber: 1, title: data.title || "도입", type: "content", description: "내용" }];
     }
 
     return { outline: data };
   },
 
+  // 🚀 전체 발표자료 생성 로직 (표/차트 스키마 탑재!)
   async generatePresentation(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 완성\n[원본]\n${truncateFileData(body.fileData)}\nJSON 반환: {"title":"제목","slides":[]}`, TOKEN_MAP[body.settings?.volume || 'standard']);
+    const prompt = `${SYSTEM_PROMPT_CORE}
+    ${SLIDE_SCHEMA}
+    [미션] 슬라이드 완성
+    [원본]
+    ${truncateFileData(body.fileData)}
+    [구성안]
+    ${JSON.stringify(body.approvedOutline)}
+    
+    반드시 아래 JSON만 반환: {"title":"제목","slides":[]}`;
+
+    const text = await callGeminiAPI(prompt, TOKEN_MAP[body.settings?.volume || 'standard']);
     let data = extractJSON(text);
 
     if (!data) throw new Error("AI가 슬라이드 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
@@ -176,21 +188,24 @@ export const aiService = {
   },
 
   async regenerateSlide(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 재작성\n내용: ${JSON.stringify(body.currentSlide)}\n요청: ${body.userInstruction}\nJSON 반환.`, 4096);
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 슬라이드 재작성\n내용: ${JSON.stringify(body.currentSlide)}\n요청: ${body.userInstruction}\nJSON 반환.`;
+    const text = await callGeminiAPI(prompt, 4096);
     let json = extractJSON(text);
     if (!json) throw new Error("재생성 파싱 실패");
     return { slide: normalizeSlide(json) };
   },
 
   async chatEdit(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 수정 요청 반영: ${body.userMessage}\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환: {"slide":{...},"summary":"..."}`, 4096);
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] 수정 요청 반영: ${body.userMessage}\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환: {"slide":{...},"summary":"..."}`;
+    const text = await callGeminiAPI(prompt, 4096);
     const json = extractJSON(text);
     if (json && json.slide) json.slide = normalizeSlide(json.slide);
     return { result: json };
   },
 
   async changePersona(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] ${body.persona} 스타일 변환\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환.`, 4096);
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n[미션] ${body.persona} 스타일 변환\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환.`;
+    const text = await callGeminiAPI(prompt, 4096);
     let json = extractJSON(text);
     if (!json) throw new Error("스타일 변환 파싱 실패");
     return { slide: normalizeSlide(json) };
@@ -202,7 +217,8 @@ export const aiService = {
   },
 
   async reviewAndFix(body: any) {
-    const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n최적화: ${JSON.stringify(body.presentation)}\nJSON 반환: {"presentation":{...},"summary":"..."}`, 16384);
+    const prompt = `${SYSTEM_PROMPT_CORE}\n${SLIDE_SCHEMA}\n최적화: ${JSON.stringify(body.presentation)}\nJSON 반환: {"presentation":{...},"summary":"..."}`;
+    const text = await callGeminiAPI(prompt, 16384);
     let data = extractJSON(text);
     if (!data) throw new Error("전체 최적화 실패");
     return { result: data };
