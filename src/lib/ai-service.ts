@@ -1,6 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
- * (🚀 슬라이드 장수 제한 및 분량 조절 완벽 적용)
+ * (🚀 화이트 스크린 및 undefined(.some) 에러 원천 차단 완벽 방어본)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -36,7 +36,6 @@ const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를
 - 모든 응답은 순수 JSON (마크다운 없음)으로 반환하세요.
 - 일반 설명은 "content" 배열(string[])에 넣고, 특수 타입(표, 차트 등)은 반드시 아래 스키마를 따르세요.`;
 
-// ✨ AI에게 차트, 표, KPI를 그리는 방법을 알려주는 필수 가이드
 const SLIDE_SCHEMA = `
 [📊 특수 슬라이드 타입 필수 JSON 구조 (반드시 준수)]
 - "kpi" 타입: 
@@ -53,23 +52,57 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
-// ✨ 슬라이드 데이터 정규화
+// ✨ 초강력 데이터 정규화 (.some 에러 방지용 Deep Fill)
 function normalizeSlide(s: any): any {
-  if (!s || typeof s !== 'object') return s;
+  // 데이터가 아예 망가졌을 경우 안전한 기본 객체 반환
+  if (!s || typeof s !== 'object') {
+    return { id: `slide-${Math.random().toString(36).substr(2, 9)}`, type: 'content', title: '', content: [], chartData: { labels: [], datasets: [] }, tableData: { headers: [], rows: [] }, keyMetrics: [] };
+  }
 
+  // 1. 기본 식별자 방어
+  s.id = s.id || `slide-${Math.random().toString(36).substr(2, 9)}`;
+  s.type = s.type || 'content';
+  s.title = s.title || '';
+
+  // 2. 본문 내용 방어 (무조건 배열 보장)
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
-
   s.content = Array.isArray(rawContent)
     ? rawContent.map((p: any) => typeof p === 'object' ? (p.title || p.text || JSON.stringify(p)) : String(p))
     : (typeof rawContent === 'string' ? [rawContent] : []);
 
-  if (!s.type) s.type = 'content';
-  if (!s.id) s.id = `slide-${Math.random().toString(36).substr(2, 9)}`;
+  // 3. 차트 데이터 방어 (내부 데이터까지 무조건 배열 보장)
+  if (s.type === 'chart' || s.chartData) {
+    s.chartData = s.chartData || {};
+    s.chartData.labels = Array.isArray(s.chartData.labels) ? s.chartData.labels : [];
+    s.chartData.datasets = Array.isArray(s.chartData.datasets) ? s.chartData.datasets : [];
+    s.chartData.datasets = s.chartData.datasets.map((ds: any) => ({
+      label: ds?.label || '데이터',
+      data: Array.isArray(ds?.data) ? ds.data : []
+    }));
+  } else {
+    s.chartData = { labels: [], datasets: [] };
+  }
+
+  // 4. 표 데이터 방어 (무조건 배열 보장)
+  if (s.type === 'table' || s.tableData) {
+    s.tableData = s.tableData || {};
+    s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
+    s.tableData.rows = Array.isArray(s.tableData.rows) ? s.tableData.rows : [];
+  } else {
+    s.tableData = { headers: [], rows: [] };
+  }
+
+  // 5. KPI 데이터 방어 (무조건 배열 보장)
+  if (s.type === 'kpi' || s.keyMetrics) {
+    s.keyMetrics = Array.isArray(s.keyMetrics) ? s.keyMetrics : [];
+  } else {
+    s.keyMetrics = [];
+  }
 
   return s;
 }
 
-// ✨ JSON 강제 추출 및 복구 로직 (에러 방어)
+// ✨ JSON 복구 및 추출 로직
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
@@ -79,12 +112,17 @@ function extractJSON(text: string): any | null {
 
   try {
     const parsed = JSON.parse(cleanText);
-    if (parsed.slides && Array.isArray(parsed.slides)) {
+    // slides 배열 정규화
+    if (parsed && Array.isArray(parsed.slides)) {
       parsed.slides = parsed.slides.map(normalizeSlide);
+    }
+    // outline 배열 정규화
+    if (parsed && Array.isArray(parsed.outline)) {
+      parsed.outline = parsed.outline.map((item: any) => ({ ...item, type: item.type || 'content' }));
     }
     return parsed;
   } catch (e1) {
-    console.warn("JSON 1차 파싱 실패. 구조 복구를 시도합니다.");
+    console.warn("JSON 1차 파싱 실패, 구조 복구를 시도합니다.");
   }
 
   try {
@@ -105,8 +143,11 @@ function extractJSON(text: string): any | null {
       repaired = repaired.replace(/,\s*([\]}])/g, '$1');
 
       const parsed = JSON.parse(repaired);
-      if (parsed.slides && Array.isArray(parsed.slides)) {
+      if (parsed && Array.isArray(parsed.slides)) {
         parsed.slides = parsed.slides.map(normalizeSlide);
+      }
+      if (parsed && Array.isArray(parsed.outline)) {
+        parsed.outline = parsed.outline.map((item: any) => ({ ...item, type: item.type || 'content' }));
       }
       return parsed;
     }
@@ -136,9 +177,8 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
-  // 🚀 구성안 생성 로직 (분량 제한 엄격 적용!)
+  // 🚀 구성안 생성 로직
   async getOutline(body: any) {
-    // ✨ 사용자가 설정한 분량(volume) 값을 가져와서 프롬프트에 강력하게 주입합니다.
     const volumeGuideline = VOLUME_MAP[body.settings?.volume || 'standard'];
     
     const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 설계하세요.
@@ -156,12 +196,17 @@ export const aiService = {
 
     if (!data) throw new Error("AI가 구성안 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
 
+    // ✨ 데이터 최상위 구조 완벽 방어
     if (Array.isArray(data)) {
       data = { title: "새 발표 자료", outline: data };
-    } else if (!data.outline && data.slides) {
-      data.outline = data.slides;
-    } else if (!data.outline) {
-      data.outline = [{ slideNumber: 1, title: data.title || "도입", type: "content", description: "내용" }];
+    } 
+    // outline 배열 보장
+    if (!data.outline || !Array.isArray(data.outline)) {
+      data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
+    }
+    // outline이 그래도 비어있다면 최소 1장 강제 생성
+    if (data.outline.length === 0) {
+      data.outline = [{ slideNumber: 1, title: data.title || "도입", type: "content", description: "내용을 작성해주세요." }];
     }
 
     return { outline: data };
@@ -184,9 +229,17 @@ export const aiService = {
 
     if (!data) throw new Error("AI가 슬라이드 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
 
+    // ✨ 데이터 최상위 구조 완벽 방어
     if (Array.isArray(data)) {
       data = { title: "새 발표 자료", slides: data };
     }
+    // slides 배열 보장
+    if (!data.slides || !Array.isArray(data.slides)) {
+      data.slides = [];
+    }
+
+    // slides 내부 데이터 한 번 더 강제 정규화
+    data.slides = data.slides.map(normalizeSlide);
 
     return { presentation: data };
   },
@@ -204,7 +257,7 @@ export const aiService = {
     const text = await callGeminiAPI(prompt, 4096);
     const json = extractJSON(text);
     if (json && json.slide) json.slide = normalizeSlide(json.slide);
-    return { result: json };
+    return { result: json || {} };
   },
 
   async changePersona(body: any) {
@@ -217,7 +270,12 @@ export const aiService = {
 
   async review(body: any) {
     const text = await callGeminiAPI(`검토: ${JSON.stringify(body.presentation)}\nJSON 반환: {"overallScore":85,"summary":"...","improvements":[]}`, 4096);
-    return { review: extractJSON(text) };
+    let data = extractJSON(text);
+    // improvements 배열 보장
+    if (data && (!data.improvements || !Array.isArray(data.improvements))) {
+        data.improvements = [];
+    }
+    return { review: data || { overallScore: 0, summary: "", improvements: [] } };
   },
 
   async reviewAndFix(body: any) {
@@ -225,6 +283,10 @@ export const aiService = {
     const text = await callGeminiAPI(prompt, 16384);
     let data = extractJSON(text);
     if (!data) throw new Error("전체 최적화 실패");
+    
+    if (data.presentation && Array.isArray(data.presentation.slides)) {
+      data.presentation.slides = data.presentation.slides.map(normalizeSlide);
+    }
     return { result: data };
   },
 
