@@ -1,6 +1,6 @@
 /**
  * Google Gemini API (발표자료) 및 DeepAI (무료 이미지 생성) 통합 서비스
- * (🚀 구성안 생성 속도 대폭 최적화 버전)
+ * (🚀 무한 로딩 방지 및 파싱 안전장치 완벽 적용)
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -24,7 +24,6 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
-// 💡 실제 슬라이드 생성 시에만 사용하는 무거운 프롬프트
 const SYSTEM_PROMPT_CORE = `당신은 사용자가 제공한 원본 데이터를 완벽하게 분석하여 고품질 프레젠테이션으로 변환하는 '비주얼 전문가'입니다.
 [🔥 절대 준수: 데이터 소스 우선순위]
 1. 파일 데이터가 있는 경우: 오직 업로드된 파일의 내용만 사용하세요.
@@ -43,11 +42,10 @@ function truncateFileData(fileData: any): string {
   return JSON.stringify(fileData).slice(0, 80000);
 }
 
-// ✨ 슬라이드 데이터 정규화 (내용 누락 방지의 핵심)
+// ✨ 슬라이드 데이터 정규화
 function normalizeSlide(s: any): any {
   if (!s || typeof s !== 'object') return s;
 
-  // AI가 보낼 수 있는 다양한 본문 키값들을 'content' 하나로 통합
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
 
   s.content = Array.isArray(rawContent)
@@ -60,6 +58,7 @@ function normalizeSlide(s: any): any {
   return s;
 }
 
+// ✨ JSON 강제 추출 및 복구 로직 (에러 방지)
 function extractJSON(text: string): any | null {
   try {
     let cleanText = text.trim();
@@ -68,15 +67,27 @@ function extractJSON(text: string): any | null {
     
     const parsed = JSON.parse(cleanText);
     
-    // 슬라이드 배열이 들어있다면 각각 정규화 진행
     if (parsed.slides && Array.isArray(parsed.slides)) {
       parsed.slides = parsed.slides.map(normalizeSlide);
     }
     
     return parsed;
   } catch (e) {
-    console.error("JSON 파싱 실패:", text);
-    return null;
+    console.error("JSON 파싱 1차 실패, 복구 시도...", e);
+    // JSON이 깨졌을 경우를 대비한 2차 복구 시도
+    try {
+      let repaired = text.trim().replace(/```(?:json)?/g, '').replace(/```/g, '');
+      const firstBrace = repaired.indexOf('{');
+      const firstBracket = repaired.indexOf('[');
+      const startIdx = (firstBrace !== -1 && firstBracket !== -1) ? Math.min(firstBrace, firstBracket) : Math.max(firstBrace, firstBracket);
+      if (startIdx !== -1) {
+        repaired = repaired.substring(startIdx);
+        return JSON.parse(repaired);
+      }
+    } catch(e2) {
+      console.error("JSON 파싱 최종 실패");
+    }
+    return null; // 완전히 실패 시 null 반환
   }
 }
 
@@ -99,7 +110,7 @@ async function callGeminiAPI(prompt: string, maxTokens: number = 8192) {
 }
 
 export const aiService = {
-  // 🚀 속도 최적화: 구성안 전용 초경량 프롬프트 적용
+  // 🚀 구성안 생성 로직 (방어 로직 추가)
   async getOutline(body: any) {
     const prompt = `당신은 프레젠테이션 기획자입니다. 다음 원본 데이터를 분석하여 발표 목차(구성안)만 빠르게 설계하세요.
     [원본]
@@ -108,22 +119,45 @@ export const aiService = {
     [규칙]
     - 전체적인 흐름만 파악하여 목차를 작성하세요.
     - 반드시 아래 JSON 형식만 반환하고 부가 설명은 절대 하지 마세요.
-    {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "이 슬라이드의 핵심 내용 한 줄"}]}`;
+    {"title": "전체 제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "핵심 내용"}]}`;
     
-    // 구성안은 짧게 반환하므로 토큰 수를 1024로 제한하여 AI가 불필요하게 말을 늘어놓지 못하게 차단 (속도 대폭 향상)
     const text = await callGeminiAPI(prompt, 1024);
-    return { outline: extractJSON(text) };
+    let data = extractJSON(text);
+
+    // ✨ 중요: 데이터가 null이면 무한 로딩에 빠지지 않도록 강제로 에러를 던져 UI 복구
+    if (!data) throw new Error("AI가 구성안 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
+
+    // ✨ 중요: AI가 {"title":..., "outline":[]} 형식이 아니라 그냥 배열 [...] 로 던졌을 경우를 대비한 보정
+    if (Array.isArray(data)) {
+      data = { title: "새 발표 자료", outline: data };
+    } else if (!data.outline && data.slides) {
+      // slides라는 이름으로 줬을 경우 outline으로 치환
+      data.outline = data.slides;
+    }
+
+    return { outline: data };
   },
 
-  // 발표자료 전체 생성 (여기서는 무거운 프롬프트 사용)
+  // 🚀 전체 발표자료 생성 로직 (방어 로직 추가)
   async generatePresentation(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 완성\n[원본]\n${truncateFileData(body.fileData)}\nJSON 반환: {"title":"제목","slides":[]}`, TOKEN_MAP[body.settings?.volume || 'standard']);
-    return { presentation: extractJSON(text) };
+    let data = extractJSON(text);
+
+    // 무한 로딩 방지
+    if (!data) throw new Error("AI가 슬라이드 포맷을 잘못 생성했습니다. 다시 시도해주세요.");
+
+    // 배열로만 반환했을 경우 보정
+    if (Array.isArray(data)) {
+      data = { title: "새 발표 자료", slides: data };
+    }
+
+    return { presentation: data };
   },
 
   async regenerateSlide(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] 슬라이드 재작성\n내용: ${JSON.stringify(body.currentSlide)}\n요청: ${body.userInstruction}\nJSON 반환.`, 4096);
-    const json = extractJSON(text);
+    let json = extractJSON(text);
+    if (!json) throw new Error("재생성 파싱 실패");
     return { slide: normalizeSlide(json) };
   },
 
@@ -136,7 +170,8 @@ export const aiService = {
 
   async changePersona(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n[미션] ${body.persona} 스타일 변환\n현재슬라이드: ${JSON.stringify(body.currentSlide)}\nJSON 반환.`, 4096);
-    const json = extractJSON(text);
+    let json = extractJSON(text);
+    if (!json) throw new Error("스타일 변환 파싱 실패");
     return { slide: normalizeSlide(json) };
   },
 
@@ -147,18 +182,17 @@ export const aiService = {
 
   async reviewAndFix(body: any) {
     const text = await callGeminiAPI(`${SYSTEM_PROMPT_CORE}\n최적화: ${JSON.stringify(body.presentation)}\nJSON 반환: {"presentation":{...},"summary":"..."}`, 16384);
-    return { result: extractJSON(text) };
+    let data = extractJSON(text);
+    if (!data) throw new Error("전체 최적화 실패");
+    return { result: data };
   },
 
-  // ✨ DeepAI를 사용한 무료 배경 이미지 생성기
+  // ✨ DeepAI 무료 배경 이미지 생성
   async generateImage(slideTitle: string, slideContent: string) {
     const DEEPAI_API_KEY = import.meta.env.VITE_DEEPAI_API_KEY;
-    if (!DEEPAI_API_KEY) {
-      throw new Error('VITE_DEEPAI_API_KEY가 설정되지 않았습니다. DeepAI API 키를 확인해주세요.');
-    }
+    if (!DEEPAI_API_KEY) throw new Error('VITE_DEEPAI_API_KEY가 설정되지 않았습니다.');
 
     const prompt = `Professional business presentation background, abstract geometric shapes, minimalist corporate style, soft gradient, theme: ${slideTitle}, ${slideContent}. High quality, no text, no letters, wide screen 16:9.`;
-
     const formData = new FormData();
     formData.append('text', prompt);
     formData.append('grid_size', '1');
@@ -167,31 +201,17 @@ export const aiService = {
 
     try {
       const response = await fetch('https://api.deepai.org/api/text2img', {
-        method: 'POST',
-        headers: {
-          'api-key': DEEPAI_API_KEY
-        },
-        body: formData
+        method: 'POST', headers: { 'api-key': DEEPAI_API_KEY }, body: formData
       });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`DeepAI 오류: ${errText}`);
-      }
-
+      if (!response.ok) throw new Error(`DeepAI 오류`);
       const data = await response.json();
-      if (!data.output_url) {
-        throw new Error('이미지 생성 결과 URL이 없습니다.');
-      }
-
       return data.output_url;
-    } catch (error: any) {
-      console.error("DeepAI 이미지 생성 실패:", error);
+    } catch (error) {
       throw error;
     }
   },
 
-  // ✨ 3번 기능: 인포그래픽 타입 분석
+  // ✨ 인포그래픽 분석
   async analyzeInfographic(content: string[]) {
     const prompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 "cycle", "hierarchy", "process", "grid" 중 하나로 선택하세요.
     내용: ${JSON.stringify(content)}
@@ -200,9 +220,8 @@ export const aiService = {
     return extractJSON(text);
   },
 
-  // ✨ 9번 기능: 노션/구글 드라이브 연동 (데이터 전송용 API 목업)
+  // ✨ 연동 목업
   async exportToExternal(presentation: any, platform: 'notion' | 'google') {
-    console.log(`${platform}으로 데이터 전송 시뮬레이션:`, presentation.title);
     return new Promise((resolve) => setTimeout(resolve, 1500));
   }
 };
