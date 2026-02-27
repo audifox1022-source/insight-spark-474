@@ -278,34 +278,34 @@ export const aiService = {
     return { result: data };
   },
 
+  // ✨ Pollinations AI를 사용한 완전 무료/무가입 배경 이미지 생성기
   async generateImage(slideTitle: string, slideContent: string) {
-    const DEEPAI_API_KEY = import.meta.env.VITE_DEEPAI_API_KEY;
-    if (!DEEPAI_API_KEY) throw new Error('VITE_DEEPAI_API_KEY가 설정되지 않았습니다.');
-    const prompt = `Professional business presentation background, abstract geometric shapes, minimalist corporate style, soft gradient, theme: ${slideTitle}, ${slideContent}. High quality, no text, no letters, wide screen 16:9.`;
-    const formData = new FormData();
-    formData.append('text', prompt);
-    formData.append('grid_size', '1');
-    formData.append('width', '1280');
-    formData.append('height', '720');
+    // 💡 더 이상 VITE_DEEPAI_API_KEY 환경변수가 필요 없습니다!
+    
+    // 영문 프롬프트 구성 (텍스트 금지, 비즈니스 추상화 스타일)
+    const prompt = `Professional abstract business presentation background, minimalist corporate style, soft gradient, theme: ${slideTitle}, context: ${slideContent}. High quality, no text, no watermarks, wide screen 16:9.`;
 
     try {
-      const response = await fetch('https://api.deepai.org/api/text2img', { method: 'POST', headers: { 'api-key': DEEPAI_API_KEY }, body: formData });
-      if (!response.ok) throw new Error(`DeepAI 오류`);
-      const data = await response.json();
-      return data.output_url;
-    } catch (error) {
-      throw error;
+      // 프롬프트를 URL 인코딩
+      const encodedPrompt = encodeURIComponent(prompt);
+      
+      // Pollinations API는 URL 자체를 이미지 소스로 사용합니다.
+      // width, height 지정 및 nologo=true로 워터마크 제거
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true`;
+
+      // API가 정상 작동하는지 살짝 핑(Ping) 테스트
+      const response = await fetch(imageUrl, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        throw new Error('무료 이미지 서버가 혼잡합니다.');
+      }
+
+      // 자연스러운 로딩 UI를 위해 약간의 지연 시간 추가
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      return imageUrl;
+    } catch (error: any) {
+      console.error("이미지 생성 예외 발생:", error);
+      throw new Error("이미지를 생성할 수 없습니다. 잠시 후 다시 시도해주세요.");
     }
-  },
-
-  async analyzeInfographic(content: string[]) {
-    const prompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 "cycle", "hierarchy", "process", "grid" 중 하나로 선택하세요.
-    내용: ${JSON.stringify(content)}\n반드시 JSON {"type": "선택값", "reason": "이유"}만 반환.`;
-    const text = await callGeminiAPI(prompt, 1024);
-    return extractJSON(text) || { type: 'grid' };
-  },
-
-  async exportToExternal(presentation: any, platform: 'notion' | 'google') {
-    return new Promise((resolve) => setTimeout(resolve, 1500));
   }
-};
