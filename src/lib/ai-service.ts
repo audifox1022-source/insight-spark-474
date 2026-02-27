@@ -1,6 +1,13 @@
 /**
  * src/lib/ai-service.ts
- * (✅ 보안·구조·논리 오류 수정 완료본)
+ * ✅ P1 수정 완료본
+ * - DIFFICULTY_MAP 실제 반영
+ * - callGeminiAPI system_instruction 분리
+ * - getOutline 반환 구조 { title, outline[] } 직접 반환
+ * - review() strengths 필드 추가
+ * - generateImage 1.5초 블로킹 제거
+ * - extractJSON 정규식 이스케이프 수정
+ * - reviewAndFix TOKEN_MAP 활용
  */
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -24,9 +31,8 @@ const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
-// ✅ DIFFICULTY_MAP을 실제 프롬프트에 반영하는 상수
 function getSystemPromptCore(difficulty = "medium"): string {
-  const tone = DIFFICULTY_MAP[difficulty] || DIFFICULTY_MAP.medium;
+  const tone = DIFFICULTY_MAP[difficulty] ?? DIFFICULTY_MAP.medium;
   return `당신은 글로벌 상위 1% 전략 컨설턴트이자 TED 프레젠테이션 전문가입니다.
 [🎯 톤 & 수준]: ${tone}
 
@@ -42,11 +48,11 @@ function getSystemPromptCore(difficulty = "medium"): string {
 
 const SLIDE_SCHEMA = `
 [📊 특수 슬라이드 타입 필수 JSON 구조 (반드시 준수)]
-- "kpi" 타입: 
+- "kpi" 타입:
   "keyMetrics": [{"label": "지표명", "value": "수치", "trend": "up" | "down" | "flat"}]
-- "chart" 타입: 
+- "chart" 타입:
   "chartData": {"type": "bar" | "line" | "pie", "labels": ["항목1"], "datasets": [{"label": "데이터명", "data": [10, 20]}]}
-- "table" 타입: 
+- "table" 타입:
   "tableData": {"headers": ["열1", "열2"], "rows": [["값1", "값2"]]}
 `;
 
@@ -61,7 +67,6 @@ function extractTextFromItem(item: any): string[] {
 
   if (typeof item === "string") {
     let cleanStr = item.trim();
-    // 앞부분의 특수기호 제거
     cleanStr = cleanStr.replace(/^[^a-zA-Z0-9가-힣{[]+/, "").trim();
 
     if (
@@ -143,7 +148,6 @@ function normalizeSlide(s: any): any {
 
   s.content = contentArray.flatMap(extractTextFromItem);
 
-  // chartData 정규화
   if (s.type === "chart" || s.chartData) {
     s.chartData = s.chartData || {};
     s.chartData.labels = Array.isArray(s.chartData.labels)
@@ -159,7 +163,6 @@ function normalizeSlide(s: any): any {
     s.chartData = { labels: [], datasets: [] };
   }
 
-  // tableData 정규화
   if (s.type === "table" || s.tableData) {
     s.tableData = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers)
@@ -170,7 +173,6 @@ function normalizeSlide(s: any): any {
     s.tableData = { headers: [], rows: [] };
   }
 
-  // keyMetrics 정규화
   s.keyMetrics =
     s.type === "kpi" || s.keyMetrics
       ? Array.isArray(s.keyMetrics)
@@ -189,7 +191,7 @@ function extractJSON(text: string): any | null {
   const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
-  // 1차 시도: 직접 파싱
+  // 1차: 직접 파싱
   try {
     const parsed = JSON.parse(cleanText);
     if (parsed && Array.isArray(parsed.slides))
@@ -202,7 +204,7 @@ function extractJSON(text: string): any | null {
     return parsed;
   } catch {}
 
-  // 2차 시도: 첫 { 또는 [ 부터 잘라서 복구
+  // 2차: { 또는 [ 위치부터 잘라서 복구 시도
   try {
     const firstBrace = cleanText.indexOf("{");
     const firstBracket = cleanText.indexOf("[");
@@ -213,7 +215,7 @@ function extractJSON(text: string): any | null {
 
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
-      // ✅ 수정: 이중 이스케이프 제거 → 올바른 정규식 리터럴 사용
+      // ✅ 수정: 올바른 정규식 리터럴 (이중 이스케이프 제거)
       let braces =
         (repaired.match(/{/g) || []).length -
         (repaired.match(/}/g) || []).length;
@@ -221,14 +223,8 @@ function extractJSON(text: string): any | null {
         (repaired.match(/\[/g) || []).length -
         (repaired.match(/\]/g) || []).length;
       repaired = repaired.replace(/,\s*$/, "");
-      while (brackets > 0) {
-        repaired += "]";
-        brackets--;
-      }
-      while (braces > 0) {
-        repaired += "}";
-        braces--;
-      }
+      while (brackets > 0) { repaired += "]"; brackets--; }
+      while (braces > 0) { repaired += "}"; braces--; }
       repaired = repaired.replace(/,\s*([\]}])/g, "$1");
 
       const parsed = JSON.parse(repaired);
@@ -246,7 +242,7 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
-// ✅ 수정: systemInstruction 분리 + API 키 환경변수 사용 유지 (서버 이전 권고)
+// ✅ 수정: systemInstruction 별도 분리
 async function callGeminiAPI(
   systemInstruction: string,
   userPrompt: string,
@@ -256,7 +252,6 @@ async function callGeminiAPI(
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY 미설정");
 
   const payload = {
-    // ✅ 시스템 지시와 사용자 프롬프트를 명확히 분리
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
@@ -294,6 +289,7 @@ async function callGeminiAPI(
 }
 
 export const aiService = {
+  // ✅ 수정: { title, outline[] } 직접 반환 (이중 중첩 제거)
   async getOutline(body: any) {
     const volumeGuideline = VOLUME_MAP[body.settings?.volume || "standard"];
     const difficulty = body.settings?.difficulty || "medium";
@@ -305,7 +301,7 @@ export const aiService = {
 1. 분량: "${volumeGuideline}" 규칙 엄수
 2. 배열 내부에 절대 JSON 형식이나 큰따옴표(")를 쓰지 마세요.
 반드시 아래 형식만 반환:
-{"title": "제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "chart", "description": "설명"}]}`;
+{"title": "제목", "outline": [{"slideNumber": 1, "title": "슬라이드 제목", "type": "content", "description": "설명"}]}`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     let data = extractJSON(text);
@@ -323,15 +319,14 @@ export const aiService = {
 
     if (Array.isArray(data)) data = { title: "새 발표 자료", outline: data };
     if (!data.outline || !Array.isArray(data.outline))
-      data.outline =
-        data.slides && Array.isArray(data.slides) ? data.slides : [];
+      data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
     if (data.outline.length === 0)
       data.outline = [
         { slideNumber: 1, title: data.title || "도입", type: "content", description: "내용 작성" },
       ];
 
-    // ✅ 수정: 이중 중첩 제거 → { title, outline } 직접 반환
-    return { title: data.title, outline: data.outline };
+    // ✅ 수정: { title, outline[] } 직접 반환
+    return { title: data.title ?? "새 발표 자료", outline: data.outline };
   },
 
   async generatePresentation(body: any) {
@@ -394,17 +389,42 @@ export const aiService = {
     return { slide: normalizeSlide(json) };
   },
 
+  // ✅ 수정: strengths 필드 프롬프트에 명시
   async review(body: any) {
     const systemInstruction = "당신은 프레젠테이션 전문 검토자입니다.";
-    const userPrompt = `검토: ${JSON.stringify(body.presentation)}\nJSON 반환: {"overallScore":85,"summary":"...","improvements":[{"slideNumber":1,"issue":"...","suggestion":"..."}]}`;
+    const userPrompt = `다음 프레젠테이션을 검토하고 반드시 아래 JSON 형식만 반환하세요.
+발표자료: ${JSON.stringify(body.presentation)}
+반환 형식:
+{
+  "overallScore": 85,
+  "summary": "전체 총평 한 줄",
+  "strengths": ["잘된 점 1", "잘된 점 2"],
+  "improvements": [
+    {
+      "slideNumber": 1,
+      "slideIndex": 0,
+      "category": "readability",
+      "severity": "high",
+      "issue": "문제점 설명",
+      "suggestion": "개선 제안"
+    }
+  ],
+  "generalTips": ["전반적인 팁 1", "팁 2"]
+}
+category는 반드시 readability, content, structure, visual, data 중 하나.
+severity는 반드시 high, medium, low 중 하나.`;
+
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     let data = extractJSON(text);
     if (!data || typeof data !== "object") data = {};
+
     return {
       review: {
-        overallScore: data.overallScore || 85,
-        summary: data.summary || "완료",
+        overallScore: typeof data.overallScore === "number" ? data.overallScore : 85,
+        summary: data.summary || "검토가 완료되었습니다.",
+        strengths: Array.isArray(data.strengths) ? data.strengths : [],
         improvements: Array.isArray(data.improvements) ? data.improvements : [],
+        generalTips: Array.isArray(data.generalTips) ? data.generalTips : [],
       },
     };
   },
@@ -428,7 +448,7 @@ export const aiService = {
     let englishKeywords = "abstract business corporate background";
     try {
       const keywordsResult = await callGeminiAPI(
-        "You are a keyword extractor.",
+        "You are a keyword extractor. Return ONLY raw JSON.",
         `Extract key visual concepts from the following text and return ONLY a short, comma-separated list of 5 English keywords. Text: ${slideTitle} ${slideContent}`,
         50
       );
@@ -441,7 +461,7 @@ export const aiService = {
       `Professional presentation background, soft gradient, theme: ${englishKeywords.slice(0, 100)}. High quality, abstract, clean, no text, no watermarks, 16:9.`
     );
     const seed = Math.floor(Math.random() * 1000000);
-    // ✅ 수정: 무의미한 setTimeout 제거, URL 즉시 반환
+    // ✅ 수정: 무의미한 1.5초 블로킹 제거
     return `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1280&height=720&nologo=true&seed=${seed}`;
   },
 
@@ -451,6 +471,15 @@ export const aiService = {
 내용: ${JSON.stringify(content)}\n반드시 JSON {"type": "선택값", "reason": "이유"}만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 1024);
     return extractJSON(text) || { type: "grid" };
+  },
+
+  async analyzeTemplate(templateData: string) {
+    const systemInstruction = "당신은 디자인 분석 전문가입니다.";
+    const userPrompt = `다음 템플릿 이미지/데이터를 분석하여 주요 색상과 스타일을 추출하세요.
+템플릿: ${templateData.slice(0, 1000)}
+반드시 JSON만 반환: {"primaryColor": "#1B3A5C", "accentColor": "#0D8ECF", "description": "스타일 설명"}`;
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 512);
+    return extractJSON(text) || { primaryColor: "#1B3A5C", accentColor: "#0D8ECF", description: "" };
   },
 
   async exportToExternal(
