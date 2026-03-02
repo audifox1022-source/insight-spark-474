@@ -82,9 +82,9 @@ const Index = () => {
   const navigate = useNavigate();
 
   type AppMode = 'presentation' | 'translator';
-  const [activeApp, setActiveApp]         = useState<AppMode>('presentation');
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [helpOpen, setHelpOpen]           = useState(false);
+  const [activeApp, setActiveApp]           = useState<AppMode>('presentation');
+  const [themeMenuOpen, setThemeMenuOpen]   = useState(false);
+  const [helpOpen, setHelpOpen]             = useState(false);
   const [activePresetId, setActivePresetId] = useState<string>('manual');
   const [presetData, setPresetData]         = useState<Record<string, string>>({});
   const [manualPrompt, setManualPrompt]     = useState('');
@@ -103,6 +103,7 @@ const Index = () => {
     fileNames,
     meetingInfo, setMeetingInfo,
     settings, setSettings,
+    template, setTemplate,          // ✅ 추가
     outline,
     isLoadingOutline,
     presentation,
@@ -134,7 +135,7 @@ const Index = () => {
     updatePresentationTitle,
   } = usePresentation();
 
-  const guide       = getStepGuide(step);
+  const guide        = getStepGuide(step);
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId);
 
   return (
@@ -448,7 +449,6 @@ const Index = () => {
             {step === 'upload' && (
               <div className="space-y-10">
 
-                {/* 히어로 타이틀 */}
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -470,7 +470,6 @@ const Index = () => {
                   </p>
                 </motion.div>
 
-                {/* 프리셋 + 입력 */}
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -512,7 +511,6 @@ const Index = () => {
                   <div className="relative">
                     <AnimatePresence mode="wait">
                       {activePreset ? (
-                        /* 프리셋 폼 */
                         <motion.div
                           key={activePreset.id}
                           initial={{ opacity: 0, scale: 0.98 }}
@@ -557,7 +555,6 @@ const Index = () => {
                           </div>
                         </motion.div>
                       ) : (
-                        /* 직접 입력 */
                         <motion.div
                           key="manual"
                           initial={{ opacity: 0, scale: 0.98 }}
@@ -645,6 +642,8 @@ const Index = () => {
                   isGenerating={isLoadingOutline}
                   fileNames={fileNames}
                   dataSummary={dataSummary}
+                  template={template}           // ✅ 추가
+                  setTemplate={setTemplate}     // ✅ 추가
                 />
               </div>
             )}
