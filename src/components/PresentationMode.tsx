@@ -1,15 +1,12 @@
-// ============================================================
-// PresentationMode.tsx  —  전체 코드 (A4 가로 최종)
-// ============================================================
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Presentation } from '@/types/presentation';
-import { ScaledSlide }  from '@/components/ScaledSlide';
+import { ScaledSlide } from '@/components/ScaledSlide';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface PresentationModeProps {
   presentation: Presentation;
-  startSlide?:  number;
-  onExit:       () => void;
+  startSlide?: number;
+  onExit: () => void;
 }
 
 export function PresentationMode({
@@ -17,28 +14,32 @@ export function PresentationMode({
   startSlide = 0,
   onExit,
 }: PresentationModeProps) {
-  const [current,       setCurrent]       = useState(startSlide);
+  const [current, setCurrent]         = useState(startSlide);
   const [cursorVisible, setCursorVisible] = useState(true);
-  const cursorTimer  = useRef<ReturnType<typeof setTimeout>>();
+  const cursorTimer = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const slides = presentation.slides;
   const total  = slides.length;
 
-  const next = useCallback(() => setCurrent((c) => Math.min(c + 1, total - 1)), [total]);
-  const prev = useCallback(() => setCurrent((c) => Math.max(c - 1, 0)), []);
+  const next = useCallback(() => setCurrent(c => Math.min(c + 1, total - 1)), [total]);
+  const prev = useCallback(() => setCurrent(c => Math.max(c - 1, 0)), []);
 
-  // ── 전체화면
+  // ── 풀스크린 진입 ─────────────────────────────────────────
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.requestFullscreen?.().catch(() => {});
-    const handleFSChange = () => { if (!document.fullscreenElement) onExit(); };
+    el.requestFullscreen?.().catch(() => {
+      // Fallback: 풀스크린 미지원 시 오버레이 모드로 유지
+    });
+    const handleFSChange = () => {
+      if (!document.fullscreenElement) onExit();
+    };
     document.addEventListener('fullscreenchange', handleFSChange);
     return () => document.removeEventListener('fullscreenchange', handleFSChange);
   }, [onExit]);
 
-  // ── 키보드
+  // ── 키보드 네비게이션 ──────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       switch (e.key) {
@@ -51,7 +52,7 @@ export function PresentationMode({
           if (document.fullscreenElement) document.exitFullscreen();
           else onExit();
           break;
-        case 'Home': e.preventDefault(); setCurrent(0);          break;
+        case 'Home': e.preventDefault(); setCurrent(0); break;
         case 'End':  e.preventDefault(); setCurrent(total - 1); break;
       }
     };
@@ -59,7 +60,7 @@ export function PresentationMode({
     return () => window.removeEventListener('keydown', handler);
   }, [next, prev, onExit, total]);
 
-  // ── 커서 자동숨김
+  // ── 커서 자동 숨김 ─────────────────────────────────────────
   useEffect(() => {
     const handleMove = () => {
       setCursorVisible(true);
@@ -77,23 +78,23 @@ export function PresentationMode({
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] bg-gray-900 flex items-center justify-center select-none"
+      className="fixed inset-0 z-[9999] bg-black flex items-center justify-center select-none"
       style={{ cursor: cursorVisible ? 'default' : 'none' }}
-      onClick={(e) => {
+      onClick={e => {
+        // 클릭 위치 좌 1/3: 이전, 우 2/3: 다음
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        if (e.clientX - rect.left < rect.width / 3) prev(); else next();
+        const x = e.clientX - rect.left;
+        if (x < rect.width / 3) prev();
+        else next();
       }}
     >
-      {/* ✅ A4 가로 비율: width:height = 1.4142:1
-          width  = min(100vw, 100vh * 1.4142)
-          height = min(100vh, 100vw / 1.4142)       */}
+      {/* ✅ 핵심 수정: 16:9 비율을 유지하면서 화면에 맞게 최대화 */}
       <div
-        className="relative shadow-2xl"
+        className="w-full aspect-video"
         style={{
-          width:     'min(100vw, calc(100vh * 1.4142))',
-          height:    'min(100vh, calc(100vw / 1.4142))',
-          maxWidth:  '100vw',
-          maxHeight: '100vh',
+          // 화면 너비·높이 중 작은 쪽 기준으로 16:9 유지
+          maxWidth:  'min(100vw, calc(100vh * 16 / 9))',
+          maxHeight: 'min(100vh, calc(100vw * 9 / 16))',
         }}
       >
         <AnimatePresence mode="wait">
@@ -103,20 +104,25 @@ export function PresentationMode({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="absolute inset-0"
+            className="w-full h-full"
           >
+            {/* containerClassName에서 h-full 제거 → aspect-video 정상 작동 */}
             <ScaledSlide
               slide={slides[current]}
-              containerClassName="w-full h-full"
+              containerClassName="w-full h-full rounded-none"
+              logoUrl={presentation.logoUrl}
+              watermark={presentation.watermark}
             />
           </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* 슬라이드 번호 */}
+      {/* 슬라이드 번호 — 커서와 함께 페이드 */}
       <div
-        className="absolute bottom-6 right-8 text-white/50 text-sm font-mono transition-opacity duration-300"
-        style={{ opacity: cursorVisible ? 1 : 0 }}
+        className={[
+          'absolute bottom-6 right-8 text-white/50 text-sm font-mono transition-opacity duration-300',
+          cursorVisible ? 'opacity-100' : 'opacity-0',
+        ].join(' ')}
       >
         {current + 1} / {total}
       </div>
@@ -124,7 +130,7 @@ export function PresentationMode({
       {/* 진행 바 */}
       <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/10">
         <div
-          className="h-full bg-white/50 transition-all duration-300"
+          className="h-full bg-white/40 transition-all duration-300"
           style={{ width: `${((current + 1) / total) * 100}%` }}
         />
       </div>
