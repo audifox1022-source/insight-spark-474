@@ -1,6 +1,3 @@
-// ============================================================
-// ScaledSlide.tsx  —  전체 코드 (모든 레이아웃 숫자 기호 표시)
-// ============================================================
 import React from 'react';
 import {
   ArrowRight, Layers, CheckCircle2,
@@ -15,7 +12,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// ── 타입 정의 ─────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// 타입 정의
+// ══════════════════════════════════════════════════════════════
 interface ChartDataPoint {
   name:   string;
   value:  number;
@@ -68,7 +67,9 @@ interface ScaledSlideProps {
   watermark?:         string;
 }
 
-// ── 색상 팔레트 ───────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// 색상 팔레트
+// ══════════════════════════════════════════════════════════════
 const P = {
   primary:  'var(--primary)',
   accent:   'var(--accent)',
@@ -88,7 +89,9 @@ const P = {
   ],
 };
 
-// ── Recharts 커스텀 툴팁 ──────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// Recharts 커스텀 툴팁
+// ══════════════════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
@@ -103,7 +106,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-// ── 빈 상태 플레이스홀더 ───────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// 빈 상태 플레이스홀더
+// ══════════════════════════════════════════════════════════════
 const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: string }) => (
   <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 16, border: '2px dashed #e2e8f0', color: '#94a3b8', flexDirection: 'column', gap: 10 }}>
     <Icon style={{ width: 40, height: 40, opacity: 0.25 }} />
@@ -111,6 +116,8 @@ const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: s
   </div>
 );
 
+// ══════════════════════════════════════════════════════════════
+// 메인 컴포넌트
 // ══════════════════════════════════════════════════════════════
 export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   slide,
@@ -130,14 +137,18 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
-  // ── 워터마크 ──────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────
+  // 워터마크
+  // ──────────────────────────────────────────────────────────────
   const Watermark = watermark ? (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.03, transform: 'rotate(-30deg)', fontSize: '9rem', fontWeight: 900, color: '#000', userSelect: 'none' }}>
       {watermark}
     </div>
   ) : null;
 
-  // ── 로고 ──────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────
+  // 로고
+  // ──────────────────────────────────────────────────────────────
   const Logo = ({ invert = false }: { invert?: boolean }) =>
     logoUrl ? (
       <div style={{ position: 'absolute', top: '1.3rem', right: '1.8rem', width: '5.5rem', height: '2.8rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -145,7 +156,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       </div>
     ) : null;
 
-  // ── 슬라이드 번호 ─────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────
+  // 슬라이드 번호
+  // ──────────────────────────────────────────────────────────────
   const SlideNum = ({ light = false }: { light?: boolean }) =>
     slide.slideNumber ? (
       <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -388,7 +401,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              {/* ✅ 숫자 배지 추가 */}
+              {/* ✅ 숫자 배지 */}
               <div
                 style={{
                   width: `${1.8 * contentSizeScale}rem`,
@@ -416,7 +429,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       );
     }
 
-    // ✅ HIGHLIGHT 레이아웃 (강조형, 숫자 표시)
+    // ✅ HIGHLIGHT 레이아웃 (강조형, 숫자 표시) - CheckCircle2 대신 숫자로 교체
     if (layout === 'highlight') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', height: '100%', justifyContent: 'center' }}>
@@ -434,14 +447,16 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 transition: 'all 0.2s',
               }}
             >
-              {/* ✅ 숫자 원형 아이콘 추가 */}
+              {/* ✅ CheckCircle2 대신 숫자 배지로 교체 */}
               <div
                 style={{
                   width: `${1.6 * contentSizeScale}rem`,
                   height: `${1.6 * contentSizeScale}rem`,
                   borderRadius: '50%',
                   flexShrink: 0,
-                  background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : '#94a3b8',
+                  background: i === 0
+                    ? `linear-gradient(135deg,${P.primary},${P.accent})`
+                    : '#94a3b8',
                   color: '#fff',
                   display: 'flex',
                   alignItems: 'center',
@@ -595,16 +610,27 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 6. 컨텐츠 분기
+  // 6. ✅ 컨텐츠 분기 (process/agenda 타입 명시적 처리)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   const renderContent = () => {
     switch (slide.type) {
-      case 'chart': return renderChart();
-      case 'table': return renderTable();
-      case 'kpi':   return renderKPI();
+      case 'chart':
+        return renderChart();
+      case 'table':
+        return renderTable();
+      case 'kpi':
+        return renderKPI();
+      case 'process':
+        // process 타입일 때 infographicType 강제 설정
+        if (!slide.infographicType) {
+          slide.infographicType = 'process';
+        }
+        if (!content.length) return <EmptyPlaceholder icon={Layers} label="내용 없음" />;
+        return renderInfographic();
+      case 'agenda':
+      case 'content':
       default:
         if (!content.length) return <EmptyPlaceholder icon={Layers} label="내용 없음" />;
-        // infographicType이 있으면 인포그래픽, 없으면 불릿
         return slide.infographicType ? renderInfographic() : renderBullets();
     }
   };
