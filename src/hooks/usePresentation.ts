@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts  —  전체 코드 (안정성 강화 최종)
+// usePresentation.ts  —  전체 코드 (구성안 검증 로직 수정)
 // ============================================================
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
@@ -153,11 +153,10 @@ export function usePresentation() {
   // ── 파일 업로드 ─────────────────────────────────────────────
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
-      const results  = await Promise.all(files.map(parseFile));
-      const failed   = results.filter((r) => r.fileType === 'unknown' || r.parseError);
+      const results   = await Promise.all(files.map(parseFile));
+      const failed    = results.filter((r) => r.fileType === 'unknown' || r.parseError);
       const succeeded = results.filter((r) => r.fileType !== 'unknown' && !r.parseError);
 
-      // ✅ 디버깅: 파싱 결과 확인
       console.log('[파일 파싱 결과]', results.map((r) => ({
         name:    r.fileName,
         type:    r.fileType,
@@ -217,7 +216,6 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
 
-      // ✅ 디버깅: payload 내용 확인
       console.log('[AI Payload 확인]', JSON.stringify(payload).slice(0, 500));
 
       const resData = await retryWithBackoff(
@@ -228,7 +226,6 @@ export function usePresentation() {
           template,
         }),
         {
-          // ✅ 재시도 횟수 3으로 증가
           maxRetries: 3,
           onRetry: (attempt, max) => {
             toast.loading(`구성안 생성 재시도 중... (${attempt}/${max})`, { id: 'outline-retry' });
@@ -237,16 +234,14 @@ export function usePresentation() {
       );
       toast.dismiss('outline-retry');
 
-      // ✅ 구성안 내용 검증
+      // ✅ 수정: outline 배열이 존재하고 title이 있으면 바로 사용
+      //    description 내용 검증 제거 → 불필요한 재시도 방지
       const outlineItems = Array.isArray(resData?.outline) ? resData.outline : [];
-      const hasRealContent = outlineItems.some(
-        (item: any) => item.description && item.description !== '내용 작성 필요' && item.description !== '세부 내용 작성 필요'
-      );
 
-      if (!hasRealContent && outlineItems.length > 0) {
-        // 내용이 없으면 한 번 더 재시도
-        console.warn('[구성안 경고] 내용이 비어있어 재시도합니다.');
-        toast.loading('내용을 보완하는 중...', { id: 'outline-retry2' });
+      if (outlineItems.length === 0) {
+        // outline 배열 자체가 없을 때만 재시도
+        console.warn('[구성안 경고] outline 배열이 비어있어 재시도합니다.');
+        toast.loading('구성안을 다시 생성 중...', { id: 'outline-retry2' });
 
         const retryData = await retryWithBackoff(
           async () => await aiService.getOutline({
@@ -259,9 +254,10 @@ export function usePresentation() {
         );
         toast.dismiss('outline-retry2');
 
-        const retryOutline = Array.isArray(retryData?.outline) ? retryData.outline : outlineItems;
+        const retryOutline = Array.isArray(retryData?.outline) ? retryData.outline : [];
         setOutline({ title: retryData?.title ?? '발표 자료', outline: retryOutline });
       } else {
+        // ✅ 정상: 바로 세팅
         setOutline({ title: resData?.title ?? '발표 자료', outline: outlineItems });
       }
 
@@ -291,7 +287,6 @@ export function usePresentation() {
           approvedOutline: approvedOutline ?? null,
         }),
         {
-          // ✅ 재시도 횟수 3으로 증가
           maxRetries: 3,
           onRetry: (attempt, max) => {
             toast.loading(`발표자료 생성 재시도 중... (${attempt}/${max})`, { id: 'gen-retry' });
