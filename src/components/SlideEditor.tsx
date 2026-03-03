@@ -1,7 +1,13 @@
 // ============================================================
-// SlideEditor.tsx  —  전체 코드 (이미지 Unsplash 대체 + 다중선택 일괄수정)
+// SlideEditor.tsx  —  전체 코드 (수정 완료)
+// 수정사항:
+// 1. onOpenChat → usePresentation의 openChatWithSlide 연동으로 currentSlide 전달
+// 2. SlideEditorProps에 onOpenChatWithSlide 추가 (선택적, 하위호환 유지)
+// 3. slideTypeLabels에 compare/timeline/quote/kpi/content 타입 추가
+// 4. SelectContent에 누락된 슬라이드 타입 항목 추가
+// 5. 불필요한 ChevronUp, ChevronDown, Square 미사용 아이콘 정리 (경고 제거)
 // ============================================================
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScaledSlide }   from '@/components/ScaledSlide';
 import {
@@ -24,11 +30,10 @@ import {
 import {
   RotateCcw, Download, Plus, Trash2, Copy,
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
-  ClipboardList, Layout, ChevronUp, ChevronDown,
-  Check, X, Pencil, Play, Save, GripVertical, Loader2,
-  Sparkles, MessageSquare, Keyboard, Star, TableProperties,
-  Wand2, LayoutTemplate, Stamp, SlidersHorizontal, ImagePlus,
-  CheckSquare, Square, Layers, ChevronRight,
+  ClipboardList, Layout, Check, X, Pencil, Play, Save,
+  GripVertical, Loader2, Sparkles, MessageSquare, Keyboard,
+  Star, TableProperties, Wand2, LayoutTemplate, Stamp,
+  SlidersHorizontal, ImagePlus, CheckSquare, Layers,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog }   from '@/components/ExportSettingsDialog';
@@ -52,7 +57,8 @@ interface SlideEditorProps {
   onSave:                () => void;
   isSaving:              boolean;
   onRegenerateSlide:     (slideIndex: number, instruction?: string) => Promise<void>;
-  onOpenChat:            () => void;
+  onOpenChat:            () => void;                              // 기존 호환용
+  onOpenChatWithSlide?:  (slideIndex: number) => void;           // ✅ 신규: 슬라이드 인덱스 전달
   onOpenReview:          () => void;
   onReviewAndFix:        () => Promise<void>;
   isFixing:              boolean;
@@ -64,44 +70,64 @@ interface SlideEditorProps {
 }
 
 // ── 슬라이드 타입 메타데이터 ─────────────────────────────────
+// ✅ 수정: compare/timeline/quote/kpi/content 타입 추가
 const slideTypeIcons: Record<string, React.ReactNode> = {
-  title:   <Layout      className="w-3.5 h-3.5" />,
-  data:    <BarChart3   className="w-3.5 h-3.5" />,
-  chart:   <BarChart3   className="w-3.5 h-3.5" />,
-  action:  <Target      className="w-3.5 h-3.5" />,
-  summary: <ClipboardList className="w-3.5 h-3.5" />,
+  title:    <Layout        className="w-3.5 h-3.5" />,
+  content:  <Layout        className="w-3.5 h-3.5" />,
+  data:     <BarChart3     className="w-3.5 h-3.5" />,
+  chart:    <BarChart3     className="w-3.5 h-3.5" />,
+  kpi:      <Target        className="w-3.5 h-3.5" />,
+  action:   <Target        className="w-3.5 h-3.5" />,
+  summary:  <ClipboardList className="w-3.5 h-3.5" />,
+  compare:  <Layers        className="w-3.5 h-3.5" />,
+  timeline: <Layers        className="w-3.5 h-3.5" />,
+  quote:    <MessageSquare className="w-3.5 h-3.5" />,
+  table:    <TableProperties className="w-3.5 h-3.5" />,
 };
 const slideTypeLabels: Record<string, string> = {
-  title: '표지', data: '데이터', chart: '차트', action: '실행', summary: '요약',
+  title:    '표지',
+  content:  '내용',
+  data:     '데이터',
+  chart:    '차트',
+  kpi:      'KPI',
+  action:   '실행',
+  summary:  '요약',
+  compare:  '비교',
+  timeline: '타임라인',
+  quote:    '인용',
+  table:    '표',
 };
 const slideTypeBadgeColors: Record<string, string> = {
-  title:   'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
-  data:    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  chart:   'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
-  action:  'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  summary: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  title:    'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  content:  'bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-400',
+  data:     'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  chart:    'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  kpi:      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  action:   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  summary:  'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  compare:  'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  timeline: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  quote:    'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400',
+  table:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
-// ── Unsplash 이미지 검색 (무료, API 키 불필요) ───────────────
+// ── Unsplash 이미지 검색 ─────────────────────────────────────
 async function fetchUnsplashImage(query: string): Promise<string> {
   const encoded = encodeURIComponent(query);
-  // Unsplash Source API — 무료, 키 불필요
-  const url = `https://source.unsplash.com/1200x630/?${encoded}`;
-  // redirect된 실제 URL을 img src로 바로 사용 가능
-  return url;
+  return `https://source.unsplash.com/1200x630/?${encoded}`;
 }
 
 // ── 썸네일 컴포넌트 ───────────────────────────────────────────
 function SortableSlideThumbnail({
   slide, index, isActive, isSelected, selectionMode, onClick, onToggleSelect,
 }: {
-  slide:           Slide;
-  index:           number;
-  isActive:        boolean;
-  isSelected:      boolean;
-  selectionMode:   boolean;
-  onClick:         () => void;
-  onToggleSelect:  () => void;
+  slide:          Slide;
+  index:          number;
+  isActive:       boolean;
+  isSelected:     boolean;
+  selectionMode:  boolean;
+  onClick:        () => void;
+  onToggleSelect: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: `slide-${index}` });
@@ -126,13 +152,10 @@ function SortableSlideThumbnail({
         }`}
       >
         <div className="flex items-center gap-2 mb-2">
-          {/* 선택 모드 체크박스 */}
           {selectionMode ? (
-            <div
-              className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
-                isSelected ? 'bg-primary' : 'border-2 border-border'
-              }`}
-            >
+            <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${
+              isSelected ? 'bg-primary' : 'border-2 border-border'
+            }`}>
               {isSelected && <Check className="w-3 h-3 text-white" />}
             </div>
           ) : (
@@ -164,13 +187,13 @@ function SortableSlideThumbnail({
 export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide,
   onDeleteSlide, onDuplicateSlide, onMoveSlide, onUpdateTitle,
-  onSave, isSaving, onRegenerateSlide, onOpenChat, onOpenReview,
-  onReviewAndFix, isFixing, onChangePersona, onCycleLayout,
-  updatePresentationMaster,
+  onSave, isSaving, onRegenerateSlide,
+  onOpenChat, onOpenChatWithSlide,   // ✅ 두 가지 모두 받음
+  onOpenReview, onReviewAndFix, isFixing,
+  onChangePersona, onCycleLayout, updatePresentationMaster,
   isGeneratingImage = false,
   generateSlideImage,
 }: SlideEditorProps) {
-
   const [currentSlide,      setCurrentSlide]      = useState(0);
   const [isExporting,       setIsExporting]        = useState(false);
   const [exportDialogOpen,  setExportDialogOpen]  = useState(false);
@@ -179,16 +202,12 @@ export function SlideEditor({
   const [presenting,        setPresenting]         = useState(false);
   const [isRegenerating,    setIsRegenerating]     = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
-
-  // ✅ 다중 선택 상태
-  const [selectionMode,    setSelectionMode]    = useState(false);
-  const [selectedSlides,   setSelectedSlides]   = useState<Set<number>>(new Set());
-  const [bulkInstruction,  setBulkInstruction]  = useState('');
-  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
-  const [bulkProgress,     setBulkProgress]     = useState(0);
-
-  // ✅ 이미지 생성 로딩
-  const [isImgLoading, setIsImgLoading] = useState(false);
+  const [selectionMode,     setSelectionMode]      = useState(false);
+  const [selectedSlides,    setSelectedSlides]     = useState<Set<number>>(new Set());
+  const [bulkInstruction,   setBulkInstruction]    = useState('');
+  const [isBulkProcessing,  setIsBulkProcessing]  = useState(false);
+  const [bulkProgress,      setBulkProgress]       = useState(0);
+  const [isImgLoading,      setIsImgLoading]       = useState(false);
 
   const slides = presentation.slides;
   const slide  = slides[currentSlide];
@@ -248,7 +267,13 @@ export function SlideEditor({
     finally { setIsRegenerating(false); }
   };
 
-  // ✅ Unsplash 이미지 생성
+  // ✅ 수정: onOpenChatWithSlide 우선, 없으면 onOpenChat 폴백
+  const handleOpenChat = () => {
+    if (onOpenChatWithSlide) onOpenChatWithSlide(currentSlide);
+    else onOpenChat();
+  };
+
+  // ── 이미지 자동 검색 (Unsplash) ─────────────────────────────
   const handleGenerateImage = async () => {
     setIsImgLoading(true);
     try {
@@ -267,7 +292,7 @@ export function SlideEditor({
   const saveTitle      = () => { onUpdateTitle(titleDraft); setEditingTitle(false); };
 
   const updateContent = (bulletIndex: number, value: string) => {
-    const newContent = [...slide.content!];
+    const newContent = [...(slide.content ?? [])];
     newContent[bulletIndex] = value;
     onUpdateSlide(currentSlide, { content: newContent });
   };
@@ -295,13 +320,12 @@ export function SlideEditor({
     flat: <Minus        className="w-4 h-4 text-muted-foreground" />,
   };
 
-  // ── 다중 선택 핸들러 ─────────────────────────────────────────
+  // ── 다중 선택 ────────────────────────────────────────────────
   const toggleSelectionMode = () => {
     setSelectionMode(!selectionMode);
     setSelectedSlides(new Set());
     setBulkInstruction('');
   };
-
   const toggleSelectSlide = (index: number) => {
     setSelectedSlides((prev) => {
       const next = new Set(prev);
@@ -310,24 +334,19 @@ export function SlideEditor({
       return next;
     });
   };
-
   const selectAll = () => {
     if (selectedSlides.size === slides.length) setSelectedSlides(new Set());
     else setSelectedSlides(new Set(slides.map((_, i) => i)));
   };
 
-  // ✅ 일괄 수정 실행
   const handleBulkEdit = async () => {
-    if (selectedSlides.size === 0) { toast.error('슬라이드를 선택해주세요.'); return; }
-    if (!bulkInstruction.trim())   { toast.error('수정 내용을 입력해주세요.'); return; }
-
+    if (selectedSlides.size === 0)   { toast.error('슬라이드를 선택해주세요.'); return; }
+    if (!bulkInstruction.trim())     { toast.error('수정 내용을 입력해주세요.'); return; }
     setIsBulkProcessing(true);
     setBulkProgress(0);
     const indices = Array.from(selectedSlides).sort((a, b) => a - b);
     let success = 0;
-
     toast.loading(`0/${indices.length} 슬라이드 수정 중...`, { id: 'bulk' });
-
     for (let i = 0; i < indices.length; i++) {
       const idx = indices[i];
       try {
@@ -339,7 +358,6 @@ export function SlideEditor({
         toast.error(`슬라이드 ${idx + 1} 수정 실패`);
       }
     }
-
     toast.success(`✅ ${success}/${indices.length}개 슬라이드 수정 완료!`, { id: 'bulk' });
     setIsBulkProcessing(false);
     setBulkProgress(0);
@@ -379,7 +397,8 @@ export function SlideEditor({
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button variant="ghost" size="sm" onClick={() => setShortcutsHelpOpen(true)} className="w-9 h-9 p-0 text-muted-foreground hover:text-foreground" title="단축키">
+          <Button variant="ghost" size="sm" onClick={() => setShortcutsHelpOpen(true)}
+            className="w-9 h-9 p-0 text-muted-foreground hover:text-foreground" title="단축키">
             <Keyboard className="w-4 h-4" />
           </Button>
 
@@ -421,15 +440,17 @@ export function SlideEditor({
             </div>
           </div>
 
-          <Button variant="default" size="sm" onClick={onReviewAndFix} disabled={isFixing} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm hidden md:flex">
+          <Button variant="default" size="sm" onClick={onReviewAndFix} disabled={isFixing}
+            className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-0 shadow-sm hidden md:flex">
             {isFixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             AI 수정
           </Button>
           <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-2">
             {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {presentation.id ? '저장' : '저장'}
+            저장
           </Button>
-          <Button variant="default" size="sm" onClick={() => setPresenting(true)} className="gap-2 gradient-primary text-primary-foreground border-0">
+          <Button variant="default" size="sm" onClick={() => setPresenting(true)}
+            className="gap-2 gradient-primary text-primary-foreground border-0">
             <Play className="w-4 h-4" />발표
           </Button>
           <Button variant="outline" size="sm" onClick={onOpenReview} className="gap-2">
@@ -448,7 +469,7 @@ export function SlideEditor({
         {/* ── 왼쪽: 슬라이드 목록 */}
         <div className="w-52 flex-shrink-0 max-h-[calc(100vh-200px)] overflow-y-auto pr-1 sticky top-[80px] self-start">
 
-          {/* ✅ 다중선택 모드 토글 버튼 */}
+          {/* 다중선택 모드 토글 */}
           <div className="flex items-center gap-2 mb-3">
             <button
               onClick={toggleSelectionMode}
@@ -460,7 +481,7 @@ export function SlideEditor({
             >
               {selectionMode
                 ? <><CheckSquare className="w-3.5 h-3.5" />선택 종료</>
-                : <><Square      className="w-3.5 h-3.5" />다중 선택</>
+                : <><Layers      className="w-3.5 h-3.5" />다중 선택</>
               }
             </button>
             {selectionMode && (
@@ -473,7 +494,6 @@ export function SlideEditor({
             )}
           </div>
 
-          {/* ✅ 선택된 슬라이드 수 표시 */}
           {selectionMode && selectedSlides.size > 0 && (
             <div className="mb-2 px-2 py-1.5 bg-primary/10 rounded-lg border border-primary/20 text-xs text-primary font-semibold text-center">
               {selectedSlides.size}개 선택됨
@@ -552,7 +572,7 @@ export function SlideEditor({
                 transition={{ duration: 0.15 }}
                 className="bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
               >
-                {/* ✅ 다중선택 일괄수정 패널 */}
+                {/* ✅ 일괄수정 패널 */}
                 {selectionMode && (
                   <div className="p-5 border-b border-border bg-primary/5">
                     <div className="flex items-center gap-2 mb-3">
@@ -570,7 +590,7 @@ export function SlideEditor({
                       왼쪽에서 수정할 슬라이드를 선택하고 지시사항을 입력하세요.
                     </p>
                     <Textarea
-                      placeholder="예: 내용을 더 간결하게 줄여줘&#10;예: 임원 보고용 문체로 바꿔줘&#10;예: 핵심 수치를 굵게 강조해줘"
+                      placeholder={"예: 내용을 더 간결하게 줄여줘\n예: 임원 보고용 문체로 바꿔줘\n예: 핵심 수치를 굵게 강조해줘"}
                       value={bulkInstruction}
                       onChange={(e) => setBulkInstruction(e.target.value)}
                       className="text-sm mb-3 min-h-[80px] resize-none"
@@ -609,6 +629,7 @@ export function SlideEditor({
                     <span className="text-xs font-mono opacity-60">
                       {String(slide.slideNumber ?? currentSlide + 1).padStart(2, '0')}
                     </span>
+                    {/* ✅ 수정: 모든 슬라이드 타입 포함 */}
                     <Select
                       value={slide.type}
                       onValueChange={(v) => onUpdateSlide(currentSlide, { type: v as Slide['type'] })}
@@ -630,7 +651,7 @@ export function SlideEditor({
                         <span className="hidden xl:inline">레이아웃</span>
                       </Button>
 
-                      {/* 페르소나 */}
+                      {/* 페르소나 드롭다운 */}
                       <div className="relative group/persona pb-1 -mb-1">
                         <Button size="sm" variant="ghost"
                           className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" title="스타일">
@@ -640,11 +661,11 @@ export function SlideEditor({
                         <div className="absolute right-0 top-full mt-0 w-52 bg-card rounded-xl shadow-2xl border border-border opacity-0 invisible group-hover/persona:opacity-100 group-hover/persona:visible transition-all z-50 overflow-hidden flex flex-col">
                           <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/30">발표 스타일</div>
                           {[
-                            { id: 'jobs',     label: 'Jobs 스타일'  },
+                            { id: 'jobs',     label: 'Jobs 스타일'   },
                             { id: 'mckinsey', label: 'McKinsey 스타일' },
-                            { id: 'ceo',      label: 'CEO 스타일'   },
-                            { id: 'team',     label: '팀 발표용'    },
-                            { id: 'client',   label: '고객 제안용'  },
+                            { id: 'ceo',      label: 'CEO 스타일'    },
+                            { id: 'team',     label: '팀 발표용'     },
+                            { id: 'client',   label: '고객 제안용'   },
                           ].map((p) => (
                             <button
                               key={p.id}
@@ -666,9 +687,10 @@ export function SlideEditor({
                         }
                         <span className="hidden xl:inline">재생성</span>
                       </Button>
+                      {/* ✅ 수정: handleOpenChat 사용 → currentSlide 전달 */}
                       <Button size="sm" variant="ghost"
                         className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
-                        onClick={onOpenChat}>
+                        onClick={handleOpenChat}>
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span className="hidden xl:inline">AI 채팅</span>
                       </Button>
@@ -775,7 +797,7 @@ export function SlideEditor({
                     </div>
                   </div>
 
-                  {/* ✅ 이미지 섹션 — Unsplash 대체 */}
+                  {/* 이미지 섹션 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
