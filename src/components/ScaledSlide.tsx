@@ -167,7 +167,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const layout = slide.layout ?? 'default';
 
   const titleFontSize = `${3 * titleSizeScale}rem`;
-  const contentFontSize = `${1.85 * contentSizeScale}rem`;
+  const contentFontSize = `${1.45 * contentSizeScale}rem`;
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
@@ -495,148 +495,159 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-// 3.5) Compare 렌더링 — 색상 대비 완전 고정
-// ══════════════════════════════════════════════════════════════
-const renderCompare = () => {
-  if (!slide.leftItems?.length && !slide.rightItems?.length) {
-    return <EmptyPlaceholder icon={BarIcon} label="비교 데이터 없음" />;
-  }
+  // 3.5) Compare 렌더링
+  // ══════════════════════════════════════════════════════════════
+  const renderCompare = () => {
+    if (!slide.leftItems?.length && !slide.rightItems?.length) {
+      return <EmptyPlaceholder icon={BarIcon} label="비교 데이터 없음" />;
+    }
 
-  const leftItems = slide.leftItems ?? [];
-  const rightItems = slide.rightItems ?? [];
-  const leftTitle = slide.leftTitle ?? 'AS-IS';
-  const rightTitle = slide.rightTitle ?? 'TO-BE';
+    const leftItems = slide.leftItems ?? [];
+    const rightItems = slide.rightItems ?? [];
+    const leftTitle = slide.leftTitle ?? 'AS-IS';
+    const rightTitle = slide.rightTitle ?? 'TO-BE';
 
-  // ✅ CSS 변수 의존 제거 — 하드코딩 팔레트로 대비 보장
-  const LEFT_BG     = '#1e40af';   // 진한 파랑 헤더
-  const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
-  const LEFT_BADGE  = '#2563eb';   // 파랑 번호 뱃지
-  const LEFT_BORDER = '#bfdbfe';   // 연한 파랑 테두리
-
-  const RIGHT_BG    = '#065f46';   // 진한 초록 헤더
-  const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
-  const RIGHT_BADGE = '#059669';   // 초록 번호 뱃지
-  const RIGHT_BORDER= '#bbf7d0';   // 연한 초록 테두리
-
-  const maxRows = Math.max(leftItems.length, rightItems.length);
-  const itemFontSize = `${Math.max(1.0, 1.5 - maxRows * 0.07) * contentSizeScale}rem`;
-
-  const renderPanel = (
-    items: string[],
-    title: string,
-    headerBg: string,
-    bodyBg: string,
-    badgeColor: string,
-    borderColor: string,
-  ) => (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-      {/* ✅ 헤더: 진한 배경 + 흰색 글자 (명시적 고정) */}
-      <div style={{
-        background: headerBg,
-        color: '#ffffff',                // ✅ 절대 흰색
-        padding: '0.85rem 1.2rem',
-        borderRadius: '12px 12px 0 0',
-        fontSize: `${1.25 * contentSizeScale}rem`,
-        fontWeight: 800,
-        textAlign: 'center',
-        letterSpacing: 0.5,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-        textShadow: '0 1px 3px rgba(0,0,0,0.3)',  // ✅ 그림자로 가독성 보강
-      }}>
-        {title}
-      </div>
-
-      {/* ✅ 아이템 목록: 흰 카드 + 진한 텍스트 */}
-      <div style={{
-        flex: 1,
-        background: bodyBg,
-        border: `2px solid ${borderColor}`,
-        borderTop: 'none',
-        borderRadius: '0 0 12px 12px',
-        padding: '0.8rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.55rem',
-        overflowY: 'auto',
-      }}>
-        {items.map((item, i) => (
-          <div key={i} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.7rem',
-            background: '#ffffff',          // ✅ 흰 카드 배경
-            borderRadius: 8,
-            padding: '0.5rem 0.8rem',
-            border: `1px solid ${borderColor}`,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-          }}>
-            {/* ✅ 번호 뱃지: 진한 배경 + 흰 글자 */}
-            <span style={{
-              flexShrink: 0,
-              width: `${1.5 * contentSizeScale}rem`,
-              height: `${1.5 * contentSizeScale}rem`,
-              borderRadius: '50%',
-              background: badgeColor,
-              color: '#ffffff',             // ✅ 절대 흰색
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: `${0.75 * contentSizeScale}rem`,
-              fontWeight: 800,
-              flexShrink: 0,
-            }}>
-              {i + 1}
-            </span>
-
-            {/* ✅ 텍스트: 흰 배경 위 진한 검정 */}
-            <span style={{
-              fontSize: itemFontSize,
-              fontWeight: 600,
-              color: '#1a2133',             // ✅ 절대 진한 색
-              lineHeight: 1.4,
-              flex: 1,
-              wordBreak: 'keep-all',
-            }}>
-              {typeof item === 'string' ? item : JSON.stringify(item)}
-            </span>
+    return (
+      <div style={{ display: 'flex', gap: '1.5rem', height: '100%' }}>
+        {/* 왼쪽 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${P.primary}, ${P.accent})`,
+              color: '#fff',
+              padding: '1.2rem 1.5rem',
+              borderRadius: '12px 12px 0 0',
+              fontSize: `${1.5 * contentSizeScale}rem`,
+              fontWeight: 700,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}
+          >
+            {leftTitle}
           </div>
-        ))}
-      </div>
-    </div>
-  );
+          <div
+            style={{
+              flex: 1,
+              background: '#f8fafc',
+              border: `1px solid ${P.border}`,
+              borderTop: 'none',
+              borderRadius: '0 0 12px 12px',
+              padding: '1.8rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.2rem',
+              overflowY: 'auto',
+            }}
+          >
+            {leftItems.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '1rem',
+                  fontSize: contentFontSize,
+                  color: P.text,
+                  lineHeight: 1.6,
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: `${1.8 * contentSizeScale}rem`,
+                    height: `${1.8 * contentSizeScale}rem`,
+                    borderRadius: '50%',
+                    background: P.primary,
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: `${0.95 * contentSizeScale}rem`,
+                    fontWeight: 700,
+                    marginTop: '0.15rem',
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span style={{ fontWeight: 500, flex: 1 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-  return (
-    <div style={{ display: 'flex', gap: '1rem', height: '100%', alignItems: 'stretch' }}>
-      {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER)}
+        {/* 화살표 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primary }}>
+          <ArrowRight style={{ width: '3rem', height: '3rem', strokeWidth: 2.5 }} />
+        </div>
 
-      {/* 중앙 화살표 */}
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        paddingTop: '2.8rem',
-      }}>
-        <div style={{
-          width: '2.4rem',
-          height: '2.4rem',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #1e40af, #059669)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-        }}>
-          <ArrowRight style={{ width: '1.2rem', height: '1.2rem', color: '#ffffff', strokeWidth: 3 }} />
+        {/* 오른쪽 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              background: `linear-gradient(135deg, #10b981, #059669)`,
+              color: '#fff',
+              padding: '1.2rem 1.5rem',
+              borderRadius: '12px 12px 0 0',
+              fontSize: `${1.5 * contentSizeScale}rem`,
+              fontWeight: 700,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}
+          >
+            {rightTitle}
+          </div>
+          <div
+            style={{
+              flex: 1,
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderTop: 'none',
+              borderRadius: '0 0 12px 12px',
+              padding: '1.8rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.2rem',
+              overflowY: 'auto',
+            }}
+          >
+            {rightItems.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '1rem',
+                  fontSize: contentFontSize,
+                  color: P.text,
+                  lineHeight: 1.6,
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: `${1.8 * contentSizeScale}rem`,
+                    height: `${1.8 * contentSizeScale}rem`,
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: `${0.95 * contentSizeScale}rem`,
+                    fontWeight: 700,
+                    marginTop: '0.15rem',
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span style={{ fontWeight: 500, flex: 1 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-
-      {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER)}
-    </div>
-  );
-};
-
+    );
+  };
 
   // ══════════════════════════════════════════════════════════════
   // 4) 불릿 렌더링 (여러 레이아웃)
@@ -724,7 +735,7 @@ const renderCompare = () => {
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         {content.map((item, i) => (
-          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', fontSize: contentFontSize, color: P.text, lineHeight: 1.55 }}>
+          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', fontSize: contentFontSize, color: '#1a2133', lineHeight: 1.55 }}>
             <span
               style={{
                 flexShrink: 0,
@@ -744,7 +755,7 @@ const renderCompare = () => {
             >
               {i + 1}
             </span>
-            <span style={{ fontWeight: 500 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+            <span style={{ fontWeight: 600, color: '#1a2133' }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
           </li>
         ))}
       </ul>
@@ -884,17 +895,17 @@ const renderCompare = () => {
               display: 'inline-flex',
               alignItems: 'center',
               gap: 12,
-              background: 'rgba(255,255,255,0.25)',
+              background: 'rgba(255,255,255,0.95)',
               borderRadius: 50,
               padding: '0.75rem 2rem',
               marginBottom: '3rem',
               fontSize: `${1.1 * contentSizeScale}rem`,
-              color: '#fff',
+              color: P.primary,
               fontWeight: 700,
               letterSpacing: 3,
               backdropFilter: 'blur(10px)',
-              border: '1.5px solid rgba(255,255,255,0.3)',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+              border: '1.5px solid rgba(255,255,255,1)',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
               textTransform: 'uppercase',
             }}
           >
@@ -928,12 +939,12 @@ const renderCompare = () => {
           {/* 서브타이틀 */}
           {content.length > 0 && (
             <p style={{ 
-              color: 'rgba(255,255,255,0.95)', 
+              color: '#ffffff', 
               fontSize: `${1.6 * contentSizeScale}rem`, 
-              fontWeight: 500, 
+              fontWeight: 600, 
               maxWidth: '80%', 
               lineHeight: 1.8,
-              textShadow: '0 3px 20px rgba(0,0,0,0.25)',
+              textShadow: '0 4px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3)',
             }}>
               {content[0]}
             </p>
