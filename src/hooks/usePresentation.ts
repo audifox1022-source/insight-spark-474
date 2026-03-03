@@ -35,10 +35,7 @@ function convertAIChartData(rawChartData: any): SlideChartData | undefined {
   }));
 
   return {
-    chartType:
-      rawChartData.type === 'line' ? 'line' :
-      rawChartData.type === 'pie'  ? 'pie'  :
-      rawChartData.type === 'area' ? 'area' : 'bar',
+    chartType: rawChartData.type === 'line' ? 'line' : rawChartData.type === 'pie' ? 'pie' : rawChartData.type === 'area' ? 'area' : 'bar',
     title: rawChartData.title ?? '',
     data,
     series1Label: primaryDataset?.label ?? '시리즈1',
@@ -82,52 +79,20 @@ function normalizePresentationSlides(presentation: any): Presentation {
   if (!presentation || !Array.isArray(presentation.slides)) {
     return { title: presentation?.title ?? '', slides: [] };
   }
+
   return {
     ...presentation,
     slides: presentation.slides.map(normalizeSlideForApp),
   };
 }
 
-// ══════════════════════════════════════════════════════════════
-// ✅ description 자동 생성 헬퍼
-// ══════════════════════════════════════════════════════════════
-const TYPE_DESC_MAP: Record<string, string> = {
-  title:   '발표 제목 및 주요 정보를 소개합니다',
-  agenda:  '전체 발표 구성과 목차를 안내합니다',
-  content: '핵심 내용과 주요 포인트를 설명합니다',
-  chart:   '데이터 시각화 및 수치 분석을 제공합니다',
-  kpi:     '핵심 성과 지표(KPI)를 정리합니다',
-  table:   '비교 데이터를 표 형태로 정리합니다',
-  process: '단계별 프로세스 흐름을 설명합니다',
-  action:  '실행 방향과 권고사항을 제시합니다',
-  summary: '전체 내용을 요약하고 결론을 도출합니다',
-};
-
-function resolveOutlineDescription(item: any): string {
-  return (
-    item.description ||
-    item.subtitle    ||
-    item.summary     ||
-    (Array.isArray(item.content) ? item.content[0] : undefined) ||
-    TYPE_DESC_MAP[item.type ?? 'content'] ||
-    '슬라이드 내용을 작성합니다'
-  );
-}
-
-// ══════════════════════════════════════════════════════════════
-// 메인 훅
-// ══════════════════════════════════════════════════════════════
 export function usePresentation() {
   const [step, setStep] = useState<ExtendedStep>('upload');
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [template, setTemplate] = useState<string>('auto');
-  const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({
-    week: '', department: '', reporter: '', notes: '',
-  });
-  const [settings, setSettings] = useState<PresentationSettings>({
-    difficulty: 'medium', volume: 'standard',
-  });
+  const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({ week: '', department: '', reporter: '', notes: '' });
+  const [settings, setSettings] = useState<PresentationSettings>({ difficulty: 'medium', volume: 'standard' });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
@@ -154,7 +119,7 @@ export function usePresentation() {
     if (theme !== 'blue') document.documentElement.classList.add(`theme-${theme}`);
     localStorage.setItem('apptheme', theme);
     setAppTheme(theme);
-    toast.success('테마가 변경되었습니다.');
+    toast.success(`테마가 변경되었습니다.`);
   }, []);
 
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -177,7 +142,6 @@ export function usePresentation() {
       setIsDark(true);
     }
     changeTheme(appTheme);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dataSummary = useCallback((): string => {
@@ -185,9 +149,6 @@ export function usePresentation() {
     return parsedFiles.map((f) => f.summary).join(' ');
   }, [parsedFiles]);
 
-  // ──────────────────────────────────────────
-  // 파일 업로드
-  // ──────────────────────────────────────────
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
       const results = await Promise.all(files.map(parseFile));
@@ -228,17 +189,14 @@ export function usePresentation() {
     };
     setParsedFiles([dummyFile]);
     setFileNames([dummyFile.fileName]);
-    setMeetingInfo((prev) => ({
-      ...prev,
-      week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt,
-    }));
+    setMeetingInfo((prev) => ({ ...prev, week: prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt }));
     setStep('info');
     toast.success('프롬프트가 입력되었습니다!');
   }, []);
 
-  // ──────────────────────────────────────────
-  // ✅ 기획안(Outline) 요청 - description 자동 생성 포함
-  // ──────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════
+  // ✅ 기획안 생성 (description 보강 로직 추가)
+  // ══════════════════════════════════════════════════════════════
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -249,19 +207,37 @@ export function usePresentation() {
         async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
         {
           maxRetries: 1,
-          onRetry: (attempt, max) =>
-            toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'outline-retry' }),
+          onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'outline-retry' }),
         }
       );
       toast.dismiss('outline-retry');
 
-      // ✅ description 없는 항목에 자동으로 설명 채워넣기
+      // ✅ 타입별 기본 description 맵
+      const TYPE_DESC_MAP: Record<string, string> = {
+        title:   '발표 제목 및 주요 정보를 소개합니다',
+        agenda:  '전체 발표 구성과 목차를 안내합니다',
+        content: '핵심 내용과 주요 포인트를 설명합니다',
+        chart:   '데이터 시각화 및 수치 분석을 제공합니다',
+        kpi:     '핵심 성과 지표(KPI)를 정리합니다',
+        table:   '비교 데이터를 표 형태로 정리합니다',
+        process: '단계별 프로세스 흐름을 설명합니다',
+        action:  '실행 방향과 권고사항을 제시합니다',
+        summary: '전체 내용을 요약하고 결론을 도출합니다',
+      };
+
+      // ✅ description 보강: AI가 안 준 경우 fallback 처리
       const outlineData: OutlineData = {
         title: resData.title ?? '새 발표 자료',
         outline: Array.isArray(resData.outline)
           ? resData.outline.map((item: any) => ({
               ...item,
-              description: resolveOutlineDescription(item),
+              description:
+                item.description ||
+                item.subtitle    ||
+                item.summary     ||
+                (Array.isArray(item.content) ? item.content[0] : undefined) ||
+                TYPE_DESC_MAP[item.type ?? 'content'] ||
+                '슬라이드 내용을 작성합니다',
             }))
           : [],
       };
@@ -275,9 +251,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ──────────────────────────────────────────
-  // 발표자료 생성
-  // ──────────────────────────────────────────
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -294,8 +267,7 @@ export function usePresentation() {
         }),
         {
           maxRetries: 1,
-          onRetry: (attempt, max) =>
-            toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'gen-retry' }),
+          onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'gen-retry' }),
         }
       );
       toast.dismiss('gen-retry');
@@ -311,9 +283,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
-  // ──────────────────────────────────────────
-  // 슬라이드 업데이트
-  // ──────────────────────────────────────────
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
     setPresentation((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
@@ -327,9 +296,6 @@ export function usePresentation() {
     });
   }, []);
 
-  // ──────────────────────────────────────────
-  // 슬라이드 재생성
-  // ──────────────────────────────────────────
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -337,9 +303,7 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.regenerateSlide({
-          slideIndex, currentSlide, presentation, fileData: payload, userInstruction,
-        }),
+        async () => await aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction }),
         { maxRetries: 1, onRetry: () => toast.loading('재시도 중...', { id: 'regen' }) }
       );
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
@@ -349,9 +313,6 @@ export function usePresentation() {
     }
   }, [presentation, parsedFiles, updateSlide]);
 
-  // ──────────────────────────────────────────
-  // 채팅 편집
-  // ──────────────────────────────────────────
   const requestChatEdit = useCallback(async (
     message: string,
     slideIndex: number,
@@ -372,9 +333,6 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ──────────────────────────────────────────
-  // 페르소나 변경
-  // ──────────────────────────────────────────
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -391,31 +349,22 @@ export function usePresentation() {
         async () => await aiService.changePersona({ currentSlide, persona }),
         { maxRetries: 1 }
       );
-      updateSlide(slideIndex, {
-        ...resData.slide,
-        slideNumber: slideIndex + 1,
-        layout: currentSlide.layout,
-        persona: persona as Slide['persona'],
-      });
+      updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1, layout: currentSlide.layout, persona: persona as Slide['persona'] });
       toast.success('스타일 변환 완료!', { id: 'persona' });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'persona' });
     }
   }, [presentation, updateSlide]);
 
-  // ──────────────────────────────────────────
-  // 이미지 생성
-  // ──────────────────────────────────────────
   const generateSlideImage = useCallback(async (slideIndex: number) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
     setIsGeneratingImage(true);
     toast.loading('AI 배경 이미지 생성 중...', { id: 'gen-image' });
     try {
-      const contentStr =
-        Array.isArray(currentSlide.content) && currentSlide.content.length > 0
-          ? currentSlide.content.join(' ')
-          : '';
+      const contentStr = Array.isArray(currentSlide.content) && currentSlide.content.length > 0
+        ? currentSlide.content.join(' ')
+        : '';
       const imageUrl = await aiService.generateImage(currentSlide.title, contentStr);
       updateSlide(slideIndex, { imageUrl });
       toast.success('AI 이미지 생성 완료!', { id: 'gen-image' });
@@ -426,21 +375,15 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ──────────────────────────────────────────
-  // 레이아웃 순환
-  // ──────────────────────────────────────────
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
     const currentLayout = presentation.slides[slideIndex].layout || 'default';
     const nextLayout = layouts[(layouts.indexOf(currentLayout) + 1) % layouts.length];
     updateSlide(slideIndex, { layout: nextLayout });
-    toast.success('레이아웃 변경됨');
+    toast.success(`레이아웃 변경됨`);
   }, [presentation, updateSlide]);
 
-  // ──────────────────────────────────────────
-  // 저장 / 불러오기
-  // ──────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -494,9 +437,6 @@ export function usePresentation() {
     }
   }, []);
 
-  // ──────────────────────────────────────────
-  // 슬라이드 추가 / 삭제 / 복제 / 이동
-  // ──────────────────────────────────────────
   const addSlide = useCallback((afterIndex: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -550,9 +490,16 @@ export function usePresentation() {
     setPresentation((prev) => (prev ? { ...prev, title } : prev));
   }, []);
 
-  // ──────────────────────────────────────────
-  // 리뷰
-  // ──────────────────────────────────────────
+  const reset = useCallback(() => {
+    setStep('upload');
+    setParsedFiles([]);
+    setFileNames([]);
+    setPresentation(null);
+    setOutline(null);
+    setTemplate('auto');
+    setReviewResult(null);
+  }, []);
+
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -569,7 +516,7 @@ export function usePresentation() {
   const applyReviewFix = useCallback(async (
     slideIndex: number,
     issue: string,
-    suggestion: string,
+    suggestion: string
   ): Promise<boolean> => {
     if (!presentation) return false;
     const currentSlide = presentation.slides[slideIndex];
@@ -612,27 +559,11 @@ export function usePresentation() {
     }
   }, [presentation, settings]);
 
-  // ──────────────────────────────────────────
-  // 채팅 / 리셋
-  // ──────────────────────────────────────────
   const openChatWithSlide = useCallback((slideIndex: number) => {
     setCurrentChatSlideIndex(slideIndex);
     setChatOpen(true);
   }, []);
 
-  const reset = useCallback(() => {
-    setStep('upload');
-    setParsedFiles([]);
-    setFileNames([]);
-    setPresentation(null);
-    setOutline(null);
-    setTemplate('auto');
-    setReviewResult(null);
-  }, []);
-
-  // ──────────────────────────────────────────
-  // return
-  // ──────────────────────────────────────────
   return {
     step, setStep,
     dataSummary: dataSummary(),
