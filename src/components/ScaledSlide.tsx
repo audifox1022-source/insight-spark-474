@@ -162,9 +162,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const contentSizeScale = slide.contentSizeScale ?? 1;
   const layout = slide.layout ?? 'default';
 
-  // ✅ 수정: 폰트 크기 증가 (파워포인트 표준)
-  const titleFontSize = `${3 * titleSizeScale}rem`;      // 48px (변경 없음)
-  const contentFontSize = `${1.85 * contentSizeScale}rem`; // 1.45 → 1.85rem (29.6px)
+  const titleFontSize = `${3 * titleSizeScale}rem`;
+  const contentFontSize = `${1.85 * contentSizeScale}rem`;
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
@@ -574,6 +573,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     }
 
     // default / split-left / split-right
+    // ✅ 수정 1: boxShadow에 CSS변수 직접 연결 대신 rgba 고정값으로 변경
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         {content.map((item, i) => (
@@ -584,7 +584,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 width: `${1.65 * contentSizeScale}rem`,
                 height: `${1.65 * contentSizeScale}rem`,
                 borderRadius: '50%',
-                background: `linear-gradient(135deg,${P.primary},${P.accent})`,
+                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
@@ -592,7 +592,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 fontSize: `${0.85 * contentSizeScale}rem`,
                 fontWeight: 700,
                 marginTop: '0.22rem',
-                boxShadow: `0 2px 8px ${P.primary}40`,
+                boxShadow: 'rgba(99,102,241,0.4) 0px 2px 8px',
               }}
             >
               {i + 1}
@@ -699,7 +699,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       case 'chart':
         return renderChart();
       case 'table':
-        return renderTable();
+      // ✅ 수정 2: comparison 타입 추가 — tableData 있으면 테이블, 없으면 불릿 fallback
+      case 'comparison':
+        return slide.tableData?.headers?.length ? renderTable() : renderBullets();
       case 'kpi':
         return renderKPI();
       default:
@@ -727,7 +729,19 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         <SlideNum light />
 
         {/* 3) 타이틀 콘텐츠 */}
-        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 6rem', textAlign: 'center' }}>
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4rem 6rem',
+            textAlign: 'center',
+          }}
+        >
           <div
             style={{
               display: 'inline-flex',
@@ -763,7 +777,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           </h1>
           <div style={{ width: '4rem', height: 3, background: 'rgba(255,255,255,0.5)', borderRadius: 2, marginBottom: '1.4rem' }} />
           {content.length > 0 && (
-            <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: `${1.5 * contentSizeScale}rem`, fontWeight: 500, maxWidth: '70%', lineHeight: 1.65 }}>
+            <p
+              style={{
+                color: 'rgba(255,255,255,0.82)',
+                fontSize: `${1.5 * contentSizeScale}rem`,
+                fontWeight: 500,
+                maxWidth: '70%',
+                lineHeight: 1.65,
+              }}
+            >
               {content[0]}
             </p>
           )}
@@ -789,11 +811,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       <Logo />
       <SlideNum />
 
-      {/* ✅ 수정: 패딩 증가 (2.2rem → 3.5rem) */}
       <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
         {/* 제목 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-          <div style={{ width: '0.32rem', height: `${2.1 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            paddingBottom: '0.85rem',
+            borderBottom: `1.5px solid ${P.border}`,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: '0.32rem',
+              height: `${2.1 * titleSizeScale}rem`,
+              background: `linear-gradient(180deg,${P.primary},${P.accent})`,
+              borderRadius: 4,
+              flexShrink: 0,
+            }}
+          />
           <h2 style={{ fontWeight: 900, color: P.text, fontSize: titleFontSize, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
             {slide.title}
           </h2>
