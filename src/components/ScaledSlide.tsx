@@ -88,8 +88,6 @@ const P = {
 // ══════════════════════════════════════════════════════════════
 // 공통 유틸
 // ══════════════════════════════════════════════════════════════
-
-// 긴 제목에 맞게 폰트 사이즈 자동 축소
 function autoFontSize(text: string, base: number): string {
   const len = text?.length ?? 0;
   if (len > 40) return `${base * 0.65}rem`;
@@ -142,7 +140,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
-  // ── 워터마크
   const Watermark = watermark ? (
     <div style={{
       position:'absolute', inset:0, display:'flex', alignItems:'center',
@@ -152,7 +149,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     }}>{watermark}</div>
   ) : null;
 
-  // ── 로고
   const Logo = ({ invert = false }: { invert?: boolean }) => logoUrl ? (
     <div style={{
       position:'absolute', top:'1.1rem', right:'1.6rem',
@@ -166,7 +162,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     </div>
   ) : null;
 
-  // ── 슬라이드 번호
   const SlideNum = ({ light = false }: { light?: boolean }) => slide.slideNumber ? (
     <div style={{ position:'absolute', bottom:'0.9rem', left:'1.8rem', display:'flex', alignItems:'center', gap:7, zIndex:10 }}>
       <div style={{
@@ -206,9 +201,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     if (cd.chartType === 'line') return (
       <ResponsiveContainer width="100%" height="100%">
         <LineChart {...common}>
-          <defs>
-            <filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          </defs>
           <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" vertical={false} />
           <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
           <YAxis tick={axisTick} axisLine={false} tickLine={false} width={44} />
@@ -250,7 +242,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       </ResponsiveContainer>
     );
 
-    // bar (default)
     return (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart {...common}>
@@ -305,7 +296,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           </thead>
           <tbody>
             {td.rows?.map((row, ri) => (
-              <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc', transition:'background 0.15s' }}>
+              <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
                 {row.map((cell, ci) => (
                   <td key={ci} style={{
                     padding:`${paddingY} 1.3rem`,
@@ -348,7 +339,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
               boxShadow:'0 8px 28px rgba(0,0,0,0.18)',
               position:'relative', overflow:'hidden',
             }}>
-              {/* 배경 장식 */}
               <div style={{ position:'absolute', top:'-20%', right:'-10%', width:'55%', paddingBottom:'55%', borderRadius:'50%', background:'rgba(255,255,255,0.07)' }} />
               <div style={{ position:'absolute', bottom:'-15%', left:'-8%', width:'40%', paddingBottom:'40%', borderRadius:'50%', background:'rgba(255,255,255,0.05)' }} />
               <div style={{ position:'relative', zIndex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'0.4rem' }}>
@@ -472,7 +462,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                   {isNext && <span style={{ width:'0.55rem', height:'0.55rem', borderRadius:'50%', background:color, display:'block' }} />}
                 </div>
                 {i < ms.length - 1 && (
-                  <div style={{ width:2, height:'1.6rem', background: `linear-gradient(to bottom, ${color}, ${i < ms.length - 2 ? '#e2e8f0' : '#e2e8f0'})`, opacity: isDone ? 1 : 0.35 }} />
+                  <div style={{ width:2, height:'1.6rem', background:`linear-gradient(to bottom, ${color}, #e2e8f0)`, opacity: isDone ? 1 : 0.35 }} />
                 )}
               </div>
               <div style={{
@@ -579,7 +569,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       );
     }
 
-    // default
     return (
       <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:'0.8rem' }}>
         {content.map((item, i) => (
@@ -681,7 +670,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 10. 표지 슬라이드 (title) — 완전 개선
+  // 10. 표지 슬라이드 (title)
   // ══════════════════════════════════════════════════════════════
   if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
     const titleLen = slide.title?.length ?? 0;
@@ -689,17 +678,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
     return (
       <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`}>
-        {/* 배경 그라디언트 */}
         <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,var(--primary) 0%,var(--accent) 100%)' }} />
-
-        {/* 배경 기하학 장식 */}
         <div style={{ position:'absolute', top:'-12%', right:'-6%', width:'52%', paddingBottom:'52%', borderRadius:'50%', background:'rgba(255,255,255,0.08)' }} />
         <div style={{ position:'absolute', bottom:'-18%', left:'-8%', width:'45%', paddingBottom:'45%', borderRadius:'50%', background:'rgba(255,255,255,0.06)' }} />
         <div style={{ position:'absolute', top:'25%', right:'8%', width:'20%', paddingBottom:'20%', borderRadius:'50%', background:'rgba(255,255,255,0.05)' }} />
         <div style={{ position:'absolute', top:'10%', left:'38%', width:'8%', paddingBottom:'8%', borderRadius:'50%', background:'rgba(255,255,255,0.07)' }} />
-        {/* 가로 장식 선 */}
         <div style={{ position:'absolute', bottom:'28%', left:0, right:0, height:1, background:'rgba(255,255,255,0.1)' }} />
-        {/* 왼쪽 세로 강조 바 */}
         <div style={{ position:'absolute', left:0, top:'15%', bottom:'15%', width:'6px', background:'rgba(255,255,255,0.35)', borderRadius:'0 4px 4px 0' }} />
 
         {Watermark}
@@ -712,7 +696,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           alignItems:'flex-start', justifyContent:'center',
           padding:'3.5rem 5.5rem 3.5rem 5rem',
         }}>
-          {/* 뱃지 */}
           <div style={{
             display:'inline-flex', alignItems:'center', gap:8,
             background:'rgba(255,255,255,0.18)', borderRadius:20,
@@ -726,7 +709,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             PRESENTATION
           </div>
 
-          {/* 메인 제목 */}
           <h1 style={{
             color:'#fff', fontWeight:900, lineHeight:1.18,
             fontSize: coverTitleSize,
@@ -735,14 +717,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             maxWidth:'82%', wordBreak:'keep-all',
           }}>{slide.title}</h1>
 
-          {/* 구분선 */}
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:'1.2rem' }}>
             <div style={{ width:'3.5rem', height:'4px', background:'rgba(255,255,255,0.8)', borderRadius:4 }} />
             <div style={{ width:'1rem', height:'4px', background:'rgba(255,255,255,0.4)', borderRadius:4 }} />
             <div style={{ width:'0.5rem', height:'4px', background:'rgba(255,255,255,0.2)', borderRadius:4 }} />
           </div>
 
-          {/* 서브타이틀 */}
           {content.length > 0 && (
             <p style={{
               color:'rgba(255,255,255,0.88)',
@@ -758,14 +738,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 11. 일반 슬라이드 — 개선
+  // 11. 일반 슬라이드
   // ══════════════════════════════════════════════════════════════
   const hasImage    = !!slide.imageUrl;
   const visualRatio = slide.visualRatio ?? 50;
   const textRatio   = 100 - visualRatio;
   const imageSide   = layout === 'split-right' ? 'left' : 'right';
 
-  // 슬라이드 타입별 아이콘 색상
   const typeAccent: Record<string, string> = {
     chart:'#3b82f6', table:'#8b5cf6', kpi:'#10b981',
     compare:'#f59e0b', timeline:'#06b6d4', quote:'#ec4899',
@@ -775,9 +754,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   return (
     <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
-      {/* 상단 컬러 바 */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:'0.4rem', background:`linear-gradient(90deg,var(--primary),var(--accent))` }} />
-      {/* 우상단 장식 */}
       <div style={{ position:'absolute', top:0, right:0, width:'14%', paddingBottom:'14%', background:`radial-gradient(circle at 100% 0%, ${accentColor}12 0%, transparent 70%)` }} />
 
       {Watermark}
@@ -785,13 +762,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <SlideNum />
 
       <div style={{ height:'100%', padding:'1.8rem 2.2rem 2.4rem', display:'flex', flexDirection:'column' }}>
-        {/* 제목 영역 */}
         <div style={{
           display:'flex', alignItems:'center', gap:'0.85rem',
           marginBottom:'1rem', paddingBottom:'0.75rem',
           borderBottom:`1.5px solid ${P.border}`, flexShrink:0,
         }}>
-          {/* 왼쪽 세로 강조 바 (타입별 색상) */}
           <div style={{ width:'0.3rem', height:`${1.9 * titleSizeScale}rem`, background: accentColor, borderRadius:4, flexShrink:0 }} />
           <h2 style={{
             fontWeight:900, color: P.text, lineHeight:1.2, flex:1, margin:0,
@@ -802,7 +777,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           </h2>
         </div>
 
-        {/* 본문 */}
         <div style={{ flex:1, overflow:'hidden', display:'flex', gap:'1.4rem', minHeight:0 }}>
           <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow:'hidden', order: imageSide === 'left' ? 2 : 1 }}>
             {renderContent()}
