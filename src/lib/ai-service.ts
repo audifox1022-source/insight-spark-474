@@ -1,11 +1,13 @@
 // ============================================================
-// ai-service.ts  —  전체 코드 (3~5번 + 디버그 추가)
+// ai-service.ts  —  전체 코드 (3~9번 안정성 수정 전체 반영)
 // [수정 내역]
-//   3. extractJSON: 문자열 리터럴 내부의 괄호를 무시하는 안전한 카운팅 로직
-//   4. normalizeSlide: type 강제 변환 후 approvedOutline 덮어쓰기 시
-//      chartData/tableData/keyMetrics 상태 불일치 방지
-//   5. truncateFileData: 멀티바이트 안전 슬라이싱 (한글 등 깨짐 방지)
-//   6. getOutline 디버그: AI 응답 원문 + JSON 파싱 결과 콘솔 출력
+//   3. extractJSON         : 문자열 리터럴 내부 괄호 무시 + 음수 체크 순서 수정
+//   4. normalizeSlide      : type 강등 시 전용 필드(chartData/tableData/keyMetrics) 초기화
+//   5. truncateFileData    : TextEncoder/Decoder 기반 멀티바이트 안전 슬라이싱
+//   6. getOutline          : OUTLINE_TOKEN_MAP으로 volume별 토큰 분리 (하드코딩 4096 제거)
+//   7. generatePresentation: 슬라이드 수 초과 slice 시 summary 슬라이드 보존
+//   8. callGeminiAPI       : 429 Rate Limit 지수 백오프 재시도 (최대 3회: 1s→2s→4s)
+//   9. extractTextFromItem : 중첩 객체 재귀 처리 + depth 제한으로 JSON 문자열 노출 방지
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -34,6 +36,18 @@ const TOKEN_MAP: Record<string, number> = {
   standard:      12000,
   detailed:      24000,
   comprehensive: 32768,
+};
+
+// ============================================================
+// [수정 6] getOutline 전용 토큰 맵
+//   기존: getOutline이 항상 4096 하드코딩
+//   해결: volume별로 적절한 토큰 한도 분리 적용
+// ============================================================
+const OUTLINE_TOKEN_MAP: Record<string, number> = {
+  brief:         4096,
+  standard:      4096,
+  detailed:      6000,
+  comprehensive: 8192,
 };
 
 const ALLOWED_SLIDE_TYPES = [
@@ -124,6 +138,8 @@ state는 "done" | "next" | "todo" 중 하나.
 
 // ============================================================
 // [수정 5] truncateFileData: 멀티바이트 안전 슬라이싱
+//   기존: .slice(0, 80000) → 한글 문자 경계에서 깨짐
+//   해결: TextEncoder로 바이트 단위 슬라이싱 후 안전하게 복원
 // ============================================================
 const MAX_FILE_BYTES = 80_000;
 
@@ -142,11 +158,21 @@ function truncateFileData(fileData: any): string {
   const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
 
+  // 끝에 불완전한 이스케이프 시퀀스 제거
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
-function extractTextFromItem(item: any): string[] {
+// ============================================================
+// [수정 9] extractTextFromItem: 중첩 객체 재귀 처리
+//   기존: 인식 불가 중첩 객체를 JSON.stringify로 그대로 반환
+//         → 슬라이드 본문에 {"title":"...","desc":"..."} 형태 노출
+//   해결: 재귀 호출로 끝까지 풀어 순수 문자열 배열 반환
+//         depth > 4 시 String() 강제 변환으로 무한루프 방지
+// ============================================================
+function extractTextFromItem(item: any, depth = 0): string[] {
+  if (depth > 4) return [String(item)];
   if (!item) return [];
+
   if (typeof item === "string") {
     let cleanStr = item.trim();
     cleanStr = cleanStr.replace(/^[^a-zA-Z0-9가-힣{[]+/, "").trim();
@@ -160,6 +186,11 @@ function extractTextFromItem(item: any): string[] {
       return [cleanStr];
     }
   }
+
+  if (Array.isArray(item)) {
+    return item.flatMap((el) => extractTextFromItem(el, depth + 1));
+  }
+
   if (typeof item === "object") {
     const result: string[] = [];
     const title =
@@ -167,17 +198,20 @@ function extractTextFromItem(item: any): string[] {
     const bodyData =
       item.content || item.items  || item.points ||
       item.bullets || item.text   || item.desc   ||
-      item.description || [];
+      item.description || null;
+
     if (Array.isArray(bodyData)) {
       if (title) result.push(`[${title}]`);
-      result.push(
-        ...bodyData.map((c: any) => {
-          if (typeof c === "string") return c;
-          if (c.title && c.desc)    return `${c.title}: ${c.desc}`;
-          if (c.label && c.value)   return `${c.label}: ${c.value}`;
-          return JSON.stringify(c);
-        })
-      );
+      result.push(...bodyData.flatMap((c: any) => {
+        if (typeof c === "string") return [c];
+        if (c && typeof c === "object") {
+          if (c.title && c.desc)  return [`${c.title}: ${c.desc}`];
+          if (c.label && c.value) return [`${c.label}: ${c.value}`];
+          // 그 외 중첩 객체는 재귀 처리
+          return extractTextFromItem(c, depth + 1);
+        }
+        return [String(c)];
+      }));
     } else if (bodyData && typeof bodyData === "string") {
       result.push(title ? `[${title}] ${bodyData}` : bodyData);
     } else if (title) {
@@ -188,6 +222,7 @@ function extractTextFromItem(item: any): string[] {
     }
     return result;
   }
+
   return [String(item)];
 }
 
@@ -228,7 +263,9 @@ function normalizeType(raw: string, index: number, total: number): AllowedSlideT
 }
 
 // ============================================================
-// [수정 4] normalizeSlide: type 강등 시 전용 필드 초기화
+// [수정 4] normalizeSlide: type 강등 시 전용 필드 불일치 방지
+//   기존: chart 파싱 실패 시 chartData=null만 처리, tableData/keyMetrics 방치
+//   해결: 각 타입 블록에서 확정/강등 양쪽 모두 세 필드를 명시적으로 초기화
 // ============================================================
 function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
@@ -254,7 +291,8 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : typeof rawContent === "string"
     ? [rawContent]
     : [];
-  s.content = contentArray.flatMap(extractTextFromItem);
+  // [수정 9 연계] extractTextFromItem에 depth 파라미터 전달
+  s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
   // ── chart ───────────────────────────────────────────────
   if (s.type === 'chart') {
@@ -300,6 +338,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData  = { headers: [], rows: [] };
       s.keyMetrics = [];
     } else {
+      // chartData 파싱 실패 → content로 강등, 모든 전용 필드 초기화
       s.type       = 'content';
       s.chartData  = null;
       s.tableData  = { headers: [], rows: [] };
@@ -316,6 +355,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.chartData  = null;
       s.keyMetrics = [];
     } else {
+      // headers 없음 → content로 강등
       s.type       = 'content';
       s.chartData  = null;
       s.tableData  = { headers: [], rows: [] };
@@ -335,9 +375,10 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 
     if (parsedMetrics.length > 0) {
       s.keyMetrics = parsedMetrics;
-      s.chartData = null;
-      s.tableData = { headers: [], rows: [] };
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
     } else {
+      // keyMetrics 없음 → content로 강등
       s.type       = 'content';
       s.chartData  = null;
       s.tableData  = { headers: [], rows: [] };
@@ -351,9 +392,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.leftTitle  = s.leftTitle  || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
 
-    if (s.leftItems.length === 0 && s.rightItems.length === 0) {
-      s.type = 'content';
-    }
+    if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
     s.chartData  = null;
     s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
@@ -383,7 +422,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
 
-  // ── 그 외 ──────────────────────────────────────────────
+  // ── 그 외 (title / agenda / content / process / cards / summary) ──
   } else {
     s.chartData  = null;
     s.tableData  = { headers: [], rows: [] };
@@ -394,7 +433,10 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 }
 
 // ============================================================
-// [수정 3] extractJSON: 문자열 리터럴 내부 괄호 무시
+// [수정 3] extractJSON: 문자열 리터럴 내부 괄호 무시 + 순서 버그 수정
+//   기존 1: 정규식 카운트 → 문자열 안의 { [ 까지 합산
+//   기존 2: 괄호 보충 후 음수 체크 → 이미 잘못 보충된 상태로 파싱 시도
+//   해결: 문자 순회로 문자열 내부 건너뜀 / 음수 체크를 보충 전에 수행
 // ============================================================
 function countUnbalancedBrackets(str: string): { braces: number; brackets: number } {
   let braces   = 0;
@@ -430,7 +472,7 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
-  const mdMatch = cleanText.match(/```(?:json)?\s*([\\s\\S]*?)\s*```/);
+  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
   const tryParse = (str: string) => {
@@ -467,12 +509,12 @@ function extractJSON(text: string): any | null {
 
       const { braces, brackets } = countUnbalancedBrackets(repaired);
 
-      repaired += "]".repeat(Math.max(0, brackets));
-      repaired += "}".repeat(Math.max(0, braces));
-
+      // [수정 3] 음수 체크는 보충 전에 수행 (기존 코드는 보충 후 체크)
       if (brackets < 0 || braces < 0) return null;
 
-      repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+      repaired += "]".repeat(brackets);
+      repaired += "}".repeat(braces);
+      repaired  = repaired.replace(/,\s*([\]}])/g, "$1");
 
       return tryParse(repaired);
     }
@@ -481,11 +523,19 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
+// ============================================================
+// [수정 8] callGeminiAPI: 429 Rate Limit 지수 백오프 재시도
+//   기존: 429 발생 시 즉시 throw
+//   해결: 최대 3회 재시도 / 대기 1s → 2s → 4s / 소진 후 throw
+// ============================================================
+const MAX_RETRIES   = 3;
+const RETRY_BASE_MS = 1_000;
+
 async function callGeminiAPI(
   systemInstruction: string,
   userPrompt: string,
   maxTokens = 8192
-) {
+): Promise<string> {
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY 미설정");
 
@@ -499,30 +549,47 @@ async function callGeminiAPI(
     },
   };
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
-    {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(payload),
-    }
-  );
+  let lastError: Error = new Error("알 수 없는 오류");
 
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    const message   = (errorBody as any)?.error?.message || "알 수 없는 오류";
-    if (response.status === 429) throw new Error("API 요청 한도를 초과했습니다.");
-    if (response.status === 400) throw new Error(`잘못된 요청입니다: ${message}`);
-    if (response.status === 403) throw new Error("API 키가 유효하지 않습니다.");
-    throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
+      {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      }
+    );
+
+    // 429: Rate Limit → 지수 백오프 후 재시도
+    if (response.status === 429) {
+      const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
+      lastError = new Error(
+        `API 요청 한도를 초과했습니다. ${waitMs / 1000}초 후 재시도 중... (${attempt + 1}/${MAX_RETRIES})`
+      );
+      await new Promise((res) => setTimeout(res, waitMs));
+      continue;
+    }
+
+    // 그 외 HTTP 오류 → 즉시 throw
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      const message   = (errorBody as any)?.error?.message || "알 수 없는 오류";
+      if (response.status === 400) throw new Error(`잘못된 요청입니다: ${message}`);
+      if (response.status === 403) throw new Error("API 키가 유효하지 않습니다.");
+      throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
+    }
+
+    const data      = await response.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate) throw new Error("AI 응답에 결과가 없습니다.");
+    const text = candidate?.content?.parts?.[0]?.text;
+    if (!text || text.trim() === "") throw new Error("빈 응답이 반환되었습니다.");
+    return text;
   }
 
-  const data      = await response.json();
-  const candidate = data?.candidates?.[0];
-  if (!candidate) throw new Error("AI 응답에 결과가 없습니다.");
-  const text = candidate?.content?.parts?.[0]?.text;
-  if (!text || text.trim() === "") throw new Error("빈 응답이 반환되었습니다.");
-  return text;
+  // 재시도 소진 → 마지막 오류 throw
+  throw lastError;
 }
 
 function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
@@ -620,9 +687,6 @@ function generateWithPollinationsImg(
 
 export const aiService = {
 
-  // ============================================================
-  // [수정 6] getOutline: 디버그 로그 추가
-  // ============================================================
   async getOutline(body: any) {
     const volume      = body.settings?.volume     || "standard";
     const difficulty  = body.settings?.difficulty || "medium";
@@ -669,16 +733,15 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
   ]
 }`;
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    
-    // ═══════════════════════════════════════════════════════
-    // 🔧 디버그 로그 추가
-    // ═══════════════════════════════════════════════════════
+    // [수정 6] 하드코딩 4096 → volume별 OUTLINE_TOKEN_MAP 사용
+    const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume] ?? 4096);
+
+    // ── 디버그 로그 (현재 코드에서 유지) ───────────────────────
     console.log('[Outline AI 응답 원문]', text);
     console.log('[Outline JSON 파싱 결과]', extractJSON(text));
-    // ═══════════════════════════════════════════════════════
-    
-    let data   = extractJSON(text);
+    // ─────────────────────────────────────────────────────────
+
+    let data = extractJSON(text);
 
     if (!data) {
       data = {
@@ -805,10 +868,27 @@ ${typeGuide}
         data.slides.push(makeEmptySlide(idx + 1, item, total));
       });
     }
+
+    // ============================================================
+    // [수정 7] 슬라이드 수 초과 시 summary 슬라이드 보존
+    //   기존: slice(0, N) → 마지막 summary가 잘릴 수 있음
+    //   해결: 잘라내기 전 원본 마지막(summary)을 보존,
+    //         잘라낸 결과 끝이 summary가 아니면 교체
+    // ============================================================
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
+      const originalLastSlide = data.slides[data.slides.length - 1];
       data.slides = data.slides.slice(0, approvedOutline.length);
+
+      const newLast = data.slides[data.slides.length - 1];
+      if (newLast && newLast.type !== 'summary' && originalLastSlide?.type === 'summary') {
+        data.slides[data.slides.length - 1] = {
+          ...originalLastSlide,
+          slideNumber: data.slides.length,
+        };
+      }
     }
 
+    // [수정 4 연계] approvedOutline 타입 덮어쓰기 시 전용 필드 재동기화
     data.slides = data.slides.map((s: any, i: number) => {
       const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
