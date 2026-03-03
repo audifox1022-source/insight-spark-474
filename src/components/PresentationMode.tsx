@@ -9,6 +9,34 @@ interface PresentationModeProps {
   onExit: () => void;
 }
 
+// ✅ 실제 화면 픽셀 기준 16:9 슬라이드 크기 계산
+function useSlideSize() {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const calc = () => {
+      // fullscreen API 사용 시 screen 크기, 아니면 window 크기 사용
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      // 16:9 비율에서 화면에 꽉 차는 최대 크기 계산
+      const byWidth  = { width: W, height: Math.round(W * 9 / 16) };
+      const byHeight = { width: Math.round(H * 16 / 9), height: H };
+      // 화면을 넘지 않는 쪽 선택
+      setSize(byWidth.height <= H ? byWidth : byHeight);
+    };
+    calc();
+    window.addEventListener('resize', calc);
+    // fullscreen 진입 후 크기 재계산
+    document.addEventListener('fullscreenchange', calc);
+    return () => {
+      window.removeEventListener('resize', calc);
+      document.removeEventListener('fullscreenchange', calc);
+    };
+  }, []);
+
+  return size;
+}
+
 export function PresentationMode({
   presentation,
   startSlide = 0,
@@ -21,6 +49,9 @@ export function PresentationMode({
 
   const slides = presentation.slides;
   const total  = slides.length;
+
+  // ✅ 실제 픽셀 계산
+  const { width: slideW, height: slideH } = useSlideSize();
 
   const next = useCallback(() => setCurrent(c => Math.min(c + 1, total - 1)), [total]);
   const prev = useCallback(() => setCurrent(c => Math.max(c - 1, 0)), []);
@@ -85,33 +116,36 @@ export function PresentationMode({
         else next();
       }}
     >
-      {/* ✅ 16:9 비율 유지하면서 화면에 꽉 차게 */}
-      <div
-        style={{
-          width:     'min(100vw, calc(100vh * 16 / 9))',
-          height:    'min(100vh, calc(100vw * 9 / 16))',
-          position:  'relative',
-          flexShrink: 0,
-        }}
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={current}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            style={{ width: '100%', height: '100%' }}
-          >
-            <ScaledSlide
-              slide={slides[current]}
-              containerClassName="w-full h-full rounded-none"
-              logoUrl={presentation.logoUrl}
-              watermark={presentation.watermark}
-            />
-          </motion.div>
-        </AnimatePresence>
-      </div>
+      {/* ✅ 실제 px 값으로 정확한 16:9 컨테이너 */}
+      {slideW > 0 && slideH > 0 && (
+        <div
+          style={{
+            width:     slideW,
+            height:    slideH,
+            position:  'relative',
+            flexShrink: 0,
+            overflow:  'hidden',
+          }}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={current}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <ScaledSlide
+                slide={slides[current]}
+                containerClassName="w-full h-full rounded-none"
+                logoUrl={presentation.logoUrl}
+                watermark={presentation.watermark}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
 
       {/* 슬라이드 번호 */}
       <div className={[
