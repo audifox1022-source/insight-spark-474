@@ -1,84 +1,98 @@
 import React from 'react';
 import {
-  ArrowRight, Layers, CheckCircle2,
-  TrendingUp, TrendingDown, Minus,
-  BarChart3 as BarIcon, Target,
-  Table as TableIcon, Zap,
+  ArrowRight,
+  Layers,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  BarChart3 as BarIcon,
+  Target,
+  Table as TableIcon,
+  Zap,
 } from 'lucide-react';
 import {
-  BarChart, Bar, LineChart, Line,
-  AreaChart, Area, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
 // ══════════════════════════════════════════════════════════════
-// 타입 정의
+// 타입
 // ══════════════════════════════════════════════════════════════
 interface ChartDataPoint {
-  name:   string;
-  value:  number;
+  name: string;
+  value: number;
   value2?: number;
 }
 
 interface SlideChartData {
-  chartType?:     'bar' | 'line' | 'area' | 'pie';
-  title?:         string;
-  data:           ChartDataPoint[];
-  series1Label?:  string;
-  series2Label?:  string;
-  showLegend?:    boolean;
+  chartType?: 'bar' | 'line' | 'area' | 'pie';
+  title?: string;
+  data: ChartDataPoint[];
+  series1Label?: string;
+  series2Label?: string;
+  showLegend?: boolean;
 }
 
 interface SlideMetric {
-  label:  string;
-  value:  string;
+  label: string;
+  value: string;
   trend?: 'up' | 'down' | 'flat';
 }
 
 interface Slide {
-  id?:               string;
-  type?:             string;
-  title?:            string;
-  content?:          string[];
-  points?:           string[];
-  items?:            string[];
-  infographicType?:  string;
-  chartData?:        SlideChartData;
-  tableData?: {
-    headers?: string[];
-    rows?:    string[][];
-  };
-  keyMetrics?:       SlideMetric[];
-  slideNumber?:      number;
-  titleSizeScale?:   number;
+  id?: string;
+  type?: string;
+  title?: string;
+  content?: string[];
+  points?: string[];
+  items?: string[];
+  infographicType?: string;
+  chartData?: SlideChartData;
+  tableData?: { headers?: string[]; rows?: string[][] };
+  keyMetrics?: SlideMetric[];
+  slideNumber?: number;
+  titleSizeScale?: number;
   contentSizeScale?: number;
-  visualRatio?:      number;
-  tableDensity?:     'compact' | 'normal' | 'relaxed';
-  imageUrl?:         string;
-  layout?:           string;
-  notes?:            string;
+  visualRatio?: number;
+  tableDensity?: 'compact' | 'normal' | 'relaxed';
+  imageUrl?: string;
+  layout?: string;
+  notes?: string;
 }
 
 interface ScaledSlideProps {
-  slide:              Slide;
+  slide: Slide;
   containerClassName?: string;
-  logoUrl?:           string;
-  watermark?:         string;
+  logoUrl?: string;
+  watermark?: string;
 }
 
 // ══════════════════════════════════════════════════════════════
-// 색상 팔레트
+// 팔레트
 // ══════════════════════════════════════════════════════════════
 const P = {
-  primary:  'var(--primary)',
-  accent:   'var(--accent)',
-  bg:       '#ffffff',
-  text:     '#1a2133',
-  subtext:  '#64748b',
-  border:   '#e2e8f0',
-  muted:    '#f8fafc',
-  chartColors:    ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+  primary: 'var(--primary)',
+  accent: 'var(--accent)',
+  bg: '#ffffff',
+  text: '#1a2133',
+  subtext: '#64748b',
+  border: '#e2e8f0',
+  muted: '#f8fafc',
+  chartColors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
   kpiGradients: [
     'linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%)',
     'linear-gradient(135deg,#10b981 0%,#059669 100%)',
@@ -90,12 +104,20 @@ const P = {
 };
 
 // ══════════════════════════════════════════════════════════════
-// Recharts 커스텀 툴팁
+// 공통: Recharts 커스텀 툴팁
 // ══════════════════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
+    <div
+      style={{
+        background: '#1e293b',
+        color: '#fff',
+        borderRadius: 8,
+        padding: '8px 14px',
+        fontSize: 13,
+      }}
+    >
       <div style={{ marginBottom: 4, fontWeight: 700, opacity: 0.7 }}>{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ color: p.color }}>
@@ -107,33 +129,42 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 // ══════════════════════════════════════════════════════════════
-// 빈 상태 플레이스홀더
+// 공통: 빈 상태 플레이스홀더
 // ══════════════════════════════════════════════════════════════
 const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: string }) => (
-  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: 16, border: '2px dashed #e2e8f0', color: '#94a3b8', flexDirection: 'column', gap: 10 }}>
+  <div
+    style={{
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#f8fafc',
+      borderRadius: 16,
+      border: '2px dashed #e2e8f0',
+      color: '#94a3b8',
+      flexDirection: 'column',
+      gap: 10,
+    }}
+  >
     <Icon style={{ width: 40, height: 40, opacity: 0.25 }} />
     <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
   </div>
 );
 
 // ══════════════════════════════════════════════════════════════
-// 메인 컴포넌트
+// ScaledSlide
 // ══════════════════════════════════════════════════════════════
-export const ScaledSlide: React.FC<ScaledSlideProps> = ({
-  slide,
-  containerClassName = '',
-  logoUrl,
-  watermark,
-}) => {
+export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassName = '', logoUrl, watermark }) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
-  const content    = (typeof rawContent === 'string' ? [rawContent] : rawContent) as string[];
+  const content: string[] = Array.isArray(rawContent) ? (rawContent as string[]) : [];
 
-  const titleSizeScale   = slide.titleSizeScale ?? 1;
+  const titleSizeScale = slide.titleSizeScale ?? 1;
   const contentSizeScale = slide.contentSizeScale ?? 1;
-  const layout           = slide.layout ?? 'default';
+  const layout = slide.layout ?? 'default';
 
-  const titleFontSize   = `${3 * titleSizeScale}rem`;
-  const contentFontSize = `${1.45 * contentSizeScale}rem`;
+  // ✅ 수정: 폰트 크기 증가 (파워포인트 표준)
+  const titleFontSize = `${3 * titleSizeScale}rem`;      // 48px (변경 없음)
+  const contentFontSize = `${1.85 * contentSizeScale}rem`; // 1.45 → 1.85rem (29.6px)
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
@@ -141,7 +172,22 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // 워터마크
   // ──────────────────────────────────────────────────────────────
   const Watermark = watermark ? (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.03, transform: 'rotate(-30deg)', fontSize: '9rem', fontWeight: 900, color: '#000', userSelect: 'none' }}>
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        opacity: 0.03,
+        transform: 'rotate(-30deg)',
+        fontSize: '9rem',
+        fontWeight: 900,
+        color: '#000',
+        userSelect: 'none',
+      }}
+    >
       {watermark}
     </div>
   ) : null;
@@ -151,8 +197,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ──────────────────────────────────────────────────────────────
   const Logo = ({ invert = false }: { invert?: boolean }) =>
     logoUrl ? (
-      <div style={{ position: 'absolute', top: '1.3rem', right: '1.8rem', width: '5.5rem', height: '2.8rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-        <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: invert ? 'brightness(0) invert(1)' : undefined }} />
+      <div
+        style={{
+          position: 'absolute',
+          top: '1.3rem',
+          right: '1.8rem',
+          width: '5.5rem',
+          height: '2.8rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <img
+          src={logoUrl}
+          alt="Logo"
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain',
+            filter: invert ? 'brightness(0) invert(1)' : undefined,
+          }}
+        />
       </div>
     ) : null;
 
@@ -162,15 +228,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   const SlideNum = ({ light = false }: { light?: boolean }) =>
     slide.slideNumber ? (
       <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ width: '1.9rem', height: '1.9rem', borderRadius: '50%', background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.accent})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 700 }}>
+        <div
+          style={{
+            width: '1.9rem',
+            height: '1.9rem',
+            borderRadius: '50%',
+            background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.accent})`,
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.78rem',
+            fontWeight: 700,
+          }}
+        >
           {slide.slideNumber}
         </div>
       </div>
     ) : null;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 1. 차트 렌더링
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 1) 차트 렌더링
+  // ══════════════════════════════════════════════════════════════
   const renderChart = () => {
     const cd = slide.chartData;
     if (!cd?.data?.length) return <EmptyPlaceholder icon={BarIcon} label="차트 데이터 없음" />;
@@ -189,9 +268,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={70}
+              outerRadius="70%"
               paddingAngle={3}
-              label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
+              label={(entry) => `${entry.name}: ${(entry.percent! * 100).toFixed(0)}%`}
               labelLine={{ stroke: '#94a3b8' }}
             >
               {cd.data.map((_, i) => (
@@ -214,9 +293,23 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              name={cd.series1Label ?? '시리즈1'}
+              stroke={colors[0]}
+              strokeWidth={3}
+              dot={{ r: 5, fill: colors[0] }}
+            />
             {cd.data[0]?.value2 !== undefined && (
-              <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />
+              <Line
+                type="monotone"
+                dataKey="value2"
+                name={cd.series2Label ?? '시리즈2'}
+                stroke={colors[1]}
+                strokeWidth={3}
+                dot={{ r: 5, fill: colors[1] }}
+              />
             )}
           </LineChart>
         </ResponsiveContainer>
@@ -238,7 +331,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={2.5} fill="url(#areaGrad1)" />
+            <Area
+              type="monotone"
+              dataKey="value"
+              name={cd.series1Label ?? '시리즈1'}
+              stroke={colors[0]}
+              strokeWidth={2.5}
+              fill="url(#areaGrad1)"
+            />
           </AreaChart>
         </ResponsiveContainer>
       );
@@ -262,16 +362,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 2. 표 렌더링
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 2) 테이블 렌더링
+  // ══════════════════════════════════════════════════════════════
   const renderTable = () => {
     const td = slide.tableData;
-    if (!td?.headers?.length) return <EmptyPlaceholder icon={TableIcon} label="표 데이터 없음" />;
+    if (!td?.headers?.length) return <EmptyPlaceholder icon={TableIcon} label="테이블 데이터 없음" />;
 
-    const paddingY =
-      slide.tableDensity === 'compact'  ? '0.55rem' :
-      slide.tableDensity === 'relaxed'  ? '1.2rem'  : '0.85rem';
+    const paddingY = slide.tableDensity === 'compact' ? '0.55rem' : slide.tableDensity === 'relaxed' ? '1.2rem' : '0.85rem';
 
     return (
       <div style={{ width: '100%', overflowX: 'auto', borderRadius: 14, boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: `1px solid ${P.border}` }}>
@@ -323,21 +421,19 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 3. KPI 렌더링
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 3) KPI 렌더링
+  // ══════════════════════════════════════════════════════════════
   const renderKPI = () => {
     const km = slide.keyMetrics;
     if (!km?.length) return <EmptyPlaceholder icon={Target} label="KPI 데이터 없음" />;
 
-    const cols =
-      km.length <= 2 ? km.length :
-      km.length === 4 ? 2 : 3;
+    const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.1rem', height: '100%', alignContent: 'center' }}>
         {km.map((kpi, i) => {
-          const isUp   = kpi.trend === 'up';
+          const isUp = kpi.trend === 'up';
           const isDown = kpi.trend === 'down';
           return (
             <div
@@ -355,18 +451,37 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
               }}
             >
-              <div style={{ fontSize: `${1.05 * contentSizeScale}rem`, fontWeight: 700, opacity: 0.82, marginBottom: '0.5rem', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              <div
+                style={{
+                  fontSize: `${1.05 * contentSizeScale}rem`,
+                  fontWeight: 700,
+                  opacity: 0.82,
+                  marginBottom: '0.5rem',
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
                 {kpi.label}
               </div>
-              <div style={{ fontSize: `${3.0 * contentSizeScale}rem`, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1 }}>
-                {kpi.value}
-              </div>
+              <div style={{ fontSize: `${3.0 * contentSizeScale}rem`, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1 }}>{kpi.value}</div>
               {kpi.trend && (
-                <div style={{ marginTop: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: `${0.95 * contentSizeScale}rem`, fontWeight: 700, background: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: '0.25rem 0.85rem' }}>
-                  {isUp   && <TrendingUp   style={{ width: '1em', height: '1em' }} />}
+                <div
+                  style={{
+                    marginTop: '0.7rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    fontSize: `${0.95 * contentSizeScale}rem`,
+                    fontWeight: 700,
+                    background: 'rgba(255,255,255,0.2)',
+                    borderRadius: 20,
+                    padding: '0.25rem 0.85rem',
+                  }}
+                >
+                  {isUp && <TrendingUp style={{ width: '1em', height: '1em' }} />}
                   {isDown && <TrendingDown style={{ width: '1em', height: '1em' }} />}
                   {!isUp && !isDown && <Minus style={{ width: '1em', height: '1em' }} />}
-                  {isUp ? '상승' : isDown ? '하락' : '유지'}
+                  {isUp ? '상승' : isDown ? '하락' : '보합'}
                 </div>
               )}
             </div>
@@ -376,13 +491,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 4. ✅ 불릿 렌더링 (모든 레이아웃에 숫자 표시)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 4) 불릿 렌더링 (여러 레이아웃)
+  // ══════════════════════════════════════════════════════════════
   const renderBullets = () => {
-    if (!content.length) return <EmptyPlaceholder icon={Layers} label="내용 없음" />;
+    if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
 
-    // ✅ GRID 레이아웃 (카드형, 숫자 표시)
+    // 레이아웃: grid
     if (layout === 'grid') {
       const cols = content.length <= 4 ? 2 : 3;
       return (
@@ -401,7 +516,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}
             >
-              {/* ✅ 숫자 배지 */}
               <div
                 style={{
                   width: `${1.8 * contentSizeScale}rem`,
@@ -429,7 +543,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       );
     }
 
-    // ✅ HIGHLIGHT 레이아웃 (강조형, 숫자 표시) - CheckCircle2 대신 숫자로 교체
+    // 레이아웃: highlight
     if (layout === 'highlight') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', height: '100%', justifyContent: 'center' }}>
@@ -447,35 +561,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 transition: 'all 0.2s',
               }}
             >
-              {/* ✅ CheckCircle2 대신 숫자 배지로 교체 */}
-              <div
-                style={{
-                  width: `${1.6 * contentSizeScale}rem`,
-                  height: `${1.6 * contentSizeScale}rem`,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  background: i === 0
-                    ? `linear-gradient(135deg,${P.primary},${P.accent})`
-                    : '#94a3b8',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: `${0.85 * contentSizeScale}rem`,
-                  fontWeight: 700,
-                  boxShadow: i === 0 ? `0 2px 8px ${P.primary}40` : 'none',
-                }}
-              >
-                {i + 1}
-              </div>
-              <span
-                style={{
-                  fontSize: contentFontSize,
-                  fontWeight: i === 0 ? 700 : 500,
-                  color: i === 0 ? P.text : P.subtext,
-                  lineHeight: 1.5,
-                }}
-              >
+              <CheckCircle2
+                style={{ width: `${1.4 * contentSizeScale}rem`, height: `${1.4 * contentSizeScale}rem`, color: i === 0 ? P.primary : '#94a3b8', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: contentFontSize, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? P.text : P.subtext, lineHeight: 1.5 }}>
                 {typeof item === 'string' ? item : JSON.stringify(item)}
               </span>
             </div>
@@ -484,7 +573,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       );
     }
 
-    // ✅ DEFAULT / SPLIT-LEFT / SPLIT-RIGHT (기본, 숫자 표시)
+    // default / split-left / split-right
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         {content.map((item, i) => (
@@ -508,20 +597,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             >
               {i + 1}
             </span>
-            <span style={{ fontWeight: 500 }}>
-              {typeof item === 'string' ? item : JSON.stringify(item)}
-            </span>
+            <span style={{ fontWeight: 500 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
           </li>
         ))}
       </ul>
     );
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 5. ✅ 인포그래픽 렌더링 (cycle, process 모두 숫자 표시)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 5) 인포그래픽 렌더링
+  // ══════════════════════════════════════════════════════════════
   const renderInfographic = () => {
-    // CYCLE 타입
     if (slide.infographicType === 'cycle') {
       return (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', height: '100%', gap: '0.8rem' }}>
@@ -552,16 +638,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                   STEP {i + 1}
                 </span>
               </div>
-              {i < content.length - 1 && (
-                <ArrowRight style={{ color: P.primary, flexShrink: 0, width: '1.8rem', height: '1.8rem', opacity: 0.7 }} />
-              )}
+              {i < content.length - 1 && <ArrowRight style={{ color: P.primary, flexShrink: 0, width: '1.8rem', height: '1.8rem', opacity: 0.7 }} />}
             </React.Fragment>
           ))}
         </div>
       );
     }
 
-    // ✅ PROCESS 타입 (숫자 표시, 정사각형 배지)
     if (slide.infographicType === 'process') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', height: '100%', justifyContent: 'center' }}>
@@ -605,13 +688,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       );
     }
 
-    // 기본값: renderBullets
     return renderBullets();
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 6. ✅ 컨텐츠 분기 (process/agenda 타입 명시적 처리)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 6) 슬라이드 타입별 콘텐츠 선택
+  // ══════════════════════════════════════════════════════════════
   const renderContent = () => {
     switch (slide.type) {
       case 'chart':
@@ -620,50 +702,66 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         return renderTable();
       case 'kpi':
         return renderKPI();
-      case 'process':
-        // process 타입일 때 infographicType 강제 설정
-        if (!slide.infographicType) {
-          slide.infographicType = 'process';
-        }
-        if (!content.length) return <EmptyPlaceholder icon={Layers} label="내용 없음" />;
-        return renderInfographic();
-      case 'agenda':
-      case 'content':
       default:
-        if (!content.length) return <EmptyPlaceholder icon={Layers} label="내용 없음" />;
-        return slide.infographicType ? renderInfographic() : renderBullets();
+        if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
+        return renderInfographic();
     }
   };
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 7. 첫 슬라이드 (표지) 렌더링
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ══════════════════════════════════════════════════════════════
+  // 7) 첫 슬라이드 (타이틀 슬라이드) 렌더링
+  // ══════════════════════════════════════════════════════════════
   if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
     return (
       <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg }}>
-        {/* 배경 그라데이션 */}
+        {/* 1) 배경 그라데이션 */}
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg,${P.primary} 0%,${P.accent} 100%)` }} />
-        {/* 장식 원형 1 */}
-        <div style={{ position: 'absolute', right: '-8%', top: '-20%', width: '55%', paddingBottom: '55%', borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
-        {/* 장식 원형 2 */}
-        <div style={{ position: 'absolute', left: '-5%', bottom: '-15%', width: '40%', paddingBottom: '40%', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
-        {/* 장식 원형 3 */}
+
+        {/* 2) 장식 원 */}
+        <div style={{ position: 'absolute', right: -8, top: -20, width: '55%', paddingBottom: '55%', borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
+        <div style={{ position: 'absolute', left: -5, bottom: -15, width: '40%', paddingBottom: '40%', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
         <div style={{ position: 'absolute', left: '30%', top: '10%', width: '15%', paddingBottom: '15%', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
 
         {Watermark}
         <Logo invert />
         <SlideNum light />
 
-        {/* 콘텐츠 */}
+        {/* 3) 타이틀 콘텐츠 */}
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 6rem', textAlign: 'center' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.16)', borderRadius: 20, padding: '0.4rem 1.2rem', marginBottom: '1.6rem', fontSize: `${1.05 * contentSizeScale}rem`, color: 'rgba(255,255,255,0.92)', fontWeight: 600, letterSpacing: 1, backdropFilter: 'blur(4px)' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(255,255,255,0.16)',
+              borderRadius: 20,
+              padding: '0.4rem 1.2rem',
+              marginBottom: '1.6rem',
+              fontSize: `${1.05 * contentSizeScale}rem`,
+              color: 'rgba(255,255,255,0.92)',
+              fontWeight: 600,
+              letterSpacing: 1,
+              backdropFilter: 'blur(4px)',
+            }}
+          >
             <Zap style={{ width: '1em', height: '1em' }} />
             PRESENTATION
           </div>
-          <h1 style={{ color: '#fff', fontWeight: 900, lineHeight: 1.2, fontSize: titleFontSize, letterSpacing: '-0.025em', marginBottom: '1.6rem', textShadow: '0 2px 24px rgba(0,0,0,0.18)', maxWidth: '85%' }}>
+          <h1
+            style={{
+              color: '#fff',
+              fontWeight: 900,
+              lineHeight: 1.2,
+              fontSize: titleFontSize,
+              letterSpacing: '-0.025em',
+              marginBottom: '1.6rem',
+              textShadow: '0 2px 24px rgba(0,0,0,0.18)',
+              maxWidth: '85%',
+            }}
+          >
             {slide.title}
           </h1>
-          <div style={{ width: '4rem', height: '3px', background: 'rgba(255,255,255,0.5)', borderRadius: 2, marginBottom: '1.4rem' }} />
+          <div style={{ width: '4rem', height: 3, background: 'rgba(255,255,255,0.5)', borderRadius: 2, marginBottom: '1.4rem' }} />
           {content.length > 0 && (
             <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: `${1.5 * contentSizeScale}rem`, fontWeight: 500, maxWidth: '70%', lineHeight: 1.65 }}>
               {content[0]}
@@ -674,43 +772,52 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     );
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 8. 일반 슬라이드 렌더링
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  const hasImage    = !!slide.imageUrl;
+  // ══════════════════════════════════════════════════════════════
+  // 8) 일반 슬라이드 렌더링
+  // ══════════════════════════════════════════════════════════════
+  const hasImage = !!slide.imageUrl;
   const visualRatio = slide.visualRatio ?? 50;
-  const textRatio   = 100 - visualRatio;
-  const imageSide   = layout === 'split-right' ? 'left' : 'right';
+  const textRatio = 100 - visualRatio;
+  const imageSide = layout === 'split-right' ? 'left' : 'right';
 
   return (
     <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
-      {/* 상단 그라데이션 바 */}
+      {/* 상단 accent 바 */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
 
       {Watermark}
       <Logo />
       <SlideNum />
 
-      {/* 메인 콘텐츠 영역 */}
-      <div style={{ height: '100%', padding: '2.2rem 2.5rem 2.8rem', display: 'flex', flexDirection: 'column' }}>
+      {/* ✅ 수정: 패딩 증가 (2.2rem → 3.5rem) */}
+      <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
         {/* 제목 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.2rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
           <div style={{ width: '0.32rem', height: `${2.1 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
           <h2 style={{ fontWeight: 900, color: P.text, fontSize: titleFontSize, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
             {slide.title}
           </h2>
         </div>
 
-        {/* 콘텐츠 + 이미지 */}
+        {/* 콘텐츠 영역 */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.5rem', minHeight: 0 }}>
-          {/* 텍스트/차트 영역 */}
+          {/* 텍스트 영역 */}
           <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow: 'hidden', order: imageSide === 'left' ? 2 : 1 }}>
             {renderContent()}
           </div>
 
           {/* 이미지 영역 */}
           {hasImage && slide.imageUrl && (
-            <div style={{ width: `${visualRatio}%`, borderRadius: 16, overflow: 'hidden', flexShrink: 0, order: imageSide === 'left' ? 1 : 2, boxShadow: '0 4px 24px rgba(0,0,0,0.1)' }}>
+            <div
+              style={{
+                width: `${visualRatio}%`,
+                borderRadius: 16,
+                overflow: 'hidden',
+                flexShrink: 0,
+                order: imageSide === 'left' ? 1 : 2,
+                boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
+              }}
+            >
               <img src={slide.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
