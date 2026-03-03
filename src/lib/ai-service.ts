@@ -1,14 +1,10 @@
 // ============================================================
-// ai-service.ts
+// ai-service.ts — 이미지 생성 로직 개선 버전
 // [수정 내역]
-// 3. extractJSON : 문자열 리터럴 내부 괄호 무시 + 음수 체크 순서 수정
-// 4. normalizeSlide : type 강등 시 전용 필드 초기화
-// 5. truncateFileData : TextEncoder/Decoder 기반 멀티바이트 안전 슬라이싱
-// 6. getOutline : OUTLINE_TOKEN_MAP으로 volume별 토큰 분리
-// 7. generatePresentation: 슬라이드 수 초과 slice 시 summary 슬라이드 보존
-// 8. callGeminiAPI : 429 Rate Limit 지수 백오프 재시도 (최대 3회)
-// 9. extractTextFromItem : 중첩 객체 재귀 처리 + depth 제한
-// 10. generateWithGeminiImagen : 모델명 수정 (gemini-2.0-flash-exp)
+// A. generateWithGeminiImagen: 모델명 최신화
+// B. generateWithPollinationsImg: 타임아웃 단축 + URL 파라미터 정비
+// C. generateLocalGradient: 로컬 SVG 그라데이션 폴백 추가
+// D. generateImage: 3단계 폴백 체인 (Gemini → Pollinations → SVG)
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -71,20 +67,20 @@ function getSystemPromptCore(difficulty = "medium"): string {
 const SLIDE_SCHEMA = `
 [📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
 
-type     | 용도                          | 필수 필드
----------|-------------------------------|------------------------------------------
-title    | 표지 (1번 슬라이드 전용)        | content: [부제목] (1~2개)
-agenda   | 목차                          | content: [항목들] (3~8개)
-content  | 일반 불릿                      | content: [항목들] (3~6개)
-process  | 순서/단계                      | content: [단계들] (3~7개, 순서 중요)
-compare  | 좌우 비교                      | leftTitle, rightTitle, leftItems[], rightItems[]
-chart    | 차트                          | chartData (labels + datasets 필수)
-table    | 표                            | tableData (headers + rows 필수)
-kpi      | 수치 지표                      | keyMetrics [{label, value, trend}]
-cards    | 카드 그리드                    | content: [항목들] (3~6개)
-quote    | 인용구                        | text, author
-timeline | 타임라인                       | milestones [{label, date, state}]
-summary  | 마무리 (마지막 슬라이드 전용)    | content: [핵심 요약] (3~5개)
+type | 용도 | 필수 필드
+---------|------------------------------|-----------------------------------------
+title | 표지 (1번 슬라이드 전용) | content: [부제목] (1~2개)
+agenda | 목차 | content: [항목들] (3~8개)
+content | 일반 불릿 | content: [항목들] (3~6개)
+process | 순서/단계 | content: [단계들] (3~7개, 순서 중요)
+compare | 좌우 비교 | leftTitle, rightTitle, leftItems[], rightItems[]
+chart | 차트 | chartData (labels + datasets 필수)
+table | 표 | tableData (headers + rows 필수)
+kpi | 수치 지표 | keyMetrics [{label, value, trend}]
+cards | 카드 그리드 | content: [항목들] (3~6개)
+quote | 인용구 | text, author
+timeline | 타임라인 | milestones [{label, date, state}]
+summary | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
 
 [📊 chart 타입 chartData 구조 예시]
 "chartData": {
@@ -92,6 +88,7 @@ summary  | 마무리 (마지막 슬라이드 전용)    | content: [핵심 요�
   "labels": ["1분기", "2분기", "3분기"],
   "datasets": [{"label": "매출(억)", "data": [120, 145, 168]}]
 }
+
 type은 "bar" | "line" | "pie" | "area" 중 하나.
 
 [📋 table 타입 tableData 구조 예시]
@@ -103,23 +100,25 @@ type은 "bar" | "line" | "pie" | "area" 중 하나.
 [🎯 kpi 타입 keyMetrics 구조 예시]
 "keyMetrics": [
   {"label": "생산량", "value": "1,200톤", "trend": "up"},
-  {"label": "불량률", "value": "2.1%",   "trend": "down"},
-  {"label": "가동률", "value": "87%",     "trend": "flat"}
+  {"label": "불량률", "value": "2.1%", "trend": "down"},
+  {"label": "가동률", "value": "87%", "trend": "flat"}
 ]
+
 trend는 "up" | "down" | "flat" 중 하나.
 
 [🔄 compare 타입 구조 예시]
 "leftTitle": "AS-IS",
 "rightTitle": "TO-BE",
-"leftItems":  ["수작업 공정", "품질 편차 큼"],
+"leftItems": ["수작업 공정", "품질 편차 큼"],
 "rightItems": ["자동화 공정", "품질 균일화"]
 
 [📅 timeline 타입 milestones 구조 예시]
 "milestones": [
-  {"label": "착수",   "date": "2025.01", "state": "done"},
+  {"label": "착수", "date": "2025.01", "state": "done"},
   {"label": "중간점검","date": "2025.06", "state": "next"},
-  {"label": "완료",   "date": "2025.12", "state": "todo"}
+  {"label": "완료", "date": "2025.12", "state": "todo"}
 ]
+
 state는 "done" | "next" | "todo" 중 하나.
 
 [🔥 타입 사용 절대 규칙]
@@ -132,26 +131,26 @@ state는 "done" | "next" | "todo" 중 하나.
 7. content 배열 안에는 순수 문자열만 허용. JSON 객체 금지.
 `;
 
-// ============================================================
-// truncateFileData
-// ============================================================
 const MAX_FILE_BYTES = 80_000;
 
 function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
-  const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
+
+  const raw = typeof fileData === "string"
+    ? fileData
+    : JSON.stringify(fileData);
+
   const encoder = new TextEncoder();
   const encoded = encoder.encode(raw);
   if (encoded.length <= MAX_FILE_BYTES) return raw;
+
   const sliced = encoded.slice(0, MAX_FILE_BYTES);
   const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
+
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
-// ============================================================
-// extractTextFromItem
-// ============================================================
 function extractTextFromItem(item: any, depth = 0): string[] {
   if (depth > 4) return [String(item)];
   if (!item) return [];
@@ -176,7 +175,8 @@ function extractTextFromItem(item: any, depth = 0): string[] {
 
   if (typeof item === "object") {
     const result: string[] = [];
-    const title = item.title || item.heading || item.name || item.subject || "";
+    const title =
+      item.title || item.heading || item.name || item.subject || "";
     const bodyData =
       item.content || item.items || item.points ||
       item.bullets || item.text || item.desc ||
@@ -260,7 +260,8 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
   s.title = s.title || "";
   s.type = normalizeType(s.type || 'content', index, total);
 
-  const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
+  const rawContent =
+    s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
     ? rawContent
     : typeof rawContent === "string"
@@ -338,7 +339,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       ? rawMetrics.map((m: any) => ({
           label: m.label || m.name || '',
           value: m.value || m.score || '',
-          trend: (['up', 'down', 'flat'].includes(m.trend) ? m.trend : 'flat'),
+          trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
       : [];
 
@@ -369,7 +370,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       ? s.milestones.map((m: any) => ({
           label: m.label || m.title || m.name || '',
           date: m.date || '',
-          state: (['done', 'next', 'todo'].includes(m.state) ? m.state : 'todo'),
+          state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
 
@@ -396,9 +397,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
   return s;
 }
 
-// ============================================================
-// countUnbalancedBrackets
-// ============================================================
 function countUnbalancedBrackets(str: string): { braces: number; brackets: number } {
   let braces = 0;
   let brackets = 0;
@@ -430,9 +428,6 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
   return { braces, brackets };
 }
 
-// ============================================================
-// extractJSON
-// ============================================================
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
@@ -486,9 +481,6 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
-// ============================================================
-// callGeminiAPI — 429 지수 백오프 재시도
-// ============================================================
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1_000;
 
@@ -565,9 +557,7 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
 }
 
 // ============================================================
-// [수정 10] generateWithGeminiImagen — 모델명 수정
-// 기존: gemini-2.0-flash-preview-image-generation → 404
-// 수정: gemini-2.0-flash-exp (실제 이미지 생성 지원 모델)
+// ✅ A. Gemini Imagen (모델명 수정)
 // ============================================================
 async function generateWithGeminiImagen(
   slideTitle: string,
@@ -583,48 +573,53 @@ async function generateWithGeminiImagen(
     'Style: soft gradient, clean minimal corporate design, abstract shapes, no text, no watermark, 16:9 landscape.',
   ].filter(Boolean).join(' ');
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-        }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
-    for (const part of parts) {
-      if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
-        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-      }
+  // ✅ 모델명 변경: gemini-2.0-flash-exp-image-generation
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+      }),
     }
-    return null;
-  } catch {
-    return null;
+  );
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
+
+  for (const part of parts) {
+    if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
   }
+  return null;
 }
 
+// ============================================================
+// ✅ B. Pollinations.ai (타임아웃 단축 + URL 파라미터 정비)
+// ============================================================
 function generateWithPollinationsImg(
   _slideTitle: string,
   _slideContent: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const prompt = `Professional presentation background, corporate abstract minimal gradient, 16:9, no text, no watermark`;
+    const prompt = `Abstract minimal corporate gradient background, professional presentation, soft colors, geometric shapes, no text`;
     const seed = Math.floor(Math.random() * 9_999_999);
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
+    // ✅ enhance=false 추가
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux&enhance=false`;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
 
+    // ✅ 타임아웃 10초로 단축
     const timer = setTimeout(() => {
       img.src = '';
-      reject(new Error('Pollinations 타임아웃 (30초)'));
-    }, 30_000);
+      reject(new Error('Pollinations 타임아웃 (10초)'));
+    }, 10_000);
 
     img.onload = () => {
       clearTimeout(timer);
@@ -647,6 +642,40 @@ function generateWithPollinationsImg(
 
     img.src = url;
   });
+}
+
+// ============================================================
+// ✅ C. 신규 추가: 로컬 SVG 그라데이션 폴백
+//    외부 API가 모두 실패해도 빈 이미지 대신 예쁜 그라데이션 반환
+// ============================================================
+function generateLocalGradient(slideTitle: string): string {
+  const palettes = [
+    ['#1e3a5f', '#2563eb', '#38bdf8'],
+    ['#064e3b', '#059669', '#6ee7b7'],
+    ['#3b0764', '#7c3aed', '#c4b5fd'],
+    ['#7c2d12', '#ea580c', '#fed7aa'],
+    ['#1e1b4b', '#4338ca', '#a5b4fc'],
+    ['#0c4a6e', '#0284c7', '#7dd3fc'],
+  ];
+  const idx = (slideTitle?.length ?? 0) % palettes.length;
+  const [c1, c2, c3] = palettes[idx];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
+    <defs>
+      <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${c1}"/>
+        <stop offset="50%" stop-color="${c2}"/>
+        <stop offset="100%" stop-color="${c3}"/>
+      </linearGradient>
+      <filter id="blur"><feGaussianBlur stdDeviation="40"/></filter>
+    </defs>
+    <rect width="1280" height="720" fill="url(#g1)"/>
+    <circle cx="1000" cy="100" r="300" fill="${c3}" opacity="0.15" filter="url(#blur)"/>
+    <circle cx="200" cy="600" r="250" fill="${c1}" opacity="0.2" filter="url(#blur)"/>
+    <circle cx="640" cy="360" r="200" fill="${c2}" opacity="0.08" filter="url(#blur)"/>
+  </svg>`;
+
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
 }
 
 export const aiService = {
@@ -783,14 +812,14 @@ ${typeGuide}
 4. 빈 content 배열, 빈 chartData, 빈 keyMetrics 절대 금지.
 
 [📐 타입별 작성 기준]
-- chart   : chartData.type(bar/line/pie/area), labels와 datasets에 실제 수치 입력
-- table   : headers 3~5개, rows는 실제 데이터 기반 3~8행
-- kpi     : keyMetrics 3~6개, 실제 수치와 trend(up/down/flat) 포함
+- chart : chartData.type(bar/line/pie/area), labels와 datasets에 실제 수치 입력
+- table : headers 3~5개, rows는 실제 데이터 기반 3~8행
+- kpi : keyMetrics 3~6개, 실제 수치와 trend(up/down/flat) 포함
 - compare : leftTitle/rightTitle, leftItems/rightItems 각 3~5개
 - process : content에 단계 순서대로 3~6개
 - timeline: milestones 3~7개, date와 state(done/next/todo) 포함
 - content : 핵심 불릿 3~5개, 25자 이내 명사형 종결
-- cards   : 3~6개, "제목: 설명" 형식 권장
+- cards : 3~6개, "제목: 설명" 형식 권장
 - summary : 핵심 결론 3~5개, 행동 권고사항 포함
 
 [⚠️ 절대 금지]
@@ -851,7 +880,6 @@ ${typeGuide}
       if (outlineType !== s.type) {
         return normalizeSlide({ ...s, type: outlineType }, i, total);
       }
-
       return { ...s, slideNumber: i + 1 };
     });
 
@@ -949,16 +977,25 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return { result: data };
   },
 
+  // ============================================================
+  // ✅ D. generateImage: 3단계 폴백 체인
+  // 1차: Gemini Imagen → 2차: Pollinations → 3차: 로컬 SVG 그라데이션
+  // ============================================================
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
+    // 1차: Gemini Imagen
     try {
       const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
       if (imgDataUrl) return imgDataUrl;
     } catch {}
+
+    // 2차: Pollinations.ai
     try {
       const url = await generateWithPollinationsImg(slideTitle, slideContent);
       if (url) return url;
     } catch {}
-    throw new Error('이미지 생성에 실패했습니다. 잠시 후 다시 시도하거나 직접 이미지를 업로드해주세요.');
+
+    // 3차: ✅ 로컬 SVG 그라데이션 (항상 성공 보장)
+    return generateLocalGradient(slideTitle);
   },
 
   async analyzeInfographic(content: string[]) {
