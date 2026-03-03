@@ -1,5 +1,5 @@
 // ============================================================
-// ai-service.ts  —  전체 코드 (최종)
+// ai-service.ts  —  전체 코드 (차트/테이블/KPI 균형 배분 강화)
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -198,7 +198,7 @@ const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
 function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
   if (index === 0) return 'title';
   if (index === total - 1) return 'summary';
-  const lower = (raw || 'content').toLowerCase().replace(/[_\s-]/g, '');
+  const lower = (raw || 'content').toLowerCase().replace(/[_\\s-]/g, '');
   if (ALLOWED_SLIDE_TYPES.includes(lower as AllowedSlideType))
     return lower as AllowedSlideType;
   return TYPE_ALIAS_MAP[lower] ?? 'content';
@@ -335,7 +335,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
-  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const mdMatch = cleanText.match(/```(?:json)?\\s*([\\s\\S]*?)\\s*```/);
   if (mdMatch) cleanText = mdMatch[1].trim();
 
   const tryParse = (str: string) => {
@@ -368,11 +368,11 @@ function extractJSON(text: string): any | null {
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
       let braces   = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
-      let brackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
-      repaired = repaired.replace(/,\s*$/, "");
+      let brackets = (repaired.match(/\\[/g) || []).length - (repaired.match(/\\]/g) || []).length;
+      repaired = repaired.replace(/,\\s*$/, "");
       while (brackets > 0) { repaired += "]"; brackets--; }
       while (braces   > 0) { repaired += "}"; braces--;   }
-      repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+      repaired = repaired.replace(/,\\s*([\\]}])/g, "$1");
       return tryParse(repaired);
     }
   } catch {}
@@ -524,7 +524,7 @@ function generateWithPollinationsImg(
 // ══════════════════════════════════════════════════════════════
 export const aiService = {
 
-  // ── 목차 생성 ────────────────────────────────────────────────
+  // ── 목차 생성 (차트/테이블/KPI 균형 강화) ─────────────────────
   async getOutline(body: any) {
     const volume      = body.settings?.volume     || "standard";
     const difficulty  = body.settings?.difficulty || "medium";
@@ -537,34 +537,48 @@ export const aiService = {
       body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}`     : '',
       body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}`     : '',
       body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean).join('\\n');
 
     const systemInstruction = getSystemPromptCore(difficulty);
+    
+    // 🔥 **핵심 변화: 타입 배분 강제 규칙 추가**
     const userPrompt = `당신은 전문 발표 기획자입니다. 아래 원본 데이터를 꼼꼼히 읽고 핵심 내용을 파악하여 발표 목차를 설계하세요.
 
 [📄 원본 데이터 — 반드시 전체 내용을 파악하고 활용하세요]
 ${fileDataStr}
 
-${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
+${meetingContext ? `[📋 발표 맥락]\\n${meetingContext}` : ''}
 
 [🔥 목차 설계 절대 규칙]
 1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline})
 2. 슬라이드 타입은 반드시 아래 12개 중 하나만 사용:
    title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary
-3. 슬라이드 1번 type = 반드시 "title"
-4. 슬라이드 2번 type = 반드시 "agenda" (4장 이상)
-5. 마지막 슬라이드 type = 반드시 "summary"
-6. 타입 배분 기준:
+
+3. **필수 타입 배분 규칙 (반드시 준수):**
+   - ${targetCount >= 8 ? '최소 1개 이상의 "chart" 슬라이드 (수치/추이 데이터 시각화)' : ''}
+   - ${targetCount >= 8 ? '최소 1개 이상의 "kpi" 슬라이드 (핵심 지표 대시보드)' : ''}
+   - ${targetCount >= 13 ? '최소 1개 이상의 "table" 슬라이드 (상세 데이터 표)' : ''}
+   - ${targetCount >= 13 ? '최소 1개 이상의 "compare" 슬라이드 (전후 비교, AS-IS/TO-BE)' : ''}
+   - "content" 타입은 전체의 40% 이하로 제한 (다양한 타입 활용 필수)
+
+4. 슬라이드 1번 type = 반드시 "title"
+5. 슬라이드 2번 type = 반드시 "agenda" (4장 이상일 때)
+6. 마지막 슬라이드 type = 반드시 "summary"
+
+7. **타입 선택 기준 (원본 데이터 기반 판단):**
    - 수치/통계 데이터 → "chart" 또는 "kpi"
    - 단계·절차·순서  → "process"
    - 비교·대조       → "compare"
    - 일정·로드맵     → "timeline"
    - 표 형태 데이터  → "table"
    - 핵심 항목 나열  → "cards"
-   - 텍스트 설명     → "content"
-7. title은 문서의 실제 핵심 주제를 반영하세요.
-8. description에는 해당 슬라이드에서 다룰 구체적 내용을 2~3문장으로 작성하세요.
-9. outline 배열 길이가 정확히 ${targetCount}개가 아니면 오답입니다.
+   - 텍스트 설명     → "content" (최소한으로)
+
+8. title은 문서의 실제 핵심 주제를 반영하세요.
+9. description에는 해당 슬라이드에서 다룰 구체적 내용을 2~3문장으로 작성하세요.
+10. outline 배열 길이가 정확히 ${targetCount}개가 아니면 오답입니다.
+
+**중요: 원본 데이터에 수치가 있으면 반드시 chart/kpi/table 중 하나로 표현하세요. content로 텍스트 나열하지 마세요.**
 
 반드시 아래 JSON 형식만 반환:
 {
@@ -620,7 +634,7 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
     return { title: data.title ?? "새 발표 자료", outline: data.outline };
   },
 
-  // ── 슬라이드 생성 ────────────────────────────────────────────
+  // ── 슬라이드 생성 (다양한 타입 실제 데이터 채우기 강화) ─────────
   async generatePresentation(body: any) {
     const difficulty = body.settings?.difficulty || "medium";
     const volume     = body.settings?.volume     || "standard";
@@ -631,16 +645,18 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
     const typeGuide = (body.approvedOutline?.outline || [])
       .map((item: any, i: number) =>
         `  ${i + 1}번 "${item.title}" → type="${item.type}" | 주제: ${item.description || '없음'}`
-      ).join('\n');
+      ).join('\\n');
 
     const meetingContext = [
       body.meetingInfo?.week       ? `보고 주차: ${body.meetingInfo.week}`     : '',
       body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}`     : '',
       body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}`     : '',
       body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean).join('\\n');
 
     const systemInstruction = getSystemPromptCore(difficulty);
+    
+    // 🔥 **핵심 변화: 각 타입별 실제 데이터 채우기 강조**
     const userPrompt = `${SLIDE_SCHEMA}
 
 당신은 전문 발표자료 작성 전문가입니다. 아래 원본 데이터를 꼼꼼히 읽고 각 슬라이드에 실제 내용을 채워 넣으세요.
@@ -648,7 +664,7 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
 [📄 원본 데이터 — 반드시 전체 내용을 파악하고 활용하세요]
 ${truncateFileData(body.fileData)}
 
-${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
+${meetingContext ? `[📋 발표 맥락]\\n${meetingContext}` : ''}
 
 [📋 구성안 — 각 슬라이드의 type과 주제는 반드시 준수하세요]
 ${typeGuide}
@@ -656,28 +672,55 @@ ${typeGuide}
 [🔥 슬라이드 작성 절대 규칙]
 1. slides 배열 길이 = 반드시 정확히 ${slideCount}개.
 2. 각 슬라이드 type은 구성안 그대로 고정. 절대 변경 금지.
-3. 원본 데이터의 실제 내용, 수치, 키워드를 그대로 활용하세요.
-4. 내용이 없는 슬라이드(빈 content 배열)는 절대 생성 금지.
+3. **원본 데이터의 실제 내용, 수치, 키워드를 그대로 활용하세요.**
+4. 내용이 없는 슬라이드(빈 content 배열, 빈 chartData)는 절대 생성 금지.
 
-[📐 타입별 작성 기준]
+[📐 타입별 작성 기준 — 실제 데이터 필수]
+- **chart** : 
+  * chartData.type은 bar/line/pie/area 중 데이터 특성에 맞게 선택
+  * labels와 datasets에 **원본 데이터의 실제 수치** 반드시 입력
+  * 예시: {"type":"bar","labels":["1Q","2Q","3Q"],"datasets":[{"label":"생산량(톤)","data":[1200,1350,1480]}]}
+  
+- **table** : 
+  * headers 3~5개, rows는 원본 데이터 기반 3~8행
+  * **실제 항목명과 수치** 반드시 입력
+  * 예시: {"headers":["항목","현황","목표"],"rows":[["생산량","1,200톤","1,500톤"],["불량률","2.1%","1.5%"]]}
+  
+- **kpi** : 
+  * keyMetrics 3~6개, **실제 수치와 trend(up/down/flat)** 반드시 포함
+  * 예시: [{"label":"생산량","value":"1,200톤","trend":"up"},{"label":"불량률","value":"2.1%","trend":"down"}]
+  
+- **compare** : 
+  * leftTitle/rightTitle 명확히 (예: AS-IS/TO-BE, 기존/개선)
+  * leftItems/rightItems 각 3~5개, **대조되는 실제 내용** 입력
+  
+- **process** : 
+  * content에 단계 순서대로 3~6개 (번호 불필요, 자동 표시)
+  * 각 단계는 **원본 데이터의 실제 프로세스** 반영
+  
+- **timeline** : 
+  * milestones 3~7개, **실제 날짜와 state(done/next/todo)** 반드시 포함
+  * 예시: [{"label":"착수","date":"2025.01","state":"done"},{"label":"완료","date":"2025.12","state":"next"}]
+  
+- content : content에 핵심 불릿 3~5개, 각 25자 이내 명사형 종결
+- cards   : content 3~6개, 각 항목은 "제목: 설명" 형식 권장
 - title   : content[0]에 부제목(한 줄 요약), content[1]에 발표자/부서명
 - agenda  : content에 실제 목차 항목 (구성안 title들 활용)
-- content : content에 핵심 불릿 3~5개, 각 25자 이내 명사형 종결
-- process : content에 단계 순서대로 3~6개 (번호 불필요, 자동 표시)
-- compare : leftTitle/rightTitle 명확히, leftItems/rightItems 각 3~5개
-- chart   : chartData.type은 bar/line/pie/area 중 적절한 것, 실제 수치 활용
-- table   : headers 3~5개, rows는 원본 데이터 기반 3~8행
-- kpi     : keyMetrics 3~6개, 실제 수치와 trend(up/down/flat) 포함
-- cards   : content 3~6개, 각 항목은 "제목: 설명" 형식 권장
-- timeline: milestones 3~7개, date와 state(done/next/todo) 반드시 포함
 - summary : content에 핵심 결론 3~5개, 행동 권고사항 포함
-- notes   : 각 슬라이드에 발표자 스크립트 2~4문장 반드시 작성
 
 [✅ 가독성 기준]
 - 제목: 20자 이내, 핵심 키워드 포함
 - content 항목: 25자 이내, 명사형 종결
 - 숫자/퍼센트/단위 적극 활용 (예: "생산량 15% 향상", "불량률 2.1%→1.5%")
 - 전문 용어는 괄호로 영문 병기 (예: "열관성 (Thermal Inertia)")
+
+[⚠️ 절대 금지사항]
+- chart 슬라이드인데 chartData가 null이거나 빈 배열
+- table 슬라이드인데 headers나 rows가 비어있음
+- kpi 슬라이드인데 keyMetrics가 빈 배열
+- "데이터 없음", "추후 입력" 같은 placeholder 텍스트
+
+**원본 데이터에 수치가 있으면 반드시 해당 슬라이드에 실제로 입력하세요!**
 
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
@@ -735,6 +778,7 @@ ${typeGuide}
 [규칙]
 - type은 "${body.currentSlide?.type}"으로 고정. 변경 금지.
 - 해당 type의 필수 필드를 반드시 포함하세요.
+- chart/table/kpi 타입이면 실제 데이터를 반드시 입력하세요.
 JSON만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
@@ -842,24 +886,16 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
   },
 
   // ── AI 이미지 생성 ───────────────────────────────────────────
-  // 1순위: Gemini Imagen API (base64 직접 반환, CORS 없음)
-  // 2순위: Pollinations img 태그 + Canvas 변환 (CORS 우회)
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    // 1순위: Gemini Imagen
     try {
       const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
       if (imgDataUrl) return imgDataUrl;
-    } catch {
-      // 실패 시 2순위로
-    }
+    } catch {}
 
-    // 2순위: Pollinations
     try {
       const url = await generateWithPollinationsImg(slideTitle, slideContent);
       if (url) return url;
-    } catch {
-      // 완전 실패
-    }
+    } catch {}
 
     throw new Error(
       '이미지 생성에 실패했습니다. 잠시 후 다시 시도하거나 직접 이미지를 업로드해주세요.'
