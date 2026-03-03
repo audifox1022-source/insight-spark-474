@@ -1,5 +1,10 @@
 // ============================================================
-// ai-service.ts  —  전체 코드 (차트/테이블/KPI 균형 배분 강화)
+// ai-service.ts  —  전체 코드 (3~5번 안정성 수정 반영)
+// [수정 내역]
+//   3. extractJSON: 문자열 리터럴 내부의 괄호를 무시하는 안전한 카운팅 로직
+//   4. normalizeSlide: type 강제 변환 후 approvedOutline 덮어쓰기 시
+//      chartData/tableData/keyMetrics 상태 불일치 방지
+//   5. truncateFileData: 멀티바이트 안전 슬라이싱 (한글 등 깨짐 방지)
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -116,10 +121,35 @@ state는 "done" | "next" | "todo" 중 하나.
 7. content 배열 안에는 순수 문자열만 허용. JSON 객체 금지.
 `;
 
+// ============================================================
+// [수정 5] truncateFileData: 멀티바이트 안전 슬라이싱
+//   기존: JSON.stringify(fileData).slice(0, 80000)
+//   문제: 한글 등 멀티바이트 문자 경계에서 잘리면 불완전한 문자열이 삽입됨
+//   해결: TextEncoder/TextDecoder를 이용해 바이트 단위로 안전하게 자르고
+//         불완전한 끝 문자를 제거한 뒤 반환
+// ============================================================
+const MAX_FILE_BYTES = 80_000;
+
 function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
-  if (typeof fileData === "string") return fileData.slice(0, 80000);
-  return JSON.stringify(fileData).slice(0, 80000);
+
+  const raw = typeof fileData === "string"
+    ? fileData
+    : JSON.stringify(fileData);
+
+  // 바이트 길이가 제한 이내면 그대로 반환
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(raw);
+  if (encoded.length <= MAX_FILE_BYTES) return raw;
+
+  // 제한 바이트만큼 잘라낸 뒤 TextDecoder로 복원
+  // fatal: false 옵션으로 불완전한 멀티바이트 시퀀스를 U+FFFD로 대체하지 않고 버림
+  const sliced  = encoded.slice(0, MAX_FILE_BYTES);
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  const decoded = decoder.decode(sliced);
+
+  // 끝이 불완전한 이스케이프 시퀀스(\u, \x 등)로 끝나는 경우 제거
+  return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
 function extractTextFromItem(item: any): string[] {
@@ -204,10 +234,16 @@ function normalizeType(raw: string, index: number, total: number): AllowedSlideT
   return TYPE_ALIAS_MAP[lower] ?? 'content';
 }
 
+// ============================================================
+// [수정 4] normalizeSlide: type 강등(chart→content 등) 발생 시
+//   해당 타입의 전용 필드를 반드시 초기화해 불일치 상태 방지
+//   핵심 변경: 각 타입 파싱 블록 끝에서 type이 변경됐을 경우
+//   원래 타입의 전용 필드(chartData/tableData/keyMetrics 등)를 명시적으로 초기화
+// ============================================================
 function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
-      id:         `slide-${Math.random().toString(36).substr(2, 9)}`,
+      id:         `slide-${Math.random().toString(36).substring(2, 11)}`,
       type:       index === 0 ? 'title' : index === total - 1 ? 'summary' : 'content',
       title:      "",
       content:    [],
@@ -217,7 +253,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     };
   }
 
-  s.id    = s.id    || `slide-${Math.random().toString(36).substr(2, 9)}`;
+  s.id    = s.id    || `slide-${Math.random().toString(36).substring(2, 11)}`;
   s.title = s.title || "";
   s.type  = normalizeType(s.type || 'content', index, total);
 
@@ -230,10 +266,13 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap(extractTextFromItem);
 
+  // ── chart ───────────────────────────────────────────────
   if (s.type === 'chart') {
     const raw = s.chartData || {};
+    let parsedChartData: any = null;
+
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
-      s.chartData = {
+      parsedChartData = {
         chartType:    raw.chartType    ?? raw.type ?? 'bar',
         title:        raw.title        ?? '',
         data:         raw.data,
@@ -246,7 +285,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     } else if (Array.isArray(raw.labels) && raw.labels.length > 0 && Array.isArray(raw.datasets)) {
       const primaryDs   = raw.datasets[0];
       const secondaryDs = raw.datasets[1];
-      s.chartData = {
+      parsedChartData = {
         chartType: (
           raw.type === 'line' ? 'line' :
           raw.type === 'pie'  ? 'pie'  :
@@ -264,49 +303,80 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
         xAxisLabel:   raw.xAxisLabel ?? undefined,
         yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
-    } else {
-      s.chartData = null;
-      s.type = 'content';
     }
-  } else {
-    s.chartData = null;
-  }
 
-  if (s.type === 'table') {
+    if (parsedChartData) {
+      s.chartData  = parsedChartData;
+      // [수정 4] chart 확정 시 다른 타입 전용 필드 초기화
+      s.tableData  = { headers: [], rows: [] };
+      s.keyMetrics = [];
+    } else {
+      // chartData 파싱 실패 → content로 강등, 모든 전용 필드 초기화
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
+      s.keyMetrics = [];
+    }
+
+  // ── table ───────────────────────────────────────────────
+  } else if (s.type === 'table') {
     s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
     s.tableData.rows    = Array.isArray(s.tableData.rows)    ? s.tableData.rows    : [];
-    if (s.tableData.headers.length === 0) {
-      s.type      = 'content';
-      s.tableData = { headers: [], rows: [] };
-    }
-  } else {
-    s.tableData = { headers: [], rows: [] };
-  }
 
-  if (s.type === 'kpi') {
+    if (s.tableData.headers.length > 0) {
+      // [수정 4] table 확정 시 다른 타입 전용 필드 초기화
+      s.chartData  = null;
+      s.keyMetrics = [];
+    } else {
+      // headers 없음 → content로 강등
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
+      s.keyMetrics = [];
+    }
+
+  // ── kpi ────────────────────────────────────────────────
+  } else if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
-    s.keyMetrics = Array.isArray(rawMetrics)
+    const parsedMetrics = Array.isArray(rawMetrics)
       ? rawMetrics.map((m: any) => ({
           label: m.label || m.name  || '',
           value: m.value || m.score || '',
           trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
       : [];
-    if (s.keyMetrics.length === 0) s.type = 'content';
-  } else {
-    s.keyMetrics = [];
-  }
 
-  if (s.type === 'compare') {
+    if (parsedMetrics.length > 0) {
+      s.keyMetrics = parsedMetrics;
+      // [수정 4] kpi 확정 시 다른 타입 전용 필드 초기화
+      s.chartData = null;
+      s.tableData = { headers: [], rows: [] };
+    } else {
+      // keyMetrics 없음 → content로 강등
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
+      s.keyMetrics = [];
+    }
+
+  // ── compare ────────────────────────────────────────────
+  } else if (s.type === 'compare') {
     s.leftItems  = Array.isArray(s.leftItems)  ? s.leftItems  : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
     s.leftTitle  = s.leftTitle  || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
-    if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
-  }
 
-  if (s.type === 'timeline') {
+    if (s.leftItems.length === 0 && s.rightItems.length === 0) {
+      s.type = 'content';
+    }
+    // [수정 4] compare는 chart/table/kpi 전용 필드와 무관하므로 항상 초기화
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
+    s.keyMetrics = [];
+
+  // ── timeline ───────────────────────────────────────────
+  } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
           label: m.label || m.title || m.name || '',
@@ -314,16 +384,72 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
           state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
-    if (s.milestones.length === 0) s.type = 'content';
-  }
 
-  if (s.type === 'quote') {
+    if (s.milestones.length === 0) s.type = 'content';
+    // [수정 4] timeline도 전용 필드와 무관하므로 항상 초기화
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
+    s.keyMetrics = [];
+
+  // ── quote ──────────────────────────────────────────────
+  } else if (s.type === 'quote') {
     s.text   = s.text   || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
+
     if (!s.text) s.type = 'content';
+    // [수정 4] quote도 전용 필드 초기화
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
+    s.keyMetrics = [];
+
+  // ── 그 외 (title / agenda / content / process / cards / summary) ──
+  } else {
+    // [수정 4] 나머지 타입은 전용 필드가 없으므로 일괄 초기화
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
+    s.keyMetrics = [];
   }
 
   return s;
+}
+
+// ============================================================
+// [수정 3] extractJSON: 문자열 리터럴 내부의 괄호를 무시하는
+//   안전한 괄호 카운팅 로직
+//   기존: 단순 정규식 카운트 → 문자열 안의 { [ 까지 합산되어 오파싱
+//   해결: 문자 단위로 순회하며 문자열 내부("..." / '...')는 건너뜀
+//         이스케이프된 따옴표(\", \')도 정확히 처리
+// ============================================================
+function countUnbalancedBrackets(str: string): { braces: number; brackets: number } {
+  let braces   = 0;
+  let brackets = 0;
+  let inString = false;
+  let strChar  = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const ch   = str[i];
+    const prev = i > 0 ? str[i - 1] : '';
+
+    if (inString) {
+      // 이스케이프 문자 직후는 건너뜀
+      if (prev === '\\') continue;
+      if (ch === strChar) inString = false;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      inString = true;
+      strChar  = ch;
+      continue;
+    }
+
+    if      (ch === '{') braces++;
+    else if (ch === '}') braces--;
+    else if (ch === '[') brackets++;
+    else if (ch === ']') brackets--;
+  }
+
+  return { braces, brackets };
 }
 
 function extractJSON(text: string): any | null {
@@ -359,14 +485,26 @@ function extractJSON(text: string): any | null {
       firstBrace !== -1 && firstBracket !== -1
         ? Math.min(firstBrace, firstBracket)
         : Math.max(firstBrace, firstBracket);
+
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
-      let braces   = (repaired.match(/{/g) || []).length - (repaired.match(/}/g) || []).length;
-      let brackets = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
+
+      // 끝에 붙은 trailing comma 제거
       repaired = repaired.replace(/,\s*$/, "");
-      while (brackets > 0) { repaired += "]"; brackets--; }
-      while (braces   > 0) { repaired += "}"; braces--;   }
+
+      // [수정 3] 문자열 리터럴 안의 괄호를 무시하는 안전한 카운팅
+      const { braces, brackets } = countUnbalancedBrackets(repaired);
+
+      // 부족한 닫힘 괄호 보충
+      repaired += "]".repeat(Math.max(0, brackets));
+      repaired += "}".repeat(Math.max(0, braces));
+
+      // 열린 괄호가 더 많은 (음수) 경우: 앞에서 시작점을 잘못 찾은 것이므로 포기
+      if (brackets < 0 || braces < 0) return null;
+
+      // 배열/객체 사이의 trailing comma 제거
       repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+
       return tryParse(repaired);
     }
   } catch {}
@@ -690,13 +828,20 @@ ${typeGuide}
       data.slides = data.slides.slice(0, approvedOutline.length);
     }
 
-    data.slides = data.slides.map((s: any, i: number) => ({
-      ...s,
-      slideNumber: i + 1,
-      type: approvedOutline[i]
+    // [수정 4 연계] approvedOutline 타입으로 덮어쓸 때
+    //   normalizeSlide를 다시 실행해 전용 필드 상태를 재동기화
+    data.slides = data.slides.map((s: any, i: number) => {
+      const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
-        : s.type,
-    }));
+        : s.type;
+
+      // 타입이 실제로 바뀌는 경우에만 재정규화
+      if (outlineType !== s.type) {
+        return normalizeSlide({ ...s, type: outlineType }, i, total);
+      }
+
+      return { ...s, slideNumber: i + 1 };
+    });
 
     return { presentation: data };
   },
