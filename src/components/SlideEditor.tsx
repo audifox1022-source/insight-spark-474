@@ -1,11 +1,11 @@
 // ============================================================
-// SlideEditor.tsx  —  전체 코드 (수정 완료)
+// SlideEditor.tsx  —  최종 전체 코드
 // 수정사항:
-// 1. onOpenChat → usePresentation의 openChatWithSlide 연동으로 currentSlide 전달
-// 2. SlideEditorProps에 onOpenChatWithSlide 추가 (선택적, 하위호환 유지)
-// 3. slideTypeLabels에 compare/timeline/quote/kpi/content 타입 추가
-// 4. SelectContent에 누락된 슬라이드 타입 항목 추가
-// 5. 불필요한 ChevronUp, ChevronDown, Square 미사용 아이콘 정리 (경고 제거)
+// 1. onOpenChat → onOpenChatWithSlide(currentSlide) 연동
+// 2. 슬라이드 타입 compare/timeline/quote/kpi/content/table 추가
+// 3. 미사용 임포트 제거 (Square, ChevronUp, ChevronDown, ChevronRight)
+// 4. fetchUnsplashImage → loremflickr 교체 (source.unsplash.com 서비스종료)
+// 5. 한국어 키워드 → 영어 매핑 테이블 추가
 // ============================================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,42 +46,41 @@ import { SlideImageEditor } from '@/components/SlideImageEditor';
 
 // ── 타입 ──────────────────────────────────────────────────────
 interface SlideEditorProps {
-  presentation:          Presentation;
-  onReset:               () => void;
-  onUpdateSlide:         (index: number, updated: Partial<Slide>) => void;
-  onAddSlide:            (afterIndex: number) => void;
-  onDeleteSlide:         (index: number) => void;
-  onDuplicateSlide:      (index: number) => void;
-  onMoveSlide:           (from: number, to: number) => void;
-  onUpdateTitle:         (title: string) => void;
-  onSave:                () => void;
-  isSaving:              boolean;
-  onRegenerateSlide:     (slideIndex: number, instruction?: string) => Promise<void>;
-  onOpenChat:            () => void;                              // 기존 호환용
-  onOpenChatWithSlide?:  (slideIndex: number) => void;           // ✅ 신규: 슬라이드 인덱스 전달
-  onOpenReview:          () => void;
-  onReviewAndFix:        () => Promise<void>;
-  isFixing:              boolean;
-  onChangePersona:       (slideIndex: number, persona: string) => Promise<void>;
-  onCycleLayout:         (slideIndex: number) => void;
+  presentation:             Presentation;
+  onReset:                  () => void;
+  onUpdateSlide:            (index: number, updated: Partial<Slide>) => void;
+  onAddSlide:               (afterIndex: number) => void;
+  onDeleteSlide:            (index: number) => void;
+  onDuplicateSlide:         (index: number) => void;
+  onMoveSlide:              (from: number, to: number) => void;
+  onUpdateTitle:            (title: string) => void;
+  onSave:                   () => void;
+  isSaving:                 boolean;
+  onRegenerateSlide:        (slideIndex: number, instruction?: string) => Promise<void>;
+  onOpenChat:               () => void;
+  onOpenChatWithSlide?:     (slideIndex: number) => void; // ✅ 슬라이드 인덱스 전달용
+  onOpenReview:             () => void;
+  onReviewAndFix:           () => Promise<void>;
+  isFixing:                 boolean;
+  onChangePersona:          (slideIndex: number, persona: string) => Promise<void>;
+  onCycleLayout:            (slideIndex: number) => void;
   updatePresentationMaster: (updates: Partial<Presentation>) => void;
-  isGeneratingImage?:    boolean;
-  generateSlideImage?:   (slideIndex: number) => Promise<void>;
+  isGeneratingImage?:       boolean;
+  generateSlideImage?:      (slideIndex: number) => Promise<void>;
 }
 
 // ── 슬라이드 타입 메타데이터 ─────────────────────────────────
-// ✅ 수정: compare/timeline/quote/kpi/content 타입 추가
 const slideTypeIcons: Record<string, React.ReactNode> = {
-  title:    <Layout        className="w-3.5 h-3.5" />,
-  content:  <Layout        className="w-3.5 h-3.5" />,
-  data:     <BarChart3     className="w-3.5 h-3.5" />,
-  chart:    <BarChart3     className="w-3.5 h-3.5" />,
-  kpi:      <Target        className="w-3.5 h-3.5" />,
-  action:   <Target        className="w-3.5 h-3.5" />,
-  summary:  <ClipboardList className="w-3.5 h-3.5" />,
-  compare:  <Layers        className="w-3.5 h-3.5" />,
-  timeline: <Layers        className="w-3.5 h-3.5" />,
-  quote:    <MessageSquare className="w-3.5 h-3.5" />,
+  title:    <Layout          className="w-3.5 h-3.5" />,
+  content:  <Layout          className="w-3.5 h-3.5" />,
+  data:     <BarChart3       className="w-3.5 h-3.5" />,
+  chart:    <BarChart3       className="w-3.5 h-3.5" />,
+  kpi:      <Target          className="w-3.5 h-3.5" />,
+  action:   <Target          className="w-3.5 h-3.5" />,
+  summary:  <ClipboardList   className="w-3.5 h-3.5" />,
+  compare:  <Layers          className="w-3.5 h-3.5" />,
+  timeline: <Layers          className="w-3.5 h-3.5" />,
+  quote:    <MessageSquare   className="w-3.5 h-3.5" />,
   table:    <TableProperties className="w-3.5 h-3.5" />,
 };
 const slideTypeLabels: Record<string, string> = {
@@ -111,10 +110,63 @@ const slideTypeBadgeColors: Record<string, string> = {
   table:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
-// ── Unsplash 이미지 검색 ─────────────────────────────────────
-async function fetchUnsplashImage(query: string): Promise<string> {
-  const encoded = encodeURIComponent(query);
-  return `https://source.unsplash.com/1200x630/?${encoded}`;
+// ── ✅ 한국어 키워드 → 영어 매핑 ────────────────────────────
+const KEYWORD_MAP: Record<string, string> = {
+  '야간': 'night factory',
+  '공정': 'manufacturing process',
+  '에너지': 'energy power',
+  '차트': 'chart data analytics',
+  '목차': 'agenda meeting',
+  '결론': 'conclusion business',
+  'ESG': 'sustainability green environment',
+  'KPI': 'performance metrics dashboard',
+  '자동화': 'automation robot technology',
+  '전략': 'strategy planning business',
+  '생산': 'production factory',
+  '품질': 'quality control',
+  '안전': 'safety industrial',
+  '비용': 'cost finance',
+  '매출': 'revenue sales',
+  '고객': 'customer service',
+  '데이터': 'data analysis',
+  '기술': 'technology innovation',
+  '팀': 'team collaboration',
+  '프로젝트': 'project management',
+  '보고': 'report presentation',
+  '개선': 'improvement process',
+  '현황': 'status overview',
+  '계획': 'plan roadmap',
+  '분석': 'analysis research',
+  '성과': 'achievement performance',
+  '표지': 'cover title presentation',
+  '요약': 'summary executive',
+  '비교': 'comparison versus',
+  '타임라인': 'timeline roadmap',
+};
+
+// ── ✅ 이미지 검색 함수 (loremflickr 사용) ──────────────────
+// source.unsplash.com은 2023년 서비스 종료됨 → loremflickr로 교체
+async function fetchSlideImage(query: string): Promise<string> {
+  // 한국어 매핑 적용
+  let keyword = 'business professional';
+  for (const [ko, en] of Object.entries(KEYWORD_MAP)) {
+    if (query.includes(ko)) { keyword = en; break; }
+  }
+
+  // 매핑이 없어도 영문 단어가 있으면 그대로 사용
+  const hasEnglish = /[a-zA-Z]{3,}/.test(query);
+  if (hasEnglish && /[가-힣]/.test(keyword)) {
+    keyword = query
+      .split(' ')
+      .filter(w => /[a-zA-Z]{2,}/.test(w))
+      .slice(0, 3)
+      .join(',') || 'business';
+  }
+
+  // loremflickr: 키워드 기반 실제 사진 무료 제공, API 키 불필요
+  // ?lock=타임스탬프 → 같은 키워드여도 매번 다른 이미지 반환
+  const cacheBust = Date.now();
+  return `https://loremflickr.com/1200/630/${encodeURIComponent(keyword)}?lock=${cacheBust}`;
 }
 
 // ── 썸네일 컴포넌트 ───────────────────────────────────────────
@@ -188,7 +240,7 @@ export function SlideEditor({
   presentation, onReset, onUpdateSlide, onAddSlide,
   onDeleteSlide, onDuplicateSlide, onMoveSlide, onUpdateTitle,
   onSave, isSaving, onRegenerateSlide,
-  onOpenChat, onOpenChatWithSlide,   // ✅ 두 가지 모두 받음
+  onOpenChat, onOpenChatWithSlide,
   onOpenReview, onReviewAndFix, isFixing,
   onChangePersona, onCycleLayout, updatePresentationMaster,
   isGeneratingImage = false,
@@ -267,18 +319,18 @@ export function SlideEditor({
     finally { setIsRegenerating(false); }
   };
 
-  // ✅ 수정: onOpenChatWithSlide 우선, 없으면 onOpenChat 폴백
+  // ✅ onOpenChatWithSlide 우선 사용, 없으면 onOpenChat 폴백
   const handleOpenChat = () => {
     if (onOpenChatWithSlide) onOpenChatWithSlide(currentSlide);
     else onOpenChat();
   };
 
-  // ── 이미지 자동 검색 (Unsplash) ─────────────────────────────
+  // ✅ 이미지 자동 검색 (loremflickr)
   const handleGenerateImage = async () => {
     setIsImgLoading(true);
     try {
-      const keyword = [slide.title, ...(slide.content ?? [])].join(' ').slice(0, 100);
-      const imageUrl = await fetchUnsplashImage(keyword);
+      const keyword = [slide.title, ...(slide.content ?? [])].join(' ').slice(0, 80);
+      const imageUrl = await fetchSlideImage(keyword);
       onUpdateSlide(currentSlide, { imageUrl });
       toast.success('이미지 적용 완료!');
     } catch {
@@ -320,7 +372,7 @@ export function SlideEditor({
     flat: <Minus        className="w-4 h-4 text-muted-foreground" />,
   };
 
-  // ── 다중 선택 ────────────────────────────────────────────────
+  // ── 다중 선택 핸들러 ─────────────────────────────────────────
   const toggleSelectionMode = () => {
     setSelectionMode(!selectionMode);
     setSelectedSlides(new Set());
@@ -416,13 +468,14 @@ export function SlideEditor({
                     const file = e.target.files?.[0];
                     if (file) {
                       const reader = new FileReader();
-                      reader.onload = (e) => updatePresentationMaster({ logoUrl: e.target?.result as string });
+                      reader.onload = (ev) => updatePresentationMaster({ logoUrl: ev.target?.result as string });
                       reader.readAsDataURL(file);
                     }
                   }}
                 />
                 {presentation.logoUrl && (
-                  <Button variant="ghost" size="sm" className="w-full mt-2 h-7 text-xs text-destructive hover:bg-destructive/10"
+                  <Button variant="ghost" size="sm"
+                    className="w-full mt-2 h-7 text-xs text-destructive hover:bg-destructive/10"
                     onClick={() => updatePresentationMaster({ logoUrl: undefined })}>
                     로고 삭제
                   </Button>
@@ -572,7 +625,7 @@ export function SlideEditor({
                 transition={{ duration: 0.15 }}
                 className="bg-card rounded-2xl border border-border shadow-2xl overflow-hidden"
               >
-                {/* ✅ 일괄수정 패널 */}
+                {/* 일괄수정 패널 */}
                 {selectionMode && (
                   <div className="p-5 border-b border-border bg-primary/5">
                     <div className="flex items-center gap-2 mb-3">
@@ -629,7 +682,6 @@ export function SlideEditor({
                     <span className="text-xs font-mono opacity-60">
                       {String(slide.slideNumber ?? currentSlide + 1).padStart(2, '0')}
                     </span>
-                    {/* ✅ 수정: 모든 슬라이드 타입 포함 */}
                     <Select
                       value={slide.type}
                       onValueChange={(v) => onUpdateSlide(currentSlide, { type: v as Slide['type'] })}
@@ -643,6 +695,7 @@ export function SlideEditor({
                         ))}
                       </SelectContent>
                     </Select>
+
                     <div className="ml-auto flex items-center gap-1">
                       <Button size="sm" variant="ghost"
                         className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
@@ -654,24 +707,23 @@ export function SlideEditor({
                       {/* 페르소나 드롭다운 */}
                       <div className="relative group/persona pb-1 -mb-1">
                         <Button size="sm" variant="ghost"
-                          className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1" title="스타일">
+                          className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                          title="스타일">
                           <Wand2 className="w-3.5 h-3.5" />
                           <span className="hidden xl:inline">스타일</span>
                         </Button>
                         <div className="absolute right-0 top-full mt-0 w-52 bg-card rounded-xl shadow-2xl border border-border opacity-0 invisible group-hover/persona:opacity-100 group-hover/persona:visible transition-all z-50 overflow-hidden flex flex-col">
                           <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/30">발표 스타일</div>
                           {[
-                            { id: 'jobs',     label: 'Jobs 스타일'   },
+                            { id: 'jobs',     label: 'Jobs 스타일'    },
                             { id: 'mckinsey', label: 'McKinsey 스타일' },
-                            { id: 'ceo',      label: 'CEO 스타일'    },
-                            { id: 'team',     label: '팀 발표용'     },
-                            { id: 'client',   label: '고객 제안용'   },
+                            { id: 'ceo',      label: 'CEO 스타일'     },
+                            { id: 'team',     label: '팀 발표용'      },
+                            { id: 'client',   label: '고객 제안용'    },
                           ].map((p) => (
-                            <button
-                              key={p.id}
+                            <button key={p.id}
                               onClick={() => onChangePersona(currentSlide, p.id)}
-                              className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors"
-                            >
+                              className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors">
                               {p.label}
                             </button>
                           ))}
@@ -687,7 +739,7 @@ export function SlideEditor({
                         }
                         <span className="hidden xl:inline">재생성</span>
                       </Button>
-                      {/* ✅ 수정: handleOpenChat 사용 → currentSlide 전달 */}
+                      {/* ✅ handleOpenChat → currentSlide 전달 */}
                       <Button size="sm" variant="ghost"
                         className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
                         onClick={handleOpenChat}>
@@ -797,7 +849,7 @@ export function SlideEditor({
                     </div>
                   </div>
 
-                  {/* 이미지 섹션 */}
+                  {/* ✅ 이미지 섹션 — loremflickr 사용 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
@@ -828,14 +880,16 @@ export function SlideEditor({
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">KPI 지표</span>
-                      <Button size="sm" variant="ghost" onClick={addMetric} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
+                      <Button size="sm" variant="ghost" onClick={addMetric}
+                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
                         <Plus className="w-3 h-3" />추가
                       </Button>
                     </div>
                     {slide.keyMetrics && slide.keyMetrics.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3">
                         {slide.keyMetrics.map((m, i) => (
-                          <div key={i} className="rounded-xl bg-gradient-to-br from-muted to-muted/50 border border-border p-4 group/metric relative shadow-md hover:shadow-lg transition-shadow">
+                          <div key={i}
+                            className="rounded-xl bg-gradient-to-br from-muted to-muted/50 border border-border p-4 group/metric relative shadow-md hover:shadow-lg transition-shadow">
                             <button onClick={() => removeMetric(i)}
                               className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover/metric:opacity-100 transition-opacity z-10">
                               <X className="w-3 h-3" />
@@ -846,7 +900,8 @@ export function SlideEditor({
                                 className="text-xs font-bold text-muted-foreground bg-transparent border-none outline-none w-full uppercase tracking-widest placeholder:opacity-50"
                                 placeholder="지표명"
                               />
-                              <Select value={m.trend} onValueChange={(v) => updateMetric(i, { trend: v as SlideMetric['trend'] })}>
+                              <Select value={m.trend}
+                                onValueChange={(v) => updateMetric(i, { trend: v as SlideMetric['trend'] })}>
                                 <SelectTrigger className="w-auto h-6 border-0 bg-transparent p-0 px-1 flex-shrink-0">
                                   {trendIcons[m.trend!] ?? trendIcons.flat}
                                 </SelectTrigger>
@@ -889,7 +944,7 @@ export function SlideEditor({
                   {/* 표 편집 */}
                   {slide.tableData?.headers && slide.tableData.headers.length > 0 && (
                     <div>
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5 block">
                         <TableProperties className="w-3.5 h-3.5" />표 편집
                       </span>
                       <div className="overflow-x-auto rounded-xl border border-border shadow-sm">
@@ -938,7 +993,8 @@ export function SlideEditor({
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">내용</span>
-                      <Button size="sm" variant="ghost" onClick={addBullet} className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
+                      <Button size="sm" variant="ghost" onClick={addBullet}
+                        className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary">
                         <Plus className="w-3 h-3" />추가
                       </Button>
                     </div>
@@ -965,7 +1021,9 @@ export function SlideEditor({
                         </div>
                       ))}
                       {(!slide.content || slide.content.length === 0) && (
-                        <p className="text-xs text-muted-foreground text-center py-4">내용이 없습니다. 추가 버튼을 눌러주세요.</p>
+                        <p className="text-xs text-muted-foreground text-center py-4">
+                          내용이 없습니다. 추가 버튼을 눌러주세요.
+                        </p>
                       )}
                     </div>
                     <button onClick={addBullet}
@@ -976,7 +1034,9 @@ export function SlideEditor({
 
                   {/* 발표자 노트 */}
                   <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 p-4 border border-amber-200 dark:border-amber-800/40">
-                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 uppercase tracking-widest">발표자 노트</p>
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-2 uppercase tracking-widest">
+                      발표자 노트
+                    </p>
                     <Textarea
                       value={slide.notes ?? ''}
                       onChange={(e) => onUpdateSlide(currentSlide, { notes: e.target.value })}
@@ -985,6 +1045,7 @@ export function SlideEditor({
                       rows={2}
                     />
                   </div>
+
                 </div>
               </motion.div>
             </AnimatePresence>
