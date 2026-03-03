@@ -10,7 +10,6 @@ import {
   Target,
   Table as TableIcon,
   Zap,
-  Star,
 } from 'lucide-react';
 import {
   BarChart,
@@ -65,6 +64,10 @@ interface Slide {
   chartData?: SlideChartData;
   tableData?: { headers?: string[]; rows?: string[][] };
   keyMetrics?: SlideMetric[];
+  leftTitle?: string;
+  rightTitle?: string;
+  leftItems?: string[];
+  rightItems?: string[];
   slideNumber?: number;
   titleSizeScale?: number;
   contentSizeScale?: number;
@@ -73,6 +76,9 @@ interface Slide {
   imageUrl?: string;
   layout?: string;
   notes?: string;
+  milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo' }[];
+  text?: string;
+  author?: string;
 }
 
 interface ScaledSlideProps {
@@ -110,7 +116,15 @@ const P = {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
+    <div
+      style={{
+        background: '#1e293b',
+        color: '#fff',
+        borderRadius: 8,
+        padding: '8px 14px',
+        fontSize: 13,
+      }}
+    >
       <div style={{ marginBottom: 4, fontWeight: 700, opacity: 0.7 }}>{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ color: p.color }}>
@@ -147,7 +161,12 @@ const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: s
 // ══════════════════════════════════════════════════════════════
 // ScaledSlide
 // ══════════════════════════════════════════════════════════════
-export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassName = '', logoUrl, watermark }) => {
+export const ScaledSlide: React.FC<ScaledSlideProps> = ({
+  slide,
+  containerClassName = '',
+  logoUrl,
+  watermark,
+}) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content: string[] = Array.isArray(rawContent) ? (rawContent as string[]) : [];
 
@@ -219,13 +238,24 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   // ──────────────────────────────────────────────────────────────
   const SlideNum = ({ light = false }: { light?: boolean }) =>
     slide.slideNumber ? (
-      <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '1rem',
+          left: '2rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+        }}
+      >
         <div
           style={{
             width: '1.9rem',
             height: '1.9rem',
             borderRadius: '50%',
-            background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.accent})`,
+            background: light
+              ? 'rgba(255,255,255,0.25)'
+              : `linear-gradient(135deg,${P.primary},${P.accent})`,
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -285,9 +315,23 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
+            <Line
+              type="monotone"
+              dataKey="value"
+              name={cd.series1Label ?? '시리즈1'}
+              stroke={colors[0]}
+              strokeWidth={3}
+              dot={{ r: 5, fill: colors[0] }}
+            />
             {cd.data[0]?.value2 !== undefined && (
-              <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />
+              <Line
+                type="monotone"
+                dataKey="value2"
+                name={cd.series2Label ?? '시리즈2'}
+                stroke={colors[1]}
+                strokeWidth={3}
+                dot={{ r: 5, fill: colors[1] }}
+              />
             )}
           </LineChart>
         </ResponsiveContainer>
@@ -309,12 +353,20 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={2.5} fill="url(#areaGrad1)" />
+            <Area
+              type="monotone"
+              dataKey="value"
+              name={cd.series1Label ?? '시리즈1'}
+              stroke={colors[0]}
+              strokeWidth={2.5}
+              fill="url(#areaGrad1)"
+            />
           </AreaChart>
         </ResponsiveContainer>
       );
     }
 
+    // bar (default)
     return (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart {...common}>
@@ -323,9 +375,21 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
           {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-          <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[6, 6, 0, 0]} maxBarSize={54} />
+          <Bar
+            dataKey="value"
+            name={cd.series1Label ?? '시리즈1'}
+            fill={colors[0]}
+            radius={[6, 6, 0, 0]}
+            maxBarSize={54}
+          />
           {cd.data[0]?.value2 !== undefined && (
-            <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[6, 6, 0, 0]} maxBarSize={54} />
+            <Bar
+              dataKey="value2"
+              name={cd.series2Label ?? '시리즈2'}
+              fill={colors[1]}
+              radius={[6, 6, 0, 0]}
+              maxBarSize={54}
+            />
           )}
         </BarChart>
       </ResponsiveContainer>
@@ -339,10 +403,23 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const td = slide.tableData;
     if (!td?.headers?.length) return <EmptyPlaceholder icon={TableIcon} label="테이블 데이터 없음" />;
 
-    const paddingY = slide.tableDensity === 'compact' ? '0.55rem' : slide.tableDensity === 'relaxed' ? '1.2rem' : '0.85rem';
+    const paddingY =
+      slide.tableDensity === 'compact'
+        ? '0.55rem'
+        : slide.tableDensity === 'relaxed'
+        ? '1.2rem'
+        : '0.85rem';
 
     return (
-      <div style={{ width: '100%', overflowX: 'auto', borderRadius: 14, boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: `1px solid ${P.border}` }}>
+      <div
+        style={{
+          width: '100%',
+          overflowX: 'auto',
+          borderRadius: 14,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+          border: `1px solid ${P.border}`,
+        }}
+      >
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: contentFontSize }}>
           <thead>
             <tr>
@@ -357,7 +434,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     textAlign: 'left',
                     fontSize: `${1.2 * contentSizeScale}rem`,
                     whiteSpace: 'nowrap',
-                    borderRight: i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                    borderRight:
+                      i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
                   }}
                 >
                   {h}
@@ -401,7 +479,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.1rem', height: '100%', alignContent: 'center' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: '1.1rem',
+          height: '100%',
+          alignContent: 'center',
+        }}
+      >
         {km.map((kpi, i) => {
           const isUp = kpi.trend === 'up';
           const isDown = kpi.trend === 'down';
@@ -421,10 +507,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
               }}
             >
-              <div style={{ fontSize: `${1.05 * contentSizeScale}rem`, fontWeight: 700, opacity: 0.82, marginBottom: '0.5rem', letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              <div
+                style={{
+                  fontSize: `${1.05 * contentSizeScale}rem`,
+                  fontWeight: 700,
+                  opacity: 0.82,
+                  marginBottom: '0.5rem',
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
+                }}
+              >
                 {kpi.label}
               </div>
-              <div style={{ fontSize: `${3.0 * contentSizeScale}rem`, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1 }}>{kpi.value}</div>
+              <div
+                style={{
+                  fontSize: `${3.0 * contentSizeScale}rem`,
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  letterSpacing: -1,
+                }}
+              >
+                {kpi.value}
+              </div>
               {kpi.trend && (
                 <div
                   style={{
@@ -453,7 +557,335 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 4) 불릿 렌더링 (여러 레이아웃)
+  // 3.5) Compare 렌더링
+  // ══════════════════════════════════════════════════════════════
+  const renderCompare = () => {
+    if (!slide.leftItems?.length && !slide.rightItems?.length) {
+      return <EmptyPlaceholder icon={BarIcon} label="비교 데이터 없음" />;
+    }
+
+    const leftItems = slide.leftItems ?? [];
+    const rightItems = slide.rightItems ?? [];
+    const leftTitle = slide.leftTitle ?? 'AS-IS';
+    const rightTitle = slide.rightTitle ?? 'TO-BE';
+
+    return (
+      <div style={{ display: 'flex', gap: '1.5rem', height: '100%' }}>
+        {/* 왼쪽 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${P.primary}, ${P.accent})`,
+              color: '#fff',
+              padding: '0.9rem 1.3rem',
+              borderRadius: '12px 12px 0 0',
+              fontSize: `${1.3 * contentSizeScale}rem`,
+              fontWeight: 700,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}
+          >
+            {leftTitle}
+          </div>
+          <div
+            style={{
+              flex: 1,
+              background: '#f8fafc',
+              border: `1px solid ${P.border}`,
+              borderTop: 'none',
+              borderRadius: '0 0 12px 12px',
+              padding: '1.3rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              overflowY: 'auto',
+            }}
+          >
+            {leftItems.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.8rem',
+                  fontSize: contentFontSize,
+                  color: P.text,
+                  lineHeight: 1.5,
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: `${1.5 * contentSizeScale}rem`,
+                    height: `${1.5 * contentSizeScale}rem`,
+                    borderRadius: '50%',
+                    background: P.primary,
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: `${0.8 * contentSizeScale}rem`,
+                    fontWeight: 700,
+                    marginTop: 2,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span style={{ fontWeight: 500 }}>
+                  {typeof item === 'string' ? item : JSON.stringify(item)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 중앙 화살표 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: P.primary,
+            flexShrink: 0,
+          }}
+        >
+          <ArrowRight style={{ width: '2.5rem', height: '2.5rem', strokeWidth: 2.5 }} />
+        </div>
+
+        {/* 오른쪽 */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#fff',
+              padding: '0.9rem 1.3rem',
+              borderRadius: '12px 12px 0 0',
+              fontSize: `${1.3 * contentSizeScale}rem`,
+              fontWeight: 700,
+              textAlign: 'center',
+              letterSpacing: 0.5,
+            }}
+          >
+            {rightTitle}
+          </div>
+          <div
+            style={{
+              flex: 1,
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderTop: 'none',
+              borderRadius: '0 0 12px 12px',
+              padding: '1.3rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.8rem',
+              overflowY: 'auto',
+            }}
+          >
+            {rightItems.map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '0.8rem',
+                  fontSize: contentFontSize,
+                  color: P.text,
+                  lineHeight: 1.5,
+                }}
+              >
+                <span
+                  style={{
+                    flexShrink: 0,
+                    width: `${1.5 * contentSizeScale}rem`,
+                    height: `${1.5 * contentSizeScale}rem`,
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: `${0.8 * contentSizeScale}rem`,
+                    fontWeight: 700,
+                    marginTop: 2,
+                  }}
+                >
+                  {i + 1}
+                </span>
+                <span style={{ fontWeight: 500 }}>
+                  {typeof item === 'string' ? item : JSON.stringify(item)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // 4) 타임라인 렌더링
+  // ══════════════════════════════════════════════════════════════
+  const renderTimeline = () => {
+    const ms = slide.milestones;
+    if (!ms?.length) return <EmptyPlaceholder icon={Layers} label="타임라인 데이터 없음" />;
+
+    const stateColor = (state: string) => {
+      if (state === 'done') return '#10b981';
+      if (state === 'next') return P.primary;
+      return '#cbd5e1';
+    };
+
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.85rem',
+          height: '100%',
+          justifyContent: 'center',
+        }}
+      >
+        {ms.map((m, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+            {/* 상태 원 */}
+            <div
+              style={{
+                width: `${1.8 * contentSizeScale}rem`,
+                height: `${1.8 * contentSizeScale}rem`,
+                borderRadius: '50%',
+                flexShrink: 0,
+                background: stateColor(m.state),
+                border: m.state === 'next' ? `3px solid ${P.accent}` : '3px solid transparent',
+                boxShadow: m.state === 'done' ? '0 2px 8px rgba(16,185,129,0.4)' : 'none',
+              }}
+            />
+            {/* 연결선 (마지막 제외) */}
+            {i < ms.length - 1 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${0.9 * contentSizeScale}rem`,
+                  height: '0.85rem',
+                  width: 2,
+                  background: stateColor(m.state),
+                  opacity: 0.4,
+                }}
+              />
+            )}
+            {/* 내용 */}
+            <div style={{ flex: 1 }}>
+              <div
+                style={{
+                  fontSize: contentFontSize,
+                  fontWeight: m.state === 'next' ? 700 : 600,
+                  color: m.state === 'todo' ? P.subtext : P.text,
+                }}
+              >
+                {m.label}
+              </div>
+              <div
+                style={{
+                  fontSize: `${0.9 * contentSizeScale}rem`,
+                  color: P.subtext,
+                  marginTop: 2,
+                }}
+              >
+                {m.date}
+              </div>
+            </div>
+            {/* 상태 배지 */}
+            <div
+              style={{
+                fontSize: `${0.8 * contentSizeScale}rem`,
+                fontWeight: 700,
+                padding: '0.2rem 0.7rem',
+                borderRadius: 20,
+                background:
+                  m.state === 'done'
+                    ? '#dcfce7'
+                    : m.state === 'next'
+                    ? '#dbeafe'
+                    : '#f1f5f9',
+                color:
+                  m.state === 'done'
+                    ? '#16a34a'
+                    : m.state === 'next'
+                    ? '#2563eb'
+                    : '#94a3b8',
+              }}
+            >
+              {m.state === 'done' ? '완료' : m.state === 'next' ? '진행중' : '예정'}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // 5) 인용구 렌더링
+  // ══════════════════════════════════════════════════════════════
+  const renderQuote = () => {
+    const text = slide.text || content[0] || '';
+    const author = slide.author || content[1] || '';
+    if (!text) return <EmptyPlaceholder icon={Layers} label="인용구 없음" />;
+
+    return (
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '1.5rem',
+          padding: '1rem 2rem',
+        }}
+      >
+        <div
+          style={{
+            fontSize: `${4 * contentSizeScale}rem`,
+            lineHeight: 0.8,
+            color: P.primary,
+            fontWeight: 900,
+            opacity: 0.3,
+          }}
+        >
+          "
+        </div>
+        <p
+          style={{
+            fontSize: `${1.7 * contentSizeScale}rem`,
+            fontWeight: 600,
+            color: P.text,
+            lineHeight: 1.6,
+            fontStyle: 'italic',
+            maxWidth: '85%',
+          }}
+        >
+          {text}
+        </p>
+        {author && (
+          <div
+            style={{
+              fontSize: `${1.1 * contentSizeScale}rem`,
+              color: P.subtext,
+              fontWeight: 600,
+              borderTop: `2px solid ${P.border}`,
+              paddingTop: '0.8rem',
+            }}
+          >
+            — {author}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // 6) 불릿 렌더링 (여러 레이아웃)
   // ══════════════════════════════════════════════════════════════
   const renderBullets = () => {
     if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
@@ -461,7 +893,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     if (layout === 'grid') {
       const cols = content.length <= 4 ? 2 : 3;
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', height: '100%', alignContent: 'center' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gap: '1rem',
+            height: '100%',
+            alignContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div
               key={i}
@@ -494,7 +934,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
               >
                 {i + 1}
               </div>
-              <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55, fontWeight: 500 }}>
+              <span
+                style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55, fontWeight: 500 }}
+              >
                 {typeof item === 'string' ? item : JSON.stringify(item)}
               </span>
             </div>
@@ -505,7 +947,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
     if (layout === 'highlight') {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', height: '100%', justifyContent: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.9rem',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div
               key={i}
@@ -513,14 +963,29 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 display: 'flex',
                 alignItems: 'center',
                 gap: '1.1rem',
-                background: i === 0 ? `linear-gradient(135deg,${P.primary}18,${P.primary}06)` : '#f8fafc',
+                background:
+                  i === 0 ? `linear-gradient(135deg,${P.primary}18,${P.primary}06)` : '#f8fafc',
                 borderRadius: 12,
                 padding: '0.95rem 1.3rem',
                 border: i === 0 ? `1.5px solid ${P.primary}40` : `1px solid ${P.border}`,
               }}
             >
-              <CheckCircle2 style={{ width: `${1.4 * contentSizeScale}rem`, height: `${1.4 * contentSizeScale}rem`, color: i === 0 ? P.primary : '#94a3b8', flexShrink: 0 }} />
-              <span style={{ fontSize: contentFontSize, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? P.text : P.subtext, lineHeight: 1.5 }}>
+              <CheckCircle2
+                style={{
+                  width: `${1.4 * contentSizeScale}rem`,
+                  height: `${1.4 * contentSizeScale}rem`,
+                  color: i === 0 ? P.primary : '#94a3b8',
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: contentFontSize,
+                  fontWeight: i === 0 ? 700 : 500,
+                  color: i === 0 ? P.text : P.subtext,
+                  lineHeight: 1.5,
+                }}
+              >
                 {typeof item === 'string' ? item : JSON.stringify(item)}
               </span>
             </div>
@@ -529,17 +994,37 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       );
     }
 
+    // default
     return (
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+      <ul
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.9rem',
+        }}
+      >
         {content.map((item, i) => (
-          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', fontSize: contentFontSize, color: P.text, lineHeight: 1.55 }}>
+          <li
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              fontSize: contentFontSize,
+              color: P.text,
+              lineHeight: 1.55,
+            }}
+          >
             <span
               style={{
                 flexShrink: 0,
                 width: `${1.65 * contentSizeScale}rem`,
                 height: `${1.65 * contentSizeScale}rem`,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
@@ -547,12 +1032,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 fontSize: `${0.85 * contentSizeScale}rem`,
                 fontWeight: 700,
                 marginTop: '0.22rem',
-                boxShadow: 'rgba(99,102,241,0.4) 0px 2px 8px',
+                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
               }}
             >
               {i + 1}
             </span>
-            <span style={{ fontWeight: 500 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+            <span style={{ fontWeight: 500 }}>
+              {typeof item === 'string' ? item : JSON.stringify(item)}
+            </span>
           </li>
         ))}
       </ul>
@@ -560,15 +1047,31 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 5) 인포그래픽 렌더링
+  // 7) 인포그래픽 렌더링
   // ══════════════════════════════════════════════════════════════
   const renderInfographic = () => {
     if (slide.infographicType === 'cycle') {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', height: '100%', gap: '0.8rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            height: '100%',
+            gap: '0.8rem',
+          }}
+        >
           {content.map((item, i) => (
             <React.Fragment key={i}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.55rem', maxWidth: 160 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.55rem',
+                  maxWidth: 160,
+                }}
+              >
                 <div
                   style={{
                     width: '7rem',
@@ -589,11 +1092,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 >
                   {typeof item === 'string' ? item : JSON.stringify(item)}
                 </div>
-                <span style={{ fontSize: `${0.88 * contentSizeScale}rem`, color: P.subtext, fontWeight: 600, letterSpacing: 0.5 }}>
+                <span
+                  style={{
+                    fontSize: `${0.88 * contentSizeScale}rem`,
+                    color: P.subtext,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                  }}
+                >
                   STEP {i + 1}
                 </span>
               </div>
-              {i < content.length - 1 && <ArrowRight style={{ color: P.primary, flexShrink: 0, width: '1.8rem', height: '1.8rem', opacity: 0.7 }} />}
+              {i < content.length - 1 && (
+                <ArrowRight
+                  style={{
+                    color: P.primary,
+                    flexShrink: 0,
+                    width: '1.8rem',
+                    height: '1.8rem',
+                    opacity: 0.7,
+                  }}
+                />
+              )}
             </React.Fragment>
           ))}
         </div>
@@ -602,7 +1122,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
     if (slide.infographicType === 'process') {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', height: '100%', justifyContent: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.8rem',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div
@@ -647,17 +1175,22 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 6) 슬라이드 타입별 콘텐츠 선택
+  // 8) 슬라이드 타입별 콘텐츠 선택
   // ══════════════════════════════════════════════════════════════
   const renderContent = () => {
     switch (slide.type) {
       case 'chart':
         return renderChart();
       case 'table':
-      case 'comparison':
         return renderTable();
       case 'kpi':
         return renderKPI();
+      case 'compare':
+        return renderCompare();
+      case 'timeline':
+        return renderTimeline();
+      case 'quote':
+        return renderQuote();
       default:
         if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
         return renderInfographic();
@@ -665,76 +1198,74 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 7) 표지 슬라이드 렌더링 (퀄리티 업그레이드)
+  // 9) 첫 슬라이드 (타이틀 슬라이드) 렌더링
   // ══════════════════════════════════════════════════════════════
-  if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
+  if (
+    isFirstSlide &&
+    slide.type !== 'chart' &&
+    slide.type !== 'table' &&
+    slide.type !== 'kpi'
+  ) {
     return (
-      <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg, fontFamily: 'inherit' }}>
-
-        {/* ── 배경 그라데이션 ── */}
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(145deg,${P.primary} 0%,${P.accent} 60%,#0f172a 100%)` }} />
-
-        {/* ── 배경 메시 패턴 (subtle grid) ── */}
+      <div
+        className={`aspect-video w-full relative overflow-hidden ${containerClassName}`}
+        style={{ background: P.bg }}
+      >
+        {/* 배경 그라데이션 */}
         <div
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)',
-            backgroundSize: '3.5rem 3.5rem',
-            pointerEvents: 'none',
+            background: `linear-gradient(135deg,${P.primary} 0%,${P.accent} 100%)`,
           }}
         />
-
-        {/* ── 장식 블롭 (우상단) ── */}
+        {/* 장식 원형들 */}
         <div
           style={{
             position: 'absolute',
-            top: '-12%',
-            right: '-8%',
-            width: '52%',
-            paddingBottom: '52%',
+            right: -80,
+            top: -80,
+            width: '50%',
+            paddingBottom: '50%',
             borderRadius: '50%',
-            background: 'radial-gradient(circle,rgba(255,255,255,0.12) 0%,transparent 70%)',
+            background: 'rgba(255,255,255,0.08)',
             filter: 'blur(2px)',
           }}
         />
-        {/* ── 장식 블롭 (좌하단) ── */}
         <div
           style={{
             position: 'absolute',
-            bottom: '-15%',
-            left: '-6%',
-            width: '42%',
-            paddingBottom: '42%',
+            left: -60,
+            bottom: -60,
+            width: '38%',
+            paddingBottom: '38%',
             borderRadius: '50%',
-            background: 'radial-gradient(circle,rgba(255,255,255,0.08) 0%,transparent 70%)',
-            filter: 'blur(3px)',
+            background: 'rgba(255,255,255,0.06)',
+            filter: 'blur(2px)',
           }}
         />
-        {/* ── 장식 블롭 (중앙 소) ── */}
         <div
           style={{
             position: 'absolute',
-            top: '8%',
-            left: '28%',
-            width: '16%',
-            paddingBottom: '16%',
+            right: '20%',
+            bottom: '15%',
+            width: '18%',
+            paddingBottom: '18%',
             borderRadius: '50%',
-            background: 'radial-gradient(circle,rgba(255,255,255,0.06) 0%,transparent 70%)',
+            background: 'rgba(255,255,255,0.05)',
             filter: 'blur(1px)',
           }}
         />
-
-        {/* ── 하단 장식 바 ── */}
         <div
           style={{
             position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: '0.45rem',
-            background: 'linear-gradient(90deg,rgba(255,255,255,0.15),rgba(255,255,255,0.5),rgba(255,255,255,0.15))',
+            left: '25%',
+            top: '12%',
+            width: '12%',
+            paddingBottom: '12%',
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.06)',
+            filter: 'blur(1px)',
           }}
         />
 
@@ -742,7 +1273,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         <Logo invert />
         <SlideNum light />
 
-        {/* ── 메인 콘텐츠 ── */}
+        {/* 타이틀 콘텐츠 */}
         <div
           style={{
             position: 'relative',
@@ -752,7 +1283,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '3.5rem 7rem',
+            padding: '5rem 6.5rem',
             textAlign: 'center',
           }}
         >
@@ -761,65 +1292,69 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              background: 'rgba(255,255,255,0.14)',
-              border: '1px solid rgba(255,255,255,0.28)',
-              borderRadius: 30,
-              padding: '0.4rem 1.3rem',
-              marginBottom: '1.8rem',
-              fontSize: `${1.0 * contentSizeScale}rem`,
-              color: 'rgba(255,255,255,0.95)',
+              gap: 10,
+              background: 'rgba(255,255,255,0.22)',
+              borderRadius: 50,
+              padding: '0.55rem 1.5rem',
+              marginBottom: '2.5rem',
+              fontSize: `${0.95 * contentSizeScale}rem`,
+              color: '#fff',
               fontWeight: 700,
-              letterSpacing: 2,
-              textTransform: 'uppercase',
+              letterSpacing: 2.5,
               backdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 16px rgba(0,0,0,0.15)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              textTransform: 'uppercase',
             }}
           >
-            <Star style={{ width: '0.9em', height: '0.9em', fill: 'rgba(255,255,255,0.8)', stroke: 'none' }} />
-            PRESENTATION
-            <Star style={{ width: '0.9em', height: '0.9em', fill: 'rgba(255,255,255,0.8)', stroke: 'none' }} />
+            <Zap style={{ width: '1.15em', height: '1.15em', strokeWidth: 2.5 }} />
+            Presentation
           </div>
 
           {/* 메인 타이틀 */}
           <h1
             style={{
-              color: '#ffffff',
+              color: '#fff',
               fontWeight: 900,
-              lineHeight: 1.18,
+              lineHeight: 1.15,
               fontSize: `${3.2 * titleSizeScale}rem`,
               letterSpacing: '-0.03em',
-              marginBottom: '1.8rem',
-              textShadow: '0 4px 32px rgba(0,0,0,0.25), 0 1px 4px rgba(0,0,0,0.3)',
-              maxWidth: '88%',
+              marginBottom: '1.2rem',
+              textShadow: '0 4px 32px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15)',
+              maxWidth: '90%',
             }}
           >
             {slide.title}
           </h1>
 
-          {/* 장식 구분선 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.6rem' }}>
-            <div style={{ width: '2rem', height: '2px', background: 'rgba(255,255,255,0.35)', borderRadius: 2 }} />
+          {/* 구분선 */}
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '2rem' }}
+          >
             <div
               style={{
-                width: '0.55rem',
-                height: '0.55rem',
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.75)',
-                boxShadow: '0 0 8px rgba(255,255,255,0.5)',
+                width: '2.5rem',
+                height: 2,
+                background: 'rgba(255,255,255,0.6)',
+                borderRadius: 2,
               }}
             />
-            <div style={{ width: '4rem', height: '2px', background: 'rgba(255,255,255,0.7)', borderRadius: 2 }} />
             <div
               style={{
-                width: '0.55rem',
-                height: '0.55rem',
+                width: '0.5rem',
+                height: '0.5rem',
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,0.75)',
-                boxShadow: '0 0 8px rgba(255,255,255,0.5)',
+                background: 'rgba(255,255,255,0.8)',
               }}
             />
-            <div style={{ width: '2rem', height: '2px', background: 'rgba(255,255,255,0.35)', borderRadius: 2 }} />
+            <div
+              style={{
+                width: '2.5rem',
+                height: 2,
+                background: 'rgba(255,255,255,0.6)',
+                borderRadius: 2,
+              }}
+            />
           </div>
 
           {/* 서브타이틀 */}
@@ -827,12 +1362,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <p
               style={{
                 color: 'rgba(255,255,255,0.92)',
-                fontSize: `${1.5 * contentSizeScale}rem`,
+                fontSize: `${1.4 * contentSizeScale}rem`,
                 fontWeight: 500,
-                maxWidth: '68%',
+                maxWidth: '75%',
                 lineHeight: 1.7,
-                textShadow: '0 1px 8px rgba(0,0,0,0.2)',
-                letterSpacing: '0.01em',
+                textShadow: '0 2px 16px rgba(0,0,0,0.2)',
               }}
             >
               {content[0]}
@@ -844,7 +1378,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 8) 일반 슬라이드 렌더링
+  // 10) 일반 슬라이드 렌더링
   // ══════════════════════════════════════════════════════════════
   const hasImage = !!slide.imageUrl;
   const visualRatio = slide.visualRatio ?? 50;
@@ -852,29 +1386,91 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const imageSide = layout === 'split-right' ? 'left' : 'right';
 
   return (
-    <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
+    <div
+      className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}
+    >
       {/* 상단 accent 바 */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '0.45rem',
+          background: `linear-gradient(90deg,${P.primary},${P.accent})`,
+        }}
+      />
 
       {Watermark}
       <Logo />
       <SlideNum />
 
-      <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
+      <div
+        style={{
+          height: '100%',
+          padding: '3.5rem 3.5rem 3.8rem',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* 제목 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-          <div style={{ width: '0.32rem', height: `${2.1 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
-          <h2 style={{ fontWeight: 900, color: P.text, fontSize: titleFontSize, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            paddingBottom: '0.85rem',
+            borderBottom: `1.5px solid ${P.border}`,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: '0.32rem',
+              height: `${2.1 * titleSizeScale}rem`,
+              background: `linear-gradient(180deg,${P.primary},${P.accent})`,
+              borderRadius: 4,
+              flexShrink: 0,
+            }}
+          />
+          <h2
+            style={{
+              fontWeight: 900,
+              color: P.text,
+              fontSize: titleFontSize,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+              flex: 1,
+              margin: 0,
+            }}
+          >
             {slide.title}
           </h2>
         </div>
 
         {/* 콘텐츠 영역 */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.5rem', minHeight: 0 }}>
-          <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow: 'hidden', order: imageSide === 'left' ? 2 : 1 }}>
+        <div
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            display: 'flex',
+            gap: '1.5rem',
+            minHeight: 0,
+          }}
+        >
+          {/* 텍스트(콘텐츠) 영역 */}
+          <div
+            style={{
+              width: hasImage ? `${textRatio}%` : '100%',
+              overflow: 'hidden',
+              order: imageSide === 'left' ? 2 : 1,
+            }}
+          >
             {renderContent()}
           </div>
 
+          {/* 이미지 영역 */}
           {hasImage && slide.imageUrl && (
             <div
               style={{
@@ -886,7 +1482,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
               }}
             >
-              <img src={slide.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={slide.imageUrl}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             </div>
           )}
         </div>
