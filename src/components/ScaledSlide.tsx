@@ -72,6 +72,11 @@ interface Slide {
   imageUrl?: string;
   layout?: string;
   notes?: string;
+  // compare 타입 전용 필드
+  leftTitle?: string;
+  rightTitle?: string;
+  leftItems?: string[];
+  rightItems?: string[];
 }
 
 interface ScaledSlideProps {
@@ -109,15 +114,7 @@ const P = {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      style={{
-        background: '#1e293b',
-        color: '#fff',
-        borderRadius: 8,
-        padding: '8px 14px',
-        fontSize: 13,
-      }}
-    >
+    <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
       <div style={{ marginBottom: 4, fontWeight: 700, opacity: 0.7 }}>{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} style={{ color: p.color }}>
@@ -292,23 +289,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Line
-              type="monotone"
-              dataKey="value"
-              name={cd.series1Label ?? '시리즈1'}
-              stroke={colors[0]}
-              strokeWidth={3}
-              dot={{ r: 5, fill: colors[0] }}
-            />
+            <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
             {cd.data[0]?.value2 !== undefined && (
-              <Line
-                type="monotone"
-                dataKey="value2"
-                name={cd.series2Label ?? '시리즈2'}
-                stroke={colors[1]}
-                strokeWidth={3}
-                dot={{ r: 5, fill: colors[1] }}
-              />
+              <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />
             )}
           </LineChart>
         </ResponsiveContainer>
@@ -330,20 +313,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <YAxis tick={axisTick} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} />
             {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Area
-              type="monotone"
-              dataKey="value"
-              name={cd.series1Label ?? '시리즈1'}
-              stroke={colors[0]}
-              strokeWidth={2.5}
-              fill="url(#areaGrad1)"
-            />
+            <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={2.5} fill="url(#areaGrad1)" />
           </AreaChart>
         </ResponsiveContainer>
       );
     }
 
-    // bar (default)
     return (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart {...common}>
@@ -450,16 +425,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
               }}
             >
-              <div
-                style={{
-                  fontSize: `${1.05 * contentSizeScale}rem`,
-                  fontWeight: 700,
-                  opacity: 0.82,
-                  marginBottom: '0.5rem',
-                  letterSpacing: 1.2,
-                  textTransform: 'uppercase',
-                }}
-              >
+              <div style={{ fontSize: `${1.05 * contentSizeScale}rem`, fontWeight: 700, opacity: 0.82, marginBottom: '0.5rem', letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 {kpi.label}
               </div>
               <div style={{ fontSize: `${3.0 * contentSizeScale}rem`, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1 }}>{kpi.value}</div>
@@ -491,12 +457,124 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 4) 불릿 렌더링 (여러 레이아웃)
+  // 4) Compare 렌더링 (leftItems / rightItems 구조) ✅ 신규 추가
+  // ══════════════════════════════════════════════════════════════
+  const renderCompare = () => {
+    const s = slide as any;
+
+    // tableData가 있으면 테이블로 fallback
+    if (slide.tableData?.headers?.length) return renderTable();
+
+    const leftTitle: string = s.leftTitle ?? 'AS-IS';
+    const rightTitle: string = s.rightTitle ?? 'TO-BE';
+    const leftItems: string[] = Array.isArray(s.leftItems) ? s.leftItems : [];
+    const rightItems: string[] = Array.isArray(s.rightItems) ? s.rightItems : [];
+
+    if (!leftItems.length && !rightItems.length) {
+      return <EmptyPlaceholder icon={Layers} label="비교 데이터 없음" />;
+    }
+
+    const colStyle: React.CSSProperties = {
+      flex: 1,
+      borderRadius: 14,
+      overflow: 'hidden',
+      boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+      border: `1px solid ${P.border}`,
+    };
+
+    const renderItems = (items: string[], isLeft: boolean) => (
+      <div style={{ background: isLeft ? '#f8fafc' : '#f0f7ff' }}>
+        {items.map((item, i) => (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.6rem',
+              padding: '0.6rem 1.1rem',
+              borderBottom: i < items.length - 1 ? `1px solid ${P.border}` : 'none',
+              fontSize: contentFontSize,
+              color: P.text,
+              fontWeight: 500,
+              lineHeight: 1.5,
+            }}
+          >
+            <span
+              style={{
+                flexShrink: 0,
+                width: `${1.4 * contentSizeScale}rem`,
+                height: `${1.4 * contentSizeScale}rem`,
+                borderRadius: '50%',
+                background: isLeft ? '#94a3b8' : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: `${0.75 * contentSizeScale}rem`,
+                fontWeight: 700,
+                marginTop: '0.15rem',
+              }}
+            >
+              {i + 1}
+            </span>
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
+    );
+
+    return (
+      <div style={{ display: 'flex', gap: '1.2rem', height: '100%', alignItems: 'flex-start' }}>
+        {/* 왼쪽 컬럼 */}
+        <div style={colStyle}>
+          <div
+            style={{
+              padding: '0.75rem 1.3rem',
+              background: '#64748b',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: `${1.15 * contentSizeScale}rem`,
+              letterSpacing: 0.5,
+              textAlign: 'center',
+            }}
+          >
+            {leftTitle}
+          </div>
+          {renderItems(leftItems, true)}
+        </div>
+
+        {/* 화살표 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, paddingTop: '2.5rem' }}>
+          <ArrowRight style={{ width: '1.8rem', height: '1.8rem', color: P.primary, opacity: 0.7 }} />
+        </div>
+
+        {/* 오른쪽 컬럼 */}
+        <div style={colStyle}>
+          <div
+            style={{
+              padding: '0.75rem 1.3rem',
+              background: P.primary,
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: `${1.15 * contentSizeScale}rem`,
+              letterSpacing: 0.5,
+              textAlign: 'center',
+            }}
+          >
+            {rightTitle}
+          </div>
+          {renderItems(rightItems, false)}
+        </div>
+      </div>
+    );
+  };
+
+  // ══════════════════════════════════════════════════════════════
+  // 5) 불릿 렌더링 (여러 레이아웃)
   // ══════════════════════════════════════════════════════════════
   const renderBullets = () => {
     if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
 
-    // 레이아웃: grid
     if (layout === 'grid') {
       const cols = content.length <= 4 ? 2 : 3;
       return (
@@ -542,7 +620,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       );
     }
 
-    // 레이아웃: highlight
     if (layout === 'highlight') {
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', height: '100%', justifyContent: 'center' }}>
@@ -573,7 +650,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     }
 
     // default / split-left / split-right
-    // ✅ 수정 1: boxShadow에 CSS변수 직접 연결 대신 rgba 고정값으로 변경
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
         {content.map((item, i) => (
@@ -605,7 +681,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 5) 인포그래픽 렌더링
+  // 6) 인포그래픽 렌더링
   // ══════════════════════════════════════════════════════════════
   const renderInfographic = () => {
     if (slide.infographicType === 'cycle') {
@@ -692,18 +768,20 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 6) 슬라이드 타입별 콘텐츠 선택
+  // 7) 슬라이드 타입별 콘텐츠 선택
   // ══════════════════════════════════════════════════════════════
   const renderContent = () => {
     switch (slide.type) {
       case 'chart':
         return renderChart();
       case 'table':
-      // ✅ 수정 2: comparison 타입 추가 — tableData 있으면 테이블, 없으면 불릿 fallback
-      case 'comparison':
-        return slide.tableData?.headers?.length ? renderTable() : renderBullets();
+        return renderTable();
       case 'kpi':
         return renderKPI();
+      // ✅ compare / comparison 타입 전용 렌더러
+      case 'compare':
+      case 'comparison':
+        return renderCompare();
       default:
         if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
         return renderInfographic();
@@ -711,15 +789,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 7) 첫 슬라이드 (타이틀 슬라이드) 렌더링
+  // 8) 첫 슬라이드 (타이틀 슬라이드) 렌더링
   // ══════════════════════════════════════════════════════════════
   if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
     return (
       <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg }}>
-        {/* 1) 배경 그라데이션 */}
         <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg,${P.primary} 0%,${P.accent} 100%)` }} />
-
-        {/* 2) 장식 원 */}
         <div style={{ position: 'absolute', right: -8, top: -20, width: '55%', paddingBottom: '55%', borderRadius: '50%', background: 'rgba(255,255,255,0.07)' }} />
         <div style={{ position: 'absolute', left: -5, bottom: -15, width: '40%', paddingBottom: '40%', borderRadius: '50%', background: 'rgba(255,255,255,0.05)' }} />
         <div style={{ position: 'absolute', left: '30%', top: '10%', width: '15%', paddingBottom: '15%', borderRadius: '50%', background: 'rgba(255,255,255,0.04)' }} />
@@ -728,7 +803,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         <Logo invert />
         <SlideNum light />
 
-        {/* 3) 타이틀 콘텐츠 */}
         <div
           style={{
             position: 'relative',
@@ -777,15 +851,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           </h1>
           <div style={{ width: '4rem', height: 3, background: 'rgba(255,255,255,0.5)', borderRadius: 2, marginBottom: '1.4rem' }} />
           {content.length > 0 && (
-            <p
-              style={{
-                color: 'rgba(255,255,255,0.82)',
-                fontSize: `${1.5 * contentSizeScale}rem`,
-                fontWeight: 500,
-                maxWidth: '70%',
-                lineHeight: 1.65,
-              }}
-            >
+            <p style={{ color: 'rgba(255,255,255,0.82)', fontSize: `${1.5 * contentSizeScale}rem`, fontWeight: 500, maxWidth: '70%', lineHeight: 1.65 }}>
               {content[0]}
             </p>
           )}
@@ -795,7 +861,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   }
 
   // ══════════════════════════════════════════════════════════════
-  // 8) 일반 슬라이드 렌더링
+  // 9) 일반 슬라이드 렌더링
   // ══════════════════════════════════════════════════════════════
   const hasImage = !!slide.imageUrl;
   const visualRatio = slide.visualRatio ?? 50;
@@ -804,7 +870,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
   return (
     <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
-      {/* 상단 accent 바 */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
 
       {Watermark}
@@ -840,12 +905,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
         {/* 콘텐츠 영역 */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.5rem', minHeight: 0 }}>
-          {/* 텍스트 영역 */}
           <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow: 'hidden', order: imageSide === 'left' ? 2 : 1 }}>
             {renderContent()}
           </div>
 
-          {/* 이미지 영역 */}
           {hasImage && slide.imageUrl && (
             <div
               style={{
