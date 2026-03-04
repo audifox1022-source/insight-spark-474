@@ -25,7 +25,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-// ── 프리셋 타입 ────────────────────────────────────────────────
 type PresetField = {
   id: string;
   label: string;
@@ -77,7 +76,6 @@ const PROMPT_PRESETS: Preset[] = [
   },
 ];
 
-// ══════════════════════════════════════════════════════════════
 const Index = () => {
   const navigate = useNavigate();
 
@@ -103,7 +101,7 @@ const Index = () => {
     fileNames,
     meetingInfo, setMeetingInfo,
     settings, setSettings,
-    template, setTemplate,          // ✅ 추가
+    template, setTemplate,
     outline,
     isLoadingOutline,
     presentation,
@@ -133,6 +131,12 @@ const Index = () => {
     updateSlide,
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
+    // ✅ 참고 양식 관련 5개 추가
+    referenceFileName,
+    isAnalyzingReference,
+    referenceStructure,
+    handleReferenceFileUpload,
+    clearReferenceFile,
   } = usePresentation();
 
   const guide        = getStepGuide(step);
@@ -141,13 +145,9 @@ const Index = () => {
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
 
-      {/* ══════════════════════════════════════════
-          HEADER
-      ══════════════════════════════════════════ */}
       <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
 
-          {/* 왼쪽: 로고 + 타이틀 */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <motion.div
               className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
@@ -169,7 +169,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* 가운데: 앱 전환 탭 */}
           <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
             <button
               onClick={() => setActiveApp('presentation')}
@@ -197,9 +196,7 @@ const Index = () => {
             </button>
           </div>
 
-          {/* 오른쪽: StepIndicator + 액션 버튼 */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
-
             {activeApp === 'presentation' && (
               <>
                 <StepIndicator currentStep={step} />
@@ -207,39 +204,28 @@ const Index = () => {
               </>
             )}
 
-            {/* 기록 */}
             <Button
-              variant="ghost"
-              size="sm"
-              onClick={openHistory}
+              variant="ghost" size="sm" onClick={openHistory}
               className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold"
             >
               <FolderOpen className="w-3.5 h-3.5" />
               <span className="hidden lg:inline">기록</span>
             </Button>
 
-            {/* 도움말 */}
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setHelpOpen(true)}
-              className="w-8 h-8 text-muted-foreground hover:text-foreground"
-              title="도움말"
+              variant="ghost" size="icon" onClick={() => setHelpOpen(true)}
+              className="w-8 h-8 text-muted-foreground hover:text-foreground" title="도움말"
             >
               <HelpCircle className="w-4 h-4" />
             </Button>
 
-            {/* 구분선 A */}
             <div className="w-px h-5 bg-border/60 mx-0.5" />
 
-            {/* 테마 색상 */}
             <div className="relative">
               <Button
-                variant="ghost"
-                size="icon"
+                variant="ghost" size="icon"
                 onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                className="w-8 h-8 text-muted-foreground hover:text-foreground"
-                title="테마 색상"
+                className="w-8 h-8 text-muted-foreground hover:text-foreground" title="테마 색상"
               >
                 <Palette className="w-4 h-4" />
               </Button>
@@ -268,9 +254,7 @@ const Index = () => {
                         <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>
                           {t.charAt(0).toUpperCase() + t.slice(1)}
                         </span>
-                        {appTheme === t && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />
-                        )}
+                        {appTheme === t && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />}
                       </button>
                     ))}
                   </motion.div>
@@ -278,44 +262,32 @@ const Index = () => {
               </AnimatePresence>
             </div>
 
-            {/* 다크모드 */}
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleDark}
+              variant="ghost" size="icon" onClick={toggleDark}
               className="w-8 h-8 text-muted-foreground hover:text-foreground"
               title={isDark ? '라이트 모드' : '다크 모드'}
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            {/* 구분선 B */}
             <div className="w-px h-5 bg-border/60 mx-0.5" />
 
-            {/* 로그아웃 */}
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
+              variant="ghost" size="icon" onClick={handleLogout}
               className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors"
               title="로그아웃"
             >
               <LogOut className="w-4 h-4" />
             </Button>
-
           </div>
         </div>
       </header>
 
-      {/* ══════════════════════════════════════════
-          도움말 모달
-      ══════════════════════════════════════════ */}
+      {/* 도움말 모달 */}
       <AnimatePresence>
         {helpOpen && activeApp === 'presentation' && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setHelpOpen(false)}
             className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
           >
@@ -335,62 +307,24 @@ const Index = () => {
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                    <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                {[
+                  { icon: <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />, color: 'bg-blue-100 dark:bg-blue-900/30', title: '1. 주제 입력', desc: '발표하고 싶은 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
+                  { icon: <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />, color: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: '기존 자료(PDF, Word, 텍스트 등)를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
+                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400" />, color: 'bg-purple-100 dark:bg-purple-900/30', title: '3. 발표 설정', desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
+                  { icon: <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />, color: 'bg-amber-100 dark:bg-amber-900/30', title: '4. 편집 & 확인', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
+                ].map((g, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className={`w-12 h-12 rounded-full ${g.color} flex items-center justify-center flex-shrink-0`}>{g.icon}</div>
+                    <div>
+                      <h3 className="text-base font-bold text-foreground mb-1">{g.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{g.desc}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">1. 주제 입력</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      발표하고 싶은 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-                    <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">2. 파일 업로드</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      기존 자료(PDF, Word, 텍스트 등)를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
-                    <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">3. 발표 설정</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                    <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-foreground mb-1">4. 편집 & 확인</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
-
               <div className="p-4 border-t border-border bg-muted/10 text-center">
-                <Button
-                  onClick={() => setHelpOpen(false)}
-                  className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90"
-                >
+                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
                   시작하기 →
                 </Button>
               </div>
@@ -399,16 +333,12 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* ══════════════════════════════════════════
-          단계 안내 바 (preview 제외)
-      ══════════════════════════════════════════ */}
+      {/* 단계 안내 바 */}
       {activeApp === 'presentation' && step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
+            initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
             className="border-b border-border bg-accent/5"
           >
             <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center gap-3">
@@ -424,45 +354,28 @@ const Index = () => {
         </AnimatePresence>
       )}
 
-      {/* ══════════════════════════════════════════
-          MAIN CONTENT
-      ══════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
 
-        {/* 번역 작업실 */}
         {activeApp === 'translator' && (
           <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
             <TranslatorWorkspace />
           </main>
         )}
 
-        {/* 발표자료 생성기 */}
         {activeApp === 'presentation' && (
-          <main
-            className={[
-              'mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto',
-              step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl',
-            ].join(' ')}
-          >
+          <main className={['mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto', step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl'].join(' ')}>
 
             {/* ── STEP: upload ── */}
             {step === 'upload' && (
               <div className="space-y-10">
-
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center max-w-lg mx-auto"
-                >
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
                     <Sparkles className="w-3 h-3" />
                     AI 기반 스마트 발표자료 생성
                   </div>
                   <h2 className="text-4xl font-black tracking-tight leading-tight">
                     어떤 발표든<br />
-                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-                      AI가 슬라이드로
-                    </span>
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">AI가 슬라이드로</span>
                   </h2>
                   <p className="text-muted-foreground mt-4 text-base leading-relaxed">
                     주제를 입력하거나 파일을 올리면<br className="hidden sm:block" />
@@ -470,98 +383,52 @@ const Index = () => {
                   </p>
                 </motion.div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="max-w-3xl mx-auto space-y-4"
-                >
-                  {/* 프리셋 탭 */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
                   <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
                     <button
                       onClick={() => setActivePresetId('manual')}
-                      className={[
-                        'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
-                        activePresetId === 'manual'
-                          ? 'bg-background shadow-sm text-foreground'
-                          : 'text-muted-foreground hover:text-foreground',
-                      ].join(' ')}
+                      className={['flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all', activePresetId === 'manual' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'].join(' ')}
                     >
-                      <PencilLine className="w-4 h-4" />
-                      직접 입력
+                      <PencilLine className="w-4 h-4" />직접 입력
                     </button>
                     {PROMPT_PRESETS.map(preset => (
                       <button
                         key={preset.id}
                         onClick={() => { setActivePresetId(preset.id); setPresetData({}); }}
-                        className={[
-                          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
-                          activePresetId === preset.id
-                            ? 'bg-background shadow-sm text-primary'
-                            : 'text-muted-foreground hover:text-foreground',
-                        ].join(' ')}
+                        className={['flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all', activePresetId === preset.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'].join(' ')}
                       >
-                        <span>{preset.icon}</span>
-                        <span>{preset.label}</span>
+                        <span>{preset.icon}</span><span>{preset.label}</span>
                       </button>
                     ))}
                   </div>
 
-                  {/* 입력 영역 */}
                   <div className="relative">
                     <AnimatePresence mode="wait">
                       {activePreset ? (
-                        <motion.div
-                          key={activePreset.id}
-                          initial={{ opacity: 0, scale: 0.98 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.98 }}
-                          className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6"
-                        >
+                        <motion.div key={activePreset.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6">
                           <div className="space-y-5">
                             {activePreset.fields.map(field => (
                               <div key={field.id} className="space-y-2.5">
-                                <label className="text-sm font-bold text-foreground">
-                                  {field.label}
-                                </label>
+                                <label className="text-sm font-bold text-foreground">{field.label}</label>
                                 <div className="flex flex-wrap gap-2">
                                   {field.suggestions.map(sug => (
-                                    <button
-                                      key={sug}
-                                      onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))}
-                                      className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left"
-                                    >
+                                    <button key={sug} onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))} className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left">
                                       {sug}
                                     </button>
                                   ))}
                                 </div>
-                                <Input
-                                  value={presetData[field.id] ?? ''}
-                                  onChange={e => setPresetData(p => ({ ...p, [field.id]: e.target.value }))}
-                                  placeholder={field.placeholder}
-                                  className="bg-background h-11"
-                                />
+                                <Input value={presetData[field.id] ?? ''} onChange={e => setPresetData(p => ({ ...p, [field.id]: e.target.value }))} placeholder={field.placeholder} className="bg-background h-11" />
                               </div>
                             ))}
                           </div>
                           <div className="pt-2 border-t border-border">
-                            <Button
-                              onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
-                              className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm"
-                            >
-                              <Sparkles className="w-5 h-5" />
-                              AI 발표자료 생성 시작
+                            <Button onClick={() => handlePromptSubmit(activePreset.generate(presetData))} className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm">
+                              <Sparkles className="w-5 h-5" />AI 발표자료 생성 시작
                             </Button>
                           </div>
                         </motion.div>
                       ) : (
-                        <motion.div
-                          key="manual"
-                          initial={{ opacity: 0, scale: 0.98 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.98 }}
-                          className="space-y-4"
-                        >
+                        <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
                           <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
                               <MessageSquare className="w-6 h-6 text-primary" />
@@ -572,20 +439,10 @@ const Index = () => {
                               placeholder={`발표 주제나 내용을 자유롭게 입력하세요\n예: 2026년 상반기 마케팅 전략 보고 — 디지털 채널 전환 현황과 하반기 로드맵`}
                               className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
                               rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                  e.preventDefault();
-                                  handlePromptSubmit(manualPrompt);
-                                }
-                              }}
+                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }}
                             />
-                            <Button
-                              onClick={() => handlePromptSubmit(manualPrompt)}
-                              disabled={!manualPrompt.trim()}
-                              className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm"
-                            >
-                              <Send className="w-4 h-4" />
-                              생성
+                            <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm">
+                              <Send className="w-4 h-4" />생성
                             </Button>
                           </div>
                         </motion.div>
@@ -594,33 +451,16 @@ const Index = () => {
                   </div>
                 </motion.div>
 
-                {/* 구분선 */}
                 <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
                   <div className="border-t border-border absolute w-full" />
-                  <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">
-                    또는 파일 업로드
-                  </span>
+                  <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 파일 업로드</span>
                 </div>
 
-                {/* 파일 업로드 존 */}
-                <FileUploadZone
-                  onFilesSelect={handleFilesUpload}
-                  fileNames={fileNames}
-                  onRemoveFile={removeFile}
-                />
+                <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
 
-                {/* 다음 단계 버튼 */}
                 {fileNames.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex justify-center"
-                  >
-                    <Button
-                      onClick={() => setStep('info')}
-                      size="lg"
-                      className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow"
-                    >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+                    <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
                       발표 설정으로 이동
                       <ArrowRight className="w-5 h-5" />
                     </Button>
@@ -642,8 +482,13 @@ const Index = () => {
                   isGenerating={isLoadingOutline}
                   fileNames={fileNames}
                   dataSummary={dataSummary}
-                  template={template}           // ✅ 추가
-                  setTemplate={setTemplate}     // ✅ 추가
+                  template={template}
+                  setTemplate={setTemplate}
+                  referenceFileName={referenceFileName}               {/* ✅ 추가 */}
+                  isAnalyzingReference={isAnalyzingReference}         {/* ✅ 추가 */}
+                  referenceStructure={referenceStructure}             {/* ✅ 추가 */}
+                  onReferenceFileUpload={handleReferenceFileUpload}   {/* ✅ 추가 */}
+                  onClearReferenceFile={clearReferenceFile}           {/* ✅ 추가 */}
                 />
               </div>
             )}
@@ -702,9 +547,7 @@ const Index = () => {
         )}
       </div>
 
-      {/* ══════════════════════════════════════════
-          패널들 (History / Chat / Review)
-      ══════════════════════════════════════════ */}
+      {/* 패널들 */}
       {activeApp === 'presentation' && (
         <HistoryPanel
           open={historyOpen}
@@ -739,51 +582,36 @@ const Index = () => {
         />
       )}
 
-      {/* ══════════════════════════════════════════
-          FOOTER
-      ══════════════════════════════════════════ */}
+      {/* FOOTER */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
         <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             Made with ❤️ by{' '}
             <span className="font-semibold text-foreground">Hyeon</span>
             {' · '}
-            <a
-              href="mailto:audifox1022@gmail.com"
-              className="hover:text-primary transition-colors underline underline-offset-2"
-            >
+            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
               audifox1022@gmail.com
             </a>
           </p>
 
           {visitorStats && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4"
-            >
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Eye className="w-3.5 h-3.5 text-primary/60" />
                 <span>누적 방문</span>
-                <span className="font-bold text-foreground">
-                  {(visitorStats.totalvisits ?? 0).toLocaleString()}
-                </span>
+                <span className="font-bold text-foreground">{(visitorStats.totalvisits ?? 0).toLocaleString()}</span>
               </div>
               <div className="w-px h-3 bg-border" />
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Users className="w-3.5 h-3.5 text-primary/60" />
                 <span>유니크</span>
-                <span className="font-bold text-foreground">
-                  {(visitorStats.uniqueusers ?? 0).toLocaleString()}
-                </span>
+                <span className="font-bold text-foreground">{(visitorStats.uniqueusers ?? 0).toLocaleString()}</span>
               </div>
               <div className="w-px h-3 bg-border" />
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span>오늘</span>
-                <span className="font-bold text-foreground">
-                  {(visitorStats.todayvisits ?? 0).toLocaleString()}
-                </span>
+                <span className="font-bold text-foreground">{(visitorStats.todayvisits ?? 0).toLocaleString()}</span>
               </div>
             </motion.div>
           )}
