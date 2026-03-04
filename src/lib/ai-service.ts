@@ -1,40 +1,34 @@
 // ============================================================
-// ai-service.ts — 슬라이드 분할 AI 기능 추가
+// ai-service.ts — Edge Function 프록시 방식으로 수정
+// VITE_GEMINI_API_KEY 완전 제거 → callGemini() 사용
 // ============================================================
 
+import { callGemini, type GeminiPayload } from '@/lib/gemini-client'
+
 const DIFFICULTY_MAP: Record<string, string> = {
-  easy: "초보자용. 쉬운 설명 위주, 전문 용어 최소화.",
-  medium: "실무자용. 표준 비즈니스 분석 및 전문 용어 사용.",
-  hard: "전문가용. 심층 데이터 해석 및 기술적 트렌드 반영.",
+  easy:      "초보자용. 쉬운 설명 위주, 전문 용어 최소화.",
+  medium:    "실무자용. 표준 비즈니스 분석 및 전문 용어 사용.",
+  hard:      "전문가용. 심층 데이터 해석 및 기술적 트렌드 반영.",
   executive: "경영진용. 두괄식 결론, 전략적 제언, 핵심 수치(ROI) 강조.",
 };
 
 const VOLUME_MAP: Record<string, string> = {
-  brief: "정확히 4장. 표지 1 + 핵심내용 2 + 마무리 1.",
-  standard: "정확히 8장. 표지 1 + 목차 1 + 본문 5 + 마무리 1.",
-  detailed: "정확히 13장. 표지 1 + 목차 1 + 본문 10 + 마무리 1.",
+  brief:         "정확히 4장. 표지 1 + 핵심내용 2 + 마무리 1.",
+  standard:      "정확히 8장. 표지 1 + 목차 1 + 본문 5 + 마무리 1.",
+  detailed:      "정확히 13장. 표지 1 + 목차 1 + 본문 10 + 마무리 1.",
   comprehensive: "정확히 18장. 표지 1 + 목차 1 + 본문 15 + 마무리 1.",
 };
 
 const SLIDE_COUNT_MAP: Record<string, number> = {
-  brief: 4,
-  standard: 8,
-  detailed: 13,
-  comprehensive: 18,
+  brief: 4, standard: 8, detailed: 13, comprehensive: 18,
 };
 
 const TOKEN_MAP: Record<string, number> = {
-  brief: 4096,
-  standard: 12000,
-  detailed: 24000,
-  comprehensive: 32768,
+  brief: 4096, standard: 12000, detailed: 24000, comprehensive: 32768,
 };
 
 const OUTLINE_TOKEN_MAP: Record<string, number> = {
-  brief: 4096,
-  standard: 4096,
-  detailed: 6000,
-  comprehensive: 8192,
+  brief: 4096, standard: 4096, detailed: 6000, comprehensive: 8192,
 };
 
 const ALLOWED_SLIDE_TYPES = [
@@ -64,18 +58,18 @@ const SLIDE_SCHEMA = `
 
 type | 용도 | 필수 필드
 ---------|------------------------------|-----------------------------------------
-title | 표지 (1번 슬라이드 전용) | content: [부제목] (1~2개)
-agenda | 목차 | content: [항목들] (3~8개)
-content | 일반 불릿 | content: [항목들] (3~6개)
-process | 순서/단계 | content: [단계들] (3~7개, 순서 중요)
-compare | 좌우 비교 | leftTitle, rightTitle, leftItems[], rightItems[]
-chart | 차트 | chartData (labels + datasets 필수)
-table | 표 | tableData (headers + rows 필수)
-kpi | 수치 지표 | keyMetrics [{label, value, trend}]
-cards | 카드 그리드 | content: [항목들] (3~6개)
-quote | 인용구 | text, author
-timeline | 타임라인 | milestones [{label, date, state}]
-summary | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
+title    | 표지 (1번 슬라이드 전용)      | content: [부제목] (1~2개)
+agenda   | 목차                         | content: [항목들] (3~8개)
+content  | 일반 불릿                     | content: [항목들] (3~6개)
+process  | 순서/단계                     | content: [단계들] (3~7개, 순서 중요)
+compare  | 좌우 비교                     | leftTitle, rightTitle, leftItems[], rightItems[]
+chart    | 차트                         | chartData (labels + datasets 필수)
+table    | 표                           | tableData (headers + rows 필수)
+kpi      | 수치 지표                     | keyMetrics [{label, value, trend}]
+cards    | 카드 그리드                   | content: [항목들] (3~6개)
+quote    | 인용구                        | text, author
+timeline | 타임라인                      | milestones [{label, date, state}]
+summary  | 마무리 (마지막 슬라이드 전용)  | content: [핵심 요약] (3~5개)
 
 [📊 chart 타입 chartData 구조 예시]
 "chartData": {
@@ -94,8 +88,8 @@ type은 "bar" | "line" | "pie" | "area" 중 하나.
 [🎯 kpi 타입 keyMetrics 구조 예시]
 "keyMetrics": [
   {"label": "생산량", "value": "1,200톤", "trend": "up"},
-  {"label": "불량률", "value": "2.1%", "trend": "down"},
-  {"label": "가동률", "value": "87%", "trend": "flat"}
+  {"label": "불량률", "value": "2.1%",   "trend": "down"},
+  {"label": "가동률", "value": "87%",    "trend": "flat"}
 ]
 trend는 "up" | "down" | "flat" 중 하나.
 
@@ -107,9 +101,9 @@ trend는 "up" | "down" | "flat" 중 하나.
 
 [📅 timeline 타입 milestones 구조 예시]
 "milestones": [
-  {"label": "착수", "date": "2025.01", "state": "done"},
+  {"label": "착수",    "date": "2025.01", "state": "done"},
   {"label": "중간점검","date": "2025.06", "state": "next"},
-  {"label": "완료", "date": "2025.12", "state": "todo"}
+  {"label": "완료",    "date": "2025.12", "state": "todo"}
 ]
 state는 "done" | "next" | "todo" 중 하나.
 
@@ -127,11 +121,11 @@ const MAX_FILE_BYTES = 80_000;
 
 function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
-  const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
+  const raw     = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
   const encoder = new TextEncoder();
   const encoded = encoder.encode(raw);
   if (encoded.length <= MAX_FILE_BYTES) return raw;
-  const sliced = encoded.slice(0, MAX_FILE_BYTES);
+  const sliced  = encoded.slice(0, MAX_FILE_BYTES);
   const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
@@ -161,10 +155,10 @@ function extractTextFromItem(item: any, depth = 0): string[] {
 
   if (typeof item === "object") {
     const result: string[] = [];
-    const title = item.title || item.heading || item.name || item.subject || "";
+    const title    = item.title || item.heading || item.name || item.subject || "";
     const bodyData =
-      item.content || item.items || item.points ||
-      item.bullets || item.text || item.desc ||
+      item.content  || item.items   || item.points ||
+      item.bullets  || item.text    || item.desc   ||
       item.description || null;
 
     if (Array.isArray(bodyData)) {
@@ -172,8 +166,8 @@ function extractTextFromItem(item: any, depth = 0): string[] {
       result.push(...bodyData.flatMap((c: any) => {
         if (typeof c === "string") return [c];
         if (c && typeof c === "object") {
-          if (c.title && c.desc) return [`${c.title}: ${c.desc}`];
-          if (c.label && c.value) return [`${c.label}: ${c.value}`];
+          if (c.title && c.desc)   return [`${c.title}: ${c.desc}`];
+          if (c.label && c.value)  return [`${c.label}: ${c.value}`];
           return extractTextFromItem(c, depth + 1);
         }
         return [String(c)];
@@ -193,22 +187,22 @@ function extractTextFromItem(item: any, depth = 0): string[] {
 }
 
 const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
-  'cover': 'title', 'intro': 'title', 'introduction': 'title', 'opening': 'title',
-  'toc': 'agenda', 'tableofcontents': 'agenda', 'index': 'agenda', 'outline': 'agenda',
-  'text': 'content', 'bullet': 'content', 'bullets': 'content',
+  'cover': 'title',    'intro': 'title',   'introduction': 'title', 'opening': 'title',
+  'toc': 'agenda',     'tableofcontents': 'agenda', 'index': 'agenda', 'outline': 'agenda',
+  'text': 'content',   'bullet': 'content', 'bullets': 'content',
   'overview': 'content', 'detail': 'content', 'description': 'content',
   'information': 'content', 'info': 'content', 'data': 'content',
-  'steps': 'process', 'step': 'process', 'flow': 'process',
+  'steps': 'process',  'step': 'process',  'flow': 'process',
   'workflow': 'process', 'procedure': 'process', 'processlist': 'process',
   'comparison': 'compare', 'versus': 'compare', 'barcompare': 'compare',
   'statscompare': 'compare', 'vs': 'compare',
-  'bar': 'chart', 'line': 'chart', 'pie': 'chart', 'area': 'chart',
+  'bar': 'chart',      'line': 'chart',    'pie': 'chart',    'area': 'chart',
   'barchart': 'chart', 'linechart': 'chart', 'piechart': 'chart',
-  'graph': 'chart', 'visualization': 'chart',
-  'tabledata': 'table', 'grid': 'table', 'matrix': 'table', 'spreadsheet': 'table',
-  'metric': 'kpi', 'metrics': 'kpi', 'stats': 'kpi',
-  'scorecard': 'kpi', 'indicator': 'kpi', 'dashboard': 'kpi',
-  'card': 'cards', 'headercard': 'cards', 'headercards': 'cards',
+  'graph': 'chart',    'visualization': 'chart',
+  'tabledata': 'table', 'grid': 'table',   'matrix': 'table', 'spreadsheet': 'table',
+  'metric': 'kpi',     'metrics': 'kpi',   'stats': 'kpi',
+  'scorecard': 'kpi',  'indicator': 'kpi', 'dashboard': 'kpi',
+  'card': 'cards',     'headercard': 'cards', 'headercards': 'cards',
   'bulletcard': 'cards', 'bulletcards': 'cards', 'features': 'cards',
   'grid_cards': 'cards',
   'quotation': 'quote', 'citation': 'quote',
@@ -220,7 +214,7 @@ const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
 };
 
 function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
-  if (index === 0) return 'title';
+  if (index === 0)         return 'title';
   if (index === total - 1) return 'summary';
   const lower = (raw || 'content').toLowerCase().replace(/[_\s-]/g, '');
   if (ALLOWED_SLIDE_TYPES.includes(lower as AllowedSlideType))
@@ -231,21 +225,21 @@ function normalizeType(raw: string, index: number, total: number): AllowedSlideT
 function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
-      id: `slide-${Math.random().toString(36).substring(2, 11)}`,
-      type: index === 0 ? 'title' : index === total - 1 ? 'summary' : 'content',
-      title: "",
-      content: [],
-      chartData: null,
-      tableData: { headers: [], rows: [] },
+      id:         `slide-${Math.random().toString(36).substring(2, 11)}`,
+      type:       index === 0 ? 'title' : index === total - 1 ? 'summary' : 'content',
+      title:      "",
+      content:    [],
+      chartData:  null,
+      tableData:  { headers: [], rows: [] },
       keyMetrics: [],
     };
   }
 
-  s.id = s.id || `slide-${Math.random().toString(36).substring(2, 11)}`;
+  s.id    = s.id    || `slide-${Math.random().toString(36).substring(2, 11)}`;
   s.title = s.title || "";
-  s.type = normalizeType(s.type || 'content', index, total);
+  s.type  = normalizeType(s.type || 'content', index, total);
 
-  const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
+  const rawContent   = s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
     ? rawContent
     : typeof rawContent === "string"
@@ -259,67 +253,69 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
       parsedChartData = {
-        chartType: raw.chartType ?? raw.type ?? 'bar',
-        title: raw.title ?? '',
-        data: raw.data,
+        chartType:    raw.chartType ?? raw.type ?? 'bar',
+        title:        raw.title ?? '',
+        data:         raw.data,
         series1Label: raw.series1Label ?? '값',
         series2Label: raw.series2Label ?? undefined,
-        showLegend: raw.showLegend ?? true,
-        xAxisLabel: raw.xAxisLabel ?? undefined,
-        yAxisLabel: raw.yAxisLabel ?? undefined,
+        showLegend:   raw.showLegend ?? true,
+        xAxisLabel:   raw.xAxisLabel ?? undefined,
+        yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
     } else if (Array.isArray(raw.labels) && raw.labels.length > 0 && Array.isArray(raw.datasets)) {
-      const primaryDs = raw.datasets[0];
+      const primaryDs   = raw.datasets[0];
       const secondaryDs = raw.datasets[1];
       parsedChartData = {
         chartType: (
           raw.type === 'line' ? 'line' :
-          raw.type === 'pie' ? 'pie' :
+          raw.type === 'pie'  ? 'pie'  :
           raw.type === 'area' ? 'area' : 'bar'
         ) as 'bar' | 'line' | 'pie' | 'area',
         title: raw.title ?? '',
-        data: (raw.labels as string[]).map((label: string, i: number) => ({
-          name: String(label),
+        data:  (raw.labels as string[]).map((label: string, i: number) => ({
+          name:  String(label),
           value: Number(primaryDs?.data?.[i] ?? 0),
           ...(secondaryDs ? { value2: Number(secondaryDs.data?.[i] ?? 0) } : {}),
         })),
         series1Label: primaryDs?.label ?? '값',
         series2Label: secondaryDs?.label ?? undefined,
-        showLegend: (raw.datasets?.length ?? 0) > 1,
-        xAxisLabel: raw.xAxisLabel ?? undefined,
-        yAxisLabel: raw.yAxisLabel ?? undefined,
+        showLegend:   (raw.datasets?.length ?? 0) > 1,
+        xAxisLabel:   raw.xAxisLabel ?? undefined,
+        yAxisLabel:   raw.yAxisLabel ?? undefined,
       };
     }
 
     if (parsedChartData) {
-      s.chartData = parsedChartData;
-      s.tableData = { headers: [], rows: [] };
+      s.chartData  = parsedChartData;
+      s.tableData  = { headers: [], rows: [] };
       s.keyMetrics = [];
     } else {
-      s.type = 'content';
-      s.chartData = null;
-      s.tableData = { headers: [], rows: [] };
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
+
   } else if (s.type === 'table') {
-    s.tableData = s.tableData || {};
+    s.tableData         = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
-    s.tableData.rows = Array.isArray(s.tableData.rows) ? s.tableData.rows : [];
+    s.tableData.rows    = Array.isArray(s.tableData.rows)    ? s.tableData.rows    : [];
 
     if (s.tableData.headers.length > 0) {
-      s.chartData = null;
+      s.chartData  = null;
       s.keyMetrics = [];
     } else {
-      s.type = 'content';
-      s.chartData = null;
-      s.tableData = { headers: [], rows: [] };
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
+
   } else if (s.type === 'kpi') {
-    const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
+    const rawMetrics   = s.keyMetrics || s.metrics || s.indicators || [];
     const parsedMetrics = Array.isArray(rawMetrics)
       ? rawMetrics.map((m: any) => ({
-          label: m.label || m.name || '',
+          label: m.label || m.name  || '',
           value: m.value || m.score || '',
           trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
@@ -327,48 +323,52 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 
     if (parsedMetrics.length > 0) {
       s.keyMetrics = parsedMetrics;
-      s.chartData = null;
-      s.tableData = { headers: [], rows: [] };
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
     } else {
-      s.type = 'content';
-      s.chartData = null;
-      s.tableData = { headers: [], rows: [] };
+      s.type       = 'content';
+      s.chartData  = null;
+      s.tableData  = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
+
   } else if (s.type === 'compare') {
-    s.leftItems = Array.isArray(s.leftItems) ? s.leftItems : [];
+    s.leftItems  = Array.isArray(s.leftItems)  ? s.leftItems  : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
-    s.leftTitle = s.leftTitle || 'AS-IS';
+    s.leftTitle  = s.leftTitle  || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
 
     if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
-    s.chartData = null;
-    s.tableData = { headers: [], rows: [] };
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
+
   } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
           label: m.label || m.title || m.name || '',
-          date: m.date || '',
+          date:  m.date  || '',
           state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
 
     if (s.milestones.length === 0) s.type = 'content';
-    s.chartData = null;
-    s.tableData = { headers: [], rows: [] };
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
+
   } else if (s.type === 'quote') {
-    s.text = s.text || s.quote || s.content?.[0] || '';
-    s.author = s.author || s.source || s.content?.[1] || '';
+    s.text   = s.text   || s.quote      || s.content?.[0] || '';
+    s.author = s.author || s.source     || s.content?.[1] || '';
 
     if (!s.text) s.type = 'content';
-    s.chartData = null;
-    s.tableData = { headers: [], rows: [] };
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
+
   } else {
-    s.chartData = null;
-    s.tableData = { headers: [], rows: [] };
+    s.chartData  = null;
+    s.tableData  = { headers: [], rows: [] };
     s.keyMetrics = [];
   }
 
@@ -376,13 +376,13 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
 }
 
 function countUnbalancedBrackets(str: string): { braces: number; brackets: number } {
-  let braces = 0;
+  let braces   = 0;
   let brackets = 0;
   let inString = false;
-  let strChar = '';
+  let strChar  = '';
 
   for (let i = 0; i < str.length; i++) {
-    const ch = str[i];
+    const ch   = str[i];
     const prev = i > 0 ? str[i - 1] : '';
 
     if (inString) {
@@ -391,13 +391,8 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
       continue;
     }
 
-    if (ch === '"' || ch === "'") {
-      inString = true;
-      strChar = ch;
-      continue;
-    }
-
-    if (ch === '{') braces++;
+    if (ch === '"' || ch === "'") { inString = true; strChar = ch; continue; }
+    if      (ch === '{') braces++;
     else if (ch === '}') braces--;
     else if (ch === '[') brackets++;
     else if (ch === ']') brackets--;
@@ -433,7 +428,7 @@ function extractJSON(text: string): any | null {
   try { return tryParse(cleanText); } catch {}
 
   try {
-    const firstBrace = cleanText.indexOf("{");
+    const firstBrace   = cleanText.indexOf("{");
     const firstBracket = cleanText.indexOf("[");
     const startIdx =
       firstBrace !== -1 && firstBracket !== -1
@@ -445,7 +440,6 @@ function extractJSON(text: string): any | null {
       repaired = repaired.replace(/,\s*$/, "");
 
       const { braces, brackets } = countUnbalancedBrackets(repaired);
-
       if (brackets < 0 || braces < 0) return null;
 
       repaired += "]".repeat(brackets);
@@ -459,152 +453,123 @@ function extractJSON(text: string): any | null {
   return null;
 }
 
-const MAX_RETRIES = 3;
-const RETRY_BASE_MS = 1_000;
-
+// ============================================================
+// ✅ 핵심 교체: callGeminiAPI → Edge Function 프록시 사용
+//    VITE_GEMINI_API_KEY 완전 제거
+// ============================================================
 async function callGeminiAPI(
   systemInstruction: string,
-  userPrompt: string,
+  userPrompt:        string,
   maxTokens = 8192
 ): Promise<string> {
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY 미설정");
-
-  const payload = {
-    system_instruction: { parts: [{ text: systemInstruction }] },
-    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+  const payload: GeminiPayload = {
+    system_instruction: {
+      parts: [{ text: systemInstruction }],
+    },
+    contents: [
+      { role: 'user', parts: [{ text: userPrompt }] },
+    ],
     generationConfig: {
-      temperature: 0.1,
+      temperature:     0.1,
       maxOutputTokens: maxTokens,
-      responseMimeType: "application/json",
     },
-  };
-
-  let lastError: Error = new Error("알 수 없는 오류");
-
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (response.status === 429) {
-      const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
-      lastError = new Error(
-        `API 요청 한도를 초과했습니다. ${waitMs / 1000}초 후 재시도 중... (${attempt + 1}/${MAX_RETRIES})`
-      );
-      await new Promise((res) => setTimeout(res, waitMs));
-      continue;
-    }
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      const message = (errorBody as any)?.error?.message || "알 수 없는 오류";
-      if (response.status === 400) throw new Error(`잘못된 요청입니다: ${message}`);
-      if (response.status === 403) throw new Error("API 키가 유효하지 않습니다.");
-      throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
-    }
-
-    const data = await response.json();
-    const candidate = data?.candidates?.[0];
-    if (!candidate) throw new Error("AI 응답에 결과가 없습니다.");
-    const text = candidate?.content?.parts?.[0]?.text;
-    if (!text || text.trim() === "") throw new Error("빈 응답이 반환되었습니다.");
-    return text;
   }
-
-  throw lastError;
+  return callGemini(payload)
 }
 
-function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
-  const index = slideNumber - 1;
-  return normalizeSlide(
-    {
-      slideNumber,
-      title: outlineItem?.title ?? `슬라이드 ${slideNumber}`,
-      type: outlineItem?.type ?? 'content',
-      content: ["내용을 입력하세요."],
-    },
-    index,
-    total
-  );
-}
-
+// ============================================================
+// ✅ 이미지 생성도 프록시 사용 (Imagen)
+// ============================================================
 async function generateWithGeminiImagen(
-  slideTitle: string,
+  slideTitle:   string,
   slideContent: string
 ): Promise<string | null> {
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!API_KEY) return null;
-
   const prompt = [
     'Professional presentation slide background image.',
     `Topic: ${slideTitle}`,
     slideContent ? `Context: ${slideContent.slice(0, 100)}` : '',
     'Style: soft gradient, clean minimal corporate design, abstract shapes, no text, no watermark, 16:9 landscape.',
-  ].filter(Boolean).join(' ');
+  ].filter(Boolean).join(' ')
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: '16:9',
-            safetyFilterLevel: 'block_few',
-            personGeneration: 'allow_adult',
-          },
-        }),
-      }
-    );
+    const { data: { session } } = await import('@/integrations/supabase/client')
+      .then(m => m.supabase.auth.getSession())
 
-    if (!res.ok) return null;
+    if (!session?.access_token) return null
 
-    const data = await res.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-    const mimeType = data?.predictions?.[0]?.mimeType ?? 'image/png';
+    const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-proxy`
 
-    if (b64) return `data:${mimeType};base64,${b64}`;
-    return null;
+    const res = await fetch(PROXY_URL, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        model: 'imagen-3.0-generate-002',
+        instances:  [{ prompt }],
+        parameters: {
+          sampleCount:       1,
+          aspectRatio:       '16:9',
+          safetyFilterLevel: 'block_few',
+          personGeneration:  'allow_adult',
+        },
+      }),
+    })
+
+    if (!res.ok) return null
+
+    const data   = await res.json()
+    const b64    = data?.predictions?.[0]?.bytesBase64Encoded
+    const mime   = data?.predictions?.[0]?.mimeType ?? 'image/png'
+    if (b64) return `data:${mime};base64,${b64}`
+    return null
   } catch {
-    return null;
+    return null
   }
 }
 
 function generateWithPollinationsImgDirect(
-  slideTitle: string,
+  slideTitle:    string,
   _slideContent: string
 ): string {
-  const prompt = `Professional presentation background, corporate abstract minimal gradient, 16:9, no text, no watermark, topic: ${slideTitle}`;
-  const seed = Math.floor(Math.random() * 9_999_999);
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
+  const prompt = `Professional presentation background, corporate abstract minimal gradient, 16:9, no text, no watermark, topic: ${slideTitle}`
+  const seed   = Math.floor(Math.random() * 9_999_999)
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`
 }
 
+function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
+  const index = slideNumber - 1
+  return normalizeSlide(
+    {
+      slideNumber,
+      title:   outlineItem?.title ?? `슬라이드 ${slideNumber}`,
+      type:    outlineItem?.type  ?? 'content',
+      content: ["내용을 입력하세요."],
+    },
+    index,
+    total
+  )
+}
+
+// ============================================================
 export const aiService = {
 
   async getOutline(body: any) {
-    const volume = body.settings?.volume || "standard";
-    const difficulty = body.settings?.difficulty || "medium";
-    const targetCount = SLIDE_COUNT_MAP[volume] ?? 8;
-    const volumeGuideline = VOLUME_MAP[volume];
+    const volume     = body.settings?.volume     || "standard"
+    const difficulty = body.settings?.difficulty || "medium"
+    const targetCount    = SLIDE_COUNT_MAP[volume] ?? 8
+    const volumeGuideline = VOLUME_MAP[volume]
 
-    const fileDataStr = truncateFileData(body.fileData);
+    const fileDataStr    = truncateFileData(body.fileData)
     const meetingContext = [
-      body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
-      body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}` : '',
-      body.meetingInfo?.reporter ? `보고자: ${body.meetingInfo.reporter}` : '',
-      body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
-    ].filter(Boolean).join('\n');
+      body.meetingInfo?.week       ? `보고 주차: ${body.meetingInfo.week}`             : '',
+      body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}`             : '',
+      body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}`             : '',
+      body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}`          : '',
+    ].filter(Boolean).join('\n')
 
-    const systemInstruction = getSystemPromptCore(difficulty);
+    const systemInstruction = getSystemPromptCore(difficulty)
     const userPrompt = `당신은 전문 발표 기획자입니다. 아래 원본 데이터를 꼼꼼히 읽고 핵심 내용을 파악하여 발표 목차를 설계하세요.
 
 [📄 원본 데이터]
@@ -634,75 +599,73 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
     {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 발표 구성 안내"},
     {"slideNumber":${targetCount},"title":"마무리","type":"summary","description":"핵심 내용 요약 및 결론"}
   ]
-}`;
+}`
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume] ?? 4096);
+    const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume] ?? 4096)
 
-    console.log('[Outline AI 응답 원문]', text);
-    console.log('[Outline JSON 파싱 결과]', extractJSON(text));
+    console.log('[Outline AI 응답 원문]', text)
+    console.log('[Outline JSON 파싱 결과]', extractJSON(text))
 
-    let data = extractJSON(text);
+    let data = extractJSON(text)
 
     if (!data) {
       data = {
         title: "기획안",
         outline: Array.from({ length: targetCount }, (_, i) => ({
-          slideNumber: i + 1,
-          title: i === 0 ? "표지" : i === 1 ? "목차" : i === targetCount - 1 ? "마무리" : `내용 ${i}`,
-          type: i === 0 ? "title" : i === 1 ? "agenda" : i === targetCount - 1 ? "summary" : "content",
-          description: "내용 작성 필요",
+          slideNumber:  i + 1,
+          title:        i === 0 ? "표지" : i === 1 ? "목차" : i === targetCount - 1 ? "마무리" : `내용 ${i}`,
+          type:         i === 0 ? "title" : i === 1 ? "agenda" : i === targetCount - 1 ? "summary" : "content",
+          description:  "내용 작성 필요",
         })),
-      };
+      }
     }
 
-    if (Array.isArray(data)) data = { title: "새 발표 자료", outline: data };
+    if (Array.isArray(data)) data = { title: "새 발표 자료", outline: data }
     if (!data.outline || !Array.isArray(data.outline)) {
-      data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
+      data.outline = data.slides && Array.isArray(data.slides) ? data.slides : []
     }
 
     if (data.outline.length > targetCount)
-      data.outline = data.outline.slice(0, targetCount);
+      data.outline = data.outline.slice(0, targetCount)
 
     while (data.outline.length < targetCount) {
-      const idx = data.outline.length + 1;
+      const idx = data.outline.length + 1
       data.outline.push({
-        slideNumber: idx,
-        title: idx === targetCount ? "마무리" : `추가 내용 ${idx}`,
-        type: idx === targetCount ? "summary" : "content",
-        description: "세부 내용 작성 필요",
-      });
+        slideNumber:  idx,
+        title:        idx === targetCount ? "마무리" : `추가 내용 ${idx}`,
+        type:         idx === targetCount ? "summary" : "content",
+        description:  "세부 내용 작성 필요",
+      })
     }
 
-    const total = data.outline.length;
+    const total  = data.outline.length
     data.outline = data.outline.map((item: any, i: number) => ({
       ...item,
       slideNumber: i + 1,
-      type: normalizeType(item.type || 'content', i, total),
-    }));
+      type:        normalizeType(item.type || 'content', i, total),
+    }))
 
-    return { title: data.title ?? "새 발표 자료", outline: data.outline };
+    return { title: data.title ?? "새 발표 자료", outline: data.outline }
   },
 
   async generatePresentation(body: any) {
-    const difficulty = body.settings?.difficulty || "medium";
-    const volume = body.settings?.volume || "standard";
-    const slideCount = body.approvedOutline?.outline?.length
-      ?? SLIDE_COUNT_MAP[volume]
-      ?? 8;
+    const difficulty  = body.settings?.difficulty || "medium"
+    const volume      = body.settings?.volume     || "standard"
+    const slideCount  = body.approvedOutline?.outline?.length ?? SLIDE_COUNT_MAP[volume] ?? 8
 
     const typeGuide = (body.approvedOutline?.outline || [])
       .map((item: any, i: number) =>
         ` ${i + 1}번 "${item.title}" → type="${item.type}" | 주제: ${item.description || '없음'}`
-      ).join('\n');
+      ).join('\n')
 
     const meetingContext = [
-      body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
-      body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}` : '',
-      body.meetingInfo?.reporter ? `보고자: ${body.meetingInfo.reporter}` : '',
-      body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
-    ].filter(Boolean).join('\n');
+      body.meetingInfo?.week       ? `보고 주차: ${body.meetingInfo.week}`    : '',
+      body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}`   : '',
+      body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}`   : '',
+      body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
+    ].filter(Boolean).join('\n')
 
-    const systemInstruction = getSystemPromptCore(difficulty);
+    const systemInstruction = getSystemPromptCore(difficulty)
     const userPrompt = `${SLIDE_SCHEMA}
 
 당신은 전문 발표자료 작성 전문가입니다. 아래 원본 데이터를 꼼꼼히 읽고 각 슬라이드에 실제 내용을 채워 넣으세요.
@@ -722,15 +685,15 @@ ${typeGuide}
 4. 빈 content 배열, 빈 chartData, 빈 keyMetrics 절대 금지.
 
 [📐 타입별 작성 기준]
-- chart : chartData.type(bar/line/pie/area), labels와 datasets에 실제 수치 입력
-- table : headers 3~5개, rows는 실제 데이터 기반 3~8행
-- kpi : keyMetrics 3~6개, 실제 수치와 trend(up/down/flat) 포함
-- compare : leftTitle/rightTitle, leftItems/rightItems 각 3~5개
-- process : content에 단계 순서대로 3~6개
-- timeline: milestones 3~7개, date와 state(done/next/todo) 포함
-- content : 핵심 불릿 3~5개, 25자 이내 명사형 종결
-- cards : 3~6개, "제목: 설명" 형식 권장
-- summary : 핵심 결론 3~5개, 행동 권고사항 포함
+- chart    : chartData.type(bar/line/pie/area), labels와 datasets에 실제 수치 입력
+- table    : headers 3~5개, rows는 실제 데이터 기반 3~8행
+- kpi      : keyMetrics 3~6개, 실제 수치와 trend(up/down/flat) 포함
+- compare  : leftTitle/rightTitle, leftItems/rightItems 각 3~5개
+- process  : content에 단계 순서대로 3~6개
+- timeline : milestones 3~7개, date와 state(done/next/todo) 포함
+- content  : 핵심 불릿 3~5개, 25자 이내 명사형 종결
+- cards    : 3~6개, "제목: 설명" 형식 권장
+- summary  : 핵심 결론 3~5개, 행동 권고사항 포함
 
 [⚠️ 절대 금지]
 - "데이터 없음", "추후 입력" 같은 placeholder 텍스트
@@ -739,106 +702,109 @@ ${typeGuide}
 - kpi 슬라이드인데 keyMetrics가 빈 배열
 
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
-{"title":"제목","slides":[]}`;
+{"title":"제목","slides":[]}`
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume]);
-    let data = extractJSON(text);
+    const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume])
+    let data   = extractJSON(text)
 
     if (!data) {
       data = {
-        title: body.approvedOutline?.title || "자동 생성 발표자료",
-        slides: (body.approvedOutline?.outline || []).map((item: any, i: number) =>
+        title:  body.approvedOutline?.title || "자동 생성 발표자료",
+        slides: (body.approvedOutline?.outline || []).map((item: any) =>
           makeEmptySlide(item.slideNumber, item, slideCount)
         ),
-      };
+      }
     }
 
-    if (Array.isArray(data)) data = { title: "새 발표 자료", slides: data };
-    if (!data.slides || !Array.isArray(data.slides)) data.slides = [];
+    if (Array.isArray(data)) data = { title: "새 발표 자료", slides: data }
+    if (!data.slides || !Array.isArray(data.slides)) data.slides = []
 
-    const total = slideCount;
-    data.slides = data.slides.map((s: any, i: number) => normalizeSlide(s, i, total));
+    const total    = slideCount
+    data.slides    = data.slides.map((s: any, i: number) => normalizeSlide(s, i, total))
 
-    const approvedOutline: any[] = body.approvedOutline?.outline || [];
+    const approvedOutline: any[] = body.approvedOutline?.outline || []
 
     if (approvedOutline.length > 0 && data.slides.length < approvedOutline.length) {
-      const missing = approvedOutline.slice(data.slides.length);
+      const missing = approvedOutline.slice(data.slides.length)
       missing.forEach((item: any) => {
-        const idx = data.slides.length;
-        data.slides.push(makeEmptySlide(idx + 1, item, total));
-      });
+        const idx = data.slides.length
+        data.slides.push(makeEmptySlide(idx + 1, item, total))
+      })
     }
 
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
-      const originalLastSlide = data.slides[data.slides.length - 1];
-      data.slides = data.slides.slice(0, approvedOutline.length);
-      const newLast = data.slides[data.slides.length - 1];
+      const originalLastSlide = data.slides[data.slides.length - 1]
+      data.slides = data.slides.slice(0, approvedOutline.length)
+      const newLast = data.slides[data.slides.length - 1]
       if (newLast && newLast.type !== 'summary' && originalLastSlide?.type === 'summary') {
         data.slides[data.slides.length - 1] = {
           ...originalLastSlide,
           slideNumber: data.slides.length,
-        };
+        }
       }
     }
 
     data.slides = data.slides.map((s: any, i: number) => {
       const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
-        : s.type;
+        : s.type
 
       if (outlineType !== s.type) {
-        return normalizeSlide({ ...s, type: outlineType }, i, total);
+        return normalizeSlide({ ...s, type: outlineType }, i, total)
       }
 
-      return { ...s, slideNumber: i + 1 };
-    });
+      return { ...s, slideNumber: i + 1 }
+    })
 
-    return { presentation: data };
+    return { presentation: data }
   },
 
   async regenerateSlide(body: any) {
-    const systemInstruction = getSystemPromptCore(body.settings?.difficulty);
+    const systemInstruction = getSystemPromptCore(body.settings?.difficulty)
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 아래 슬라이드를 재작성하세요.
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 요청사항: ${body.userInstruction || "더 풍부하고 임팩트 있게"}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 포함.
-JSON만 반환.`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    const json = extractJSON(text);
-    if (!json) throw new Error("재생성 파싱 실패");
-    return { slide: normalizeSlide(json, 1, 3) };
+JSON만 반환.`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096)
+    const json  = extractJSON(text)
+    if (!json) throw new Error("재생성 파싱 실패")
+    return { slide: normalizeSlide(json, 1, 3) }
   },
 
   async chatEdit(body: any) {
-    const systemInstruction = getSystemPromptCore();
+    const systemInstruction = getSystemPromptCore()
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 아래 요청을 반영해 슬라이드를 수정하세요.
 요청: ${body.userMessage}
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 포함.
-JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    const json = extractJSON(text);
-    if (json?.slide) json.slide = normalizeSlide(json.slide, 1, 3);
-    return { result: json || {} };
+JSON 반환: {"slide":{...},"summary":"변경 요약"}`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096)
+    const json  = extractJSON(text)
+    if (json?.slide) json.slide = normalizeSlide(json.slide, 1, 3)
+    return { result: json || {} }
   },
 
   async changePersona(body: any) {
-    const systemInstruction = getSystemPromptCore(body.persona);
+    const systemInstruction = getSystemPromptCore(body.persona)
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] "${body.persona}" 스타일로 슬라이드를 변환하세요.
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 유지.
-JSON만 반환.`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    const json = extractJSON(text);
-    if (!json) throw new Error("스타일 변환 파싱 실패");
-    return { slide: normalizeSlide(json, 1, 3) };
+JSON만 반환.`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096)
+    const json  = extractJSON(text)
+    if (!json) throw new Error("스타일 변환 파싱 실패")
+    return { slide: normalizeSlide(json, 1, 3) }
   },
 
   async review(body: any) {
-    const systemInstruction = "당신은 프레젠테이션 전문 검토자입니다.";
+    const systemInstruction = "당신은 프레젠테이션 전문 검토자입니다."
     const userPrompt = `다음 프레젠테이션을 검토하고 반드시 아래 JSON 형식만 반환하세요.
 발표자료: ${JSON.stringify(body.presentation)}
 
@@ -849,91 +815,94 @@ JSON만 반환.`;
   "improvements": [{"slideNumber":1,"slideIndex":0,"category":"readability","severity":"high","issue":"문제점","suggestion":"개선 제안"}],
   "generalTips": ["팁 1", "팁 2", "팁 3"]
 }
-category: readability|content|structure|visual|data / severity: high|medium|low`;
+category: readability|content|structure|visual|data / severity: high|medium|low`
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    let data = extractJSON(text);
-    if (!data || typeof data !== "object") data = {};
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096)
+    let data    = extractJSON(text)
+    if (!data || typeof data !== "object") data = {}
 
     return {
       review: {
         overallScore: typeof data.overallScore === "number" ? data.overallScore : 85,
-        summary: data.summary || "검토가 완료되었습니다.",
-        strengths: Array.isArray(data.strengths) ? data.strengths : [],
+        summary:      data.summary      || "검토가 완료되었습니다.",
+        strengths:    Array.isArray(data.strengths)    ? data.strengths    : [],
         improvements: Array.isArray(data.improvements) ? data.improvements : [],
-        generalTips: Array.isArray(data.generalTips) ? data.generalTips : [],
+        generalTips:  Array.isArray(data.generalTips)  ? data.generalTips  : [],
       },
-    };
+    }
   },
 
   async reviewAndFix(body: any) {
-    const difficulty = body.settings?.difficulty || "medium";
-    const volume = body.settings?.volume || "detailed";
-    const systemInstruction = getSystemPromptCore(difficulty);
+    const difficulty        = body.settings?.difficulty || "medium"
+    const volume            = body.settings?.volume     || "detailed"
+    const systemInstruction = getSystemPromptCore(difficulty)
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 전체 발표자료를 최적화하세요. 각 슬라이드 type 유지, 필수 필드 보존.
 현재 발표자료: ${JSON.stringify(body.presentation)}
-JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume]);
-    let data = extractJSON(text);
-    if (!data) throw new Error("전체 최적화 실패");
+JSON 반환: {"presentation":{...},"summary":"변경 요약"}`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume])
+    let data    = extractJSON(text)
+    if (!data) throw new Error("전체 최적화 실패")
     if (data.presentation && Array.isArray(data.presentation.slides)) {
-      const total = data.presentation.slides.length;
+      const total = data.presentation.slides.length
       data.presentation.slides = data.presentation.slides.map(
         (s: any, i: number) => normalizeSlide(s, i, total)
-      );
+      )
     }
-    return { result: data };
+    return { result: data }
   },
 
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
     try {
-      const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
-      if (imgDataUrl) return imgDataUrl;
+      const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent)
+      if (imgDataUrl) return imgDataUrl
     } catch (err) {
-      console.warn('Gemini Imagen 실패:', err);
+      console.warn('Gemini Imagen 실패:', err)
     }
 
     try {
-      const url = generateWithPollinationsImgDirect(slideTitle, slideContent);
-      if (url) return url;
+      const url = generateWithPollinationsImgDirect(slideTitle, slideContent)
+      if (url) return url
     } catch (err) {
-      console.warn('Pollinations 실패:', err);
+      console.warn('Pollinations 실패:', err)
     }
 
-    const seed = encodeURIComponent(slideTitle || 'presentation');
-    return `https://picsum.photos/seed/${seed}/1280/720`;
+    const seed = encodeURIComponent(slideTitle || 'presentation')
+    return `https://picsum.photos/seed/${seed}/1280/720`
   },
 
   async analyzeInfographic(content: string[]) {
-    const systemInstruction = "당신은 데이터 시각화 전문가입니다.";
+    const systemInstruction = "당신은 데이터 시각화 전문가입니다."
     const userPrompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 선택하세요.
 선택지: "cycle", "hierarchy", "process", "grid"
 내용: ${JSON.stringify(content)}
-반드시 JSON {"type":"선택값","reason":"이유"}만 반환.`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 1024);
-    return extractJSON(text) || { type: "grid" };
+반드시 JSON {"type":"선택값","reason":"이유"}만 반환.`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 1024)
+    return extractJSON(text) || { type: "grid" }
   },
 
   async analyzeTemplate(templateData: string) {
-    const systemInstruction = "당신은 디자인 분석 전문가입니다.";
+    const systemInstruction = "당신은 디자인 분석 전문가입니다."
     const userPrompt = `다음 템플릿 데이터를 분석하여 주요 색상과 스타일을 추출하세요.
 템플릿: ${templateData.slice(0, 1000)}
-반드시 JSON만 반환: {"primaryColor":"#1B3A5C","accentColor":"#0D8ECF","description":"스타일 설명"}`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 512);
-    return extractJSON(text) || { primaryColor: "#1B3A5C", accentColor: "#0D8ECF", description: "" };
+반드시 JSON만 반환: {"primaryColor":"#1B3A5C","accentColor":"#0D8ECF","description":"스타일 설명"}`
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 512)
+    return extractJSON(text) || { primaryColor: "#1B3A5C", accentColor: "#0D8ECF", description: "" }
   },
 
   async exportToExternal(
     _presentation: any,
     _platform: "notion" | "google"
   ): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 1500));
+    return new Promise((resolve) => setTimeout(resolve, 1500))
   },
 
-  // ✅ 신규 추가: 슬라이드 AI 스마트 분할
+  // ✅ 슬라이드 AI 스마트 분할
   async splitSlideWithAI(slide: any): Promise<{ slideA: any; slideB: any }> {
-    const systemInstruction = getSystemPromptCore();
+    const systemInstruction = getSystemPromptCore()
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 아래 슬라이드의 내용이 너무 많습니다. 의미 단위로 자연스럽게 2장으로 분할하세요.
 
@@ -950,14 +919,14 @@ ${JSON.stringify(slide)}
 {
   "slideA": { ...슬라이드 객체 },
   "slideB": { ...슬라이드 객체 }
-}`;
+}`
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
-    const json = extractJSON(text);
-    if (!json?.slideA || !json?.slideB) throw new Error('AI 분할 파싱 실패');
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096)
+    const json  = extractJSON(text)
+    if (!json?.slideA || !json?.slideB) throw new Error('AI 분할 파싱 실패')
     return {
       slideA: normalizeSlide(json.slideA, 1, 3),
       slideB: normalizeSlide(json.slideB, 2, 3),
-    };
+    }
   },
-};
+}
