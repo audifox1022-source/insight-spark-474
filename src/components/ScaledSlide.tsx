@@ -425,13 +425,19 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 3) KPI 렌더링
+  // 3) KPI 렌더링 — 오버플로우 방지 개선
   // ══════════════════════════════════════════════════════════════
   const renderKPI = () => {
     const km = slide.keyMetrics;
     if (!km?.length) return <EmptyPlaceholder icon={Target} label="KPI 데이터 없음" />;
 
     const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
+    
+    // ✅ KPI 개수에 따라 폰트 크기 자동 축소
+    const valueFontSize = km.length >= 6 ? 2.2 : km.length >= 4 ? 2.6 : 3.0;
+    const labelFontSize = km.length >= 6 ? 0.85 : km.length >= 4 ? 0.95 : 1.05;
+    const trendFontSize = km.length >= 6 ? 0.75 : km.length >= 4 ? 0.85 : 0.95;
+    const cardPadding = km.length >= 6 ? '1rem 0.9rem' : '1.5rem 1.3rem';
 
     return (
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.1rem', height: '100%', alignContent: 'center' }}>
@@ -444,7 +450,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
               style={{
                 background: P.kpiGradients[i % P.kpiGradients.length],
                 borderRadius: 16,
-                padding: '1.5rem 1.3rem',
+                padding: cardPadding,
                 color: '#fff',
                 display: 'flex',
                 flexDirection: 'column',
@@ -452,33 +458,50 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 justifyContent: 'center',
                 textAlign: 'center',
                 boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
+                minHeight: 0,
+                overflow: 'hidden',
               }}
             >
               <div
                 style={{
-                  fontSize: `${1.05 * contentSizeScale}rem`,
+                  fontSize: `${labelFontSize * contentSizeScale}rem`,
                   fontWeight: 700,
                   opacity: 0.82,
-                  marginBottom: '0.5rem',
+                  marginBottom: '0.4rem',
                   letterSpacing: 1.2,
                   textTransform: 'uppercase',
+                  lineHeight: 1.2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  width: '100%',
                 }}
               >
                 {kpi.label}
               </div>
-              <div style={{ fontSize: `${3.0 * contentSizeScale}rem`, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1 }}>{kpi.value}</div>
+              <div style={{ 
+                fontSize: `${valueFontSize * contentSizeScale}rem`, 
+                fontWeight: 900, 
+                lineHeight: 1.1, 
+                letterSpacing: -1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                maxWidth: '100%',
+              }}>
+                {kpi.value}
+              </div>
               {kpi.trend && (
                 <div
                   style={{
-                    marginTop: '0.7rem',
+                    marginTop: '0.5rem',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 5,
-                    fontSize: `${0.95 * contentSizeScale}rem`,
+                    fontSize: `${trendFontSize * contentSizeScale}rem`,
                     fontWeight: 700,
                     background: 'rgba(255,255,255,0.2)',
                     borderRadius: 20,
-                    padding: '0.25rem 0.85rem',
+                    padding: '0.2rem 0.75rem',
                   }}
                 >
                   {isUp && <TrendingUp style={{ width: '1em', height: '1em' }} />}
@@ -495,7 +518,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 3.5) Compare 렌더링 — 색상 대비 완전 고정 + 스크롤 제거
+  // 3.5) Compare 렌더링 — 색상 대비 + 여백 재조정
   // ══════════════════════════════════════════════════════════════
   const renderCompare = () => {
     if (!slide.leftItems?.length && !slide.rightItems?.length) {
@@ -508,27 +531,27 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const rightTitle = slide.rightTitle ?? 'TO-BE';
 
     // ✅ 대비 강화 색상 팔레트 (WCAG AA 준수)
-    const LEFT_BG     = '#1e3a8a';   // 진한 파랑 헤더 (더 어둡게)
+    const LEFT_BG     = '#1e3a8a';   // 진한 파랑 헤더
     const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
-    const LEFT_BADGE  = '#1d4ed8';   // 파랑 번호 뱃지 (더 진하게)
-    const LEFT_BORDER = '#93c5fd';   // 파랑 테두리 (더 진하게)
-    const LEFT_TEXT   = '#1e3a8a';   // 파랑 텍스트 (헤더와 동일)
+    const LEFT_BADGE  = '#1d4ed8';   // 파랑 번호 뱃지
+    const LEFT_BORDER = '#93c5fd';   // 파랑 테두리
+    const LEFT_TEXT   = '#1e3a8a';   // 파랑 텍스트
 
-    const RIGHT_BG    = '#064e3b';   // 진한 초록 헤더 (더 어둡게)
+    const RIGHT_BG    = '#064e3b';   // 진한 초록 헤더
     const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
-    const RIGHT_BADGE = '#047857';   // 초록 번호 뱃지 (더 진하게)
-    const RIGHT_BORDER= '#86efac';   // 초록 테두리 (더 진하게)
-    const RIGHT_TEXT  = '#064e3b';   // 초록 텍스트 (헤더와 동일)
+    const RIGHT_BADGE = '#047857';   // 초록 번호 뱃지
+    const RIGHT_BORDER= '#86efac';   // 초록 테두리
+    const RIGHT_TEXT  = '#064e3b';   // 초록 텍스트
 
     const maxRows = Math.max(leftItems.length, rightItems.length);
 
-    // ✅ 항목 수에 따라 폰트·패딩·간격 자동 축소
-    const itemFontSize  = `${Math.max(0.82, 1.35 - maxRows * 0.08) * contentSizeScale}rem`;
-    const itemPadding   = maxRows >= 6 ? '0.3rem 0.6rem' : '0.5rem 0.8rem';
-    const itemGap       = maxRows >= 6 ? '0.35rem' : '0.55rem';
-    const bodyPadding   = maxRows >= 6 ? '0.5rem'  : '0.8rem';
-    const badgeSize     = `${Math.max(1.2, 1.5 - maxRows * 0.04) * contentSizeScale}rem`;
-    const badgeFontSize = `${Math.max(0.65, 0.75 - maxRows * 0.02) * contentSizeScale}rem`;
+    // ✅ 항목 수에 따라 폰트·패딩·간격 자동 축소 (여백 증가)
+    const itemFontSize  = `${Math.max(0.85, 1.3 - maxRows * 0.07) * contentSizeScale}rem`;
+    const itemPadding   = maxRows >= 7 ? '0.4rem 0.8rem' : maxRows >= 5 ? '0.55rem 0.95rem' : '0.7rem 1.1rem';
+    const itemGap       = maxRows >= 7 ? '0.5rem' : maxRows >= 5 ? '0.65rem' : '0.8rem';
+    const bodyPadding   = maxRows >= 7 ? '0.7rem' : maxRows >= 5 ? '0.9rem' : '1.1rem';
+    const badgeSize     = `${Math.max(1.3, 1.6 - maxRows * 0.04) * contentSizeScale}rem`;
+    const badgeFontSize = `${Math.max(0.7, 0.8 - maxRows * 0.02) * contentSizeScale}rem`;
 
     const renderPanel = (
       items: string[],
@@ -544,9 +567,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         <div style={{
           background: headerBg,
           color: '#ffffff',
-          padding: '0.75rem 1rem',
+          padding: '0.9rem 1.2rem',
           borderRadius: '12px 12px 0 0',
-          fontSize: `${1.15 * contentSizeScale}rem`,
+          fontSize: `${1.2 * contentSizeScale}rem`,
           fontWeight: 800,
           textAlign: 'center',
           letterSpacing: 0.5,
@@ -556,7 +579,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           {title}
         </div>
 
-        {/* ✅ overflow: 'hidden' 으로 변경 — 스크롤바 완전 제거 */}
+        {/* ✅ 스크롤바 제거 + 여백 증가 */}
         <div style={{
           flex: 1,
           background: bodyBg,
@@ -574,12 +597,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <div key={i} style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.6rem',
+              gap: '0.75rem',
               background: '#ffffff',
-              borderRadius: 8,
+              borderRadius: 10,
               padding: itemPadding,
               border: `1px solid ${borderColor}`,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
               flexShrink: 0,
             }}>
               {/* ✅ 번호 뱃지: 진한 배경 + 흰 글자 */}
@@ -623,7 +646,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     return (
       <div style={{
         display: 'flex',
-        gap: '1rem',
+        gap: '1.5rem',
         height: '100%',
         alignItems: 'stretch',
         minHeight: 0,
@@ -631,26 +654,26 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       }}>
         {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER, LEFT_TEXT)}
 
-        {/* 중앙 화살표 */}
+        {/* 중앙 화살표 — 크기 증가 */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          paddingTop: '2.6rem',
+          paddingTop: '3rem',
         }}>
           <div style={{
-            width: '2.2rem',
-            height: '2.2rem',
+            width: '2.8rem',
+            height: '2.8rem',
             borderRadius: '50%',
             background: 'linear-gradient(135deg, #1e3a8a, #047857)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
           }}>
-            <ArrowRight style={{ width: '1.1rem', height: '1.1rem', color: '#ffffff', strokeWidth: 3 }} />
+            <ArrowRight style={{ width: '1.4rem', height: '1.4rem', color: '#ffffff', strokeWidth: 3 }} />
           </div>
         </div>
 
