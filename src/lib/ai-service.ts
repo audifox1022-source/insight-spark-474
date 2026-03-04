@@ -1,9 +1,6 @@
 // ============================================================
-// ai-service.ts — 이미지 생성 수정 반영 전체 코드
-// [수정 내역]
-// 1. generateWithGeminiImagen: 모델명 imagen-3.0-generate-002:predict 으로 변경
-// 2. generateWithPollinationsImgDirect: Canvas 없이 URL 직접 반환
-// 3. generateImage: 3단계 폴백 구조 (Gemini → Pollinations → Picsum)
+// ai-service.ts — 최종 완성본
+// generateWithGeminiImagen: gemini-2.0-flash-preview-image-generation 으로 수정
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -256,7 +253,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
-  // ── chart ───────────────────────────────────────────────
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
@@ -306,7 +302,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
-  // ── table ───────────────────────────────────────────────
   } else if (s.type === 'table') {
     s.tableData = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
@@ -322,14 +317,13 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
-  // ── kpi ────────────────────────────────────────────────
   } else if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     const parsedMetrics = Array.isArray(rawMetrics)
       ? rawMetrics.map((m: any) => ({
           label: m.label || m.name || '',
           value: m.value || m.score || '',
-          trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
+          trend: (['up', 'down', 'flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
       : [];
 
@@ -344,7 +338,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
-  // ── compare ────────────────────────────────────────────
   } else if (s.type === 'compare') {
     s.leftItems = Array.isArray(s.leftItems) ? s.leftItems : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
@@ -356,13 +349,12 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
-  // ── timeline ───────────────────────────────────────────
   } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
           label: m.label || m.title || m.name || '',
           date: m.date || '',
-          state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
+          state: (['done', 'next', 'todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
 
@@ -371,7 +363,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
-  // ── quote ──────────────────────────────────────────────
   } else if (s.type === 'quote') {
     s.text = s.text || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
@@ -381,7 +372,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
-  // ── 그 외 (title / agenda / content / process / cards / summary) ──
   } else {
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
@@ -551,9 +541,8 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
 }
 
 // ============================================================
-// ✅ 수정 1: generateWithGeminiImagen — 모델명 수정
-// 기존: gemini-2.0-flash-preview-image-generation:generateContent
-// 변경: imagen-3.0-generate-002:predict
+// ✅ 최종 수정: gemini-2.0-flash-preview-image-generation 사용
+// (imagen-3.0-generate-002 → Deprecated 및 무료키 불가)
 // ============================================================
 async function generateWithGeminiImagen(
   slideTitle: string,
@@ -571,18 +560,13 @@ async function generateWithGeminiImagen(
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          instances: [{ prompt }],
-          parameters: {
-            sampleCount: 1,
-            aspectRatio: '16:9',
-            safetyFilterLevel: 'block_few',
-            personGeneration: 'allow_adult',
-          },
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
         }),
       }
     );
@@ -590,10 +574,13 @@ async function generateWithGeminiImagen(
     if (!res.ok) return null;
 
     const data = await res.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-    const mimeType = data?.predictions?.[0]?.mimeType ?? 'image/png';
+    const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
 
-    if (b64) return `data:${mimeType};base64,${b64}`;
+    for (const part of parts) {
+      if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+      }
+    }
     return null;
   } catch {
     return null;
@@ -601,9 +588,7 @@ async function generateWithGeminiImagen(
 }
 
 // ============================================================
-// ✅ 수정 2: generateWithPollinationsImgDirect — Canvas 없이 URL 직접 반환
-// 기존: Canvas.toDataURL() → CORS 오류 + 30초 타임아웃
-// 변경: URL 문자열 즉시 반환
+// Pollinations — Canvas 없이 URL 직접 반환 (CORS 오류 방지)
 // ============================================================
 function generateWithPollinationsImgDirect(
   slideTitle: string,
@@ -811,11 +796,9 @@ ${typeGuide}
       const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
         : s.type;
-
       if (outlineType !== s.type) {
         return normalizeSlide({ ...s, type: outlineType }, i, total);
       }
-
       return { ...s, slideNumber: i + 1 };
     });
 
@@ -912,21 +895,21 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
   },
 
   // ============================================================
-  // ✅ 수정 3: generateImage — 3단계 폴백 구조
-  // 1순위: Gemini Imagen (모델명 수정됨)
-  // 2순위: Pollinations URL 직접 반환 (Canvas 없음)
-  // 3순위: Picsum Photos (항상 동작)
+  // generateImage — 3단계 폴백 구조
+  // 1순위: Gemini (gemini-2.0-flash-preview-image-generation) ✅
+  // 2순위: Pollinations URL 직접 반환 ✅
+  // 3순위: Picsum Photos (항상 동작) ✅
   // ============================================================
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    // 1순위: Gemini Imagen
+    // 1순위: Gemini 이미지 생성
     try {
       const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
       if (imgDataUrl) return imgDataUrl;
     } catch (err) {
-      console.warn('Gemini Imagen 실패:', err);
+      console.warn('Gemini 이미지 생성 실패:', err);
     }
 
-    // 2순위: Pollinations (URL 직접 반환)
+    // 2순위: Pollinations URL 직접 반환
     try {
       const url = generateWithPollinationsImgDirect(slideTitle, slideContent);
       if (url) return url;
