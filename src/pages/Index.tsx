@@ -11,6 +11,7 @@ import { ChatEditPanel } from '@/components/ChatEditPanel'
 import { ReviewPanel } from '@/components/ReviewPanel'
 import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
+import { FormGeneratorWorkspace } from '@/components/FormGeneratorWorkspace' // ✅ 추가
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
   HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
@@ -54,9 +55,9 @@ const PROMPT_PRESETS: Preset[] = [
   {
     id: 'proposal', icon: '🤝', label: '제안서',
     fields: [
-      { id: 'client',   label: '고객사',      placeholder: 'A사 IT팀',    suggestions: ['A사', 'B그룹', 'C공사'] },
-      { id: 'solution', label: '제안 솔루션', placeholder: 'AI 자동화',    suggestions: ['RPA 도입', 'AI 전환', '클라우드 마이그레이션'] },
-      { id: 'benefit',  label: '기대 Benefit', placeholder: '비용 30% 절감', suggestions: ['ROI 300%', '시간 50% 단축', '오류 5분의1 감소'] },
+      { id: 'client',   label: '고객사',        placeholder: 'A사 IT팀',      suggestions: ['A사', 'B그룹', 'C공사'] },
+      { id: 'solution', label: '제안 솔루션',   placeholder: 'AI 자동화',      suggestions: ['RPA 도입', 'AI 전환', '클라우드 마이그레이션'] },
+      { id: 'benefit',  label: '기대 Benefit',  placeholder: '비용 30% 절감', suggestions: ['ROI 300%', '시간 50% 단축', '오류 5분의1 감소'] },
     ],
     generate: d => `${d.client} 대상 ${d.solution} 제안서. 기대효과: ${d.benefit}`,
   },
@@ -65,7 +66,8 @@ const PROMPT_PRESETS: Preset[] = [
 const Index = () => {
   const navigate = useNavigate()
 
-  type AppMode = 'presentation' | 'translator'
+  // ✅ 변경: form 탭 추가
+  type AppMode = 'presentation' | 'form' | 'translator'
   const [activeApp,      setActiveApp]      = useState<AppMode>('presentation')
   const [themeMenuOpen,  setThemeMenuOpen]  = useState(false)
   const [helpOpen,       setHelpOpen]       = useState(false)
@@ -112,8 +114,15 @@ const Index = () => {
     moveSlide, updatePresentationTitle,
   } = usePresentation()
 
-  const guide       = getStepGuide(step)
+  const guide        = getStepGuide(step)
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId)
+
+  // ✅ 로고 아이콘 — 탭별 분기
+  const headerIcon = () => {
+    if (activeApp === 'translator') return <Globe    className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'form')       return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
+    return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
+  }
 
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
@@ -129,26 +138,22 @@ const Index = () => {
               whileHover={{ scale: 1.08, rotate: 6 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
-              {activeApp === 'presentation'
-                ? <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
-                : <Globe    className="w-[18px] h-[18px] text-primary-foreground" />
-              }
+              {headerIcon()}
             </motion.div>
             <div className="min-w-0">
-              {/* ✅ 변경: 앱 이름 WorkAI로 통일 */}
-              <h1 className="text-15px font-extrabold leading-tight tracking-tight text-foreground truncate">
+              <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
                 WorkAI
               </h1>
-              {/* ✅ 변경: 부제목 */}
-              <p className="text-11px text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
+              <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
                 AI 업무 자동화 플랫폼
               </p>
             </div>
           </div>
 
-          {/* 탭 메뉴 */}
+          {/* ✅ 탭 메뉴 — 3개 */}
           <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
-            {/* ✅ 변경: 발표자료 탭 */}
+
+            {/* 발표자료 */}
             <button
               onClick={() => setActiveApp('presentation')}
               className={[
@@ -162,7 +167,21 @@ const Index = () => {
               발표자료
             </button>
 
-            {/* ✅ 변경: AI 번역 탭 */}
+            {/* ✅ 문서 생성기 */}
+            <button
+              onClick={() => setActiveApp('form')}
+              className={[
+                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                activeApp === 'form'
+                  ? 'bg-background shadow-sm text-primary border border-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+              ].join(' ')}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              문서 생성기
+            </button>
+
+            {/* AI 번역 */}
             <button
               onClick={() => setActiveApp('translator')}
               className={[
@@ -173,11 +192,12 @@ const Index = () => {
               ].join(' ')}
             >
               <Globe className="w-3.5 h-3.5" />
-              AI 번역   {/* ✅ 변경: 번역 작업실 → AI 번역 */}
+              AI 번역
             </button>
+
           </div>
 
-          {/* 우측 버튼 영역 */}
+          {/* 우측 버튼 */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {activeApp === 'presentation' && (
               <StepIndicator currentStep={step} />
@@ -287,7 +307,6 @@ const Index = () => {
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
-                {/* ✅ 변경: 도움말 제목 */}
                 <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
                   <BookOpen className="w-5 h-5 text-primary" />
                   WorkAI 사용 가이드
@@ -299,10 +318,10 @@ const Index = () => {
 
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
                 {[
-                  { icon: <MessageSquare  className="w-6 h-6 text-blue-600 dark:text-blue-400" />,    bg: 'bg-blue-100 dark:bg-blue-900/30',    title: '1. 주제 입력',      desc: '발표 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
-                  { icon: <UploadCloud    className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>, bg: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드',    desc: 'PDF, Word, 텍스트 등 기존 자료를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
-                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400"/>, bg: 'bg-purple-100 dark:bg-purple-900/30', title: '3. 발표 설정',    desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
-                  { icon: <FileText       className="w-6 h-6 text-amber-600 dark:text-amber-400" />,    bg: 'bg-amber-100 dark:bg-amber-900/30',   title: '4. 편집 & 저장', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
+                  { icon: <MessageSquare     className="w-6 h-6 text-blue-600 dark:text-blue-400" />,     bg: 'bg-blue-100 dark:bg-blue-900/30',     title: '1. 주제 입력',   desc: '발표 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
+                  { icon: <UploadCloud       className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>, bg: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: 'PDF, Word, 텍스트 등 기존 자료를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
+                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400"/>,  bg: 'bg-purple-100 dark:bg-purple-900/30',   title: '3. 발표 설정',   desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
+                  { icon: <FileText          className="w-6 h-6 text-amber-600 dark:text-amber-400" />,   bg: 'bg-amber-100 dark:bg-amber-900/30',     title: '4. 편집 & 저장', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
                 ].map((item, i) => (
                   <div key={i} className="flex gap-4">
                     <div className={`w-12 h-12 rounded-full ${item.bg} flex items-center justify-center flex-shrink-0`}>
@@ -350,6 +369,13 @@ const Index = () => {
       {/* ── MAIN CONTENT ─────────────────────────────────────── */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
 
+        {/* ✅ 문서 생성기 탭 */}
+        {activeApp === 'form' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
+            <FormGeneratorWorkspace />
+          </main>
+        )}
+
         {/* 번역 탭 */}
         {activeApp === 'translator' && (
           <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
@@ -374,7 +400,6 @@ const Index = () => {
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
                     <Sparkles className="w-3 h-3" /> AI 발표자료 생성기
                   </div>
-                  {/* ✅ 변경: 메인 타이틀 */}
                   <h2 className="text-4xl font-black tracking-tight leading-tight">
                     WorkAI로<br />
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
