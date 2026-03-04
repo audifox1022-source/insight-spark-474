@@ -495,156 +495,163 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 3.5) Compare 렌더링
+  // 3.5) Compare 렌더링 — 색상 대비 완전 고정 + 스크롤 제거
   // ══════════════════════════════════════════════════════════════
   const renderCompare = () => {
     if (!slide.leftItems?.length && !slide.rightItems?.length) {
       return <EmptyPlaceholder icon={BarIcon} label="비교 데이터 없음" />;
     }
 
-    const leftItems = slide.leftItems ?? [];
+    const leftItems  = slide.leftItems  ?? [];
     const rightItems = slide.rightItems ?? [];
-    const leftTitle = slide.leftTitle ?? 'AS-IS';
+    const leftTitle  = slide.leftTitle  ?? 'AS-IS';
     const rightTitle = slide.rightTitle ?? 'TO-BE';
 
+    // ✅ CSS 변수 의존 제거 — 하드코딩 팔레트로 대비 보장
+    const LEFT_BG     = '#1e40af';   // 진한 파랑 헤더
+    const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
+    const LEFT_BADGE  = '#2563eb';   // 파랑 번호 뱃지
+    const LEFT_BORDER = '#bfdbfe';   // 연한 파랑 테두리
+
+    const RIGHT_BG    = '#065f46';   // 진한 초록 헤더
+    const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
+    const RIGHT_BADGE = '#059669';   // 초록 번호 뱃지
+    const RIGHT_BORDER= '#bbf7d0';   // 연한 초록 테두리
+
+    const maxRows = Math.max(leftItems.length, rightItems.length);
+
+    // ✅ 항목 수에 따라 폰트·패딩·간격 자동 축소
+    const itemFontSize  = `${Math.max(0.82, 1.35 - maxRows * 0.08) * contentSizeScale}rem`;
+    const itemPadding   = maxRows >= 6 ? '0.3rem 0.6rem' : '0.5rem 0.8rem';
+    const itemGap       = maxRows >= 6 ? '0.35rem' : '0.55rem';
+    const bodyPadding   = maxRows >= 6 ? '0.5rem'  : '0.8rem';
+    const badgeSize     = `${Math.max(1.2, 1.5 - maxRows * 0.04) * contentSizeScale}rem`;
+    const badgeFontSize = `${Math.max(0.65, 0.75 - maxRows * 0.02) * contentSizeScale}rem`;
+
+    const renderPanel = (
+      items: string[],
+      title: string,
+      headerBg: string,
+      bodyBg: string,
+      badgeColor: string,
+      borderColor: string,
+    ) => (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
+        {/* ✅ 헤더: 진한 배경 + 흰색 글자 (명시적 고정) */}
+        <div style={{
+          background: headerBg,
+          color: '#ffffff',
+          padding: '0.75rem 1rem',
+          borderRadius: '12px 12px 0 0',
+          fontSize: `${1.15 * contentSizeScale}rem`,
+          fontWeight: 800,
+          textAlign: 'center',
+          letterSpacing: 0.5,
+          flexShrink: 0,
+          textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+        }}>
+          {title}
+        </div>
+
+        {/* ✅ overflow: 'hidden' 으로 변경 — 스크롤바 완전 제거 */}
+        <div style={{
+          flex: 1,
+          background: bodyBg,
+          border: `2px solid ${borderColor}`,
+          borderTop: 'none',
+          borderRadius: '0 0 12px 12px',
+          padding: bodyPadding,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: itemGap,
+          overflow: 'hidden',
+          minHeight: 0,
+        }}>
+          {items.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              background: '#ffffff',
+              borderRadius: 8,
+              padding: itemPadding,
+              border: `1px solid ${borderColor}`,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              flexShrink: 0,
+            }}>
+              {/* ✅ 번호 뱃지: 진한 배경 + 흰 글자 */}
+              <span style={{
+                flexShrink: 0,
+                width: badgeSize,
+                height: badgeSize,
+                borderRadius: '50%',
+                background: badgeColor,
+                color: '#ffffff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: badgeFontSize,
+                fontWeight: 800,
+              }}>
+                {i + 1}
+              </span>
+
+              {/* ✅ 텍스트: 흰 배경 위 진한 검정 + 말줄임표 */}
+              <span style={{
+                fontSize: itemFontSize,
+                fontWeight: 600,
+                color: '#1a2133',
+                lineHeight: 1.35,
+                flex: 1,
+                wordBreak: 'keep-all',
+                overflow: 'hidden',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              }}>
+                {typeof item === 'string' ? item : JSON.stringify(item)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
     return (
-      <div style={{ display: 'flex', gap: '1.5rem', height: '100%' }}>
-        {/* 왼쪽 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div
-            style={{
-              background: `linear-gradient(135deg, ${P.primary}, ${P.accent})`,
-              color: '#fff',
-              padding: '1.2rem 1.5rem',
-              borderRadius: '12px 12px 0 0',
-              fontSize: `${1.5 * contentSizeScale}rem`,
-              fontWeight: 700,
-              textAlign: 'center',
-              letterSpacing: 0.5,
-            }}
-          >
-            {leftTitle}
-          </div>
-          <div
-            style={{
-              flex: 1,
-              background: '#f8fafc',
-              border: `1px solid ${P.border}`,
-              borderTop: 'none',
-              borderRadius: '0 0 12px 12px',
-              padding: '1.8rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.2rem',
-              overflowY: 'auto',
-            }}
-          >
-            {leftItems.map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '1rem',
-                  fontSize: contentFontSize,
-                  color: P.text,
-                  lineHeight: 1.6,
-                }}
-              >
-                <span
-                  style={{
-                    flexShrink: 0,
-                    width: `${1.8 * contentSizeScale}rem`,
-                    height: `${1.8 * contentSizeScale}rem`,
-                    borderRadius: '50%',
-                    background: P.primary,
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: `${0.95 * contentSizeScale}rem`,
-                    fontWeight: 700,
-                    marginTop: '0.15rem',
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontWeight: 500, flex: 1 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
-              </div>
-            ))}
+      <div style={{
+        display: 'flex',
+        gap: '1rem',
+        height: '100%',
+        alignItems: 'stretch',
+        minHeight: 0,
+        overflow: 'hidden',
+      }}>
+        {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER)}
+
+        {/* 중앙 화살표 */}
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          paddingTop: '2.6rem',
+        }}>
+          <div style={{
+            width: '2.2rem',
+            height: '2.2rem',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #1e40af, #059669)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+          }}>
+            <ArrowRight style={{ width: '1.1rem', height: '1.1rem', color: '#ffffff', strokeWidth: 3 }} />
           </div>
         </div>
 
-        {/* 화살표 */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: P.primary }}>
-          <ArrowRight style={{ width: '3rem', height: '3rem', strokeWidth: 2.5 }} />
-        </div>
-
-        {/* 오른쪽 */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div
-            style={{
-              background: `linear-gradient(135deg, #10b981, #059669)`,
-              color: '#fff',
-              padding: '1.2rem 1.5rem',
-              borderRadius: '12px 12px 0 0',
-              fontSize: `${1.5 * contentSizeScale}rem`,
-              fontWeight: 700,
-              textAlign: 'center',
-              letterSpacing: 0.5,
-            }}
-          >
-            {rightTitle}
-          </div>
-          <div
-            style={{
-              flex: 1,
-              background: '#f0fdf4',
-              border: '1px solid #bbf7d0',
-              borderTop: 'none',
-              borderRadius: '0 0 12px 12px',
-              padding: '1.8rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.2rem',
-              overflowY: 'auto',
-            }}
-          >
-            {rightItems.map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '1rem',
-                  fontSize: contentFontSize,
-                  color: P.text,
-                  lineHeight: 1.6,
-                }}
-              >
-                <span
-                  style={{
-                    flexShrink: 0,
-                    width: `${1.8 * contentSizeScale}rem`,
-                    height: `${1.8 * contentSizeScale}rem`,
-                    borderRadius: '50%',
-                    background: '#10b981',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: `${0.95 * contentSizeScale}rem`,
-                    fontWeight: 700,
-                    marginTop: '0.15rem',
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span style={{ fontWeight: 500, flex: 1 }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER)}
       </div>
     );
   };
