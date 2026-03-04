@@ -1,11 +1,9 @@
 // ============================================================
-// SlideEditor.tsx  —  최종 전체 코드
-// 수정사항:
-// 1. onOpenChat → onOpenChatWithSlide(currentSlide) 연동
-// 2. 슬라이드 타입 compare/timeline/quote/kpi/content/table 추가
-// 3. 미사용 임포트 제거 (Square, ChevronUp, ChevronDown, ChevronRight)
-// 4. fetchUnsplashImage → loremflickr 교체 (source.unsplash.com 서비스종료)
-// 5. 한국어 키워드 → 영어 매핑 테이블 추가
+// SlideEditor.tsx  —  분할/병합 기능 추가 버전
+// 추가사항:
+// 1. onSplitSlide / onSplitSlideWithAI / onMergeSlides props 추가
+// 2. 편집 패널 헤더에 분할(Scissors)/병합(Merge) 버튼 추가
+// 3. Scissors, Merge 아이콘 import 추가
 // ============================================================
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +32,7 @@ import {
   GripVertical, Loader2, Sparkles, MessageSquare, Keyboard,
   Star, TableProperties, Wand2, LayoutTemplate, Stamp,
   SlidersHorizontal, ImagePlus, CheckSquare, Layers,
+  Scissors, Merge,
 } from 'lucide-react';
 import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog }   from '@/components/ExportSettingsDialog';
@@ -58,7 +57,7 @@ interface SlideEditorProps {
   isSaving:                 boolean;
   onRegenerateSlide:        (slideIndex: number, instruction?: string) => Promise<void>;
   onOpenChat:               () => void;
-  onOpenChatWithSlide?:     (slideIndex: number) => void; // ✅ 슬라이드 인덱스 전달용
+  onOpenChatWithSlide?:     (slideIndex: number) => void;
   onOpenReview:             () => void;
   onReviewAndFix:           () => Promise<void>;
   isFixing:                 boolean;
@@ -67,6 +66,10 @@ interface SlideEditorProps {
   updatePresentationMaster: (updates: Partial<Presentation>) => void;
   isGeneratingImage?:       boolean;
   generateSlideImage?:      (slideIndex: number) => Promise<void>;
+  // ✅ 신규: 분할/병합
+  onSplitSlide?:            (index: number) => void;
+  onSplitSlideWithAI?:      (index: number) => Promise<void>;
+  onMergeSlides?:           (index: number) => void;
 }
 
 // ── 슬라이드 타입 메타데이터 ─────────────────────────────────
@@ -110,7 +113,7 @@ const slideTypeBadgeColors: Record<string, string> = {
   table:    'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
-// ── ✅ 한국어 키워드 → 영어 매핑 ────────────────────────────
+// ── 한국어 키워드 → 영어 매핑 ────────────────────────────
 const KEYWORD_MAP: Record<string, string> = {
   '야간': 'night factory',
   '공정': 'manufacturing process',
@@ -144,16 +147,13 @@ const KEYWORD_MAP: Record<string, string> = {
   '타임라인': 'timeline roadmap',
 };
 
-// ── ✅ 이미지 검색 함수 (loremflickr 사용) ──────────────────
-// source.unsplash.com은 2023년 서비스 종료됨 → loremflickr로 교체
+// ── 이미지 검색 함수 (loremflickr) ──────────────────
 async function fetchSlideImage(query: string): Promise<string> {
-  // 한국어 매핑 적용
   let keyword = 'business professional';
   for (const [ko, en] of Object.entries(KEYWORD_MAP)) {
     if (query.includes(ko)) { keyword = en; break; }
   }
 
-  // 매핑이 없어도 영문 단어가 있으면 그대로 사용
   const hasEnglish = /[a-zA-Z]{3,}/.test(query);
   if (hasEnglish && /[가-힣]/.test(keyword)) {
     keyword = query
@@ -163,8 +163,6 @@ async function fetchSlideImage(query: string): Promise<string> {
       .join(',') || 'business';
   }
 
-  // loremflickr: 키워드 기반 실제 사진 무료 제공, API 키 불필요
-  // ?lock=타임스탬프 → 같은 키워드여도 매번 다른 이미지 반환
   const cacheBust = Date.now();
   return `https://loremflickr.com/1200/630/${encodeURIComponent(keyword)}?lock=${cacheBust}`;
 }
@@ -245,6 +243,9 @@ export function SlideEditor({
   onChangePersona, onCycleLayout, updatePresentationMaster,
   isGeneratingImage = false,
   generateSlideImage,
+  onSplitSlide,
+  onSplitSlideWithAI,
+  onMergeSlides,
 }: SlideEditorProps) {
   const [currentSlide,      setCurrentSlide]      = useState(0);
   const [isExporting,       setIsExporting]        = useState(false);
@@ -260,6 +261,8 @@ export function SlideEditor({
   const [isBulkProcessing,  setIsBulkProcessing]  = useState(false);
   const [bulkProgress,      setBulkProgress]       = useState(0);
   const [isImgLoading,      setIsImgLoading]       = useState(false);
+  // ✅ 신규: AI 분할 로딩 상태
+  const [isAiSplitting,     setIsAiSplitting]      = useState(false);
 
   const slides = presentation.slides;
   const slide  = slides[currentSlide];
@@ -319,13 +322,11 @@ export function SlideEditor({
     finally { setIsRegenerating(false); }
   };
 
-  // ✅ onOpenChatWithSlide 우선 사용, 없으면 onOpenChat 폴백
   const handleOpenChat = () => {
     if (onOpenChatWithSlide) onOpenChatWithSlide(currentSlide);
     else onOpenChat();
   };
 
-  // ✅ 이미지 자동 검색 (loremflickr)
   const handleGenerateImage = async () => {
     setIsImgLoading(true);
     try {
@@ -337,6 +338,18 @@ export function SlideEditor({
       toast.error('이미지 불러오기 실패. 직접 업로드해주세요.');
     } finally {
       setIsImgLoading(false);
+    }
+  };
+
+  // ✅ 신규: AI 분할 핸들러
+  const handleAiSplit = async () => {
+    if (!onSplitSlideWithAI) return;
+    setIsAiSplitting(true);
+    try {
+      await onSplitSlideWithAI(currentSlide);
+      // 분할 후 현재 슬라이드 유지 (앞 조각 = currentSlide)
+    } finally {
+      setIsAiSplitting(false);
     }
   };
 
@@ -739,13 +752,62 @@ export function SlideEditor({
                         }
                         <span className="hidden xl:inline">재생성</span>
                       </Button>
-                      {/* ✅ handleOpenChat → currentSlide 전달 */}
+
                       <Button size="sm" variant="ghost"
                         className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
                         onClick={handleOpenChat}>
                         <MessageSquare className="w-3.5 h-3.5" />
                         <span className="hidden xl:inline">AI 채팅</span>
                       </Button>
+
+                      {/* ✅ 신규: 분할 드롭다운 */}
+                      {(onSplitSlide || onSplitSlideWithAI) && (
+                        <div className="relative group/split pb-1 -mb-1">
+                          <Button size="sm" variant="ghost"
+                            className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                            title="슬라이드 분할">
+                            <Scissors className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline">분할</span>
+                          </Button>
+                          <div className="absolute right-0 top-full mt-0 w-52 bg-card rounded-xl shadow-2xl border border-border opacity-0 invisible group-hover/split:opacity-100 group-hover/split:visible transition-all z-50 overflow-hidden flex flex-col">
+                            <div className="px-3 py-2 text-[10px] font-bold text-muted-foreground bg-muted/30">슬라이드 분할</div>
+                            {onSplitSlide && (
+                              <button
+                                onClick={() => onSplitSlide(currentSlide)}
+                                className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors flex items-center gap-2"
+                              >
+                                <Scissors className="w-3.5 h-3.5 text-muted-foreground" />
+                                빠른 분할 (내용 반반)
+                              </button>
+                            )}
+                            {onSplitSlideWithAI && (
+                              <button
+                                onClick={handleAiSplit}
+                                disabled={isAiSplitting}
+                                className="text-left px-3 py-2.5 text-xs hover:bg-muted text-foreground transition-colors flex items-center gap-2 disabled:opacity-50"
+                              >
+                                {isAiSplitting
+                                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                  : <Sparkles className="w-3.5 h-3.5 text-muted-foreground" />
+                                }
+                                AI 스마트 분할
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* ✅ 신규: 병합 버튼 */}
+                      {onMergeSlides && currentSlide < slides.length - 1 && (
+                        <Button size="sm" variant="ghost"
+                          className="h-7 px-2 text-xs text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10 gap-1"
+                          onClick={() => onMergeSlides(currentSlide)}
+                          title="다음 슬라이드와 병합">
+                          <Merge className="w-3.5 h-3.5" />
+                          <span className="hidden xl:inline">병합</span>
+                        </Button>
+                      )}
+
                       <Button size="sm" variant="ghost"
                         className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10"
                         onClick={() => onDuplicateSlide(currentSlide)}>
@@ -849,7 +911,7 @@ export function SlideEditor({
                     </div>
                   </div>
 
-                  {/* ✅ 이미지 섹션 — loremflickr 사용 */}
+                  {/* 이미지 섹션 */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
