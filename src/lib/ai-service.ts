@@ -1,10 +1,5 @@
 // ============================================================
-// ai-service.ts — 이미지 생성 로직 개선 버전
-// [수정 내역]
-// A. generateWithGeminiImagen: 모델명 최신화
-// B. generateWithPollinationsImg: 타임아웃 단축 + URL 파라미터 정비
-// C. generateLocalGradient: 로컬 SVG 그라데이션 폴백 추가
-// D. generateImage: 3단계 폴백 체인 (Gemini → Pollinations → SVG)
+// ai-service.ts — 이미지 생성 수정 반영 전체 코드
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -66,7 +61,6 @@ function getSystemPromptCore(difficulty = "medium"): string {
 
 const SLIDE_SCHEMA = `
 [📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
-
 type | 용도 | 필수 필드
 ---------|------------------------------|-----------------------------------------
 title | 표지 (1번 슬라이드 전용) | content: [부제목] (1~2개)
@@ -88,7 +82,6 @@ summary | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (
   "labels": ["1분기", "2분기", "3분기"],
   "datasets": [{"label": "매출(억)", "data": [120, 145, 168]}]
 }
-
 type은 "bar" | "line" | "pie" | "area" 중 하나.
 
 [📋 table 타입 tableData 구조 예시]
@@ -103,7 +96,6 @@ type은 "bar" | "line" | "pie" | "area" 중 하나.
   {"label": "불량률", "value": "2.1%", "trend": "down"},
   {"label": "가동률", "value": "87%", "trend": "flat"}
 ]
-
 trend는 "up" | "down" | "flat" 중 하나.
 
 [🔄 compare 타입 구조 예시]
@@ -118,7 +110,6 @@ trend는 "up" | "down" | "flat" 중 하나.
   {"label": "중간점검","date": "2025.06", "state": "next"},
   {"label": "완료", "date": "2025.12", "state": "todo"}
 ]
-
 state는 "done" | "next" | "todo" 중 하나.
 
 [🔥 타입 사용 절대 규칙]
@@ -135,19 +126,13 @@ const MAX_FILE_BYTES = 80_000;
 
 function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
-
-  const raw = typeof fileData === "string"
-    ? fileData
-    : JSON.stringify(fileData);
-
+  const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
   const encoder = new TextEncoder();
   const encoded = encoder.encode(raw);
   if (encoded.length <= MAX_FILE_BYTES) return raw;
-
   const sliced = encoded.slice(0, MAX_FILE_BYTES);
   const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
-
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
@@ -175,8 +160,7 @@ function extractTextFromItem(item: any, depth = 0): string[] {
 
   if (typeof item === "object") {
     const result: string[] = [];
-    const title =
-      item.title || item.heading || item.name || item.subject || "";
+    const title = item.title || item.heading || item.name || item.subject || "";
     const bodyData =
       item.content || item.items || item.points ||
       item.bullets || item.text || item.desc ||
@@ -260,8 +244,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
   s.title = s.title || "";
   s.type = normalizeType(s.type || 'content', index, total);
 
-  const rawContent =
-    s.content || s.points || s.bullets || s.items || s.list || [];
+  const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent)
     ? rawContent
     : typeof rawContent === "string"
@@ -269,6 +252,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
+  // ── chart ───────────────────────────────────────────────
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
@@ -318,6 +302,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
+  // ── table ───────────────────────────────────────────────
   } else if (s.type === 'table') {
     s.tableData = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
@@ -333,6 +318,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
+  // ── kpi ────────────────────────────────────────────────
   } else if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     const parsedMetrics = Array.isArray(rawMetrics)
@@ -354,6 +340,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.keyMetrics = [];
     }
 
+  // ── compare ────────────────────────────────────────────
   } else if (s.type === 'compare') {
     s.leftItems = Array.isArray(s.leftItems) ? s.leftItems : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
@@ -365,6 +352,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
+  // ── timeline ───────────────────────────────────────────
   } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
@@ -379,6 +367,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
+  // ── quote ──────────────────────────────────────────────
   } else if (s.type === 'quote') {
     s.text = s.text || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
@@ -388,6 +377,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
+  // ── 그 외 (title / agenda / content / process / cards / summary) ──
   } else {
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
@@ -557,7 +547,9 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
 }
 
 // ============================================================
-// ✅ A. Gemini Imagen (모델명 수정)
+// ✅ 수정 1: generateWithGeminiImagen — 모델명 수정
+//    기존: gemini-2.0-flash-preview-image-generation:generateContent
+//    변경: imagen-3.0-generate-002:predict
 // ============================================================
 async function generateWithGeminiImagen(
   slideTitle: string,
@@ -573,109 +565,49 @@ async function generateWithGeminiImagen(
     'Style: soft gradient, clean minimal corporate design, abstract shapes, no text, no watermark, 16:9 landscape.',
   ].filter(Boolean).join(' ');
 
-  // ✅ 모델명 변경: gemini-2.0-flash-exp-image-generation
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
-      }),
-    }
-  );
-
-  if (!res.ok) return null;
-
-  const data = await res.json();
-  const parts: any[] = data?.candidates?.[0]?.content?.parts ?? [];
-
-  for (const part of parts) {
-    if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
-      return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-    }
-  }
-  return null;
-}
-
-// ============================================================
-// ✅ B. Pollinations.ai (타임아웃 단축 + URL 파라미터 정비)
-// ============================================================
-function generateWithPollinationsImg(
-  _slideTitle: string,
-  _slideContent: string
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const prompt = `Abstract minimal corporate gradient background, professional presentation, soft colors, geometric shapes, no text`;
-    const seed = Math.floor(Math.random() * 9_999_999);
-    // ✅ enhance=false 추가
-    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux&enhance=false`;
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-
-    // ✅ 타임아웃 10초로 단축
-    const timer = setTimeout(() => {
-      img.src = '';
-      reject(new Error('Pollinations 타임아웃 (10초)'));
-    }, 10_000);
-
-    img.onload = () => {
-      clearTimeout(timer);
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth || 1280;
-        canvas.height = img.naturalHeight || 720;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg', 0.9));
-      } catch {
-        resolve(url);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt }],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio: '16:9',
+            safetyFilterLevel: 'block_few',
+            personGeneration: 'allow_adult',
+          },
+        }),
       }
-    };
+    );
 
-    img.onerror = () => {
-      clearTimeout(timer);
-      reject(new Error('Pollinations 서버 오류'));
-    };
+    if (!res.ok) return null;
 
-    img.src = url;
-  });
+    const data = await res.json();
+    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
+    const mimeType = data?.predictions?.[0]?.mimeType ?? 'image/png';
+
+    if (b64) return `data:${mimeType};base64,${b64}`;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // ============================================================
-// ✅ C. 신규 추가: 로컬 SVG 그라데이션 폴백
-//    외부 API가 모두 실패해도 빈 이미지 대신 예쁜 그라데이션 반환
+// ✅ 수정 2: generateWithPollinationsImgDirect — Canvas 없이 URL 직접 반환
+//    기존: Canvas.toDataURL() → CORS 오류 + 30초 타임아웃
+//    변경: URL 문자열 즉시 반환
 // ============================================================
-function generateLocalGradient(slideTitle: string): string {
-  const palettes = [
-    ['#1e3a5f', '#2563eb', '#38bdf8'],
-    ['#064e3b', '#059669', '#6ee7b7'],
-    ['#3b0764', '#7c3aed', '#c4b5fd'],
-    ['#7c2d12', '#ea580c', '#fed7aa'],
-    ['#1e1b4b', '#4338ca', '#a5b4fc'],
-    ['#0c4a6e', '#0284c7', '#7dd3fc'],
-  ];
-  const idx = (slideTitle?.length ?? 0) % palettes.length;
-  const [c1, c2, c3] = palettes[idx];
-
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720">
-    <defs>
-      <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${c1}"/>
-        <stop offset="50%" stop-color="${c2}"/>
-        <stop offset="100%" stop-color="${c3}"/>
-      </linearGradient>
-      <filter id="blur"><feGaussianBlur stdDeviation="40"/></filter>
-    </defs>
-    <rect width="1280" height="720" fill="url(#g1)"/>
-    <circle cx="1000" cy="100" r="300" fill="${c3}" opacity="0.15" filter="url(#blur)"/>
-    <circle cx="200" cy="600" r="250" fill="${c1}" opacity="0.2" filter="url(#blur)"/>
-    <circle cx="640" cy="360" r="200" fill="${c2}" opacity="0.08" filter="url(#blur)"/>
-  </svg>`;
-
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
+function generateWithPollinationsImgDirect(
+  slideTitle: string,
+  _slideContent: string
+): string {
+  const prompt = `Professional presentation background, corporate abstract minimal gradient, 16:9, no text, no watermark, topic: ${slideTitle}`;
+  const seed = Math.floor(Math.random() * 9_999_999);
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
 }
 
 export const aiService = {
@@ -706,9 +638,9 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
 1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline})
 2. 슬라이드 타입: title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary 중 하나만 사용
 3. 필수 타입 배분:
-   - 8장 이상: chart 최소 1개, kpi 최소 1개
-   - 13장 이상: table 최소 1개, compare 최소 1개 추가
-   - content 타입은 전체의 40% 이하로 제한
+- 8장 이상: chart 최소 1개, kpi 최소 1개
+- 13장 이상: table 최소 1개, compare 최소 1개 추가
+- content 타입은 전체의 40% 이하로 제한
 4. 슬라이드 1번 type = 반드시 "title"
 5. 슬라이드 2번 type = 반드시 "agenda" (4장 이상)
 6. 마지막 슬라이드 type = 반드시 "summary"
@@ -862,7 +794,6 @@ ${typeGuide}
     if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
       const originalLastSlide = data.slides[data.slides.length - 1];
       data.slides = data.slides.slice(0, approvedOutline.length);
-
       const newLast = data.slides[data.slides.length - 1];
       if (newLast && newLast.type !== 'summary' && originalLastSlide?.type === 'summary') {
         data.slides[data.slides.length - 1] = {
@@ -880,6 +811,7 @@ ${typeGuide}
       if (outlineType !== s.type) {
         return normalizeSlide({ ...s, type: outlineType }, i, total);
       }
+
       return { ...s, slideNumber: i + 1 };
     });
 
@@ -939,7 +871,6 @@ JSON만 반환.`;
   "improvements": [{"slideNumber":1,"slideIndex":0,"category":"readability","severity":"high","issue":"문제점","suggestion":"개선 제안"}],
   "generalTips": ["팁 1", "팁 2", "팁 3"]
 }
-
 category: readability|content|structure|visual|data / severity: high|medium|low`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
@@ -978,24 +909,31 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
   },
 
   // ============================================================
-  // ✅ D. generateImage: 3단계 폴백 체인
-  // 1차: Gemini Imagen → 2차: Pollinations → 3차: 로컬 SVG 그라데이션
+  // ✅ 수정 3: generateImage — 3단계 폴백 구조
+  //    1순위: Gemini Imagen (모델명 수정됨)
+  //    2순위: Pollinations URL 직접 반환 (Canvas 없음)
+  //    3순위: Picsum Photos (항상 동작)
   // ============================================================
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    // 1차: Gemini Imagen
+    // 1순위: Gemini Imagen
     try {
       const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
       if (imgDataUrl) return imgDataUrl;
-    } catch {}
+    } catch (err) {
+      console.warn('Gemini Imagen 실패:', err);
+    }
 
-    // 2차: Pollinations.ai
+    // 2순위: Pollinations (URL 직접 반환)
     try {
-      const url = await generateWithPollinationsImg(slideTitle, slideContent);
+      const url = generateWithPollinationsImgDirect(slideTitle, slideContent);
       if (url) return url;
-    } catch {}
+    } catch (err) {
+      console.warn('Pollinations 실패:', err);
+    }
 
-    // 3차: ✅ 로컬 SVG 그라데이션 (항상 성공 보장)
-    return generateLocalGradient(slideTitle);
+    // 3순위: Picsum (항상 동작하는 최종 폴백)
+    const seed = encodeURIComponent(slideTitle || 'presentation');
+    return `https://picsum.photos/seed/${seed}/1280/720`;
   },
 
   async analyzeInfographic(content: string[]) {
