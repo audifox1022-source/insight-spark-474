@@ -1,10 +1,9 @@
 // ============================================================
-// gemini-client.ts — 모든 Gemini 호출의 단일 진입점
-// Edge Function 프록시를 통해 API 키를 서버에 격리합니다.
+// gemini-client.ts — Vercel Serverless Functions 프록시 버전
+// API 키는 Vercel 환경변수에만 존재 (클라이언트 노출 없음)
 // ============================================================
-import { supabase } from '@/integrations/supabase/client'
 
-const PROXY_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-proxy`
+const PROXY_URL = '/api/gemini-proxy'   // ← 여기만 다릅니다
 
 const MAX_RETRIES   = 3
 const RETRY_BASE_MS = 1_000
@@ -13,16 +12,15 @@ export interface GeminiPayload {
   system_instruction?: { parts: { text: string }[] }
   contents:            { role: string; parts: { text: string }[] }[]
   generationConfig?: {
-    temperature?:      number
-    maxOutputTokens?:  number
-    topP?:             number
-    topK?:             number
+    temperature?:     number
+    maxOutputTokens?: number
+    topP?:            number
+    topK?:            number
   }
 }
 
 /**
- * Gemini API를 Edge Function 프록시를 통해 호출합니다.
- * - JWT 자동 첨부
+ * Gemini API를 Vercel Function 프록시를 통해 호출합니다.
  * - 429 / 503 자동 재시도 (지수 백오프)
  * - 에러 한국어 변환
  */
@@ -30,11 +28,6 @@ export async function callGemini(
   payload: GeminiPayload,
   model = 'gemini-2.5-flash'
 ): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession()
-
-  if (!session?.access_token) {
-    throw new Error('로그인이 필요합니다. 다시 로그인해주세요.')
-  }
 
   let lastError: Error = new Error('알 수 없는 오류')
 
@@ -43,8 +36,7 @@ export async function callGemini(
       const res = await fetch(PROXY_URL, {
         method:  'POST',
         headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...payload, model }),
       })
@@ -55,7 +47,7 @@ export async function callGemini(
         lastError    = new Error(
           res.status === 429
             ? `요청 한도 초과. ${waitMs / 1000}초 후 재시도합니다.`
-            : `서버가 일시적으로 과부하 상태입니다. ${waitMs / 1000}초 후 재시도합니다.`
+            : `서버 과부하 상태입니다. ${waitMs / 1000}초 후 재시도합니다.`
         )
         await sleep(waitMs)
         continue
@@ -95,10 +87,14 @@ function isRetryable(err: Error) {
 }
 
 function toKoreanError(status: number, error?: string): string {
+  return toKoreanErrorImpl(status, error)
+}
+
+function toKoreanErrorImpl(status: number, error?: string): string {
   const detail = error ? `: ${error}` : ''
   const map: Record<number, string> = {
     400: `잘못된 요청입니다${detail}`,
-    401: '로그인 세션이 만료되었습니다. 다시 로그인해주세요.',
+    401: 'API 키가 유효하지 않습니다. 관리자에게 문의하세요.',
     403: '접근 권한이 없습니다.',
     429: '요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요.',
     500: 'AI 서버 내부 오류가 발생했습니다.',
