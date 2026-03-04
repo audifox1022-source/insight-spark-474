@@ -1,5 +1,10 @@
 // ============================================================
-// ai-service.ts — 이미지 생성 수정 반영 전체 코드
+// ai-service.ts — 완전 전체 코드 (2026.03.04 최종)
+// [이미지 생성 우선순위]
+// 1순위: Puter.js Stable Diffusion (무제한 무료, API키 불필요)
+// 2순위: Gemini Imagen 3 (Imagen API)
+// 3순위: Pollinations.ai (URL 직접 반환, CORS 없음)
+// 4순위: Picsum Photos (항상 동작하는 최종 폴백)
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -17,24 +22,15 @@ const VOLUME_MAP: Record<string, string> = {
 };
 
 const SLIDE_COUNT_MAP: Record<string, number> = {
-  brief: 4,
-  standard: 8,
-  detailed: 13,
-  comprehensive: 18,
+  brief: 4, standard: 8, detailed: 13, comprehensive: 18,
 };
 
 const TOKEN_MAP: Record<string, number> = {
-  brief: 4096,
-  standard: 12000,
-  detailed: 24000,
-  comprehensive: 32768,
+  brief: 4096, standard: 12000, detailed: 24000, comprehensive: 32768,
 };
 
 const OUTLINE_TOKEN_MAP: Record<string, number> = {
-  brief: 4096,
-  standard: 4096,
-  detailed: 6000,
-  comprehensive: 8192,
+  brief: 4096, standard: 4096, detailed: 6000, comprehensive: 8192,
 };
 
 const ALLOWED_SLIDE_TYPES = [
@@ -107,7 +103,7 @@ trend는 "up" | "down" | "flat" 중 하나.
 [📅 timeline 타입 milestones 구조 예시]
 "milestones": [
   {"label": "착수", "date": "2025.01", "state": "done"},
-  {"label": "중간점검","date": "2025.06", "state": "next"},
+  {"label": "중간점검", "date": "2025.06", "state": "next"},
   {"label": "완료", "date": "2025.12", "state": "todo"}
 ]
 state는 "done" | "next" | "todo" 중 하나.
@@ -139,7 +135,6 @@ function truncateFileData(fileData: any): string {
 function extractTextFromItem(item: any, depth = 0): string[] {
   if (depth > 4) return [String(item)];
   if (!item) return [];
-
   if (typeof item === "string") {
     let cleanStr = item.trim();
     cleanStr = cleanStr.replace(/^[^a-zA-Z0-9가-힣{[]+/, "").trim();
@@ -153,11 +148,9 @@ function extractTextFromItem(item: any, depth = 0): string[] {
       return [cleanStr];
     }
   }
-
   if (Array.isArray(item)) {
     return item.flatMap((el) => extractTextFromItem(el, depth + 1));
   }
-
   if (typeof item === "object") {
     const result: string[] = [];
     const title = item.title || item.heading || item.name || item.subject || "";
@@ -165,7 +158,6 @@ function extractTextFromItem(item: any, depth = 0): string[] {
       item.content || item.items || item.points ||
       item.bullets || item.text || item.desc ||
       item.description || null;
-
     if (Array.isArray(bodyData)) {
       if (title) result.push(`[${title}]`);
       result.push(...bodyData.flatMap((c: any) => {
@@ -187,7 +179,6 @@ function extractTextFromItem(item: any, depth = 0): string[] {
     }
     return result;
   }
-
   return [String(item)];
 }
 
@@ -252,11 +243,9 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
-  // ── chart ───────────────────────────────────────────────
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
-
     if (Array.isArray(raw.data) && raw.data.length > 0 && raw.data[0]?.name !== undefined) {
       parsedChartData = {
         chartType: raw.chartType ?? raw.type ?? 'bar',
@@ -290,7 +279,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
         yAxisLabel: raw.yAxisLabel ?? undefined,
       };
     }
-
     if (parsedChartData) {
       s.chartData = parsedChartData;
       s.tableData = { headers: [], rows: [] };
@@ -301,13 +289,10 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
-  // ── table ───────────────────────────────────────────────
   } else if (s.type === 'table') {
     s.tableData = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
     s.tableData.rows = Array.isArray(s.tableData.rows) ? s.tableData.rows : [];
-
     if (s.tableData.headers.length > 0) {
       s.chartData = null;
       s.keyMetrics = [];
@@ -317,18 +302,15 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
-  // ── kpi ────────────────────────────────────────────────
   } else if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     const parsedMetrics = Array.isArray(rawMetrics)
       ? rawMetrics.map((m: any) => ({
           label: m.label || m.name || '',
           value: m.value || m.score || '',
-          trend: (['up','down','flat'].includes(m.trend) ? m.trend : 'flat'),
+          trend: (['up', 'down', 'flat'].includes(m.trend) ? m.trend : 'flat'),
         }))
       : [];
-
     if (parsedMetrics.length > 0) {
       s.keyMetrics = parsedMetrics;
       s.chartData = null;
@@ -339,45 +321,34 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
-  // ── compare ────────────────────────────────────────────
   } else if (s.type === 'compare') {
     s.leftItems = Array.isArray(s.leftItems) ? s.leftItems : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
     s.leftTitle = s.leftTitle || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
-
     if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
-  // ── timeline ───────────────────────────────────────────
   } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
           label: m.label || m.title || m.name || '',
           date: m.date || '',
-          state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
+          state: (['done', 'next', 'todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
-
     if (s.milestones.length === 0) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
-  // ── quote ──────────────────────────────────────────────
   } else if (s.type === 'quote') {
     s.text = s.text || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
-
     if (!s.text) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
-  // ── 그 외 (title / agenda / content / process / cards / summary) ──
   } else {
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
@@ -392,29 +363,20 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
   let brackets = 0;
   let inString = false;
   let strChar = '';
-
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
     const prev = i > 0 ? str[i - 1] : '';
-
     if (inString) {
       if (prev === '\\') continue;
       if (ch === strChar) inString = false;
       continue;
     }
-
-    if (ch === '"' || ch === "'") {
-      inString = true;
-      strChar = ch;
-      continue;
-    }
-
+    if (ch === '"' || ch === "'") { inString = true; strChar = ch; continue; }
     if (ch === '{') braces++;
     else if (ch === '}') braces--;
     else if (ch === '[') brackets++;
     else if (ch === ']') brackets--;
   }
-
   return { braces, brackets };
 }
 
@@ -428,9 +390,7 @@ function extractJSON(text: string): any | null {
     const parsed = JSON.parse(str);
     if (parsed && Array.isArray(parsed.slides)) {
       const total = parsed.slides.length;
-      parsed.slides = parsed.slides.map((s: any, i: number) =>
-        normalizeSlide(s, i, total)
-      );
+      parsed.slides = parsed.slides.map((s: any, i: number) => normalizeSlide(s, i, total));
     }
     if (parsed && Array.isArray(parsed.outline)) {
       const total = parsed.outline.length;
@@ -451,19 +411,14 @@ function extractJSON(text: string): any | null {
       firstBrace !== -1 && firstBracket !== -1
         ? Math.min(firstBrace, firstBracket)
         : Math.max(firstBrace, firstBracket);
-
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
       repaired = repaired.replace(/,\s*$/, "");
-
       const { braces, brackets } = countUnbalancedBrackets(repaired);
-
       if (brackets < 0 || braces < 0) return null;
-
       repaired += "]".repeat(brackets);
       repaired += "}".repeat(braces);
       repaired = repaired.replace(/,\s*([\]}])/g, "$1");
-
       return tryParse(repaired);
     }
   } catch {}
@@ -547,9 +502,86 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
 }
 
 // ============================================================
-// ✅ 수정 1: generateWithGeminiImagen — 모델명 수정
-//    기존: gemini-2.0-flash-preview-image-generation:generateContent
-//    변경: imagen-3.0-generate-002:predict
+// ✅ 이미지 생성 함수 1: Puter.js Stable Diffusion (1순위)
+// API키 불필요, 무제한 무료
+// ============================================================
+async function generateWithPuter(slideTitle: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('브라우저 전용'));
+      return;
+    }
+
+    const doGenerate = async () => {
+      try {
+        const puter = (window as any).puter;
+        const prompt = [
+          'professional corporate presentation slide background,',
+          slideTitle.slice(0, 50) + ',',
+          'abstract minimal gradient, blue purple teal tones,',
+          'modern business design, clean elegant, 16:9 ratio,',
+          'no text, no people, no logos, photorealistic',
+        ].join(' ');
+
+        // txt2img 메서드 시도
+        const result = await puter.ai.txt2img(prompt);
+        if (!result) throw new Error('결과 없음');
+
+        const src = typeof result === 'string'
+          ? result
+          : result?.url ?? result?.src ?? result?.image ?? String(result);
+
+        // Canvas로 dataURL 변환 (CORS 우회)
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280;
+            canvas.height = 720;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, 1280, 720);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          } catch {
+            resolve(src); // Canvas 실패 시 URL 그대로 반환
+          }
+        };
+        img.onerror = () => resolve(src); // 이미지 로드 실패 시 URL 반환
+        img.src = src;
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    if ((window as any).puter) {
+      doGenerate();
+    } else {
+      // Puter.js 스크립트 동적 로드
+      const existing = document.querySelector('script[src="https://js.puter.com/v2/"]');
+      if (existing) {
+        // 이미 로딩 중이면 잠시 대기 후 시도
+        setTimeout(() => {
+          if ((window as any).puter) doGenerate();
+          else reject(new Error('Puter.js 초기화 실패'));
+        }, 3000);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://js.puter.com/v2/';
+      script.async = true;
+      script.onload = () => {
+        // 로드 후 puter 객체 초기화 대기
+        setTimeout(() => doGenerate(), 500);
+      };
+      script.onerror = () => reject(new Error('Puter.js 로드 실패'));
+      document.head.appendChild(script);
+    }
+  });
+}
+
+// ============================================================
+// ✅ 이미지 생성 함수 2: Gemini Imagen 3 (2순위)
+// Imagen 3 API — predictions[0].bytesBase64Encoded 구조
 // ============================================================
 async function generateWithGeminiImagen(
   slideTitle: string,
@@ -597,9 +629,8 @@ async function generateWithGeminiImagen(
 }
 
 // ============================================================
-// ✅ 수정 2: generateWithPollinationsImgDirect — Canvas 없이 URL 직접 반환
-//    기존: Canvas.toDataURL() → CORS 오류 + 30초 타임아웃
-//    변경: URL 문자열 즉시 반환
+// ✅ 이미지 생성 함수 3: Pollinations.ai (3순위)
+// Canvas 없이 URL 직접 반환 — CORS 문제 없음
 // ============================================================
 function generateWithPollinationsImgDirect(
   slideTitle: string,
@@ -617,7 +648,6 @@ export const aiService = {
     const difficulty = body.settings?.difficulty || "medium";
     const targetCount = SLIDE_COUNT_MAP[volume] ?? 8;
     const volumeGuideline = VOLUME_MAP[volume];
-
     const fileDataStr = truncateFileData(body.fileData);
     const meetingContext = [
       body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
@@ -659,7 +689,6 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
 }`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume] ?? 4096);
-
     console.log('[Outline AI 응답 원문]', text);
     console.log('[Outline JSON 파싱 결과]', extractJSON(text));
 
@@ -681,9 +710,7 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
     if (!data.outline || !Array.isArray(data.outline)) {
       data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
     }
-
-    if (data.outline.length > targetCount)
-      data.outline = data.outline.slice(0, targetCount);
+    if (data.outline.length > targetCount) data.outline = data.outline.slice(0, targetCount);
 
     while (data.outline.length < targetCount) {
       const idx = data.outline.length + 1;
@@ -708,9 +735,7 @@ ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
   async generatePresentation(body: any) {
     const difficulty = body.settings?.difficulty || "medium";
     const volume = body.settings?.volume || "standard";
-    const slideCount = body.approvedOutline?.outline?.length
-      ?? SLIDE_COUNT_MAP[volume]
-      ?? 8;
+    const slideCount = body.approvedOutline?.outline?.length ?? SLIDE_COUNT_MAP[volume] ?? 8;
 
     const typeGuide = (body.approvedOutline?.outline || [])
       .map((item: any, i: number) =>
@@ -807,11 +832,9 @@ ${typeGuide}
       const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
         : s.type;
-
       if (outlineType !== s.type) {
         return normalizeSlide({ ...s, type: outlineType }, i, total);
       }
-
       return { ...s, slideNumber: i + 1 };
     });
 
@@ -909,30 +932,49 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
   },
 
   // ============================================================
-  // ✅ 수정 3: generateImage — 3단계 폴백 구조
-  //    1순위: Gemini Imagen (모델명 수정됨)
-  //    2순위: Pollinations URL 직접 반환 (Canvas 없음)
-  //    3순위: Picsum Photos (항상 동작)
+  // ✅ generateImage — 4단계 폴백 구조
+  // 1순위: Puter.js Stable Diffusion (무제한 무료, API키 불필요)
+  // 2순위: Gemini Imagen 3 (predictions[0].bytesBase64Encoded)
+  // 3순위: Pollinations.ai URL 직접 반환 (Canvas 없음)
+  // 4순위: Picsum Photos (항상 동작하는 최종 폴백)
   // ============================================================
   async generateImage(slideTitle: string, slideContent: string): Promise<string> {
-    // 1순위: Gemini Imagen
+    // 1순위: Puter.js
+    try {
+      const result = await generateWithPuter(slideTitle);
+      if (result) {
+        console.log('✅ Puter.js 이미지 생성 성공');
+        return result;
+      }
+    } catch (e) {
+      console.warn('⚠️ Puter.js 실패, 다음 방법 시도:', e);
+    }
+
+    // 2순위: Gemini Imagen 3
     try {
       const imgDataUrl = await generateWithGeminiImagen(slideTitle, slideContent);
-      if (imgDataUrl) return imgDataUrl;
-    } catch (err) {
-      console.warn('Gemini Imagen 실패:', err);
+      if (imgDataUrl) {
+        console.log('✅ Gemini Imagen 이미지 생성 성공');
+        return imgDataUrl;
+      }
+    } catch (e) {
+      console.warn('⚠️ Gemini Imagen 실패:', e);
     }
 
-    // 2순위: Pollinations (URL 직접 반환)
+    // 3순위: Pollinations.ai (URL 직접 반환)
     try {
       const url = generateWithPollinationsImgDirect(slideTitle, slideContent);
-      if (url) return url;
-    } catch (err) {
-      console.warn('Pollinations 실패:', err);
+      if (url) {
+        console.log('✅ Pollinations URL 반환 성공:', url);
+        return url;
+      }
+    } catch (e) {
+      console.warn('⚠️ Pollinations 실패:', e);
     }
 
-    // 3순위: Picsum (항상 동작하는 최종 폴백)
+    // 4순위: Picsum 최종 폴백 (항상 동작)
     const seed = encodeURIComponent(slideTitle || 'presentation');
+    console.log('✅ Picsum 폴백 사용');
     return `https://picsum.photos/seed/${seed}/1280/720`;
   },
 
