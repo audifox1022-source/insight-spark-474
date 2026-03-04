@@ -1,5 +1,5 @@
 // ============================================================
-// ai-service.ts — 참고 양식 파일 분석 기능 추가
+// ai-service.ts — 슬라이드 분할 AI 기능 추가
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -61,20 +61,21 @@ function getSystemPromptCore(difficulty = "medium"): string {
 
 const SLIDE_SCHEMA = `
 [📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
-type     | 용도                         | 필수 필드
----------|------------------------------|------------------------------------
-title    | 표지 (1번 슬라이드 전용)       | content: [부제목] (1~2개)
-agenda   | 목차                         | content: [항목들] (3~8개)
-content  | 일반 불릿                     | content: [항목들] (3~6개)
-process  | 순서/단계                     | content: [단계들] (3~7개, 순서 중요)
-compare  | 좌우 비교                     | leftTitle, rightTitle, leftItems[], rightItems[]
-chart    | 차트                          | chartData (labels + datasets 필수)
-table    | 표                            | tableData (headers + rows 필수)
-kpi      | 수치 지표                     | keyMetrics [{label, value, trend}]
-cards    | 카드 그리드                   | content: [항목들] (3~6개)
-quote    | 인용구                        | text, author
-timeline | 타임라인                      | milestones [{label, date, state}]
-summary  | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
+
+type | 용도 | 필수 필드
+---------|------------------------------|-----------------------------------------
+title | 표지 (1번 슬라이드 전용) | content: [부제목] (1~2개)
+agenda | 목차 | content: [항목들] (3~8개)
+content | 일반 불릿 | content: [항목들] (3~6개)
+process | 순서/단계 | content: [단계들] (3~7개, 순서 중요)
+compare | 좌우 비교 | leftTitle, rightTitle, leftItems[], rightItems[]
+chart | 차트 | chartData (labels + datasets 필수)
+table | 표 | tableData (headers + rows 필수)
+kpi | 수치 지표 | keyMetrics [{label, value, trend}]
+cards | 카드 그리드 | content: [항목들] (3~6개)
+quote | 인용구 | text, author
+timeline | 타임라인 | milestones [{label, date, state}]
+summary | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
 
 [📊 chart 타입 chartData 구조 예시]
 "chartData": {
@@ -93,8 +94,8 @@ type은 "bar" | "line" | "pie" | "area" 중 하나.
 [🎯 kpi 타입 keyMetrics 구조 예시]
 "keyMetrics": [
   {"label": "생산량", "value": "1,200톤", "trend": "up"},
-  {"label": "불량률", "value": "2.1%",  "trend": "down"},
-  {"label": "가동률", "value": "87%",   "trend": "flat"}
+  {"label": "불량률", "value": "2.1%", "trend": "down"},
+  {"label": "가동률", "value": "87%", "trend": "flat"}
 ]
 trend는 "up" | "down" | "flat" 중 하나.
 
@@ -106,9 +107,9 @@ trend는 "up" | "down" | "flat" 중 하나.
 
 [📅 timeline 타입 milestones 구조 예시]
 "milestones": [
-  {"label": "착수",   "date": "2025.01", "state": "done"},
+  {"label": "착수", "date": "2025.01", "state": "done"},
   {"label": "중간점검","date": "2025.06", "state": "next"},
-  {"label": "완료",   "date": "2025.12", "state": "todo"}
+  {"label": "완료", "date": "2025.12", "state": "todo"}
 ]
 state는 "done" | "next" | "todo" 중 하나.
 
@@ -300,7 +301,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
   } else if (s.type === 'table') {
     s.tableData = s.tableData || {};
     s.tableData.headers = Array.isArray(s.tableData.headers) ? s.tableData.headers : [];
@@ -315,7 +315,6 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
   } else if (s.type === 'kpi') {
     const rawMetrics = s.keyMetrics || s.metrics || s.indicators || [];
     const parsedMetrics = Array.isArray(rawMetrics)
@@ -336,17 +335,16 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
       s.tableData = { headers: [], rows: [] };
       s.keyMetrics = [];
     }
-
   } else if (s.type === 'compare') {
     s.leftItems = Array.isArray(s.leftItems) ? s.leftItems : [];
     s.rightItems = Array.isArray(s.rightItems) ? s.rightItems : [];
     s.leftTitle = s.leftTitle || 'AS-IS';
     s.rightTitle = s.rightTitle || 'TO-BE';
+
     if (s.leftItems.length === 0 && s.rightItems.length === 0) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
   } else if (s.type === 'timeline') {
     s.milestones = Array.isArray(s.milestones)
       ? s.milestones.map((m: any) => ({
@@ -355,19 +353,19 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
           state: (['done','next','todo'].includes(m.state) ? m.state : 'todo'),
         }))
       : [];
+
     if (s.milestones.length === 0) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
   } else if (s.type === 'quote') {
     s.text = s.text || s.quote || s.content?.[0] || '';
     s.author = s.author || s.source || s.content?.[1] || '';
+
     if (!s.text) s.type = 'content';
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
-
   } else {
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
@@ -392,11 +390,13 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
       if (ch === strChar) inString = false;
       continue;
     }
+
     if (ch === '"' || ch === "'") {
       inString = true;
       strChar = ch;
       continue;
     }
+
     if (ch === '{') braces++;
     else if (ch === '}') braces--;
     else if (ch === '[') brackets++;
@@ -443,11 +443,15 @@ function extractJSON(text: string): any | null {
     if (startIdx !== -1) {
       let repaired = cleanText.substring(startIdx);
       repaired = repaired.replace(/,\s*$/, "");
+
       const { braces, brackets } = countUnbalancedBrackets(repaired);
+
       if (brackets < 0 || braces < 0) return null;
+
       repaired += "]".repeat(brackets);
       repaired += "}".repeat(braces);
       repaired = repaired.replace(/,\s*([\]}])/g, "$1");
+
       return tryParse(repaired);
     }
   } catch {}
@@ -563,9 +567,11 @@ async function generateWithGeminiImagen(
     );
 
     if (!res.ok) return null;
+
     const data = await res.json();
     const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
     const mimeType = data?.predictions?.[0]?.mimeType ?? 'image/png';
+
     if (b64) return `data:${mimeType};base64,${b64}`;
     return null;
   } catch {
@@ -582,23 +588,6 @@ function generateWithPollinationsImgDirect(
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&nofeed=true&seed=${seed}&model=flux`;
 }
 
-// ============================================================
-// ✅ 참고 양식 구조 헬퍼 — getOutline / generatePresentation 공용
-// ============================================================
-function buildReferenceGuide(referenceStructure: any): string {
-  if (!referenceStructure) return '';
-  return `
-[📋 참고 양식 — 이 구조를 최대한 따라주세요]
-슬라이드 수: ${referenceStructure.slideCount}장
-문체/톤: ${referenceStructure.tone}
-핵심 패턴: ${(referenceStructure.keyPatterns as string[]).join(' / ')}
-슬라이드 구성:
-${(referenceStructure.structure as any[])
-  .map((s: any, i: number) => `  ${i + 1}. [${s.type}] ${s.title} — ${s.description}`)
-  .join('\n')}
-`;
-}
-
 export const aiService = {
 
   async getOutline(body: any) {
@@ -609,14 +598,11 @@ export const aiService = {
 
     const fileDataStr = truncateFileData(body.fileData);
     const meetingContext = [
-      body.meetingInfo?.week       ? `보고 주차: ${body.meetingInfo.week}` : '',
+      body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
       body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}` : '',
-      body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}` : '',
-      body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
+      body.meetingInfo?.reporter ? `보고자: ${body.meetingInfo.reporter}` : '',
+      body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
     ].filter(Boolean).join('\n');
-
-    // ✅ 참고 양식 가이드 (없으면 빈 문자열)
-    const referenceGuide = buildReferenceGuide(body.referenceStructure);
 
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `당신은 전문 발표 기획자입니다. 아래 원본 데이터를 꼼꼼히 읽고 핵심 내용을 파악하여 발표 목차를 설계하세요.
@@ -625,15 +611,14 @@ export const aiService = {
 ${fileDataStr}
 
 ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
-${referenceGuide}
 
 [🔥 목차 설계 절대 규칙]
 1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline})
 2. 슬라이드 타입: title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary 중 하나만 사용
 3. 필수 타입 배분:
-  - 8장 이상: chart 최소 1개, kpi 최소 1개
-  - 13장 이상: table 최소 1개, compare 최소 1개 추가
-  - content 타입은 전체의 40% 이하로 제한
+- 8장 이상: chart 최소 1개, kpi 최소 1개
+- 13장 이상: table 최소 1개, compare 최소 1개 추가
+- content 타입은 전체의 40% 이하로 제한
 4. 슬라이드 1번 type = 반드시 "title"
 5. 슬라이드 2번 type = 반드시 "agenda" (4장 이상)
 6. 마지막 슬라이드 type = 반드시 "summary"
@@ -711,14 +696,11 @@ ${referenceGuide}
       ).join('\n');
 
     const meetingContext = [
-      body.meetingInfo?.week       ? `보고 주차: ${body.meetingInfo.week}` : '',
+      body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
       body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}` : '',
-      body.meetingInfo?.reporter   ? `보고자: ${body.meetingInfo.reporter}` : '',
-      body.meetingInfo?.notes      ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
+      body.meetingInfo?.reporter ? `보고자: ${body.meetingInfo.reporter}` : '',
+      body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
     ].filter(Boolean).join('\n');
-
-    // ✅ 참고 양식 가이드
-    const referenceGuide = buildReferenceGuide(body.referenceStructure);
 
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
@@ -729,7 +711,6 @@ ${referenceGuide}
 ${truncateFileData(body.fileData)}
 
 ${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
-${referenceGuide}
 
 [📋 구성안]
 ${typeGuide}
@@ -804,9 +785,11 @@ ${typeGuide}
       const outlineType = approvedOutline[i]
         ? normalizeType(approvedOutline[i].type, i, total)
         : s.type;
+
       if (outlineType !== s.type) {
         return normalizeSlide({ ...s, type: outlineType }, i, total);
       }
+
       return { ...s, slideNumber: i + 1 };
     });
 
@@ -910,12 +893,14 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     } catch (err) {
       console.warn('Gemini Imagen 실패:', err);
     }
+
     try {
       const url = generateWithPollinationsImgDirect(slideTitle, slideContent);
       if (url) return url;
     } catch (err) {
       console.warn('Pollinations 실패:', err);
     }
+
     const seed = encodeURIComponent(slideTitle || 'presentation');
     return `https://picsum.photos/seed/${seed}/1280/720`;
   },
@@ -939,62 +924,40 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return extractJSON(text) || { primaryColor: "#1B3A5C", accentColor: "#0D8ECF", description: "" };
   },
 
-  // ✅ NEW: 참고 양식 파일 구조 분석
-  async analyzeReferenceStructure(referenceContent: string): Promise<{
-    slideCount: number;
-    structure: { type: string; title: string; description: string }[];
-    tone: string;
-    keyPatterns: string[];
-  }> {
-    const systemInstruction = `당신은 문서 구조를 분석하여 프레젠테이션 양식을 추출하는 전문가입니다.
-업로드된 참고 문서의 구성 방식, 목차, 슬라이드 흐름, 문체를 정확하게 분석하세요.`;
-
-    const userPrompt = `아래 참고 문서를 분석하여 슬라이드 구성 패턴을 추출하세요.
-
-[참고 문서 내용]
-${referenceContent.slice(0, 6000)}
-
-반드시 아래 JSON 형식만 반환하세요:
-{
-  "slideCount": 8,
-  "structure": [
-    { "type": "title",   "title": "표지",          "description": "제목, 보고자, 날짜" },
-    { "type": "agenda",  "title": "목차",          "description": "전체 구성 안내" },
-    { "type": "kpi",     "title": "주요 실적",      "description": "핵심 수치 3개" },
-    { "type": "chart",   "title": "추이 분석",      "description": "주간 생산량 bar chart" },
-    { "type": "content", "title": "문제점",         "description": "이슈 및 원인 분석" },
-    { "type": "compare", "title": "목표/실적 비교", "description": "AS-IS TO-BE 형태" },
-    { "type": "content", "title": "개선 계획",      "description": "대응 방안" },
-    { "type": "summary", "title": "차주 계획",      "description": "다음 주 주요 일정" }
-  ],
-  "tone": "격식체, 비즈니스 보고서 스타일, 간결한 불릿",
-  "keyPatterns": [
-    "각 섹션 3~5개 불릿포인트",
-    "수치는 반드시 단위 포함",
-    "KPI는 목표 대비 실적 형식"
-  ]
-}
-
-type 값은 반드시 다음 중 하나: title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary`;
-
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 2048);
-    const result = extractJSON(text);
-
-    if (!result || !Array.isArray(result.structure)) {
-      return {
-        slideCount: 8,
-        structure: [],
-        tone: '격식체, 비즈니스 보고서 스타일',
-        keyPatterns: [],
-      };
-    }
-    return result;
-  },
-
   async exportToExternal(
     _presentation: any,
     _platform: "notion" | "google"
   ): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 1500));
+  },
+
+  // ✅ 신규 추가: 슬라이드 AI 스마트 분할
+  async splitSlideWithAI(slide: any): Promise<{ slideA: any; slideB: any }> {
+    const systemInstruction = getSystemPromptCore();
+    const userPrompt = `${SLIDE_SCHEMA}
+[미션] 아래 슬라이드의 내용이 너무 많습니다. 의미 단위로 자연스럽게 2장으로 분할하세요.
+
+현재 슬라이드:
+${JSON.stringify(slide)}
+
+[규칙]
+1. 두 슬라이드 모두 type은 원본과 동일하게 유지
+2. 내용을 균등하게 나누되, 의미가 끊기지 않도록 분할
+3. slideB의 title은 원본 title + " (계속)" 으로 설정
+4. 각 슬라이드 content는 최소 2개 이상
+
+반드시 아래 JSON만 반환:
+{
+  "slideA": { ...슬라이드 객체 },
+  "slideB": { ...슬라이드 객체 }
+}`;
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
+    const json = extractJSON(text);
+    if (!json?.slideA || !json?.slideB) throw new Error('AI 분할 파싱 실패');
+    return {
+      slideA: normalizeSlide(json.slideA, 1, 3),
+      slideB: normalizeSlide(json.slideB, 2, 3),
+    };
   },
 };
