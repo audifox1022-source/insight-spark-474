@@ -1,3 +1,7 @@
+// ============================================================
+// usePresentation.ts — 3단계: 레이아웃 검증 자동 적용 버전
+// ============================================================
+
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
 import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
@@ -7,6 +11,8 @@ import { ReviewResult } from '@/components/ReviewPanel';
 import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 import { aiService } from '@/lib/ai-service';
+// ✅ 3단계 추가: 레이아웃 검증 모듈 import
+import { validateAndFixPresentation } from '@/lib/layout-validator';
 
 export type ExtendedStep = AppStep | 'outline';
 
@@ -81,10 +87,10 @@ function normalizePresentationSlides(presentation: any): Presentation {
 }
 
 export function usePresentation() {
-  const [step, setStep] = useState<ExtendedStep>('upload');
+  const [step, setStep] = useState<AppStep>('upload');
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
-  const [template, setTemplate] = useState('auto');
+  const [template, setTemplate] = useState<string>('auto');
   const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({ week: '', department: '', reporter: '', notes: '' });
   const [settings, setSettings] = useState<PresentationSettings>({ difficulty: 'medium', volume: 'standard' });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
@@ -219,6 +225,7 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
+  // ✅ 3단계 핵심: generatePresentation — 레이아웃 검증 + 자동 수정 적용
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -239,9 +246,30 @@ export function usePresentation() {
         }
       );
       toast.dismiss('gen-retry');
-      setPresentation(normalizePresentationSlides(resData.presentation));
+
+      // ✅ 3단계: AI 생성 후 레이아웃 검증 + 자동 수정
+      const { presentation: fixedPresentation, totalWarnings, fixedSlides } =
+        validateAndFixPresentation(resData.presentation);
+
+      const normalized = normalizePresentationSlides(fixedPresentation);
+      setPresentation(normalized);
       setStep('preview');
-      toast.success('발표자료가 생성되었습니다!');
+
+      // 수정된 슬라이드가 있으면 사용자에게 알림
+      if (fixedSlides > 0) {
+        toast.success(
+          `발표자료가 생성되었습니다! (레이아웃 자동 최적화: ${fixedSlides}개 슬라이드)`,
+          { duration: 4000 }
+        );
+      } else {
+        toast.success('발표자료가 생성되었습니다!');
+      }
+
+      // 개발 환경에서 검증 결과 콘솔 출력
+      if (totalWarnings > 0) {
+        console.info(`[Layout Validator] 총 ${totalWarnings}개 경고, ${fixedSlides}개 슬라이드 자동 수정 완료`);
+      }
+
     } catch (err: any) {
       toast.dismiss('gen-retry');
       toast.error(getKoreanErrorMessage(err));
@@ -506,6 +534,7 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
+  // ✅ 3단계: reviewAndFixPresentation — 최적화 후에도 레이아웃 검증 적용
   const reviewAndFixPresentation = useCallback(async () => {
     if (!presentation) return;
     setIsFixing(true);
@@ -518,8 +547,18 @@ export function usePresentation() {
           onRetry: () => toast.loading('재시도 중...', { id: 'review-fix' }),
         }
       );
-      setPresentation(normalizePresentationSlides(resData.result.presentation));
-      toast.success(`최적화 완료! ${resData.result.summary}`, { id: 'review-fix', duration: 5000 });
+
+      // ✅ AI 최적화 후에도 레이아웃 검증 + 자동 수정 적용
+      const { presentation: fixedPresentation, fixedSlides } =
+        validateAndFixPresentation(resData.result.presentation);
+
+      setPresentation(normalizePresentationSlides(fixedPresentation));
+
+      const fixMsg = fixedSlides > 0 ? ` (레이아웃 ${fixedSlides}개 추가 최적화)` : '';
+      toast.success(
+        `최적화 완료! ${resData.result.summary}${fixMsg}`,
+        { id: 'review-fix', duration: 5000 }
+      );
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'review-fix' });
     } finally {
@@ -530,110 +569,6 @@ export function usePresentation() {
   const openChatWithSlide = useCallback((slideIndex: number) => {
     setCurrentChatSlideIndex(slideIndex);
     setChatOpen(true);
-  }, []);
-
-  // ✅ 신규: 슬라이드 단순 분할 (content 반반)
-  const splitSlide = useCallback((index: number) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      const slide = prev.slides[index];
-      const content = slide.content ?? [];
-      if (content.length < 2) {
-        toast.error('분할하려면 내용이 2개 이상 필요합니다.');
-        return prev;
-      }
-      const mid = Math.ceil(content.length / 2);
-      const slideA: Slide = {
-        ...slide,
-        id: `slide-${Math.random().toString(36).substring(2, 11)}`,
-        title: slide.title,
-        content: content.slice(0, mid),
-      };
-      const slideB: Slide = {
-        ...slide,
-        id: `slide-${Math.random().toString(36).substring(2, 11)}`,
-        title: slide.title + ' (계속)',
-        content: content.slice(mid),
-      };
-      const slides = [...prev.slides];
-      slides.splice(index, 1, slideA, slideB);
-      slides.forEach((s, i) => { s.slideNumber = i + 1; });
-      return { ...prev, slides };
-    });
-    toast.success('슬라이드가 2장으로 분할되었습니다.');
-  }, []);
-
-  // ✅ 신규: 슬라이드 AI 스마트 분할
-  const splitSlideWithAI = useCallback(async (index: number) => {
-    if (!presentation) return;
-    const slide = presentation.slides[index];
-    toast.loading('AI가 슬라이드를 분석 중...', { id: 'ai-split' });
-    try {
-      const { slideA, slideB } = await aiService.splitSlideWithAI(slide);
-      setPresentation((prev) => {
-        if (!prev) return prev;
-        const slides = [...prev.slides];
-        slides.splice(index, 1, slideA, slideB);
-        slides.forEach((s, i) => { s.slideNumber = i + 1; });
-        return { ...prev, slides };
-      });
-      toast.success('AI 분할 완료!', { id: 'ai-split' });
-    } catch (err: any) {
-      toast.error(getKoreanErrorMessage(err), { id: 'ai-split' });
-    }
-  }, [presentation]);
-
-  // ✅ 신규: 슬라이드 병합 (현재 + 다음)
-  const mergeSlides = useCallback((index: number) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      if (index >= prev.slides.length - 1) {
-        toast.error('마지막 슬라이드는 병합할 수 없습니다.');
-        return prev;
-      }
-      const slideA = prev.slides[index];
-      const slideB = prev.slides[index + 1];
-      const merged: Slide = {
-        ...slideA,
-        title: slideA.title,
-        content: [
-          ...(slideA.content ?? []),
-          ...(slideB.content ?? []),
-        ],
-        notes: [slideA.notes, slideB.notes].filter(Boolean).join('\n'),
-      };
-      const slides = [...prev.slides];
-      slides.splice(index, 2, merged);
-      slides.forEach((s, i) => { s.slideNumber = i + 1; });
-      return { ...prev, slides };
-    });
-    toast.success('슬라이드 2장이 1장으로 병합되었습니다.');
-  }, []);
-
-  // ✅ 신규: 참고 양식 관련 상태
-  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
-  const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
-  const [referenceStructure, setReferenceStructure] = useState<any>(null);
-
-  const handleReferenceFileUpload = useCallback(async (file: File) => {
-    setReferenceFileName(file.name);
-    setIsAnalyzingReference(true);
-    try {
-      const parsed = await parseFile(file);
-      setReferenceStructure(parsed);
-      toast.success(`참고 양식 "${file.name}" 분석 완료`);
-    } catch {
-      toast.error('참고 양식 분석 실패');
-      setReferenceFileName(null);
-    } finally {
-      setIsAnalyzingReference(false);
-    }
-  }, []);
-
-  const clearReferenceFile = useCallback(() => {
-    setReferenceFileName(null);
-    setReferenceStructure(null);
-    toast.success('참고 양식이 제거되었습니다.');
   }, []);
 
   return {
@@ -664,15 +599,5 @@ export function usePresentation() {
     reset, updateSlide,
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
-    // ✅ 분할/병합 신규 추가
-    splitSlide,
-    splitSlideWithAI,
-    mergeSlides,
-    // ✅ 참고 양식 관련
-    referenceFileName,
-    isAnalyzingReference,
-    referenceStructure,
-    handleReferenceFileUpload,
-    clearReferenceFile,
   };
 }
