@@ -1,43 +1,24 @@
+// ══════════════════════════════════════════════════════════════
+// ScaledSlide.tsx — 완전 전체 코드 (2026.03.04 이미지 표시 수정)
+// ✅ imageUrl: crossOrigin + onError 처리 추가
+// ══════════════════════════════════════════════════════════════
+
 import React from 'react';
 import {
-  ArrowRight,
-  Layers,
-  CheckCircle2,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  BarChart3 as BarIcon,
-  Target,
-  Table as TableIcon,
-  Zap,
+  ArrowRight, Layers, CheckCircle2,
+  TrendingUp, TrendingDown, Minus,
+  BarChart3 as BarIcon, Target, Table as TableIcon, Zap,
 } from 'lucide-react';
 import {
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  BarChart, Bar, LineChart, Line, AreaChart, Area,
+  PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 
 // ══════════════════════════════════════════════════════════════
 // 타입
 // ══════════════════════════════════════════════════════════════
-interface ChartDataPoint {
-  name: string;
-  value: number;
-  value2?: number;
-}
-
+interface ChartDataPoint { name: string; value: number; value2?: number; }
 interface SlideChartData {
   chartType?: 'bar' | 'line' | 'area' | 'pie';
   title?: string;
@@ -46,13 +27,7 @@ interface SlideChartData {
   series2Label?: string;
   showLegend?: boolean;
 }
-
-interface SlideMetric {
-  label: string;
-  value: string;
-  trend?: 'up' | 'down' | 'flat';
-}
-
+interface SlideMetric { label: string; value: string; trend?: 'up' | 'down' | 'flat'; }
 interface Slide {
   id?: string;
   type?: string;
@@ -76,8 +51,10 @@ interface Slide {
   imageUrl?: string;
   layout?: string;
   notes?: string;
+  text?: string;
+  author?: string;
+  milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo' }[];
 }
-
 interface ScaledSlideProps {
   slide: Slide;
   containerClassName?: string;
@@ -113,944 +90,960 @@ const P = {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
-    <div
-      style={{
-        background: '#1e293b',
-        color: '#fff',
-        borderRadius: 8,
-        padding: '8px 14px',
-        fontSize: 13,
-      }}
-    >
-      <div style={{ marginBottom: 4, fontWeight: 700, opacity: 0.7 }}>{label}</div>
+    <div style={{
+      background: '#1e293b', border: '1px solid #334155',
+      borderRadius: 8, padding: '8px 12px', fontSize: 11,
+    }}>
+      <p style={{ color: '#94a3b8', marginBottom: 4 }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <div key={i} style={{ color: p.color }}>
-          {p.name}: <strong>{p.value}</strong>
-        </div>
+        <p key={i} style={{ color: p.color, fontWeight: 600 }}>
+          {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
+        </p>
       ))}
     </div>
   );
 };
 
 // ══════════════════════════════════════════════════════════════
-// 공통: 빈 상태 플레이스홀더
+// 차트 렌더러
 // ══════════════════════════════════════════════════════════════
-const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: string }) => (
-  <div
-    style={{
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f8fafc',
-      borderRadius: 16,
-      border: '2px dashed #e2e8f0',
-      color: '#94a3b8',
-      flexDirection: 'column',
-      gap: 10,
-    }}
-  >
-    <Icon style={{ width: 40, height: 40, opacity: 0.25 }} />
-    <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
-  </div>
-);
+function renderChart(chartData: SlideChartData, height = 220) {
+  const { chartType = 'bar', data = [], series1Label = '값', series2Label, showLegend } = chartData;
+  const hasSecondary = data.some(d => d.value2 !== undefined);
+  const commonProps = {
+    data,
+    margin: { top: 8, right: 16, left: 0, bottom: 4 },
+  };
+  const axisStyle = { fontSize: 10, fill: P.subtext };
+  const gridStyle = { stroke: P.border, strokeDasharray: '3 3' };
 
-// ══════════════════════════════════════════════════════════════
-// ScaledSlide
-// ══════════════════════════════════════════════════════════════
-export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassName = '', logoUrl, watermark }) => {
-  const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
-  const content: string[] = Array.isArray(rawContent) ? (rawContent as string[]) : [];
-
-  const titleSizeScale = slide.titleSizeScale ?? 1;
-  const contentSizeScale = slide.contentSizeScale ?? 1;
-  const layout = slide.layout ?? 'default';
-
-  const titleFontSize = `${3 * titleSizeScale}rem`;
-  const contentFontSize = `${1.45 * contentSizeScale}rem`;
-
-  const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
-
-  // ──────────────────────────────────────────────────────────────
-  // 워터마크
-  // ──────────────────────────────────────────────────────────────
-  const Watermark = watermark ? (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-        opacity: 0.03,
-        transform: 'rotate(-30deg)',
-        fontSize: '9rem',
-        fontWeight: 900,
-        color: '#000',
-        userSelect: 'none',
-      }}
-    >
-      {watermark}
-    </div>
-  ) : null;
-
-  // ──────────────────────────────────────────────────────────────
-  // 로고
-  // ──────────────────────────────────────────────────────────────
-  const Logo = ({ invert = false }: { invert?: boolean }) =>
-    logoUrl ? (
-      <div
-        style={{
-          position: 'absolute',
-          top: '1.3rem',
-          right: '1.8rem',
-          width: '5.5rem',
-          height: '2.8rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-        }}
-      >
-        <img
-          src={logoUrl}
-          alt="Logo"
-          style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            objectFit: 'contain',
-            filter: invert ? 'brightness(0) invert(1)' : undefined,
-          }}
-        />
-      </div>
-    ) : null;
-
-  // ──────────────────────────────────────────────────────────────
-  // 슬라이드 번호
-  // ──────────────────────────────────────────────────────────────
-  const SlideNum = ({ light = false }: { light?: boolean }) =>
-    slide.slideNumber ? (
-      <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div
-          style={{
-            width: '1.9rem',
-            height: '1.9rem',
-            borderRadius: '50%',
-            background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.accent})`,
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '0.78rem',
-            fontWeight: 700,
-          }}
-        >
-          {slide.slideNumber}
-        </div>
-      </div>
-    ) : null;
-
-  // ══════════════════════════════════════════════════════════════
-  // 1) 차트 렌더링
-  // ══════════════════════════════════════════════════════════════
-  const renderChart = () => {
-    const cd = slide.chartData;
-    if (!cd?.data?.length) return <EmptyPlaceholder icon={BarIcon} label="차트 데이터 없음" />;
-
-    const colors = P.chartColors;
-    const common = { data: cd.data, margin: { top: 10, right: 20, bottom: 10, left: 0 } };
-    const axisTick = { fill: '#94a3b8', fontSize: 13 };
-
-    if (cd.chartType === 'pie') {
-      return (
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={cd.data}
-              dataKey="value"
-              nameKey="name"
-              cx="50%"
-              cy="50%"
-              outerRadius="70%"
-              paddingAngle={3}
-              label={(entry) => `${entry.name}: ${(entry.percent! * 100).toFixed(0)}%`}
-              labelLine={{ stroke: '#94a3b8' }}
-            >
-              {cd.data.map((_, i) => (
-                <Cell key={i} fill={colors[i % colors.length]} />
-              ))}
-            </Pie>
-            {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Tooltip content={<CustomTooltip />} />
-          </PieChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    if (cd.chartType === 'line') {
-      return (
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart {...common}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
-            <YAxis tick={axisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip />} />
-            {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Line
-              type="monotone"
-              dataKey="value"
-              name={cd.series1Label ?? '시리즈1'}
-              stroke={colors[0]}
-              strokeWidth={3}
-              dot={{ r: 5, fill: colors[0] }}
-            />
-            {cd.data[0]?.value2 !== undefined && (
-              <Line
-                type="monotone"
-                dataKey="value2"
-                name={cd.series2Label ?? '시리즈2'}
-                stroke={colors[1]}
-                strokeWidth={3}
-                dot={{ r: 5, fill: colors[1] }}
-              />
-            )}
-          </LineChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    if (cd.chartType === 'area') {
-      return (
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart {...common}>
-            <defs>
-              <linearGradient id="areaGrad1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={colors[0]} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={colors[0]} stopOpacity={0.03} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-            <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
-            <YAxis tick={axisTick} axisLine={false} tickLine={false} />
-            <Tooltip content={<CustomTooltip />} />
-            {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-            <Area
-              type="monotone"
-              dataKey="value"
-              name={cd.series1Label ?? '시리즈1'}
-              stroke={colors[0]}
-              strokeWidth={2.5}
-              fill="url(#areaGrad1)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      );
-    }
-
-    // bar (default)
+  if (chartType === 'pie') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart {...common}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-          <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
-          <YAxis tick={axisTick} axisLine={false} tickLine={false} />
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%"
+            outerRadius={height * 0.38} label={({ name, percent }) =>
+              `${name} ${(percent * 100).toFixed(0)}%`}
+            labelLine={false}>
+            {data.map((_, i) => <Cell key={i} fill={P.chartColors[i % P.chartColors.length]} />)}
+          </Pie>
+          {showLegend && <Legend wrapperStyle={{ fontSize: 10 }} />}
           <Tooltip content={<CustomTooltip />} />
-          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-          <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[6, 6, 0, 0]} maxBarSize={54} />
-          {cd.data[0]?.value2 !== undefined && (
-            <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[6, 6, 0, 0]} maxBarSize={54} />
-          )}
-        </BarChart>
+        </PieChart>
       </ResponsiveContainer>
     );
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  // 2) 테이블 렌더링
-  // ══════════════════════════════════════════════════════════════
-  const renderTable = () => {
-    const td = slide.tableData;
-    if (!td?.headers?.length) return <EmptyPlaceholder icon={TableIcon} label="테이블 데이터 없음" />;
-
-    const paddingY = slide.tableDensity === 'compact' ? '0.55rem' : slide.tableDensity === 'relaxed' ? '1.2rem' : '0.85rem';
-
+  }
+  if (chartType === 'line') {
     return (
-      <div style={{ width: '100%', overflowX: 'auto', borderRadius: 14, boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: `1px solid ${P.border}` }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: contentFontSize }}>
-          <thead>
-            <tr>
-              {td.headers.map((h, i) => (
-                <th
-                  key={i}
-                  style={{
-                    padding: `${paddingY} 1.4rem`,
-                    background: P.primary,
-                    color: '#fff',
-                    fontWeight: 700,
-                    textAlign: 'left',
-                    fontSize: `${1.2 * contentSizeScale}rem`,
-                    whiteSpace: 'nowrap',
-                    borderRight: i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {td.rows?.map((row, ri) => (
-              <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                {row.map((cell, ci) => (
-                  <td
-                    key={ci}
-                    style={{
-                      padding: `${paddingY} 1.4rem`,
-                      borderBottom: `1px solid ${P.border}`,
-                      borderRight: ci < row.length - 1 ? `1px solid ${P.border}` : 'none',
-                      color: ci === 0 ? P.text : P.subtext,
-                      fontWeight: ci === 0 ? 600 : 400,
-                      fontSize: `${1.15 * contentSizeScale}rem`,
-                    }}
-                  >
-                    {cell}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart {...commonProps}>
+          <CartesianGrid {...gridStyle} />
+          <XAxis dataKey="name" tick={axisStyle} />
+          <YAxis tick={axisStyle} width={36} />
+          <Tooltip content={<CustomTooltip />} />
+          {showLegend && <Legend wrapperStyle={{ fontSize: 10 }} />}
+          <Line type="monotone" dataKey="value" name={series1Label}
+            stroke={P.chartColors[0]} strokeWidth={2.5} dot={{ r: 3 }} />
+          {hasSecondary && <Line type="monotone" dataKey="value2" name={series2Label || '값2'}
+            stroke={P.chartColors[1]} strokeWidth={2.5} dot={{ r: 3 }} strokeDasharray="5 3" />}
+        </LineChart>
+      </ResponsiveContainer>
     );
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  // 3) KPI 렌더링 — 오버플로우 방지 개선
-  // ══════════════════════════════════════════════════════════════
-  const renderKPI = () => {
-    const km = slide.keyMetrics;
-    if (!km?.length) return <EmptyPlaceholder icon={Target} label="KPI 데이터 없음" />;
-
-    const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
-    
-    // ✅ KPI 개수에 따라 폰트 크기 자동 축소
-    const valueFontSize = km.length >= 6 ? 2.2 : km.length >= 4 ? 2.6 : 3.0;
-    const labelFontSize = km.length >= 6 ? 0.85 : km.length >= 4 ? 0.95 : 1.05;
-    const trendFontSize = km.length >= 6 ? 0.75 : km.length >= 4 ? 0.85 : 0.95;
-    const cardPadding = km.length >= 6 ? '1rem 0.9rem' : '1.5rem 1.3rem';
-
+  }
+  if (chartType === 'area') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.1rem', height: '100%', alignContent: 'center' }}>
-        {km.map((kpi, i) => {
-          const isUp = kpi.trend === 'up';
-          const isDown = kpi.trend === 'down';
-          return (
-            <div
-              key={i}
-              style={{
-                background: P.kpiGradients[i % P.kpiGradients.length],
-                borderRadius: 16,
-                padding: cardPadding,
-                color: '#fff',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                boxShadow: '0 6px 24px rgba(0,0,0,0.13)',
-                minHeight: 0,
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: `${labelFontSize * contentSizeScale}rem`,
-                  fontWeight: 700,
-                  opacity: 0.82,
-                  marginBottom: '0.4rem',
-                  letterSpacing: 1.2,
-                  textTransform: 'uppercase',
-                  lineHeight: 1.2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  width: '100%',
-                }}
-              >
-                {kpi.label}
-              </div>
-              <div style={{ 
-                fontSize: `${valueFontSize * contentSizeScale}rem`, 
-                fontWeight: 900, 
-                lineHeight: 1.1, 
-                letterSpacing: -1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-              }}>
-                {kpi.value}
-              </div>
-              {kpi.trend && (
-                <div
-                  style={{
-                    marginTop: '0.5rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    fontSize: `${trendFontSize * contentSizeScale}rem`,
-                    fontWeight: 700,
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: 20,
-                    padding: '0.2rem 0.75rem',
-                  }}
-                >
-                  {isUp && <TrendingUp style={{ width: '1em', height: '1em' }} />}
-                  {isDown && <TrendingDown style={{ width: '1em', height: '1em' }} />}
-                  {!isUp && !isDown && <Minus style={{ width: '1em', height: '1em' }} />}
-                  {isUp ? '상승' : isDown ? '하락' : '보합'}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ResponsiveContainer width="100%" height={height}>
+        <AreaChart {...commonProps}>
+          <defs>
+            <linearGradient id="ag1" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={P.chartColors[0]} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={P.chartColors[0]} stopOpacity={0} />
+            </linearGradient>
+            {hasSecondary && (
+              <linearGradient id="ag2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={P.chartColors[1]} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={P.chartColors[1]} stopOpacity={0} />
+              </linearGradient>
+            )}
+          </defs>
+          <CartesianGrid {...gridStyle} />
+          <XAxis dataKey="name" tick={axisStyle} />
+          <YAxis tick={axisStyle} width={36} />
+          <Tooltip content={<CustomTooltip />} />
+          {showLegend && <Legend wrapperStyle={{ fontSize: 10 }} />}
+          <Area type="monotone" dataKey="value" name={series1Label}
+            stroke={P.chartColors[0]} fill="url(#ag1)" strokeWidth={2} />
+          {hasSecondary && <Area type="monotone" dataKey="value2" name={series2Label || '값2'}
+            stroke={P.chartColors[1]} fill="url(#ag2)" strokeWidth={2} />}
+        </AreaChart>
+      </ResponsiveContainer>
     );
-  };
+  }
+  // default: bar
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart {...commonProps}>
+        <CartesianGrid {...gridStyle} />
+        <XAxis dataKey="name" tick={axisStyle} />
+        <YAxis tick={axisStyle} width={36} />
+        <Tooltip content={<CustomTooltip />} />
+        {showLegend && <Legend wrapperStyle={{ fontSize: 10 }} />}
+        <Bar dataKey="value" name={series1Label} radius={[4, 4, 0, 0]}>
+          {data.map((_, i) => <Cell key={i} fill={P.chartColors[i % P.chartColors.length]} />)}
+        </Bar>
+        {hasSecondary && (
+          <Bar dataKey="value2" name={series2Label || '값2'}
+            fill={P.chartColors[1]} radius={[4, 4, 0, 0]} />
+        )}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
 
-  // ══════════════════════════════════════════════════════════════
-  // 3.5) Compare 렌더링 — 색상 대비 + 여백 재조정
-  // ══════════════════════════════════════════════════════════════
-  const renderCompare = () => {
-    if (!slide.leftItems?.length && !slide.rightItems?.length) {
-      return <EmptyPlaceholder icon={BarIcon} label="비교 데이터 없음" />;
-    }
+// ══════════════════════════════════════════════════════════════
+// 슬라이드 타입별 렌더러
+// ══════════════════════════════════════════════════════════════
 
-    const leftItems  = slide.leftItems  ?? [];
-    const rightItems = slide.rightItems ?? [];
-    const leftTitle  = slide.leftTitle  ?? 'AS-IS';
-    const rightTitle = slide.rightTitle ?? 'TO-BE';
-
-    // ✅ 대비 강화 색상 팔레트 (WCAG AA 준수)
-    const LEFT_BG     = '#1e3a8a';   // 진한 파랑 헤더
-    const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
-    const LEFT_BADGE  = '#1d4ed8';   // 파랑 번호 뱃지
-    const LEFT_BORDER = '#93c5fd';   // 파랑 테두리
-    const LEFT_TEXT   = '#1e3a8a';   // 파랑 텍스트
-
-    const RIGHT_BG    = '#064e3b';   // 진한 초록 헤더
-    const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
-    const RIGHT_BADGE = '#047857';   // 초록 번호 뱃지
-    const RIGHT_BORDER= '#86efac';   // 초록 테두리
-    const RIGHT_TEXT  = '#064e3b';   // 초록 텍스트
-
-    const maxRows = Math.max(leftItems.length, rightItems.length);
-
-    // ✅ 항목 수에 따라 폰트·패딩·간격 자동 축소 (여백 증가)
-    const itemFontSize  = `${Math.max(0.85, 1.3 - maxRows * 0.07) * contentSizeScale}rem`;
-    const itemPadding   = maxRows >= 7 ? '0.4rem 0.8rem' : maxRows >= 5 ? '0.55rem 0.95rem' : '0.7rem 1.1rem';
-    const itemGap       = maxRows >= 7 ? '0.5rem' : maxRows >= 5 ? '0.65rem' : '0.8rem';
-    const bodyPadding   = maxRows >= 7 ? '0.7rem' : maxRows >= 5 ? '0.9rem' : '1.1rem';
-    const badgeSize     = `${Math.max(1.3, 1.6 - maxRows * 0.04) * contentSizeScale}rem`;
-    const badgeFontSize = `${Math.max(0.7, 0.8 - maxRows * 0.02) * contentSizeScale}rem`;
-
-    const renderPanel = (
-      items: string[],
-      title: string,
-      headerBg: string,
-      bodyBg: string,
-      badgeColor: string,
-      borderColor: string,
-      textColor: string,
-    ) => (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        {/* ✅ 헤더: 진한 배경 + 흰색 글자 (WCAG AA 대비 보장) */}
+// ── title ──────────────────────────────────────────────────
+function TitleSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const subtitle = slide.content?.[0] || '';
+  const extra = slide.content?.slice(1) || [];
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)',
+      display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+    }}>
+      {/* AI 배경 이미지 */}
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.2, zIndex: 0,
+          }}
+        />
+      )}
+      {/* 장식 원 */}
+      <div style={{
+        position: 'absolute', top: -80, right: -80, width: 320, height: 320,
+        borderRadius: '50%', background: 'rgba(59,130,246,0.12)', zIndex: 1,
+      }} />
+      <div style={{
+        position: 'absolute', bottom: -60, left: -60, width: 240, height: 240,
+        borderRadius: '50%', background: 'rgba(139,92,246,0.1)', zIndex: 1,
+      }} />
+      {/* 슬라이드 번호 */}
+      {slide.slideNumber !== undefined && (
         <div style={{
-          background: headerBg,
-          color: '#ffffff',
-          padding: '0.9rem 1.2rem',
-          borderRadius: '12px 12px 0 0',
-          fontSize: `${1.2 * contentSizeScale}rem`,
-          fontWeight: 800,
-          textAlign: 'center',
-          letterSpacing: 0.5,
-          flexShrink: 0,
-          textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+          position: 'absolute', top: 20, left: 28, fontSize: 11,
+          color: 'rgba(255,255,255,0.35)', fontWeight: 500, zIndex: 3,
         }}>
-          {title}
+          {String(slide.slideNumber).padStart(2, '0')}
         </div>
-
-        {/* ✅ 스크롤바 제거 + 여백 증가 */}
+      )}
+      {/* 로고 */}
+      {logoUrl && (
+        <img src={logoUrl} alt="logo" style={{
+          position: 'absolute', top: 20, right: 28, height: 32,
+          objectFit: 'contain', zIndex: 3, opacity: 0.85,
+        }} />
+      )}
+      {/* 메인 콘텐츠 */}
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 60px', maxWidth: '85%' }}>
         <div style={{
-          flex: 1,
-          background: bodyBg,
-          border: `2px solid ${borderColor}`,
-          borderTop: 'none',
-          borderRadius: '0 0 12px 12px',
-          padding: bodyPadding,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: itemGap,
-          overflow: 'hidden',
-          minHeight: 0,
+          display: 'inline-block', background: 'rgba(59,130,246,0.25)',
+          border: '1px solid rgba(59,130,246,0.4)', borderRadius: 20,
+          padding: '4px 16px', fontSize: 11, color: '#93c5fd',
+          fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 20,
         }}>
+          PRESENTATION
+        </div>
+        <h1 style={{
+          fontSize: 36, fontWeight: 800, color: '#f1f5f9',
+          lineHeight: 1.2, marginBottom: 20,
+          textShadow: '0 2px 20px rgba(0,0,0,0.5)',
+        }}>
+          {slide.title}
+        </h1>
+        {subtitle && (
+          <p style={{ fontSize: 16, color: '#94a3b8', lineHeight: 1.6, marginBottom: 12 }}>
+            {subtitle}
+          </p>
+        )}
+        {extra.map((line, i) => (
+          <p key={i} style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5 }}>{line}</p>
+        ))}
+      </div>
+      {/* 하단 라인 */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, zIndex: 3,
+        background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4)',
+      }} />
+      {watermark && (
+        <div style={{
+          position: 'absolute', bottom: 16, right: 24, fontSize: 9,
+          color: 'rgba(255,255,255,0.2)', fontWeight: 500, letterSpacing: '0.1em',
+          textTransform: 'uppercase', zIndex: 3,
+        }}>
+          {watermark}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── agenda ─────────────────────────────────────────────────
+function AgendaSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const items = slide.content || [];
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#3b82f6" />
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '12px 36px 20px', position: 'relative', zIndex: 1 }}>
+        <div style={{ width: '100%', display: 'grid', gridTemplateColumns: items.length > 4 ? '1fr 1fr' : '1fr', gap: 10 }}>
           {items.map((item, i) => (
             <div key={i} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              background: '#ffffff',
-              borderRadius: 10,
-              padding: itemPadding,
-              border: `1px solid ${borderColor}`,
-              boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: 14,
+              padding: '12px 16px', borderRadius: 10,
+              background: i % 2 === 0 ? 'linear-gradient(135deg,#eff6ff,#f0f9ff)' : P.muted,
+              border: `1px solid ${P.border}`,
             }}>
-              {/* ✅ 번호 뱃지: 진한 배경 + 흰 글자 */}
-              <span style={{
-                flexShrink: 0,
-                width: badgeSize,
-                height: badgeSize,
-                borderRadius: '50%',
-                background: badgeColor,
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: badgeFontSize,
-                fontWeight: 800,
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 700, color: '#fff',
               }}>
                 {i + 1}
-              </span>
-
-              {/* ✅ 텍스트: 흰 배경 위 패널별 진한 색상 텍스트 + 말줄임표 */}
-              <span style={{
-                fontSize: itemFontSize,
-                fontWeight: 700,
-                color: textColor,
-                lineHeight: 1.35,
-                flex: 1,
-                wordBreak: 'keep-all',
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-              }}>
-                {typeof item === 'string' ? item : JSON.stringify(item)}
-              </span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 500, color: P.text, lineHeight: 1.4 }}>{item}</span>
             </div>
           ))}
         </div>
       </div>
-    );
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-    return (
-      <div style={{
-        display: 'flex',
-        gap: '1.5rem',
-        height: '100%',
-        alignItems: 'stretch',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}>
-        {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER, LEFT_TEXT)}
-
-        {/* 중앙 화살표 — 크기 증가 */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          paddingTop: '3rem',
-        }}>
-          <div style={{
-            width: '2.8rem',
-            height: '2.8rem',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1e3a8a, #047857)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+// ── content ────────────────────────────────────────────────
+function ContentSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const items = slide.content || [];
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#3b82f6" />
+      <div style={{ flex: 1, padding: '8px 36px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
+        {items.map((item, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            padding: '9px 14px', marginBottom: 6, borderRadius: 8,
+            background: P.muted, border: `1px solid ${P.border}`,
+            transition: 'all 0.2s',
           }}>
-            <ArrowRight style={{ width: '1.4rem', height: '1.4rem', color: '#ffffff', strokeWidth: 3 }} />
+            <CheckCircle2 style={{ width: 15, height: 15, color: '#3b82f6', flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 13, color: P.text, lineHeight: 1.5, fontWeight: 450 }}>{item}</span>
           </div>
-        </div>
-
-        {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER, RIGHT_TEXT)}
-      </div>
-    );
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  // 4) 불릿 렌더링 (여러 레이아웃)
-  // ══════════════════════════════════════════════════════════════
-  const renderBullets = () => {
-    if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
-
-    // 레이아웃: grid
-    if (layout === 'grid') {
-      const cols = content.length <= 4 ? 2 : 3;
-      return (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', height: '100%', alignContent: 'center' }}>
-          {content.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                background: 'linear-gradient(135deg,#f0f7ff 0%,#e8f4fd 100%)',
-                borderRadius: 14,
-                padding: '1.1rem 1.3rem',
-                borderLeft: `4px solid ${P.chartColors[i % P.chartColors.length]}`,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '0.85rem',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-              }}
-            >
-              <div
-                style={{
-                  width: `${1.8 * contentSizeScale}rem`,
-                  height: `${1.8 * contentSizeScale}rem`,
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  marginTop: 2,
-                  background: P.chartColors[i % P.chartColors.length],
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: `${0.88 * contentSizeScale}rem`,
-                  fontWeight: 700,
-                }}
-              >
-                {i + 1}
-              </div>
-              <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55, fontWeight: 500 }}>
-                {typeof item === 'string' ? item : JSON.stringify(item)}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    // 레이아웃: highlight
-    if (layout === 'highlight') {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem', height: '100%', justifyContent: 'center' }}>
-          {content.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1.1rem',
-                background: i === 0 ? `linear-gradient(135deg,${P.primary}18,${P.primary}06)` : '#f8fafc',
-                borderRadius: 12,
-                padding: '0.95rem 1.3rem',
-                border: i === 0 ? `1.5px solid ${P.primary}40` : `1px solid ${P.border}`,
-                transition: 'all 0.2s',
-              }}
-            >
-              <CheckCircle2
-                style={{ width: `${1.4 * contentSizeScale}rem`, height: `${1.4 * contentSizeScale}rem`, color: i === 0 ? P.primary : '#94a3b8', flexShrink: 0 }}
-              />
-              <span style={{ fontSize: contentFontSize, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? P.text : P.subtext, lineHeight: 1.5 }}>
-                {typeof item === 'string' ? item : JSON.stringify(item)}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    // default / split-left / split-right
-    return (
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
-        {content.map((item, i) => (
-          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', fontSize: contentFontSize, color: '#1a2133', lineHeight: 1.55 }}>
-            <span
-              style={{
-                flexShrink: 0,
-                width: `${1.65 * contentSizeScale}rem`,
-                height: `${1.65 * contentSizeScale}rem`,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: `${0.85 * contentSizeScale}rem`,
-                fontWeight: 700,
-                marginTop: '0.22rem',
-                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
-              }}
-            >
-              {i + 1}
-            </span>
-            <span style={{ fontWeight: 600, color: '#1a2133' }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
-          </li>
         ))}
-      </ul>
-    );
-  };
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-  // ══════════════════════════════════════════════════════════════
-  // 5) 인포그래픽 렌더링
-  // ══════════════════════════════════════════════════════════════
-  const renderInfographic = () => {
-    if (slide.infographicType === 'cycle') {
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', height: '100%', gap: '0.8rem' }}>
-          {content.map((item, i) => (
+// ── process ────────────────────────────────────────────────
+function ProcessSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const steps = slide.content || [];
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#8b5cf6" />
+      <div style={{ flex: 1, padding: '8px 28px 20px', display: 'flex', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: steps.length > 4 ? 'column' : 'row', gap: 8, alignItems: 'center' }}>
+          {steps.map((step, i) => (
             <React.Fragment key={i}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.55rem', maxWidth: 160 }}>
-                <div
-                  style={{
-                    width: '7rem',
-                    height: '7rem',
-                    borderRadius: '50%',
-                    background: `linear-gradient(135deg,${P.primary}20,${P.primary}45)`,
-                    border: `3px solid ${P.primary}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    fontSize: `${1.05 * contentSizeScale}rem`,
-                    fontWeight: 700,
-                    padding: '0.75rem',
-                    color: P.text,
-                    boxShadow: `0 4px 16px ${P.primary}30`,
-                  }}
-                >
-                  {typeof item === 'string' ? item : JSON.stringify(item)}
+              <div style={{
+                flex: 1, padding: '12px 14px', borderRadius: 10, textAlign: 'center',
+                background: `linear-gradient(135deg,${P.chartColors[i % P.chartColors.length]}18,${P.chartColors[i % P.chartColors.length]}08)`,
+                border: `1.5px solid ${P.chartColors[i % P.chartColors.length]}40`,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: `linear-gradient(135deg,${P.chartColors[i % P.chartColors.length]},${P.chartColors[(i + 1) % P.chartColors.length]})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 12, fontWeight: 700, color: '#fff',
+                }}>
+                  {i + 1}
                 </div>
-                <span style={{ fontSize: `${0.88 * contentSizeScale}rem`, color: P.subtext, fontWeight: 600, letterSpacing: 0.5 }}>
-                  STEP {i + 1}
-                </span>
+                <span style={{ fontSize: 11.5, fontWeight: 500, color: P.text, lineHeight: 1.4 }}>{step}</span>
               </div>
-              {i < content.length - 1 && <ArrowRight style={{ color: P.primary, flexShrink: 0, width: '1.8rem', height: '1.8rem', opacity: 0.7 }} />}
+              {i < steps.length - 1 && steps.length <= 4 && (
+                <ArrowRight style={{ width: 16, height: 16, color: P.subtext, flexShrink: 0 }} />
+              )}
             </React.Fragment>
           ))}
         </div>
-      );
-    }
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-    if (slide.infographicType === 'process') {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', height: '100%', justifyContent: 'center' }}>
-          {content.map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div
-                style={{
-                  width: '2.5rem',
-                  height: '2.5rem',
-                  borderRadius: 10,
-                  flexShrink: 0,
-                  background: `linear-gradient(135deg,${P.primary},${P.accent})`,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: `${1 * contentSizeScale}rem`,
-                  boxShadow: `0 2px 10px ${P.primary}40`,
-                }}
-              >
-                {i + 1}
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  padding: '0.8rem 1.2rem',
-                  background: '#f8fafc',
-                  borderRadius: 10,
-                  border: `1px solid ${P.border}`,
-                  fontSize: contentFontSize,
-                  fontWeight: 500,
-                  color: P.text,
-                }}
-              >
-                {typeof item === 'string' ? item : JSON.stringify(item)}
-              </div>
+// ── compare ────────────────────────────────────────────────
+function CompareSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const leftItems = slide.leftItems || [];
+  const rightItems = slide.rightItems || [];
+  const leftTitle = slide.leftTitle || 'AS-IS';
+  const rightTitle = slide.rightTitle || 'TO-BE';
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#f59e0b" />
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, padding: '8px 28px 20px', position: 'relative', zIndex: 1 }}>
+        {/* 왼쪽 */}
+        <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{
+            textAlign: 'center', fontWeight: 700, fontSize: 13, color: '#ef4444',
+            marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #fecaca',
+          }}>
+            {leftTitle}
+          </div>
+          {leftItems.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 7,
+              padding: '6px 10px', background: 'rgba(239,68,68,0.06)', borderRadius: 6,
+            }}>
+              <span style={{ color: '#ef4444', fontSize: 12, flexShrink: 0, marginTop: 1 }}>✕</span>
+              <span style={{ fontSize: 12, color: P.text, lineHeight: 1.4 }}>{item}</span>
             </div>
           ))}
         </div>
-      );
-    }
-
-    return renderBullets();
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  // 6) 슬라이드 타입별 콘텐츠 선택
-  // ══════════════════════════════════════════════════════════════
-  const renderContent = () => {
-    switch (slide.type) {
-      case 'chart':
-        return renderChart();
-      case 'table':
-        return renderTable();
-      case 'kpi':
-        return renderKPI();
-      case 'compare':
-        return renderCompare();
-      default:
-        if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
-        return renderInfographic();
-    }
-  };
-
-  // ══════════════════════════════════════════════════════════════
-  // 7) 첫 슬라이드 (타이틀 슬라이드) 렌더링 — 일반 슬라이드와 통일된 디자인
-  // ══════════════════════════════════════════════════════════════
-  if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
-    return (
-      <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg }}>
-        {/* 상단 accent 바 (일반 슬라이드와 동일) */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
-
-        {Watermark}
-        <Logo />
-        <SlideNum />
-
-        <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
-          {/* 타이틀 영역 (일반 슬라이드 제목 스타일 적용) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-            <div style={{ width: '0.32rem', height: `${2.8 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
-            <h1 style={{ fontWeight: 900, color: P.text, fontSize: `${3.5 * titleSizeScale}rem`, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
-              {slide.title}
-            </h1>
+        {/* 오른쪽 */}
+        <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12, padding: '14px 16px' }}>
+          <div style={{
+            textAlign: 'center', fontWeight: 700, fontSize: 13, color: '#10b981',
+            marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid #bbf7d0',
+          }}>
+            {rightTitle}
           </div>
-
-          {/* 콘텐츠 영역 (중앙 정렬) */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2.5rem' }}>
-            {/* Presentation 배지 */}
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 12,
-                background: `linear-gradient(135deg,${P.primary}15,${P.accent}15)`,
-                border: `2px solid ${P.primary}`,
-                borderRadius: 50,
-                padding: '0.9rem 2.5rem',
-                fontSize: `${1.2 * contentSizeScale}rem`,
-                color: P.primary,
-                fontWeight: 700,
-                letterSpacing: 2,
-                textTransform: 'uppercase',
-                boxShadow: `0 4px 16px ${P.primary}20`,
-              }}
-            >
-              <Zap style={{ width: '1.5em', height: '1.5em', strokeWidth: 2.5 }} />
-              Presentation
+          {rightItems.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 7,
+              padding: '6px 10px', background: 'rgba(16,185,129,0.06)', borderRadius: 6,
+            }}>
+              <span style={{ color: '#10b981', fontSize: 12, flexShrink: 0, marginTop: 1 }}>✓</span>
+              <span style={{ fontSize: 12, color: P.text, lineHeight: 1.4 }}>{item}</span>
             </div>
+          ))}
+        </div>
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-            {/* 서브타이틀 (큰 텍스트) */}
-            {content.length > 0 && (
-              <div style={{ 
-                textAlign: 'center',
-                maxWidth: '85%',
-                background: P.muted,
-                borderRadius: 16,
-                padding: '2rem 3rem',
-                border: `1px solid ${P.border}`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-              }}>
-                <p style={{ 
-                  color: P.text, 
-                  fontSize: `${2 * contentSizeScale}rem`, 
-                  fontWeight: 600, 
-                  lineHeight: 1.6,
-                  margin: 0,
-                }}>
-                  {content[0]}
-                </p>
-              </div>
-            )}
+// ── chart ──────────────────────────────────────────────────
+function ChartSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#06b6d4" />
+      <div style={{ flex: 1, padding: '4px 28px 16px', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 1 }}>
+        {slide.chartData?.title && (
+          <p style={{ fontSize: 11, color: P.subtext, textAlign: 'center', marginBottom: 4 }}>
+            {slide.chartData.title}
+          </p>
+        )}
+        {slide.chartData
+          ? renderChart(slide.chartData, 230)
+          : <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <BarIcon style={{ width: 48, height: 48, color: P.border }} />
+            </div>
+        }
+        {slide.content && slide.content.length > 0 && (
+          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+            {slide.content.map((c, i) => (
+              <span key={i} style={{
+                fontSize: 10, color: P.subtext, background: P.muted,
+                border: `1px solid ${P.border}`, borderRadius: 4, padding: '2px 8px',
+              }}>{c}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-            {/* 추가 콘텐츠 (있는 경우) */}
-            {content.length > 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '75%' }}>
-                {content.slice(1).map((item, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '1rem',
-                      background: '#ffffff',
-                      borderRadius: 12,
-                      padding: '1rem 1.5rem',
-                      border: `1px solid ${P.border}`,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <CheckCircle2 style={{ width: `${1.5 * contentSizeScale}rem`, height: `${1.5 * contentSizeScale}rem`, color: P.primary, flexShrink: 0 }} />
-                    <span style={{ fontSize: `${1.3 * contentSizeScale}rem`, fontWeight: 500, color: P.subtext, lineHeight: 1.5 }}>
-                      {typeof item === 'string' ? item : JSON.stringify(item)}
-                    </span>
-                  </div>
+// ── table ──────────────────────────────────────────────────
+function TableSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const headers = slide.tableData?.headers || [];
+  const rows = slide.tableData?.rows || [];
+  const density = slide.tableDensity || 'normal';
+  const cellPy = density === 'compact' ? 4 : density === 'relaxed' ? 10 : 6;
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#10b981" />
+      <div style={{ flex: 1, padding: '4px 28px 16px', overflow: 'auto', position: 'relative', zIndex: 1 }}>
+        {headers.length > 0 ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11.5 }}>
+            <thead>
+              <tr>
+                {headers.map((h, i) => (
+                  <th key={i} style={{
+                    padding: `${cellPy + 2}px 12px`, textAlign: 'left',
+                    background: 'linear-gradient(135deg,#1e3a5f,#1e293b)',
+                    color: '#e2e8f0', fontWeight: 600, fontSize: 11,
+                    borderBottom: '2px solid #3b82f6',
+                    borderRight: i < headers.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                  }}>
+                    {h}
+                  </th>
                 ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, ri) => (
+                <tr key={ri} style={{ background: ri % 2 === 0 ? P.bg : P.muted }}>
+                  {row.map((cell, ci) => (
+                    <td key={ci} style={{
+                      padding: `${cellPy}px 12px`, color: ci === 0 ? P.text : P.subtext,
+                      fontWeight: ci === 0 ? 500 : 400, fontSize: 11,
+                      borderBottom: `1px solid ${P.border}`,
+                      borderRight: ci < row.length - 1 ? `1px solid ${P.border}` : 'none',
+                    }}>
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <TableIcon style={{ width: 40, height: 40, color: P.border }} />
+          </div>
+        )}
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
+
+// ── kpi ────────────────────────────────────────────────────
+function KpiSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const metrics = slide.keyMetrics || [];
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#f59e0b" />
+      <div style={{
+        flex: 1, padding: '8px 28px 20px', display: 'flex', alignItems: 'center',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{
+          width: '100%', display: 'grid',
+          gridTemplateColumns: `repeat(${Math.min(metrics.length, 3)}, 1fr)`, gap: 12,
+        }}>
+          {metrics.map((m, i) => {
+            const TrendIcon = m.trend === 'up' ? TrendingUp : m.trend === 'down' ? TrendingDown : Minus;
+            const trendColor = m.trend === 'up' ? '#10b981' : m.trend === 'down' ? '#ef4444' : P.subtext;
+            return (
+              <div key={i} style={{
+                borderRadius: 12, padding: '16px 14px', textAlign: 'center',
+                background: P.kpiGradients[i % P.kpiGradients.length],
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+              }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', fontWeight: 500, marginBottom: 6 }}>
+                  {m.label}
+                </div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', lineHeight: 1.1, marginBottom: 6 }}>
+                  {m.value}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                  <TrendIcon style={{ width: 13, height: 13, color: 'rgba(255,255,255,0.8)' }} />
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>
+                    {m.trend === 'up' ? '상승' : m.trend === 'down' ? '하락' : '유지'}
+                  </span>
+                </div>
               </div>
-            )}
+            );
+          })}
+        </div>
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
+
+// ── cards ──────────────────────────────────────────────────
+function CardsSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const items = slide.content || [];
+  const cols = items.length <= 3 ? items.length : items.length <= 4 ? 2 : 3;
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#8b5cf6" />
+      <div style={{
+        flex: 1, padding: '8px 28px 20px', display: 'flex', alignItems: 'center',
+        position: 'relative', zIndex: 1,
+      }}>
+        <div style={{ width: '100%', display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 10 }}>
+          {items.map((item, i) => {
+            const [titlePart, ...descParts] = item.split(':');
+            const hasColon = item.includes(':');
+            return (
+              <div key={i} style={{
+                borderRadius: 10, padding: '14px 14px',
+                background: `linear-gradient(135deg,${P.chartColors[i % P.chartColors.length]}14,${P.chartColors[i % P.chartColors.length]}06)`,
+                border: `1.5px solid ${P.chartColors[i % P.chartColors.length]}30`,
+              }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, marginBottom: 8,
+                  background: `linear-gradient(135deg,${P.chartColors[i % P.chartColors.length]},${P.chartColors[(i + 1) % P.chartColors.length]})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Zap style={{ width: 14, height: 14, color: '#fff' }} />
+                </div>
+                {hasColon ? (
+                  <>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: P.text, marginBottom: 4 }}>{titlePart.trim()}</div>
+                    <div style={{ fontSize: 11, color: P.subtext, lineHeight: 1.5 }}>{descParts.join(':').trim()}</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 12, fontWeight: 500, color: P.text, lineHeight: 1.5 }}>{item}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
+
+// ── quote ──────────────────────────────────────────────────
+function QuoteSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(135deg,#0f172a,#1e293b)',
+      display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.15, zIndex: 0,
+          }}
+        />
+      )}
+      {logoUrl && (
+        <img src={logoUrl} alt="logo" style={{
+          position: 'absolute', top: 20, right: 28, height: 28,
+          objectFit: 'contain', zIndex: 3, opacity: 0.7,
+        }} />
+      )}
+      {slide.slideNumber !== undefined && (
+        <div style={{
+          position: 'absolute', top: 20, left: 28, fontSize: 10,
+          color: 'rgba(255,255,255,0.3)', fontWeight: 500, zIndex: 3,
+        }}>
+          {String(slide.slideNumber).padStart(2, '0')}
+        </div>
+      )}
+      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '0 60px', maxWidth: '80%' }}>
+        <div style={{ fontSize: 48, color: '#3b82f6', lineHeight: 1, marginBottom: 16, opacity: 0.8 }}>"</div>
+        <p style={{ fontSize: 18, fontWeight: 500, color: '#f1f5f9', lineHeight: 1.7, marginBottom: 20 }}>
+          {slide.text || slide.content?.[0] || ''}
+        </p>
+        {(slide.author || slide.content?.[1]) && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 16px', background: 'rgba(59,130,246,0.2)',
+            border: '1px solid rgba(59,130,246,0.3)', borderRadius: 20,
+          }}>
+            <span style={{ fontSize: 12, color: '#93c5fd', fontWeight: 500 }}>
+              — {slide.author || slide.content?.[1]}
+            </span>
+          </div>
+        )}
+      </div>
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, zIndex: 3,
+        background: 'linear-gradient(90deg,#3b82f6,#8b5cf6)',
+      }} />
+      {watermark && (
+        <div style={{
+          position: 'absolute', bottom: 12, right: 24, fontSize: 9,
+          color: 'rgba(255,255,255,0.2)', zIndex: 3,
+        }}>{watermark}</div>
+      )}
+    </div>
+  );
+}
+
+// ── timeline ───────────────────────────────────────────────
+function TimelineSlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const milestones = slide.milestones || [];
+  const stateColors: Record<string, string> = {
+    done: '#10b981', next: '#3b82f6', todo: '#94a3b8',
+  };
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: P.bg, display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.06, zIndex: 0,
+          }}
+        />
+      )}
+      <SlideHeader slide={slide} logoUrl={logoUrl} accentColor="#06b6d4" />
+      <div style={{ flex: 1, padding: '8px 28px 20px', display: 'flex', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ width: '100%', position: 'relative' }}>
+          {/* 중앙 라인 */}
+          <div style={{
+            position: 'absolute', top: '50%', left: 0, right: 0, height: 2,
+            background: `linear-gradient(90deg,${P.chartColors[0]},${P.chartColors[2]})`,
+            transform: 'translateY(-50%)', zIndex: 0,
+          }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+            {milestones.map((m, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, flex: 1 }}>
+                <div style={{ fontSize: 10, color: P.subtext, fontWeight: 500, textAlign: 'center' }}>{m.date}</div>
+                <div style={{
+                  width: 18, height: 18, borderRadius: '50%',
+                  background: stateColors[m.state] || P.subtext,
+                  border: `3px solid ${P.bg}`, boxShadow: `0 0 0 2px ${stateColors[m.state] || P.subtext}`,
+                }} />
+                <div style={{
+                  fontSize: 11, fontWeight: m.state === 'next' ? 700 : 500,
+                  color: m.state === 'todo' ? P.subtext : P.text,
+                  textAlign: 'center', maxWidth: 80, lineHeight: 1.3,
+                }}>
+                  {m.label}
+                </div>
+                {m.state === 'done' && (
+                  <span style={{ fontSize: 9, color: '#10b981', fontWeight: 600 }}>완료</span>
+                )}
+                {m.state === 'next' && (
+                  <span style={{ fontSize: 9, color: '#3b82f6', fontWeight: 600 }}>진행중</span>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
-    );
-  }
+      <SlideFooter watermark={watermark} />
+    </div>
+  );
+}
 
-  // ══════════════════════════════════════════════════════════════
-  // 8) 일반 슬라이드 렌더링
-  // ══════════════════════════════════════════════════════════════
-  const hasImage = !!slide.imageUrl;
-  const visualRatio = slide.visualRatio ?? 50;
-  const textRatio = 100 - visualRatio;
-  const imageSide = layout === 'split-right' ? 'left' : 'right';
-
+// ── summary ────────────────────────────────────────────────
+function SummarySlide({ slide, logoUrl, watermark }: { slide: Slide; logoUrl?: string; watermark?: string }) {
+  const items = slide.content || [];
   return (
-    <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
-      {/* 상단 accent 바 */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
+    <div style={{
+      width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
+      background: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 60%,#0f172a 100%)',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {slide.imageUrl && (
+        <img
+          src={slide.imageUrl}
+          alt=""
+          crossOrigin="anonymous"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: 0.15, zIndex: 0,
+          }}
+        />
+      )}
+      {slide.slideNumber !== undefined && (
+        <div style={{
+          position: 'absolute', top: 20, left: 28, fontSize: 10,
+          color: 'rgba(255,255,255,0.3)', fontWeight: 500, zIndex: 3,
+        }}>
+          {String(slide.slideNumber).padStart(2, '0')}
+        </div>
+      )}
+      {logoUrl && (
+        <img src={logoUrl} alt="logo" style={{
+          position: 'absolute', top: 20, right: 28, height: 28,
+          objectFit: 'contain', zIndex: 3, opacity: 0.7,
+        }} />
+      )}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px 40px', position: 'relative', zIndex: 2 }}>
+        <h2 style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', marginBottom: 24, textAlign: 'center' }}>
+          {slide.title}
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {items.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '10px 16px', borderRadius: 10,
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.12)',
+            }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                background: `linear-gradient(135deg,${P.chartColors[i % P.chartColors.length]},${P.chartColors[(i + 1) % P.chartColors.length]})`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, color: '#fff',
+              }}>
+                {i + 1}
+              </div>
+              <span style={{ fontSize: 13, color: '#e2e8f0', lineHeight: 1.5 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, zIndex: 3,
+        background: 'linear-gradient(90deg,#3b82f6,#8b5cf6,#06b6d4)',
+      }} />
+      {watermark && (
+        <div style={{
+          position: 'absolute', bottom: 12, right: 24, fontSize: 9,
+          color: 'rgba(255,255,255,0.2)', zIndex: 3,
+        }}>{watermark}</div>
+      )}
+    </div>
+  );
+}
 
-      {Watermark}
-      <Logo />
-      <SlideNum />
-
-      <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
-        {/* 제목 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-          <div style={{ width: '0.32rem', height: `${2.1 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
-          <h2 style={{ fontWeight: 900, color: P.text, fontSize: titleFontSize, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
+// ══════════════════════════════════════════════════════════════
+// 공통 헤더 / 푸터
+// ══════════════════════════════════════════════════════════════
+function SlideHeader({ slide, logoUrl, accentColor = '#3b82f6' }: {
+  slide: Slide; logoUrl?: string; accentColor?: string;
+}) {
+  return (
+    <div style={{
+      padding: '16px 28px 10px', flexShrink: 0, position: 'relative', zIndex: 2,
+      borderBottom: `2px solid ${accentColor}20`,
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          {slide.slideNumber !== undefined && (
+            <div style={{ fontSize: 10, color: P.subtext, fontWeight: 500, marginBottom: 3 }}>
+              {String(slide.slideNumber).padStart(2, '0')}
+            </div>
+          )}
+          <h2 style={{
+            fontSize: 18, fontWeight: 700, color: P.text, lineHeight: 1.3,
+            borderLeft: `3px solid ${accentColor}`,
+            paddingLeft: 10, margin: 0,
+          }}>
             {slide.title}
           </h2>
         </div>
-
-        {/* 콘텐츠 영역 */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.5rem', minHeight: 0 }}>
-          {/* 텍스트 영역 */}
-          <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow: 'hidden', order: imageSide === 'left' ? 2 : 1 }}>
-            {renderContent()}
-          </div>
-
-          {/* 이미지 영역 */}
-          {hasImage && slide.imageUrl && (
-            <div
-              style={{
-                width: `${visualRatio}%`,
-                borderRadius: 16,
-                overflow: 'hidden',
-                flexShrink: 0,
-                order: imageSide === 'left' ? 1 : 2,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
-              }}
-            >
-              <img src={slide.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          )}
-        </div>
+        {logoUrl && (
+          <img src={logoUrl} alt="logo" style={{
+            height: 28, objectFit: 'contain', opacity: 0.8, marginLeft: 12,
+          }} />
+        )}
       </div>
     </div>
   );
-};
+}
+
+function SlideFooter({ watermark }: { watermark?: string }) {
+  if (!watermark) return null;
+  return (
+    <div style={{
+      padding: '6px 28px', flexShrink: 0, zIndex: 2,
+      borderTop: `1px solid ${P.border}`,
+      display: 'flex', justifyContent: 'flex-end',
+    }}>
+      <span style={{ fontSize: 9, color: P.subtext, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        {watermark}
+      </span>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// 메인 export: ScaledSlide
+// ══════════════════════════════════════════════════════════════
+export function ScaledSlide({ slide, containerClassName, logoUrl, watermark }: ScaledSlideProps) {
+  const renderSlide = () => {
+    switch (slide.type) {
+      case 'title':
+        return <TitleSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'agenda':
+        return <AgendaSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'process':
+        return <ProcessSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'compare':
+        return <CompareSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'chart':
+        return <ChartSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'table':
+        return <TableSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'kpi':
+        return <KpiSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'cards':
+        return <CardsSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'quote':
+        return <QuoteSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'timeline':
+        return <TimelineSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'summary':
+        return <SummarySlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+      case 'content':
+      default:
+        return <ContentSlide slide={slide} logoUrl={logoUrl} watermark={watermark} />;
+    }
+  };
+
+  return (
+    <div
+      className={containerClassName}
+      style={{
+        width: '100%',
+        aspectRatio: '16 / 9',
+        overflow: 'hidden',
+        borderRadius: 8,
+        boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+        position: 'relative',
+        background: P.bg,
+      }}
+    >
+      {renderSlide()}
+    </div>
+  );
+}
