@@ -11,6 +11,7 @@ import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
 import { useVisitorCount } from '@/hooks/useVisitorCount';
 import { TranslatorWorkspace } from '@/components/TranslatorWorkspace';
+import { FormGenerator } from '@/components/FormGenerator';
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
   HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
@@ -76,10 +77,11 @@ const PROMPT_PRESETS: Preset[] = [
   },
 ];
 
+// ──────────────────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
 
-  type AppMode = 'presentation' | 'translator';
+  type AppMode = 'presentation' | 'translator' | 'form';
   const [activeApp, setActiveApp]           = useState<AppMode>('presentation');
   const [themeMenuOpen, setThemeMenuOpen]   = useState(false);
   const [helpOpen, setHelpOpen]             = useState(false);
@@ -111,6 +113,7 @@ const Index = () => {
     historyOpen, setHistoryOpen, openHistory,
     loadFromHistory, deleteFromHistory,
     chatOpen, setChatOpen,
+    currentChatSlideIndex, openChatWithSlide,
     reviewOpen, setReviewOpen,
     reviewResult, isReviewing,
     requestReview, applyReviewFix,
@@ -136,65 +139,74 @@ const Index = () => {
     referenceStructure,
     handleReferenceFileUpload,
     clearReferenceFile,
+    // ✅ 신규: 분할/병합
+    splitSlide,
+    splitSlideWithAI,
+    mergeSlides,
   } = usePresentation();
 
   const guide        = getStepGuide(step);
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId);
 
+  // ── 앱 모드 탭 레이블 ──────────────────────────────────────
+  const APP_TABS: { id: AppMode; icon: React.ReactNode; label: string }[] = [
+    { id: 'presentation', icon: <Sparkles className="w-3.5 h-3.5" />, label: '발표자료' },
+    { id: 'form',         icon: <FileText  className="w-3.5 h-3.5" />, label: '양식 생성기' },
+    { id: 'translator',   icon: <Globe     className="w-3.5 h-3.5" />, label: '번역 작업실' },
+  ];
+
   return (
     <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
 
+      {/* ━━━━━━━━━━━━━━━━━━ 헤더 ━━━━━━━━━━━━━━━━━━ */}
       <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
 
+          {/* 로고 */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <motion.div
               className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
               whileHover={{ scale: 1.08, rotate: 6 }}
               transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
-              {activeApp === 'presentation'
-                ? <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
-                : <Globe    className="w-[18px] h-[18px] text-primary-foreground" />
-              }
+              {activeApp === 'presentation' ? <Sparkles className="w-[18px] h-[18px] text-primary-foreground" /> :
+               activeApp === 'form'         ? <FileText  className="w-[18px] h-[18px] text-primary-foreground" /> :
+                                              <Globe     className="w-[18px] h-[18px] text-primary-foreground" />}
             </motion.div>
             <div className="min-w-0">
               <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
-                {activeApp === 'presentation' ? 'AI 발표자료 생성기' : 'AI 번역 작업실'}
+                {activeApp === 'presentation' ? 'AI 발표자료 생성기' :
+                 activeApp === 'form'         ? 'AI 양식 생성기'    :
+                                               'AI 번역 작업실'}
               </h1>
               <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
-                {activeApp === 'presentation' ? 'AI 기반 스마트 발표자료' : '다국어 번역 & 현지화'}
+                {activeApp === 'presentation' ? 'AI 기반 스마트 발표자료' :
+                 activeApp === 'form'         ? '한국형 업무 양식 자동 생성' :
+                                               '다국어 번역 & 현지화'}
               </p>
             </div>
           </div>
 
+          {/* 탭 네비게이션 (3개) */}
           <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
-            <button
-              onClick={() => setActiveApp('presentation')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'presentation'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              발표자료
-            </button>
-            <button
-              onClick={() => setActiveApp('translator')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'translator'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              번역 작업실
-            </button>
+            {APP_TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveApp(tab.id)}
+                className={[
+                  'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                  activeApp === tab.id
+                    ? 'bg-background shadow-sm text-primary border border-border/50'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+                ].join(' ')}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
           </div>
 
+          {/* 우측 컨트롤 */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {activeApp === 'presentation' && (
               <>
@@ -220,6 +232,7 @@ const Index = () => {
 
             <div className="w-px h-5 bg-border/60 mx-0.5" />
 
+            {/* 테마 색상 */}
             <div className="relative">
               <Button
                 variant="ghost" size="icon"
@@ -282,7 +295,7 @@ const Index = () => {
         </div>
       </header>
 
-      {/* 도움말 모달 */}
+      {/* ━━━━━━━━━━━━━━━━━━ 도움말 모달 ━━━━━━━━━━━━━━━━━━ */}
       <AnimatePresence>
         {helpOpen && activeApp === 'presentation' && (
           <motion.div
@@ -308,10 +321,30 @@ const Index = () => {
               </div>
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
                 {[
-                  { icon: <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />, color: 'bg-blue-100 dark:bg-blue-900/30', title: '1. 주제 입력', desc: '발표하고 싶은 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
-                  { icon: <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />, color: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: '기존 자료(PDF, Word, 텍스트 등)를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
-                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400" />, color: 'bg-purple-100 dark:bg-purple-900/30', title: '3. 발표 설정', desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
-                  { icon: <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />, color: 'bg-amber-100 dark:bg-amber-900/30', title: '4. 편집 & 확인', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
+                  {
+                    icon: <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />,
+                    color: 'bg-blue-100 dark:bg-blue-900/30',
+                    title: '1. 주제 입력',
+                    desc: '발표하고 싶은 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.',
+                  },
+                  {
+                    icon: <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />,
+                    color: 'bg-emerald-100 dark:bg-emerald-900/30',
+                    title: '2. 파일 업로드',
+                    desc: '기존 자료(PDF, Word, 텍스트 등)를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.',
+                  },
+                  {
+                    icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400" />,
+                    color: 'bg-purple-100 dark:bg-purple-900/30',
+                    title: '3. 발표 설정',
+                    desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.',
+                  },
+                  {
+                    icon: <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />,
+                    color: 'bg-amber-100 dark:bg-amber-900/30',
+                    title: '4. 편집 & 확인',
+                    desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.',
+                  },
                 ].map((g, i) => (
                   <div key={i} className="flex gap-4">
                     <div className={`w-12 h-12 rounded-full ${g.color} flex items-center justify-center flex-shrink-0`}>{g.icon}</div>
@@ -323,7 +356,10 @@ const Index = () => {
                 ))}
               </div>
               <div className="p-4 border-t border-border bg-muted/10 text-center">
-                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
+                <Button
+                  onClick={() => setHelpOpen(false)}
+                  className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90"
+                >
                   시작하기 →
                 </Button>
               </div>
@@ -332,7 +368,7 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* 단계 안내 바 */}
+      {/* ━━━━━━━━━━━━━━━━━━ 단계 안내 바 ━━━━━━━━━━━━━━━━━━ */}
       {activeApp === 'presentation' && step !== 'preview' && (
         <AnimatePresence mode="wait">
           <motion.div
@@ -353,21 +389,37 @@ const Index = () => {
         </AnimatePresence>
       )}
 
+      {/* ━━━━━━━━━━━━━━━━━━ 메인 콘텐츠 ━━━━━━━━━━━━━━━━━━ */}
       <div className="flex-1 flex flex-col relative overflow-hidden">
 
+        {/* ── 번역 작업실 탭 */}
         {activeApp === 'translator' && (
           <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
             <TranslatorWorkspace />
           </main>
         )}
 
+        {/* ── 양식 생성기 탭 */}
+        {activeApp === 'form' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto overflow-y-auto">
+            <FormGenerator />
+          </main>
+        )}
+
+        {/* ── 발표자료 탭 */}
         {activeApp === 'presentation' && (
-          <main className={['mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto', step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl'].join(' ')}>
+          <main className={[
+            'mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto',
+            step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl',
+          ].join(' ')}>
 
             {/* ── STEP: upload ── */}
             {step === 'upload' && (
               <div className="space-y-10">
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-center max-w-lg mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="text-center max-w-lg mx-auto"
+                >
                   <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
                     <Sparkles className="w-3 h-3" />
                     AI 기반 스마트 발표자료 생성
@@ -382,11 +434,21 @@ const Index = () => {
                   </p>
                 </motion.div>
 
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="max-w-3xl mx-auto space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="max-w-3xl mx-auto space-y-4"
+                >
+                  {/* 프리셋 탭 */}
                   <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
                     <button
                       onClick={() => setActivePresetId('manual')}
-                      className={['flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all', activePresetId === 'manual' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'].join(' ')}
+                      className={[
+                        'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
+                        activePresetId === 'manual'
+                          ? 'bg-background shadow-sm text-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      ].join(' ')}
                     >
                       <PencilLine className="w-4 h-4" />직접 입력
                     </button>
@@ -394,40 +456,66 @@ const Index = () => {
                       <button
                         key={preset.id}
                         onClick={() => { setActivePresetId(preset.id); setPresetData({}); }}
-                        className={['flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all', activePresetId === preset.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground'].join(' ')}
+                        className={[
+                          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
+                          activePresetId === preset.id
+                            ? 'bg-background shadow-sm text-primary'
+                            : 'text-muted-foreground hover:text-foreground',
+                        ].join(' ')}
                       >
                         <span>{preset.icon}</span><span>{preset.label}</span>
                       </button>
                     ))}
                   </div>
 
+                  {/* 입력 영역 */}
                   <div className="relative">
                     <AnimatePresence mode="wait">
                       {activePreset ? (
-                        <motion.div key={activePreset.id} initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6">
+                        <motion.div
+                          key={activePreset.id}
+                          initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                          className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6"
+                        >
                           <div className="space-y-5">
                             {activePreset.fields.map(field => (
                               <div key={field.id} className="space-y-2.5">
                                 <label className="text-sm font-bold text-foreground">{field.label}</label>
                                 <div className="flex flex-wrap gap-2">
                                   {field.suggestions.map(sug => (
-                                    <button key={sug} onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))} className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left">
+                                    <button
+                                      key={sug}
+                                      onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))}
+                                      className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left"
+                                    >
                                       {sug}
                                     </button>
                                   ))}
                                 </div>
-                                <Input value={presetData[field.id] ?? ''} onChange={e => setPresetData(p => ({ ...p, [field.id]: e.target.value }))} placeholder={field.placeholder} className="bg-background h-11" />
+                                <Input
+                                  value={presetData[field.id] ?? ''}
+                                  onChange={e => setPresetData(p => ({ ...p, [field.id]: e.target.value }))}
+                                  placeholder={field.placeholder}
+                                  className="bg-background h-11"
+                                />
                               </div>
                             ))}
                           </div>
                           <div className="pt-2 border-t border-border">
-                            <Button onClick={() => handlePromptSubmit(activePreset.generate(presetData))} className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm">
+                            <Button
+                              onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
+                              className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm"
+                            >
                               <Sparkles className="w-5 h-5" />AI 발표자료 생성 시작
                             </Button>
                           </div>
                         </motion.div>
                       ) : (
-                        <motion.div key="manual" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }} className="space-y-4">
+                        <motion.div
+                          key="manual"
+                          initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                          className="space-y-4"
+                        >
                           <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
                             <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
                               <MessageSquare className="w-6 h-6 text-primary" />
@@ -438,9 +526,18 @@ const Index = () => {
                               placeholder={`발표 주제나 내용을 자유롭게 입력하세요\n예: 2026년 상반기 마케팅 전략 보고 — 디지털 채널 전환 현황과 하반기 로드맵`}
                               className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
                               rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
-                              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handlePromptSubmit(manualPrompt); } }}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handlePromptSubmit(manualPrompt);
+                                }
+                              }}
                             />
-                            <Button onClick={() => handlePromptSubmit(manualPrompt)} disabled={!manualPrompt.trim()} className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm">
+                            <Button
+                              onClick={() => handlePromptSubmit(manualPrompt)}
+                              disabled={!manualPrompt.trim()}
+                              className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm"
+                            >
                               <Send className="w-4 h-4" />생성
                             </Button>
                           </div>
@@ -450,16 +547,25 @@ const Index = () => {
                   </div>
                 </motion.div>
 
+                {/* 구분선 */}
                 <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
                   <div className="border-t border-border absolute w-full" />
                   <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 파일 업로드</span>
                 </div>
 
-                <FileUploadZone onFilesSelect={handleFilesUpload} fileNames={fileNames} onRemoveFile={removeFile} />
+                <FileUploadZone
+                  onFilesSelect={handleFilesUpload}
+                  fileNames={fileNames}
+                  onRemoveFile={removeFile}
+                />
 
                 {fileNames.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
-                    <Button onClick={() => setStep('info')} size="lg" className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow">
+                    <Button
+                      onClick={() => setStep('info')}
+                      size="lg"
+                      className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow"
+                    >
                       발표 설정으로 이동
                       <ArrowRight className="w-5 h-5" />
                     </Button>
@@ -531,6 +637,7 @@ const Index = () => {
                 isSaving={isSaving}
                 onRegenerateSlide={regenerateSlide}
                 onOpenChat={() => setChatOpen(true)}
+                onOpenChatWithSlide={openChatWithSlide}
                 onOpenReview={() => setReviewOpen(true)}
                 onReviewAndFix={reviewAndFixPresentation}
                 isFixing={isFixing}
@@ -539,6 +646,10 @@ const Index = () => {
                 updatePresentationMaster={updatePresentationMaster}
                 isGeneratingImage={isGeneratingImage}
                 generateSlideImage={generateSlideImage}
+                // ✅ 신규: 분할/병합
+                onSplitSlide={splitSlide}
+                onSplitSlideWithAI={splitSlideWithAI}
+                onMergeSlides={mergeSlides}
               />
             )}
 
@@ -546,7 +657,7 @@ const Index = () => {
         )}
       </div>
 
-      {/* 패널들 */}
+      {/* ━━━━━━━━━━━━━━━━━━ 패널들 ━━━━━━━━━━━━━━━━━━ */}
       {activeApp === 'presentation' && (
         <HistoryPanel
           open={historyOpen}
@@ -562,9 +673,9 @@ const Index = () => {
         <ChatEditPanel
           open={chatOpen}
           onClose={() => setChatOpen(false)}
-          currentSlide={presentation.slides[0]}
-          slideIndex={0}
-          onApply={updatedSlide => updateSlide(0, updatedSlide)}
+          currentSlide={presentation.slides[currentChatSlideIndex] ?? presentation.slides[0]}
+          slideIndex={currentChatSlideIndex}
+          onApply={updatedSlide => updateSlide(currentChatSlideIndex, updatedSlide)}
           onRequestEdit={requestChatEdit}
         />
       )}
@@ -581,14 +692,17 @@ const Index = () => {
         />
       )}
 
-      {/* FOOTER */}
+      {/* ━━━━━━━━━━━━━━━━━━ 푸터 ━━━━━━━━━━━━━━━━━━ */}
       <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
         <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             Made with ❤️ by{' '}
             <span className="font-semibold text-foreground">Hyeon</span>
             {' · '}
-            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
+            <a
+              href="mailto:audifox1022@gmail.com"
+              className="hover:text-primary transition-colors underline underline-offset-2"
+            >
               audifox1022@gmail.com
             </a>
           </p>
