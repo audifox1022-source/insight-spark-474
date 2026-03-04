@@ -507,16 +507,18 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const leftTitle  = slide.leftTitle  ?? 'AS-IS';
     const rightTitle = slide.rightTitle ?? 'TO-BE';
 
-    // ✅ CSS 변수 의존 제거 — 하드코딩 팔레트로 대비 보장
-    const LEFT_BG     = '#1e40af';   // 진한 파랑 헤더
+    // ✅ 대비 강화 색상 팔레트 (WCAG AA 준수)
+    const LEFT_BG     = '#1e3a8a';   // 진한 파랑 헤더 (더 어둡게)
     const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
-    const LEFT_BADGE  = '#2563eb';   // 파랑 번호 뱃지
-    const LEFT_BORDER = '#bfdbfe';   // 연한 파랑 테두리
+    const LEFT_BADGE  = '#1d4ed8';   // 파랑 번호 뱃지 (더 진하게)
+    const LEFT_BORDER = '#93c5fd';   // 파랑 테두리 (더 진하게)
+    const LEFT_TEXT   = '#1e3a8a';   // 파랑 텍스트 (헤더와 동일)
 
-    const RIGHT_BG    = '#065f46';   // 진한 초록 헤더
+    const RIGHT_BG    = '#064e3b';   // 진한 초록 헤더 (더 어둡게)
     const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
-    const RIGHT_BADGE = '#059669';   // 초록 번호 뱃지
-    const RIGHT_BORDER= '#bbf7d0';   // 연한 초록 테두리
+    const RIGHT_BADGE = '#047857';   // 초록 번호 뱃지 (더 진하게)
+    const RIGHT_BORDER= '#86efac';   // 초록 테두리 (더 진하게)
+    const RIGHT_TEXT  = '#064e3b';   // 초록 텍스트 (헤더와 동일)
 
     const maxRows = Math.max(leftItems.length, rightItems.length);
 
@@ -535,9 +537,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       bodyBg: string,
       badgeColor: string,
       borderColor: string,
+      textColor: string,
     ) => (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        {/* ✅ 헤더: 진한 배경 + 흰색 글자 (명시적 고정) */}
+        {/* ✅ 헤더: 진한 배경 + 흰색 글자 (WCAG AA 대비 보장) */}
         <div style={{
           background: headerBg,
           color: '#ffffff',
@@ -548,7 +551,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           textAlign: 'center',
           letterSpacing: 0.5,
           flexShrink: 0,
-          textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+          textShadow: '0 2px 4px rgba(0,0,0,0.5)',
         }}>
           {title}
         </div>
@@ -596,11 +599,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 {i + 1}
               </span>
 
-              {/* ✅ 텍스트: 흰 배경 위 진한 검정 + 말줄임표 */}
+              {/* ✅ 텍스트: 흰 배경 위 패널별 진한 색상 텍스트 + 말줄임표 */}
               <span style={{
                 fontSize: itemFontSize,
-                fontWeight: 600,
-                color: '#1a2133',
+                fontWeight: 700,
+                color: textColor,
                 lineHeight: 1.35,
                 flex: 1,
                 wordBreak: 'keep-all',
@@ -626,7 +629,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         minHeight: 0,
         overflow: 'hidden',
       }}>
-        {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER)}
+        {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER, LEFT_TEXT)}
 
         {/* 중앙 화살표 */}
         <div style={{
@@ -641,17 +644,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             width: '2.2rem',
             height: '2.2rem',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1e40af, #059669)',
+            background: 'linear-gradient(135deg, #1e3a8a, #047857)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+            boxShadow: '0 6px 18px rgba(0,0,0,0.3)',
           }}>
             <ArrowRight style={{ width: '1.1rem', height: '1.1rem', color: '#ffffff', strokeWidth: 3 }} />
           </div>
         </div>
 
-        {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER)}
+        {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER, RIGHT_TEXT)}
       </div>
     );
   };
@@ -876,86 +879,100 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 7) 첫 슬라이드 (타이틀 슬라이드) 렌더링
+  // 7) 첫 슬라이드 (타이틀 슬라이드) 렌더링 — 일반 슬라이드와 통일된 디자인
   // ══════════════════════════════════════════════════════════════
   if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
     return (
       <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg }}>
-        {/* 1) 배경 그라데이션 */}
-        <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(135deg,${P.primary} 0%,${P.accent} 100%)` }} />
-
-        {/* 2) 장식 요소 */}
-        <div style={{ position: 'absolute', right: -80, top: -80, width: '50%', paddingBottom: '50%', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', filter: 'blur(2px)' }} />
-        <div style={{ position: 'absolute', left: -60, bottom: -60, width: '38%', paddingBottom: '38%', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', filter: 'blur(2px)' }} />
-        <div style={{ position: 'absolute', right: '20%', bottom: '15%', width: '18%', paddingBottom: '18%', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', filter: 'blur(1px)' }} />
-        <div style={{ position: 'absolute', left: '25%', top: '12%', width: '12%', paddingBottom: '12%', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', filter: 'blur(1px)' }} />
+        {/* 상단 accent 바 (일반 슬라이드와 동일) */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
 
         {Watermark}
-        <Logo invert />
-        <SlideNum light />
+        <Logo />
+        <SlideNum />
 
-        {/* 3) 타이틀 콘텐츠 */}
-        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '5rem 6.5rem', textAlign: 'center' }}>
-          {/* 상단 배지 */}
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 12,
-              background: 'rgba(255,255,255,0.95)',
-              borderRadius: 50,
-              padding: '0.75rem 2rem',
-              marginBottom: '3rem',
-              fontSize: `${1.1 * contentSizeScale}rem`,
-              color: P.primary,
-              fontWeight: 700,
-              letterSpacing: 3,
-              backdropFilter: 'blur(10px)',
-              border: '1.5px solid rgba(255,255,255,1)',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
-              textTransform: 'uppercase',
-            }}
-          >
-            <Zap style={{ width: '1.3em', height: '1.3em', strokeWidth: 2.5 }} />
-            Presentation
+        <div style={{ height: '100%', padding: '3.5rem 3.5rem 3.8rem', display: 'flex', flexDirection: 'column' }}>
+          {/* 타이틀 영역 (일반 슬라이드 제목 스타일 적용) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem', paddingBottom: '0.85rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
+            <div style={{ width: '0.32rem', height: `${2.8 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
+            <h1 style={{ fontWeight: 900, color: P.text, fontSize: `${3.5 * titleSizeScale}rem`, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
+              {slide.title}
+            </h1>
           </div>
 
-          {/* 메인 타이틀 */}
-          <h1
-            style={{
-              color: '#fff',
-              fontWeight: 900,
-              lineHeight: 1.2,
-              fontSize: `${3.5 * titleSizeScale}rem`,
-              letterSpacing: '-0.02em',
-              marginBottom: '1.8rem',
-              textShadow: '0 6px 40px rgba(0,0,0,0.3), 0 3px 12px rgba(0,0,0,0.2)',
-              maxWidth: '88%',
-            }}
-          >
-            {slide.title}
-          </h1>
+          {/* 콘텐츠 영역 (중앙 정렬) */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2.5rem' }}>
+            {/* Presentation 배지 */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 12,
+                background: `linear-gradient(135deg,${P.primary}15,${P.accent}15)`,
+                border: `2px solid ${P.primary}`,
+                borderRadius: 50,
+                padding: '0.9rem 2.5rem',
+                fontSize: `${1.2 * contentSizeScale}rem`,
+                color: P.primary,
+                fontWeight: 700,
+                letterSpacing: 2,
+                textTransform: 'uppercase',
+                boxShadow: `0 4px 16px ${P.primary}20`,
+              }}
+            >
+              <Zap style={{ width: '1.5em', height: '1.5em', strokeWidth: 2.5 }} />
+              Presentation
+            </div>
 
-          {/* 구분선 */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
-            <div style={{ width: '3rem', height: 3, background: 'rgba(255,255,255,0.7)', borderRadius: 3 }} />
-            <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: 'rgba(255,255,255,0.9)' }} />
-            <div style={{ width: '3rem', height: 3, background: 'rgba(255,255,255,0.7)', borderRadius: 3 }} />
+            {/* 서브타이틀 (큰 텍스트) */}
+            {content.length > 0 && (
+              <div style={{ 
+                textAlign: 'center',
+                maxWidth: '85%',
+                background: P.muted,
+                borderRadius: 16,
+                padding: '2rem 3rem',
+                border: `1px solid ${P.border}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+              }}>
+                <p style={{ 
+                  color: P.text, 
+                  fontSize: `${2 * contentSizeScale}rem`, 
+                  fontWeight: 600, 
+                  lineHeight: 1.6,
+                  margin: 0,
+                }}>
+                  {content[0]}
+                </p>
+              </div>
+            )}
+
+            {/* 추가 콘텐츠 (있는 경우) */}
+            {content.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '75%' }}>
+                {content.slice(1).map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      background: '#ffffff',
+                      borderRadius: 12,
+                      padding: '1rem 1.5rem',
+                      border: `1px solid ${P.border}`,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <CheckCircle2 style={{ width: `${1.5 * contentSizeScale}rem`, height: `${1.5 * contentSizeScale}rem`, color: P.primary, flexShrink: 0 }} />
+                    <span style={{ fontSize: `${1.3 * contentSizeScale}rem`, fontWeight: 500, color: P.subtext, lineHeight: 1.5 }}>
+                      {typeof item === 'string' ? item : JSON.stringify(item)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* 서브타이틀 */}
-          {content.length > 0 && (
-            <p style={{ 
-              color: '#ffffff', 
-              fontSize: `${1.6 * contentSizeScale}rem`, 
-              fontWeight: 600, 
-              maxWidth: '80%', 
-              lineHeight: 1.8,
-              textShadow: '0 4px 24px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3)',
-            }}>
-              {content[0]}
-            </p>
-          )}
         </div>
       </div>
     );
