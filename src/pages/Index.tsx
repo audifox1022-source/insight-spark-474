@@ -131,7 +131,6 @@ const Index = () => {
     updateSlide,
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
-    // ✅ 참고 양식 관련 5개 추가
     referenceFileName,
     isAnalyzingReference,
     referenceStructure,
@@ -484,11 +483,11 @@ const Index = () => {
                   dataSummary={dataSummary}
                   template={template}
                   setTemplate={setTemplate}
-                  referenceFileName={referenceFileName}               {/* ✅ 추가 */}
-                  isAnalyzingReference={isAnalyzingReference}         {/* ✅ 추가 */}
-                  referenceStructure={referenceStructure}             {/* ✅ 추가 */}
-                  onReferenceFileUpload={handleReferenceFileUpload}   {/* ✅ 추가 */}
-                  onClearReferenceFile={clearReferenceFile}           {/* ✅ 추가 */}
+                  referenceFileName={referenceFileName}
+                  isAnalyzingReference={isAnalyzingReference}
+                  referenceStructure={referenceStructure}
+                  onReferenceFileUpload={handleReferenceFileUpload}
+                  onClearReferenceFile={clearReferenceFile}
                 />
               </div>
             )}
