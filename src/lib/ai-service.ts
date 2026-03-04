@@ -1,6 +1,6 @@
 // ============================================================
 // ai-service.ts — 최종 완성본
-// generateWithGeminiImagen: gemini-2.0-flash-preview-image-generation 으로 수정
+// generateWithGeminiImagen: gemini-3.1-flash-image-preview 적용
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -541,8 +541,8 @@ function makeEmptySlide(slideNumber: number, outlineItem?: any, total = 1) {
 }
 
 // ============================================================
-// ✅ 최종 수정: gemini-2.0-flash-preview-image-generation 사용
-// (imagen-3.0-generate-002 → Deprecated 및 무료키 불가)
+// ✅ 최종 수정: gemini-3.1-flash-image-preview 사용
+// (이전 모델들 모두 404 / Deprecated 확인됨)
 // ============================================================
 async function generateWithGeminiImagen(
   slideTitle: string,
@@ -560,13 +560,15 @@ async function generateWithGeminiImagen(
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+          generationConfig: {
+            responseModalities: ['IMAGE', 'TEXT'],
+          },
         }),
       }
     );
@@ -588,7 +590,7 @@ async function generateWithGeminiImagen(
 }
 
 // ============================================================
-// Pollinations — Canvas 없이 URL 직접 반환 (CORS 오류 방지)
+// Pollinations — URL 직접 반환 (CORS 오류 방지)
 // ============================================================
 function generateWithPollinationsImgDirect(
   slideTitle: string,
@@ -896,7 +898,7 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
 
   // ============================================================
   // generateImage — 3단계 폴백 구조
-  // 1순위: Gemini (gemini-2.0-flash-preview-image-generation) ✅
+  // 1순위: Gemini gemini-3.1-flash-image-preview ✅
   // 2순위: Pollinations URL 직접 반환 ✅
   // 3순위: Picsum Photos (항상 동작) ✅
   // ============================================================
