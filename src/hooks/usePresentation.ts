@@ -10,60 +10,49 @@ import { aiService } from '@/lib/ai-service';
 
 export type ExtendedStep = AppStep | 'outline';
 
-// ══════════════════════════════════════════════════════════════
-// 차트 데이터 변환
-// ══════════════════════════════════════════════════════════════
+// ✅ 참고 양식 분석 결과 타입
+export interface ReferenceStructure {
+  slideCount: number;
+  structure: { type: string; title: string; description: string }[];
+  tone: string;
+  keyPatterns: string[];
+}
+
 function convertAIChartData(rawChartData: any): SlideChartData | undefined {
   if (!rawChartData) return undefined;
-
   if (Array.isArray(rawChartData.data) && rawChartData.data[0]?.name !== undefined) {
     return rawChartData as SlideChartData;
   }
-
   const labels: string[] = Array.isArray(rawChartData.labels) ? rawChartData.labels : [];
   const datasets: any[] = Array.isArray(rawChartData.datasets) ? rawChartData.datasets : [];
-
   if (labels.length === 0) return undefined;
-
   const primaryDataset = datasets[0]?.data;
   const secondaryDataset = datasets[1];
-
   const data = labels.map((label, i) => ({
     name: String(label),
     value: Number(primaryDataset?.[i] ?? 0),
     ...(secondaryDataset ? { value2: Number(secondaryDataset.data?.[i] ?? 0) } : {}),
   }));
-
   return {
     chartType: rawChartData.type === 'line' ? 'line' : rawChartData.type === 'pie' ? 'pie' : rawChartData.type === 'area' ? 'area' : 'bar',
     title: rawChartData.title ?? '',
     data,
-    series1Label: primaryDataset?.label ?? '시리즈1',
+    series1Label: primaryDataset?.label ?? '',
     series2Label: secondaryDataset?.label,
     showLegend: datasets.length > 1,
   } as SlideChartData;
 }
 
-// ══════════════════════════════════════════════════════════════
-// 슬라이드 정규화
-// ══════════════════════════════════════════════════════════════
 function normalizeSlideForApp(raw: any, index: number): Slide {
   if (!raw || typeof raw !== 'object') {
     return { slideNumber: index + 1, type: 'content', title: '', content: [], keyMetrics: [] };
   }
-
   const rawContent = raw.content ?? raw.points ?? raw.bullets ?? raw.items ?? raw.list ?? [];
   const content: string[] = Array.isArray(rawContent)
-    ? rawContent.map((p: any) =>
-        typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p)
-      )
-    : typeof rawContent === 'string'
-    ? [rawContent]
-    : [];
-
+    ? rawContent.map((p: any) => typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p))
+    : typeof rawContent === 'string' ? [rawContent] : [];
   const keyMetrics = Array.isArray(raw.keyMetrics) ? raw.keyMetrics : [];
   const chartData = convertAIChartData(raw.chartData);
-
   return {
     ...raw,
     slideNumber: raw.slideNumber ?? index + 1,
@@ -79,7 +68,6 @@ function normalizePresentationSlides(presentation: any): Presentation {
   if (!presentation || !Array.isArray(presentation.slides)) {
     return { title: presentation?.title ?? '', slides: [] };
   }
-
   return {
     ...presentation,
     slides: presentation.slides.map(normalizeSlideForApp),
@@ -108,6 +96,12 @@ export function usePresentation() {
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
+
+  // ✅ NEW: 참고 양식 파일 상태
+  const [referenceFile, setReferenceFile] = useState<ParsedFileData | null>(null);
+  const [referenceFileName, setReferenceFileName] = useState<string>('');
+  const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
+  const [referenceStructure, setReferenceStructure] = useState<ReferenceStructure | null>(null);
 
   const [appTheme, setAppTheme] = useState<string>(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('apptheme') || 'blue';
@@ -179,6 +173,41 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // ✅ NEW: 참고 양식 파일 업로드 & 분석 핸들러
+  const handleReferenceFileUpload = useCallback(async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    setIsAnalyzingReference(true);
+    setReferenceStructure(null);
+    toast.loading('참고 양식 분석 중...', { id: 'ref-analyze' });
+
+    try {
+      const parsed = await parseFile(file);
+      if (parsed.fileType === 'unknown' || parsed.parseError) {
+        toast.error('지원하지 않는 참고 파일 형식입니다.', { id: 'ref-analyze' });
+        return;
+      }
+      setReferenceFile(parsed);
+      setReferenceFileName(file.name);
+
+      const structure = await aiService.analyzeReferenceStructure(parsed.content);
+      setReferenceStructure(structure);
+      toast.success(`참고 양식 분석 완료! (${structure.slideCount}장 구조 인식)`, { id: 'ref-analyze' });
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err), { id: 'ref-analyze' });
+    } finally {
+      setIsAnalyzingReference(false);
+    }
+  }, []);
+
+  // ✅ NEW: 참고 양식 초기화
+  const clearReferenceFile = useCallback(() => {
+    setReferenceFile(null);
+    setReferenceFileName('');
+    setReferenceStructure(null);
+  }, []);
+
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
     const dummyFile: ParsedFileData = {
@@ -194,9 +223,6 @@ export function usePresentation() {
     toast.success('프롬프트가 입력되었습니다!');
   }, []);
 
-  // ══════════════════════════════════════════════════════════════
-  // ✅ 기획안 생성 (description 보강 로직 추가)
-  // ══════════════════════════════════════════════════════════════
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) return;
     setIsLoadingOutline(true);
@@ -204,42 +230,22 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
+        async () => await aiService.getOutline({
+          fileData: payload,
+          meetingInfo,
+          settings,
+          template,
+          referenceStructure, // ✅ 참고 양식 전달
+        }),
         {
           maxRetries: 1,
           onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'outline-retry' }),
         }
       );
       toast.dismiss('outline-retry');
-
-      // ✅ 타입별 기본 description 맵
-      const TYPE_DESC_MAP: Record<string, string> = {
-        title:   '발표 제목 및 주요 정보를 소개합니다',
-        agenda:  '전체 발표 구성과 목차를 안내합니다',
-        content: '핵심 내용과 주요 포인트를 설명합니다',
-        chart:   '데이터 시각화 및 수치 분석을 제공합니다',
-        kpi:     '핵심 성과 지표(KPI)를 정리합니다',
-        table:   '비교 데이터를 표 형태로 정리합니다',
-        process: '단계별 프로세스 흐름을 설명합니다',
-        action:  '실행 방향과 권고사항을 제시합니다',
-        summary: '전체 내용을 요약하고 결론을 도출합니다',
-      };
-
-      // ✅ description 보강: AI가 안 준 경우 fallback 처리
       const outlineData: OutlineData = {
         title: resData.title ?? '새 발표 자료',
-        outline: Array.isArray(resData.outline)
-          ? resData.outline.map((item: any) => ({
-              ...item,
-              description:
-                item.description ||
-                item.subtitle    ||
-                item.summary     ||
-                (Array.isArray(item.content) ? item.content[0] : undefined) ||
-                TYPE_DESC_MAP[item.type ?? 'content'] ||
-                '슬라이드 내용을 작성합니다',
-            }))
-          : [],
+        outline: Array.isArray(resData.outline) ? resData.outline : [],
       };
       setOutline(outlineData);
     } catch (err: any) {
@@ -249,7 +255,7 @@ export function usePresentation() {
     } finally {
       setIsLoadingOutline(false);
     }
-  }, [parsedFiles, meetingInfo, settings, template]);
+  }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
@@ -264,6 +270,7 @@ export function usePresentation() {
           settings,
           template,
           approvedOutline: approvedOutline ?? null,
+          referenceStructure, // ✅ 참고 양식 전달
         }),
         {
           maxRetries: 1,
@@ -281,7 +288,7 @@ export function usePresentation() {
     } finally {
       setIsGenerating(false);
     }
-  }, [parsedFiles, meetingInfo, settings, template]);
+  }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
     setPresentation((prev) => (prev ? { ...prev, ...updates } : prev));
@@ -337,11 +344,7 @@ export function usePresentation() {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
     const personaLabels: Record<string, string> = {
-      jobs: 'Jobs 스타일',
-      mckinsey: 'McKinsey 스타일',
-      ceo: 'CEO 스타일',
-      team: '팀 공유용',
-      client: '클라이언트용',
+      jobs: 'Jobs 스타일', mckinsey: 'McKinsey 스타일', ceo: 'CEO 스타일', team: '팀 공유용', client: '클라이언트용',
     };
     toast.loading(`${personaLabels[persona] || persona} 변환 중...`, { id: 'persona' });
     try {
@@ -498,7 +501,8 @@ export function usePresentation() {
     setOutline(null);
     setTemplate('auto');
     setReviewResult(null);
-  }, []);
+    clearReferenceFile(); // ✅ 참고 파일도 초기화
+  }, [clearReferenceFile]);
 
   const requestReview = useCallback(async () => {
     if (!presentation) return;
@@ -592,5 +596,11 @@ export function usePresentation() {
     reset, updateSlide,
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
+    // ✅ NEW: 참고 양식 관련 반환값
+    referenceFileName,
+    isAnalyzingReference,
+    referenceStructure,
+    handleReferenceFileUpload,
+    clearReferenceFile,
   };
 }
