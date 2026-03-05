@@ -37,7 +37,8 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
 6. 마지막 슬라이드 type = 반드시 "summary"
 7. 수치/통계 데이터 → chart 또는 kpi, 단계/절차 → process, 비교 → compare, 일정 → timeline, 표 데이터 → table
 8. outline 배열 길이 = 정확히 ${targetCount}개
-9. 반드시 각 outline 항목에 "description" 필드를 채워넣으세요.
+9. ⚠️ 각 outline 항목의 "description" 필드는 반드시 50자 이내의 단문으로 아주 짧게 요약하세요. (길어지면 출력 에러 발생함)
+10. ⚠️ JSON 형식이 절대 깨지지 않도록 주의하고, 문자열 안에 이스케이프되지 않은 줄바꿈(\\n)이나 따옴표(")를 절대 사용하지 마세요.
 
 반드시 아래 JSON 형식만 반환:
 {
@@ -52,13 +53,18 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
     const text = await callGeminiAPI(
       systemInstruction,
       userPrompt,
-      constants.OUTLINE_TOKEN_MAP[volume] ?? 4096
+      constants.OUTLINE_TOKEN_MAP[volume] ?? 8192
     );
+
+    console.log('[Outline AI 응답 원문]', text);
 
     const data = utils.extractJSON(text);
 
+    console.log('[Outline JSON 파싱 결과]', data);
+
+    // usePresentation.ts가 기대하는 구조로 반환
     return {
-      title: data?.title ?? '새 발표 자료',
+      title:   data?.title ?? '새 발표 자료',
       outline: Array.isArray(data?.outline)
         ? data.outline
         : Array.isArray(data)
@@ -74,6 +80,7 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
     const volume     = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
 
+    // ✅ approvedOutline 방어: outline이 배열인 경우만 사용
     const outlineArray: any[] =
       Array.isArray(body.approvedOutline?.outline)
         ? body.approvedOutline.outline
@@ -81,8 +88,12 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
           ? body.approvedOutline
           : [];
 
-    const slideCount = outlineArray.length || constants.SLIDE_COUNT_MAP[volume] || 8;
+    const slideCount =
+      outlineArray.length ||
+      constants.SLIDE_COUNT_MAP[volume] ||
+      8;
 
+    // ✅ item이 undefined인 경우 필터링, 필드도 안전하게 처리
     const typeGuide = outlineArray
       .filter((item) => item != null)
       .map((item: any, i: number) =>
@@ -112,7 +123,11 @@ ${typeGuide}
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume]);
+    const text = await callGeminiAPI(
+      systemInstruction,
+      userPrompt,
+      constants.TOKEN_MAP[volume]
+    );
     const json = utils.extractJSON(text);
 
     return { presentation: json };
@@ -277,7 +292,13 @@ JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"ke
     };
   },
 
-  async exportToExternal(_presentation: any, _platform: 'notion' | 'google'): Promise<void> {
+  // ─────────────────────────────────────────────────────────
+  // 외부 내보내기 (Notion / Google)
+  // ─────────────────────────────────────────────────────────
+  async exportToExternal(
+    _presentation: any,
+    _platform: 'notion' | 'google'
+  ): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 1500));
   },
 };
