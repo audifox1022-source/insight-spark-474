@@ -6,23 +6,16 @@ import { MAX_FILE_BYTES, ALLOWED_SLIDE_TYPES, AllowedSlideType, TYPE_ALIAS_MAP }
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: false });
 
-/**
- * 대용량 파일 데이터를 전송 가능한 크기로 제한합니다.
- */
 export function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
   const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
   const encoded = encoder.encode(raw);
   if (encoded.length <= MAX_FILE_BYTES) return raw;
   const sliced = encoded.slice(0, MAX_FILE_BYTES);
-  const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
-/**
- * 다양한 형태의 데이터 구조에서 순수 텍스트 리스트를 추출합니다.
- */
 export function extractTextFromItem(item: any, depth = 0): string[] {
   if (depth > 4) return [String(item)];
   if (!item) return [];
@@ -66,9 +59,6 @@ export function extractTextFromItem(item: any, depth = 0): string[] {
   return [String(item)];
 }
 
-/**
- * 슬라이드 타입을 표준 타입으로 변환합니다.
- */
 export function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
   if (index === 0) return 'title';
   if (index === total - 1) return 'summary';
@@ -77,9 +67,6 @@ export function normalizeType(raw: string, index: number, total: number): Allowe
   return (TYPE_ALIAS_MAP[lower] as AllowedSlideType) ?? 'content';
 }
 
-/**
- * 슬라이드 객체의 데이터를 검증하고 필수 필드를 보장합니다.
- */
 export function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
@@ -101,7 +88,6 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   const contentArray = Array.isArray(rawContent) ? rawContent : typeof rawContent === "string" ? [rawContent] : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
-  // ── 타입별 보정 로직 (chart, table, kpi 등) ──
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
@@ -170,81 +156,68 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   return s;
 }
 
-/**
- * AI의 텍스트 응답에서 JSON을 추출하고 망가진 경우 복구를 시도합니다.
- */
 export function extractJSON(text: string): any {
   if (!text) return null;
   let cleanText = text.trim();
 
-  // ✅ Vite(esbuild) 정규식 빌드 에러의 원인이 되는 백틱(```) 파싱 충돌을 피하기 위해
-  // 문자열 메서드를 활용하여 마크다운 코드블록을 안전하게 잘라냅니다.
+  // 1. 마크다운 분리
   const codeBlockStart = cleanText.indexOf('```json');
   const fallbackStart = cleanText.indexOf('```');
-  
   const startIdx = codeBlockStart !== -1 ? codeBlockStart + 7 : (fallbackStart !== -1 ? fallbackStart + 3 : -1);
   
   if (startIdx !== -1) {
     const endIdx = cleanText.lastIndexOf('```');
     if (endIdx !== -1 && endIdx > startIdx) {
       cleanText = cleanText.substring(startIdx, endIdx).trim();
+    } else {
+      cleanText = cleanText.substring(startIdx).trim();
     }
   }
 
-  // 2. 앞뒤 불필요한 텍스트 제거 (JSON 시작/끝 찾기)
-  const jsonStart = cleanText.search(/[\{\[]/);
-  const jsonEnd = Math.max(cleanText.lastIndexOf('}'), cleanText.lastIndexOf(']'));
-
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd >= jsonStart) {
-    const sliced = cleanText.slice(jsonStart, jsonEnd + 1);
-    try {
-      return JSON.parse(sliced); // 완벽하게 닫혀있다면 여기서 통과
-    } catch {
-      cleanText = cleanText.slice(jsonStart); // 실패했다면 끝을 자르지 않고 복구 시도로 넘김
-    }
-  }
-
-  // 3. 정상 파싱 시도
+  // 2. 정상 파싱 시도
   try {
     return JSON.parse(cleanText);
   } catch (error) {
-    // 4. 1단계 복구: 흔한 오류 (제어문자, 콤마) 제거
+    // 3. 강력한 Auto-Healer (끊긴 문자열 억지로 닫기)
     try {
-      let repaired = cleanText
-        .replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ") // 줄바꿈(\n) 외의 깨진 제어문자 공백 변환
-        .replace(/,\s*}/g, '}')
-        .replace(/,\s*]/g, ']');
-      return JSON.parse(repaired);
-    } catch (error2) {
-      // 🚀 5. 2단계 복구(Auto-Healer): AI 토큰 부족으로 문자열이 뚝 끊긴 경우 강제로 닫아버림
-      try {
-        let forced = cleanText.replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ");
-        
-        // 열린 따옴표 개수가 홀수면 닫아줌
-        if ((forced.match(/"/g) || []).length % 2 !== 0) {
-          forced += '"';
+      let forced = cleanText.replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ");
+      
+      // 열린 따옴표 확인 (정규식 대신 단순 순회로 안전하게 처리)
+      let inString = false;
+      for (let i = 0; i < forced.length; i++) {
+        if (forced[i] === '"' && forced[i-1] !== '\\') {
+          inString = !inString;
         }
-        
-        // 마지막이 콤마로 끝나면 제거
-        forced = forced.replace(/,\s*$/g, '');
-
-        // 열린 괄호와 닫힌 괄호 개수를 세서 부족한 만큼 채워 넣음
-        const openBraces = (forced.match(/\{/g) || []).length;
-        const closeBraces = (forced.match(/\}/g) || []).length;
-        const openBrackets = (forced.match(/\[/g) || []).length;
-        const closeBrackets = (forced.match(/\]/g) || []).length;
-
-        for (let i = 0; i < (openBrackets - closeBrackets); i++) forced += ']';
-        for (let i = 0; i < (openBraces - closeBraces); i++) forced += '}';
-
-        const finalData = JSON.parse(forced);
-        console.warn('⚠️ [extractJSON] 잘린 JSON을 강제로 복구하여 살려냈습니다!', finalData);
-        return finalData;
-
-      } catch (error3) {
-        console.error('[extractJSON] 최종 파싱 실패 (복구 불가):', cleanText.slice(0, 300) + '...');
-        return null;
       }
+      if (inString) forced += '"';
+      
+      // 마지막 콤마 제거
+      forced = forced.replace(/,\s*$/g, '');
+
+      // 열린/닫힌 괄호 카운트
+      let openBraces = 0, closeBraces = 0, openBrackets = 0, closeBrackets = 0;
+      inString = false;
+      for (let i = 0; i < forced.length; i++) {
+        if (forced[i] === '"' && forced[i-1] !== '\\') inString = !inString;
+        if (!inString) {
+          if (forced[i] === '{') openBraces++;
+          if (forced[i] === '}') closeBraces++;
+          if (forced[i] === '[') openBrackets++;
+          if (forced[i] === ']') closeBrackets++;
+        }
+      }
+
+      // 부족한 괄호 닫기 (배열 먼저, 객체 나중)
+      for (let i = 0; i < (openBrackets - closeBrackets); i++) forced += ']';
+      for (let i = 0; i < (openBraces - closeBraces); i++) forced += '}';
+
+      const finalData = JSON.parse(forced);
+      console.warn('⚠️ [extractJSON] 끊어진 JSON을 강제로 복구했습니다.', finalData);
+      return finalData;
+
+    } catch (error3) {
+      console.error('[extractJSON] 최종 파싱 실패:', cleanText.slice(-100));
+      return null;
     }
   }
 }
