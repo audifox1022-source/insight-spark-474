@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts — 디버그 로그 오류 수정 및 이미지 생성 컨텍스트 강화 버전
+// usePresentation.ts — 렌더링 크래시 방지(엄격한 정규화) 및 컨텍스트 강화 버전
 // ============================================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -49,9 +49,19 @@ function convertAIChartData(rawChartData: any): SlideChartData | undefined {
   } as SlideChartData;
 }
 
+// ✅ 렌더링 크래시 방지: 속성 누락 시 기본값(Fallback)을 엄격하게 적용
 function normalizeSlideForApp(raw: any, index: number): Slide {
   if (!raw || typeof raw !== 'object') {
-    return { slideNumber: index + 1, type: 'content', title: '', content: [], keyMetrics: [] };
+    return {
+      slideNumber: index + 1,
+      type: 'content',
+      layout: 'default',
+      title: '',
+      content: [],
+      keyMetrics: [],
+      notes: '',
+      persona: 'standard'
+    } as Slide;
   }
 
   const rawContent = raw.content ?? raw.points ?? raw.bullets ?? raw.items ?? raw.list ?? [];
@@ -66,23 +76,33 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
   const keyMetrics = Array.isArray(raw.keyMetrics) ? raw.keyMetrics : [];
   const chartData  = convertAIChartData(raw.chartData);
 
+  // AI가 type이나 layout을 누락할 경우 undefined가 되어 UI에서 크래시 유발. 방어 코드 추가.
+  const slideType = (raw.type && typeof raw.type === 'string') ? raw.type : 'content';
+  const slideLayout = (raw.layout && typeof raw.layout === 'string') ? raw.layout : 'default';
+
   return {
     ...raw,
     slideNumber: raw.slideNumber ?? index + 1,
-    type:        raw.type ?? 'content',
-    title:       raw.title ?? '',
+    type:        slideType,
+    layout:      slideLayout,
+    title:       raw.title || '',
     content,
     keyMetrics,
     chartData,
+    notes:       raw.notes || '',
+    imageUrl:    raw.imageUrl || undefined,
+    persona:     raw.persona || 'standard',
   } as Slide;
 }
 
 function normalizePresentationSlides(presentation: any): Presentation {
   if (!presentation || !Array.isArray(presentation.slides)) {
-    return { title: presentation?.title ?? '', slides: [] };
+    return { title: presentation?.title || '새 발표 자료', theme: 'blue', slides: [] };
   }
   return {
     ...presentation,
+    title: presentation.title || '새 발표 자료',
+    theme: presentation.theme || 'blue', // ✅ 전역 테마 누락 시 기본값 지정
     slides: presentation.slides.map(normalizeSlideForApp),
   };
 }
@@ -294,7 +314,6 @@ export function usePresentation() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🚀 [generatePresentation] 호출됨');
     console.log('📂 parsedFiles.length  :', parsedFiles.length);
-    // ✅ 에러 수정: f.content가 undefined일 때를 안전하게 처리
     console.log('📂 parsedFiles         :', parsedFiles.map(f => ({
       name: f.fileName,
       type: f.fileType,
@@ -559,9 +578,11 @@ export function usePresentation() {
         slideNumber: 0,
         title:   '',
         type:    'content',
+        layout:  'default',
         content: [],
         notes:   '',
         keyMetrics: [],
+        persona: 'standard'
       };
       const slides = [...prev.slides];
       slides.splice(afterIndex + 1, 0, newSlide);
