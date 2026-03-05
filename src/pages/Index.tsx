@@ -1,5 +1,5 @@
 // ============================================================
-// src/pages/Index.tsx — 최상위 메인 페이지
+// src/pages/Index.tsx (또는 메인 화면 컴포넌트)
 // ============================================================
 import { useState } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase }    from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
 import { toast }       from 'sonner'
+import { exportToPptx } from '@/lib/export-presentation' // ✅ PPT 내보내기 함수 임포트
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] }
 type Preset = {
@@ -114,11 +115,15 @@ const Index = () => {
     reset, updateSlide, updateAllSlides, addSlide,
     deleteSlide, duplicateSlide,
     moveSlide, updatePresentationTitle,
+
     referenceFileName,
     isAnalyzingReference,
     referenceStructure,
     handleReferenceFileUpload,
     clearReferenceFile,
+
+    // ✅ 여기서 에디터에 전달할 인덱스를 꺼내옵니다.
+    currentSlideIndex, setCurrentSlideIndex,
   } = usePresentation()
 
   const guide        = getStepGuide(step)
@@ -533,7 +538,7 @@ const Index = () => {
                     referenceFileName={referenceFileName}
                     onRemoveReference={clearReferenceFile}
                     isAnalyzingReference={isAnalyzingReference}
-                    referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
+                    referenceStructure={referenceStructure}
                   />
 
                   {fileNames.length > 0 && (
@@ -566,11 +571,6 @@ const Index = () => {
                   dataSummary={dataSummary}
                   template={template}
                   setTemplate={setTemplate}
-                  referenceFileName={referenceFileName || ''}
-                  isAnalyzingReference={isAnalyzingReference}
-                  referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
-                  onReferenceFileUpload={handleReferenceFileUpload}
-                  onClearReferenceFile={clearReferenceFile}
                 />
               </div>
             )}
@@ -599,15 +599,14 @@ const Index = () => {
             {/* STEP: generating */}
             {step === 'generating' && <GeneratingState />}
 
-            {/* STEP: preview */}
+            {/* 🚨 STEP: preview (드디어 슬라이드 에디터와 인덱스가 만나는 곳!) */}
             {step === 'preview' && presentation && (
-              // ✅ SlideEditorProps 인터페이스와 일치하게 안전하게 모든 함수 전달
               <SlideEditor
                 presentation={presentation}
-                onUpdateSlide={updateSlide}
-                onAddContent={addSlide}
-                onRemoveContent={deleteSlide}
+                currentSlide={currentSlideIndex}        // ✅ 해결: 현재 슬라이드 번호 전달
+                onSlideChange={setCurrentSlideIndex}    // ✅ 해결: 좌우 이동 시 인덱스 업데이트
                 onReset={reset}
+                onUpdateSlide={updateSlide}
                 onUpdateAllSlides={updateAllSlides}
                 onAddSlide={addSlide}
                 onDeleteSlide={deleteSlide}
@@ -626,6 +625,28 @@ const Index = () => {
                 updatePresentationMaster={updatePresentationMaster}
                 isGeneratingImage={isGeneratingImage}
                 generateSlideImage={generateSlideImage}
+                
+                // 컨텐츠 추가 삭제 핸들러 연결
+                onAddContent={(idx) => {
+                  const newContent = [...(presentation.slides[idx].content || []), '새 항목'];
+                  updateSlide(idx, { content: newContent });
+                }}
+                onRemoveContent={(sIdx, cIdx) => {
+                  const newContent = presentation.slides[sIdx].content?.filter((_, i) => i !== cIdx);
+                  updateSlide(sIdx, { content: newContent });
+                }}
+                
+                // 내보내기 기능 연결
+                onOpenExport={async () => {
+                  toast.loading('PPT를 생성 중입니다...', { id: 'export' });
+                  try {
+                    await exportToPptx(presentation);
+                    toast.success('PPT 다운로드가 완료되었습니다!', { id: 'export' });
+                  } catch (error) {
+                    console.error(error);
+                    toast.error('내보내기 중 오류가 발생했습니다.', { id: 'export' });
+                  }
+                }}
               />
             )}
 
