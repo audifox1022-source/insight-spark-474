@@ -1,8 +1,8 @@
 // ============================================================
-// ScaledSlide.tsx — 이미지 배경 수정 완료 버전 (기존 코드 기반)
+// ScaledSlide.tsx — 폰트 크기 동적 반영 & 이미지 배경 수정 완료 버전
 // ============================================================
 
-import React, { useState } from 'react';  // ✅ useState 추가
+import React, { useState } from 'react';
 import {
   ArrowRight,
   Layers,
@@ -75,12 +75,14 @@ interface Slide {
   slideNumber?: number;
   titleSizeScale?: number;
   contentSizeScale?: number;
+  // ✅ 신규: 직접 pt 지정 (설정되면 우선 적용)
+  titleFontPt?: number;
+  contentFontPt?: number;
   visualRatio?: number;
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   imageUrl?: string;
   layout?: string;
   notes?: string;
-  // ✅ 추가: quote, timeline 타입용
   text?: string;
   author?: string;
   milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo' }[];
@@ -116,7 +118,7 @@ const P = {
 };
 
 // ══════════════════════════════════════════════════════════════
-// ✅ 신규 추가: SlideBackground — 이미지 배경 전용 컴포넌트
+// 신규 추가: SlideBackground — 이미지 배경 전용 컴포넌트
 // ══════════════════════════════════════════════════════════════
 const SlideBackground: React.FC<{ imageUrl?: string }> = ({ imageUrl }) => {
   const [imgError, setImgError] = useState(false);
@@ -208,8 +210,18 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const contentSizeScale = slide.contentSizeScale ?? 1;
   const layout = slide.layout ?? 'default';
 
-  const titleFontSize = `${3 * titleSizeScale}rem`;
-  const contentFontSize = `${1.45 * contentSizeScale}rem`;
+  // ✅ 핵심 수정: pt 값이 설정되어 있으면 pt 기반으로 rem 변환, 없으면 scale 방식 유지
+  // 기준: 32pt = 3rem, 18pt = 1.45rem 정도로 매핑
+  const titleFontSize = slide.titleFontPt 
+    ? `${(slide.titleFontPt / 32) * 3}rem` 
+    : `${3 * titleSizeScale}rem`;
+
+  const contentFontSize = slide.contentFontPt 
+    ? `${(slide.contentFontPt / 18) * 1.45}rem` 
+    : `${1.45 * contentSizeScale}rem`;
+
+  // contentSizeScale을 필요로 하는 곳들을 위해 보정된 비율 계산
+  const effectiveContentScale = slide.contentFontPt ? (slide.contentFontPt / 18) : contentSizeScale;
 
   const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
 
@@ -231,7 +243,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         fontWeight: 900,
         color: '#000',
         userSelect: 'none',
-        zIndex: 2,  // ✅ zIndex 추가
+        zIndex: 2,
       }}
     >
       {watermark}
@@ -253,7 +265,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
-          zIndex: 2,  // ✅ zIndex 추가
+          zIndex: 2,
         }}
       >
         <img
@@ -282,7 +294,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          zIndex: 2,  // ✅ zIndex 추가
+          zIndex: 2,
         }}
       >
         <div
@@ -457,7 +469,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     color: '#fff',
                     fontWeight: 700,
                     textAlign: 'left',
-                    fontSize: `${1.2 * contentSizeScale}rem`,
+                    fontSize: `${1.2 * effectiveContentScale}rem`,
                     whiteSpace: 'nowrap',
                     borderRight:
                       i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
@@ -480,7 +492,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                       borderRight: ci < row.length - 1 ? `1px solid ${P.border}` : 'none',
                       color: ci === 0 ? P.text : P.subtext,
                       fontWeight: ci === 0 ? 600 : 400,
-                      fontSize: `${1.15 * contentSizeScale}rem`,
+                      fontSize: `${1.15 * effectiveContentScale}rem`,
                     }}
                   >
                     {cell}
@@ -541,7 +553,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             >
               <div
                 style={{
-                  fontSize: `${labelFontSize * contentSizeScale}rem`,
+                  fontSize: `${labelFontSize * effectiveContentScale}rem`,
                   fontWeight: 700,
                   opacity: 0.82,
                   marginBottom: '0.4rem',
@@ -558,7 +570,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
               </div>
               <div
                 style={{
-                  fontSize: `${valueFontSize * contentSizeScale}rem`,
+                  fontSize: `${valueFontSize * effectiveContentScale}rem`,
                   fontWeight: 900,
                   lineHeight: 1.1,
                   letterSpacing: -1,
@@ -576,7 +588,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 5,
-                    fontSize: `${trendFontSize * contentSizeScale}rem`,
+                    fontSize: `${trendFontSize * effectiveContentScale}rem`,
                     fontWeight: 700,
                     background: 'rgba(255,255,255,0.2)',
                     borderRadius: 20,
@@ -597,7 +609,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   };
 
   // ══════════════════════════════════════════════════════════════
-  // 3.5) Compare 렌더링 — 색상 대비 + 여백 재조정
+  // 3.5) Compare 렌더링
   // ══════════════════════════════════════════════════════════════
   const renderCompare = () => {
     if (!slide.leftItems?.length && !slide.rightItems?.length) {
@@ -607,7 +619,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const leftItems  = slide.leftItems  ?? [];
     const rightItems = slide.rightItems ?? [];
     const leftTitle  = slide.leftTitle  ?? 'AS-IS';
-    const rightTitle = slide.rightTitle ?? 'TO-BE';
+    const rightTitle = slide.rightTitle  ?? 'TO-BE';
 
     const LEFT_BG     = '#1e3a8a';
     const LEFT_LIGHT  = '#eff6ff';
@@ -623,12 +635,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
     const maxRows = Math.max(leftItems.length, rightItems.length);
 
-    const itemFontSize = `${Math.max(0.85, 1.3 - maxRows * 0.07) * contentSizeScale}rem`;
+    const itemFontSize = `${Math.max(0.85, 1.3 - maxRows * 0.07) * effectiveContentScale}rem`;
     const itemPadding  = maxRows >= 7 ? '0.35rem 0.7rem'  : maxRows >= 5 ? '0.45rem 0.85rem' : '0.6rem 1rem';
     const itemGap      = maxRows >= 7 ? '0.4rem'           : maxRows >= 5 ? '0.55rem'         : '0.7rem';
     const bodyPadding  = maxRows >= 7 ? '0.6rem'           : maxRows >= 5 ? '0.75rem'         : '0.9rem';
-    const badgeSize    = `${Math.max(1.3, 1.6 - maxRows * 0.04) * contentSizeScale}rem`;
-    const badgeFontSize= `${Math.max(0.7, 0.8 - maxRows * 0.02) * contentSizeScale}rem`;
+    const badgeSize    = `${Math.max(1.3, 1.6 - maxRows * 0.04) * effectiveContentScale}rem`;
+    const badgeFontSize= `${Math.max(0.7, 0.8 - maxRows * 0.02) * effectiveContentScale}rem`;
 
     const renderPanel = (
       items: string[],
@@ -646,7 +658,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             color: '#ffffff',
             padding: '0.75rem 1rem',
             borderRadius: '10px 10px 0 0',
-            fontSize: `${1.1 * contentSizeScale}rem`,
+            fontSize: `${1.1 * effectiveContentScale}rem`,
             fontWeight: 800,
             textAlign: 'center',
             letterSpacing: 0.5,
@@ -801,8 +813,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             >
               <div
                 style={{
-                  width: `${1.7 * contentSizeScale}rem`,
-                  height: `${1.7 * contentSizeScale}rem`,
+                  width: `${1.7 * effectiveContentScale}rem`,
+                  height: `${1.7 * effectiveContentScale}rem`,
                   borderRadius: '50%',
                   flexShrink: 0,
                   marginTop: 2,
@@ -811,7 +823,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: `${0.85 * contentSizeScale}rem`,
+                  fontSize: `${0.85 * effectiveContentScale}rem`,
                   fontWeight: 700,
                 }}
               >
@@ -856,8 +868,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             >
               <CheckCircle2
                 style={{
-                  width: `${1.3 * contentSizeScale}rem`,
-                  height: `${1.3 * contentSizeScale}rem`,
+                  width: `${1.3 * effectiveContentScale}rem`,
+                  height: `${1.3 * effectiveContentScale}rem`,
                   color: i === 0 ? P.primary : '#94a3b8',
                   flexShrink: 0,
                 }}
@@ -896,15 +908,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             <span
               style={{
                 flexShrink: 0,
-                width: `${1.55 * contentSizeScale}rem`,
-                height: `${1.55 * contentSizeScale}rem`,
+                width: `${1.55 * effectiveContentScale}rem`,
+                height: `${1.55 * effectiveContentScale}rem`,
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: `${0.8 * contentSizeScale}rem`,
+                fontSize: `${0.8 * effectiveContentScale}rem`,
                 fontWeight: 700,
                 marginTop: '0.2rem',
                 boxShadow: '0 2px 8px rgba(99, 102, 241, 0.4)',
@@ -958,7 +970,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     alignItems: 'center',
                     justifyContent: 'center',
                     textAlign: 'center',
-                    fontSize: `${1 * contentSizeScale}rem`,
+                    fontSize: `${1 * effectiveContentScale}rem`,
                     fontWeight: 700,
                     padding: '0.7rem',
                     color: P.text,
@@ -969,7 +981,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 </div>
                 <span
                   style={{
-                    fontSize: `${0.85 * contentSizeScale}rem`,
+                    fontSize: `${0.85 * effectiveContentScale}rem`,
                     color: P.subtext,
                     fontWeight: 600,
                     letterSpacing: 0.5,
@@ -1020,7 +1032,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontWeight: 700,
-                  fontSize: `${0.95 * contentSizeScale}rem`,
+                  fontSize: `${0.95 * effectiveContentScale}rem`,
                   boxShadow: `0 2px 10px ${P.primary}40`,
                 }}
               >
@@ -1126,7 +1138,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
               style={{
                 fontWeight: 900,
                 color: P.text,
-                fontSize: `${3.5 * titleSizeScale}rem`,
+                fontSize: titleFontSize,
                 letterSpacing: '-0.02em',
                 lineHeight: 1.2,
                 flex: 1,
@@ -1156,7 +1168,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 border: `2px solid ${P.primary}`,
                 borderRadius: 50,
                 padding: '0.75rem 2.2rem',
-                fontSize: `${1.1 * contentSizeScale}rem`,
+                fontSize: `${1.1 * effectiveContentScale}rem`,
                 color: P.primary,
                 fontWeight: 700,
                 letterSpacing: 1.8,
@@ -1183,7 +1195,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 <p
                   style={{
                     color: P.text,
-                    fontSize: `${1.9 * contentSizeScale}rem`,
+                    fontSize: `${1.9 * effectiveContentScale}rem`,
                     fontWeight: 600,
                     lineHeight: 1.55,
                     margin: 0,
@@ -1220,15 +1232,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                   >
                     <CheckCircle2
                       style={{
-                        width: `${1.4 * contentSizeScale}rem`,
-                        height: `${1.4 * contentSizeScale}rem`,
+                        width: `${1.4 * effectiveContentScale}rem`,
+                        height: `${1.4 * effectiveContentScale}rem`,
                         color: P.primary,
                         flexShrink: 0,
                       }}
                     />
                     <span
                       style={{
-                        fontSize: `${1.25 * contentSizeScale}rem`,
+                        fontSize: `${1.25 * effectiveContentScale}rem`,
                         fontWeight: 500,
                         color: P.subtext,
                         lineHeight: 1.45,
