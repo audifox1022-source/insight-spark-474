@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts — 이미지 생성 컨텍스트 강화 버전
+// usePresentation.ts — 디버그 로그 오류 수정 및 이미지 생성 컨텍스트 강화 버전
 // ============================================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -294,10 +294,13 @@ export function usePresentation() {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🚀 [generatePresentation] 호출됨');
     console.log('📂 parsedFiles.length  :', parsedFiles.length);
+    // ✅ 에러 수정: f.content가 undefined일 때를 안전하게 처리
     console.log('📂 parsedFiles         :', parsedFiles.map(f => ({
       name: f.fileName,
       type: f.fileType,
-      contentLen: typeof f.content === 'string' ? f.content.length : JSON.stringify(f.content).length,
+      contentLen: f.content 
+        ? (typeof f.content === 'string' ? f.content.length : JSON.stringify(f.content)?.length || 0)
+        : 0,
     })));
     console.log('📋 approvedOutline      :', approvedOutline);
     console.log('⚙️  meetingInfo          :', meetingInfo);
@@ -458,9 +461,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ─────────────────────────────────────────────────────────
-  // AI 이미지 생성 (개선된 부분)
-  // ─────────────────────────────────────────────────────────
   const generateSlideImage = useCallback(async (slideIndex: number) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -469,21 +469,17 @@ export function usePresentation() {
     toast.loading('AI 배경 이미지 생성 중...', { id: 'gen-image' });
     
     try {
-      // 1. 슬라이드 본문 추출
       const contentStr = Array.isArray(currentSlide.content) && currentSlide.content.length > 0
         ? currentSlide.content.join(' ')
         : '';
         
-      // 2. AI에게 '전체 발표 주제'와 '현재 슬라이드 주제'를 같이 넘겨주어 맥락 파악 강화
       const contextAwareTitle = `[발표 주제: ${presentation.title}] - ${currentSlide.title}`;
 
-      // 3. 재시도 로직(retryWithBackoff)을 통과시켜 네트워크 오류 등에 대비
       const imageUrl = await retryWithBackoff(
         async () => await aiService.generateImage(contextAwareTitle, contentStr),
         { maxRetries: 1, onRetry: () => toast.loading('이미지 생성 재시도 중...', { id: 'gen-image' }) }
       );
 
-      // 4. 상태 업데이트
       updateSlide(slideIndex, { imageUrl });
       toast.success('AI 이미지 생성 완료!', { id: 'gen-image' });
       
