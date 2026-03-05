@@ -191,7 +191,7 @@ export async function exportToPdf(
 }
 
 // ─────────────────────────────────────────────────────────────
-// PPT 내보내기 — 편집 가능한 pptxgenjs 구조
+// PPT 내보내기 — 편집 가능한 pptxgenjs 구조 (리팩토링 완료)
 // ─────────────────────────────────────────────────────────────
 export async function exportToPptx(
   presentation: Presentation,
@@ -214,7 +214,7 @@ export async function exportToPptx(
   const SW = 13.33;
   const SH = 7.5;
 
-  // 공통 여백/치수
+  // 공통 여백/치수 상수화
   const PAD_X = 0.5;
   const PAD_Y = 0.4;
   const TITLE_H = 0.7;
@@ -225,7 +225,7 @@ export async function exportToPptx(
   for (const slide of presentation.slides) {
     const s = pptx.addSlide();
 
-    // ── 상단 컬러 바
+    // ── 공통 배경 및 상단 컬러 바 렌더링
     s.addShape(pptx.ShapeType.rect, {
       x: 0, y: 0, w: SW, h: 0.05,
       fill: { type: 'gradient', stops: [
@@ -235,7 +235,6 @@ export async function exportToPptx(
       line: { color: PRIMARY, width: 0 },
     });
 
-    // ── 배경
     s.addShape(pptx.ShapeType.rect, {
       x: 0, y: 0, w: SW, h: SH,
       fill: { color: 'FFFFFF' },
@@ -252,7 +251,7 @@ export async function exportToPptx(
       });
     }
 
-    // ── 로고
+    // ── 우상단 로고
     if (brand.logoDataUrl) {
       s.addImage({
         data: brand.logoDataUrl,
@@ -263,10 +262,8 @@ export async function exportToPptx(
     }
 
     // ══════════════════════════════════════
-    // 슬라이드 타입별 렌더링
+    // 슬라이드 타입별 분기 (Switch-Case 도입)
     // ══════════════════════════════════════
-
-    // ── 1) TITLE 슬라이드
     if (slide.type === 'title') {
       s.addShape(pptx.ShapeType.rect, {
         x: 0, y: 0, w: SW, h: SH,
@@ -293,12 +290,11 @@ export async function exportToPptx(
           fontFace: FONT, align: 'center',
         });
       }
-
       if (slide.notes) s.addNotes(slide.notes);
-      continue;
+      continue; // 타이틀은 공통 제목 바가 필요 없으므로 다음 슬라이드로 넘어감
     }
 
-    // ── 공통 제목 바 (title 타입 제외 모든 슬라이드)
+    // ── 공통 제목 바 (title 외 모든 슬라이드 적용)
     s.addShape(pptx.ShapeType.rect, {
       x: PAD_X, y: PAD_Y,
       w: 0.05, h: TITLE_H * 0.9,
@@ -316,289 +312,239 @@ export async function exportToPptx(
       fontFace: FONT, valign: 'middle',
     });
 
-    // 제목 아래 구분선
     s.addShape(pptx.ShapeType.line, {
       x: PAD_X, y: PAD_Y + TITLE_H + 0.05,
       w: CONTENT_W, h: 0,
       line: { color: BORDER, width: 1 },
     });
 
-    // ── 2) KPI 슬라이드
-    if (slide.type === 'kpi' && slide.keyMetrics && slide.keyMetrics.length > 0) {
-      const km = slide.keyMetrics;
-      const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
-      const rows = Math.ceil(km.length / cols);
-      const cardW = (CONTENT_W - (cols - 1) * 0.2) / cols;
-      const cardH = (CONTENT_H - (rows - 1) * 0.2) / rows;
-      const kpiColors = [PRIMARY, ACCENT, '10b981', 'f59e0b', 'ef4444', '8b5cf6'];
+    // 콘텐츠 렌더링
+    switch (slide.type) {
+      case 'kpi': {
+        if (!slide.keyMetrics || slide.keyMetrics.length === 0) break;
+        const km = slide.keyMetrics;
+        const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
+        const rows = Math.ceil(km.length / cols);
+        const cardW = (CONTENT_W - (cols - 1) * 0.2) / cols;
+        const cardH = (CONTENT_H - (rows - 1) * 0.2) / rows;
+        const kpiColors = [PRIMARY, ACCENT, '10b981', 'f59e0b', 'ef4444', '8b5cf6'];
 
-      km.forEach((kpi, i) => {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const x = PAD_X + col * (cardW + 0.2);
-        const y = CONTENT_Y + row * (cardH + 0.2);
-        const bgColor = kpiColors[i % kpiColors.length];
+        km.forEach((kpi, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const x = PAD_X + col * (cardW + 0.2);
+          const y = CONTENT_Y + row * (cardH + 0.2);
+          const bgColor = kpiColors[i % kpiColors.length];
 
-        s.addShape(pptx.ShapeType.roundRect, {
-          x, y, w: cardW, h: cardH,
-          rectRadius: 0.15,
-          fill: { color: bgColor },
-          line: { color: bgColor, width: 0 },
-          shadow: { type: 'outer', color: '000000', opacity: 0.15, blur: 8, offset: 4, angle: 90 },
-        });
-
-        s.addText(kpi.label ?? '', {
-          x: x + 0.15, y: y + cardH * 0.12,
-          w: cardW - 0.3, h: cardH * 0.28,
-          fontSize: 11, color: 'FFFFFF', fontFace: FONT,
-          bold: true, align: 'center',
-          charSpacing: 1.5,
-        });
-
-        s.addText(String(kpi.value ?? ''), {
-          x: x + 0.1, y: y + cardH * 0.38,
-          w: cardW - 0.2, h: cardH * 0.42,
-          fontSize: 28, bold: true, color: WHITE,
-          fontFace: FONT, align: 'center', valign: 'middle',
-        });
-
-        if (kpi.trend) {
-          const trendSymbol = kpi.trend === 'up' ? '▲ 상승' : kpi.trend === 'down' ? '▼ 하락' : '— 보합';
-          s.addText(trendSymbol, {
-            x: x + 0.15, y: y + cardH * 0.8,
-            w: cardW - 0.3, h: cardH * 0.18,
-            fontSize: 10, color: 'FFFFFF', fontFace: FONT,
-            align: 'center', bold: true,
+          s.addShape(pptx.ShapeType.roundRect, {
+            x, y, w: cardW, h: cardH,
+            rectRadius: 0.15,
+            fill: { color: bgColor },
+            line: { color: bgColor, width: 0 },
+            shadow: { type: 'outer', color: '000000', opacity: 0.15, blur: 8, offset: 4, angle: 90 },
           });
-        }
-      });
 
-      if (slide.notes) s.addNotes(slide.notes);
-      continue;
-    }
+          s.addText(kpi.label ?? '', {
+            x: x + 0.15, y: y + cardH * 0.12,
+            w: cardW - 0.3, h: cardH * 0.28,
+            fontSize: 11, color: 'FFFFFF', fontFace: FONT,
+            bold: true, align: 'center', charSpacing: 1.5,
+          });
 
-    // ── 3) TABLE 슬라이드
-    if (slide.type === 'table' && slide.tableData?.headers && slide.tableData.headers.length > 0) {
-      const td = slide.tableData;
-      const headers = td.headers ?? [];
-      const rows    = td.rows ?? [];
+          s.addText(String(kpi.value ?? ''), {
+            x: x + 0.1, y: y + cardH * 0.38,
+            w: cardW - 0.2, h: cardH * 0.42,
+            fontSize: 28, bold: true, color: WHITE,
+            fontFace: FONT, align: 'center', valign: 'middle',
+          });
 
-      const tableRows: PptxGenJS.TableRow[] = [
-        headers.map(h => ({
-          text: h,
-          options: {
-            bold: true, color: WHITE, fill: { color: PRIMARY },
-            fontFace: FONT, fontSize: 12, align: 'center' as const,
-          },
-        })),
-        ...rows.map((row, ri) =>
-          row.map((cell, ci) => ({
-            text: cell,
+          if (kpi.trend) {
+            const trendSymbol = kpi.trend === 'up' ? '▲ 상승' : kpi.trend === 'down' ? '▼ 하락' : '— 보합';
+            s.addText(trendSymbol, {
+              x: x + 0.15, y: y + cardH * 0.8,
+              w: cardW - 0.3, h: cardH * 0.18,
+              fontSize: 10, color: 'FFFFFF', fontFace: FONT,
+              align: 'center', bold: true,
+            });
+          }
+        });
+        break;
+      }
+
+      case 'table': {
+        if (!slide.tableData?.headers || slide.tableData.headers.length === 0) break;
+        const { headers, rows = [] } = slide.tableData;
+
+        const tableRows: PptxGenJS.TableRow[] = [
+          headers.map(h => ({
+            text: h,
             options: {
-              color: ci === 0 ? DARK : SUBTEXT,
-              fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
-              fontFace: FONT, fontSize: 11,
-              bold: ci === 0,
-              align: ci === 0 ? 'left' as const : 'center' as const,
+              bold: true, color: WHITE, fill: { color: PRIMARY },
+              fontFace: FONT, fontSize: 12, align: 'center' as const,
             },
-          }))
-        ),
-      ];
+          })),
+          ...rows.map((row, ri) =>
+            row.map((cell, ci) => ({
+              text: cell,
+              options: {
+                color: ci === 0 ? DARK : SUBTEXT,
+                fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
+                fontFace: FONT, fontSize: 11,
+                bold: ci === 0,
+                align: ci === 0 ? 'left' as const : 'center' as const,
+              },
+            }))
+          ),
+        ];
 
-      s.addTable(tableRows, {
-        x: PAD_X, y: CONTENT_Y,
-        w: CONTENT_W, h: CONTENT_H,
-        border: { type: 'solid', color: BORDER, pt: 0.5 },
-        autoPage: false,
-        colW: Array(headers.length).fill(CONTENT_W / headers.length),
-      });
-
-      if (slide.notes) s.addNotes(slide.notes);
-      continue;
-    }
-
-    // ── 4) COMPARE 슬라이드
-    if (slide.type === 'compare') {
-      const leftItems  = slide.leftItems  ?? [];
-      const rightItems = slide.rightItems ?? [];
-      const leftTitle  = slide.leftTitle  ?? 'AS-IS';
-      const rightTitle = slide.rightTitle ?? 'TO-BE';
-      const halfW = (CONTENT_W - 0.4) / 2;
-
-      // 왼쪽 패널
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: PAD_X, y: CONTENT_Y,
-        w: halfW, h: CONTENT_H,
-        rectRadius: 0.1,
-        fill: { color: 'EFF6FF' },
-        line: { color: '93C5FD', width: 1 },
-      });
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: PAD_X, y: CONTENT_Y,
-        w: halfW, h: 0.45,
-        rectRadius: 0.1,
-        fill: { color: '1E3A8A' },
-        line: { color: '1E3A8A', width: 0 },
-      });
-      s.addText(leftTitle, {
-        x: PAD_X, y: CONTENT_Y,
-        w: halfW, h: 0.45,
-        fontSize: 14, bold: true, color: WHITE,
-        fontFace: FONT, align: 'center', valign: 'middle',
-      });
-
-      leftItems.forEach((item, i) => {
-        s.addText(`${i + 1}. ${item}`, {
-          x: PAD_X + 0.15,
-          y: CONTENT_Y + 0.55 + i * 0.42,
-          w: halfW - 0.3, h: 0.38,
-          fontSize: 11, color: '1E3A8A',
-          fontFace: FONT, bold: true,
-          bullet: false,
+        s.addTable(tableRows, {
+          x: PAD_X, y: CONTENT_Y,
+          w: CONTENT_W, h: CONTENT_H,
+          border: { type: 'solid', color: BORDER, pt: 0.5 },
+          autoPage: false,
+          colW: Array(headers.length).fill(CONTENT_W / headers.length),
         });
-      });
+        break;
+      }
 
-      // 화살표 중앙
-      s.addText('→', {
-        x: PAD_X + halfW + 0.05,
-        y: CONTENT_Y + CONTENT_H / 2 - 0.25,
-        w: 0.3, h: 0.5,
-        fontSize: 20, bold: true, color: PRIMARY,
-        fontFace: FONT, align: 'center',
-      });
+      case 'compare': {
+        const leftItems  = slide.leftItems  ?? [];
+        const rightItems = slide.rightItems ?? [];
+        const leftTitle  = slide.leftTitle  ?? 'AS-IS';
+        const rightTitle = slide.rightTitle ?? 'TO-BE';
+        const halfW = (CONTENT_W - 0.4) / 2;
 
-      // 오른쪽 패널
-      const rightX = PAD_X + halfW + 0.4;
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: rightX, y: CONTENT_Y,
-        w: halfW, h: CONTENT_H,
-        rectRadius: 0.1,
-        fill: { color: 'F0FDF4' },
-        line: { color: '86EFAC', width: 1 },
-      });
-      s.addShape(pptx.ShapeType.roundRect, {
-        x: rightX, y: CONTENT_Y,
-        w: halfW, h: 0.45,
-        rectRadius: 0.1,
-        fill: { color: '064E3B' },
-        line: { color: '064E3B', width: 0 },
-      });
-      s.addText(rightTitle, {
-        x: rightX, y: CONTENT_Y,
-        w: halfW, h: 0.45,
-        fontSize: 14, bold: true, color: WHITE,
-        fontFace: FONT, align: 'center', valign: 'middle',
-      });
-
-      rightItems.forEach((item, i) => {
-        s.addText(`${i + 1}. ${item}`, {
-          x: rightX + 0.15,
-          y: CONTENT_Y + 0.55 + i * 0.42,
-          w: halfW - 0.3, h: 0.38,
-          fontSize: 11, color: '064E3B',
-          fontFace: FONT, bold: true,
+        // 왼쪽 패널
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: PAD_X, y: CONTENT_Y, w: halfW, h: CONTENT_H,
+          rectRadius: 0.1, fill: { color: 'EFF6FF' }, line: { color: '93C5FD', width: 1 },
         });
-      });
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: PAD_X, y: CONTENT_Y, w: halfW, h: 0.45,
+          rectRadius: 0.1, fill: { color: '1E3A8A' }, line: { color: '1E3A8A', width: 0 },
+        });
+        s.addText(leftTitle, {
+          x: PAD_X, y: CONTENT_Y, w: halfW, h: 0.45,
+          fontSize: 14, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
+        });
+        leftItems.forEach((item, i) => {
+          s.addText(`${i + 1}. ${item}`, {
+            x: PAD_X + 0.15, y: CONTENT_Y + 0.55 + i * 0.42, w: halfW - 0.3, h: 0.38,
+            fontSize: 11, color: '1E3A8A', fontFace: FONT, bold: true, bullet: false,
+          });
+        });
 
-      if (slide.notes) s.addNotes(slide.notes);
-      continue;
-    }
+        // 화살표 중앙
+        s.addText('→', {
+          x: PAD_X + halfW + 0.05, y: CONTENT_Y + CONTENT_H / 2 - 0.25,
+          w: 0.3, h: 0.5, fontSize: 20, bold: true, color: PRIMARY, fontFace: FONT, align: 'center',
+        });
 
-    // ── 5) CHART 슬라이드 — 데이터 표로 대체 (편집 가능)
-    if (slide.type === 'chart' && slide.chartData?.data && slide.chartData.data.length > 0) {
-      const cd = slide.chartData;
+        // 오른쪽 패널
+        const rightX = PAD_X + halfW + 0.4;
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: rightX, y: CONTENT_Y, w: halfW, h: CONTENT_H,
+          rectRadius: 0.1, fill: { color: 'F0FDF4' }, line: { color: '86EFAC', width: 1 },
+        });
+        s.addShape(pptx.ShapeType.roundRect, {
+          x: rightX, y: CONTENT_Y, w: halfW, h: 0.45,
+          rectRadius: 0.1, fill: { color: '064E3B' }, line: { color: '064E3B', width: 0 },
+        });
+        s.addText(rightTitle, {
+          x: rightX, y: CONTENT_Y, w: halfW, h: 0.45,
+          fontSize: 14, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
+        });
+        rightItems.forEach((item, i) => {
+          s.addText(`${i + 1}. ${item}`, {
+            x: rightX + 0.15, y: CONTENT_Y + 0.55 + i * 0.42, w: halfW - 0.3, h: 0.38,
+            fontSize: 11, color: '064E3B', fontFace: FONT, bold: true,
+          });
+        });
+        break;
+      }
 
-      s.addText(`📊 차트 타입: ${cd.chartType ?? 'bar'}`, {
-        x: PAD_X, y: CONTENT_Y,
-        w: CONTENT_W, h: 0.4,
-        fontSize: 12, color: SUBTEXT, fontFace: FONT, italic: true,
-      });
+      case 'chart': {
+        if (!slide.chartData?.data || slide.chartData.data.length === 0) break;
+        const cd = slide.chartData;
 
-      // 데이터 테이블로 표현
-      const hasValue2 = cd.data.some(d => d.value2 !== undefined);
-      const headers = hasValue2
-        ? ['항목', cd.series1Label ?? '값1', cd.series2Label ?? '값2']
-        : ['항목', cd.series1Label ?? '값'];
+        s.addText(`📊 차트 타입: ${cd.chartType ?? 'bar'}`, {
+          x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: 0.4,
+          fontSize: 12, color: SUBTEXT, fontFace: FONT, italic: true,
+        });
 
-      const tableRows: PptxGenJS.TableRow[] = [
-        headers.map(h => ({
-          text: h,
-          options: {
-            bold: true, color: WHITE, fill: { color: PRIMARY },
-            fontFace: FONT, fontSize: 12, align: 'center' as const,
-          },
-        })),
-        ...cd.data.map((d, ri) => {
-          const cells = hasValue2
-            ? [d.name, String(d.value), String(d.value2 ?? '')]
-            : [d.name, String(d.value)];
-          return cells.map((cell, ci) => ({
-            text: cell,
+        const hasValue2 = cd.data.some(d => d.value2 !== undefined);
+        const headers = hasValue2
+          ? ['항목', cd.series1Label ?? '값1', cd.series2Label ?? '값2']
+          : ['항목', cd.series1Label ?? '값'];
+
+        const tableRows: PptxGenJS.TableRow[] = [
+          headers.map(h => ({
+            text: h,
             options: {
-              color: ci === 0 ? DARK : SUBTEXT,
-              fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
-              fontFace: FONT, fontSize: 11,
-              bold: ci === 0,
-              align: ci === 0 ? 'left' as const : 'center' as const,
+              bold: true, color: WHITE, fill: { color: PRIMARY },
+              fontFace: FONT, fontSize: 12, align: 'center' as const,
+            },
+          })),
+          ...cd.data.map((d, ri) => {
+            const cells = hasValue2
+              ? [d.name, String(d.value), String(d.value2 ?? '')]
+              : [d.name, String(d.value)];
+            return cells.map((cell, ci) => ({
+              text: cell,
+              options: {
+                color: ci === 0 ? DARK : SUBTEXT,
+                fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
+                fontFace: FONT, fontSize: 11,
+                bold: ci === 0,
+                align: ci === 0 ? 'left' as const : 'center' as const,
+              },
+            }));
+          }),
+        ];
+
+        s.addTable(tableRows, {
+          x: PAD_X, y: CONTENT_Y + 0.45,
+          w: CONTENT_W, h: CONTENT_H - 0.45,
+          border: { type: 'solid', color: BORDER, pt: 0.5 },
+          autoPage: false,
+          colW: hasValue2
+            ? [CONTENT_W * 0.4, CONTENT_W * 0.3, CONTENT_W * 0.3]
+            : [CONTENT_W * 0.5, CONTENT_W * 0.5],
+        });
+        break;
+      }
+
+      default: {
+        // CONTENT, PROCESS, TIMELINE 등 기타 슬라이드
+        const items = slide.content ?? slide.points ?? slide.items ?? [];
+        if (items.length > 0) {
+          const bulletItems = items.map((item, i) => ({
+            text: `${i + 1}.  ${item}`,
+            options: {
+              fontSize: 15, color: DARK, fontFace: FONT,
+              bullet: false, paraSpaceAfter: 6, indentLevel: 0,
             },
           }));
-        }),
-      ];
-
-      s.addTable(tableRows, {
-        x: PAD_X, y: CONTENT_Y + 0.45,
-        w: CONTENT_W, h: CONTENT_H - 0.45,
-        border: { type: 'solid', color: BORDER, pt: 0.5 },
-        autoPage: false,
-        colW: hasValue2
-          ? [CONTENT_W * 0.4, CONTENT_W * 0.3, CONTENT_W * 0.3]
-          : [CONTENT_W * 0.5, CONTENT_W * 0.5],
-      });
-
-      if (slide.notes) s.addNotes(slide.notes);
-      continue;
+          s.addText(bulletItems, {
+            x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: CONTENT_H,
+            valign: 'top', wrap: true,
+          });
+        } else {
+          s.addText('내용을 입력하세요.', {
+            x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: CONTENT_H,
+            fontSize: 14, color: BORDER, fontFace: FONT, align: 'center', valign: 'middle', italic: true,
+          });
+        }
+        break;
+      }
     }
 
-    // ── 6) 기본 CONTENT / PROCESS / TIMELINE / AGENDA / SUMMARY 등 불릿 슬라이드
-    const items = slide.content ?? slide.points ?? slide.items ?? [];
-    if (items.length > 0) {
-      const bulletItems = items.map((item, i) => ({
-        text: `${i + 1}.  ${item}`,
-        options: {
-          fontSize: 15,
-          color: DARK,
-          fontFace: FONT,
-          bullet: false,
-          paraSpaceAfter: 6,
-          indentLevel: 0,
-        },
-      }));
-
-      s.addText(bulletItems, {
-        x: PAD_X, y: CONTENT_Y,
-        w: CONTENT_W, h: CONTENT_H,
-        valign: 'top',
-        wrap: true,
-      });
-    } else {
-      // 내용 없을 때 빈 텍스트박스 (편집 가능 placeholder)
-      s.addText('내용을 입력하세요.', {
-        x: PAD_X, y: CONTENT_Y,
-        w: CONTENT_W, h: CONTENT_H,
-        fontSize: 14, color: BORDER,
-        fontFace: FONT, align: 'center', valign: 'middle',
-        italic: true,
-      });
-    }
-
-    // ── 이미지 (split 레이아웃 — 이미지 있는 경우)
+    // ── 공통: 이미지 처리 (split 레이아웃)
     if (slide.imageUrl && (slide.layout === 'split-right' || slide.layout === 'split-left')) {
       const visualRatio = (slide.visualRatio ?? 50) / 100;
       const textW  = CONTENT_W * (1 - visualRatio) - 0.15;
       const imgW   = CONTENT_W * visualRatio;
-      const imgX   = slide.layout === 'split-left'
-        ? PAD_X
-        : PAD_X + textW + 0.15;
+      const imgX   = slide.layout === 'split-left' ? PAD_X : PAD_X + textW + 0.15;
 
       try {
         s.addImage({
@@ -608,7 +554,7 @@ export async function exportToPptx(
           sizing: { type: 'cover', w: imgW, h: CONTENT_H },
         });
       } catch {
-        // 이미지 URL 접근 불가 시 스킵
+        // 이미지 URL 오류 무시
       }
     }
 
