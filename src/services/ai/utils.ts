@@ -177,5 +177,74 @@ export function extractJSON(text: string): any {
   if (!text) return null;
   let cleanText = text.trim();
 
-  // ✅ Vite(esbuild) 정규식 빌드 에러 해결: RegExp 객체 사용으로 백틱 파싱 충돌 방지
-  const mdMatch = cleanText.match(new RegExp('
+  // ✅ Vite(esbuild) 정규식 빌드 에러의 원인이 되는 백틱(```) 파싱 충돌을 피하기 위해
+  // 문자열 메서드를 활용하여 마크다운 코드블록을 안전하게 잘라냅니다.
+  const codeBlockStart = cleanText.indexOf('```json');
+  const fallbackStart = cleanText.indexOf('```');
+  
+  const startIdx = codeBlockStart !== -1 ? codeBlockStart + 7 : (fallbackStart !== -1 ? fallbackStart + 3 : -1);
+  
+  if (startIdx !== -1) {
+    const endIdx = cleanText.lastIndexOf('```');
+    if (endIdx !== -1 && endIdx > startIdx) {
+      cleanText = cleanText.substring(startIdx, endIdx).trim();
+    }
+  }
+
+  // 2. 앞뒤 불필요한 텍스트 제거 (JSON 시작/끝 찾기)
+  const jsonStart = cleanText.search(/[\{\[]/);
+  const jsonEnd = Math.max(cleanText.lastIndexOf('}'), cleanText.lastIndexOf(']'));
+
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd >= jsonStart) {
+    const sliced = cleanText.slice(jsonStart, jsonEnd + 1);
+    try {
+      return JSON.parse(sliced); // 완벽하게 닫혀있다면 여기서 통과
+    } catch {
+      cleanText = cleanText.slice(jsonStart); // 실패했다면 끝을 자르지 않고 복구 시도로 넘김
+    }
+  }
+
+  // 3. 정상 파싱 시도
+  try {
+    return JSON.parse(cleanText);
+  } catch (error) {
+    // 4. 1단계 복구: 흔한 오류 (제어문자, 콤마) 제거
+    try {
+      let repaired = cleanText
+        .replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ") // 줄바꿈(\n) 외의 깨진 제어문자 공백 변환
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']');
+      return JSON.parse(repaired);
+    } catch (error2) {
+      // 🚀 5. 2단계 복구(Auto-Healer): AI 토큰 부족으로 문자열이 뚝 끊긴 경우 강제로 닫아버림
+      try {
+        let forced = cleanText.replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ");
+        
+        // 열린 따옴표 개수가 홀수면 닫아줌
+        if ((forced.match(/"/g) || []).length % 2 !== 0) {
+          forced += '"';
+        }
+        
+        // 마지막이 콤마로 끝나면 제거
+        forced = forced.replace(/,\s*$/g, '');
+
+        // 열린 괄호와 닫힌 괄호 개수를 세서 부족한 만큼 채워 넣음
+        const openBraces = (forced.match(/\{/g) || []).length;
+        const closeBraces = (forced.match(/\}/g) || []).length;
+        const openBrackets = (forced.match(/\[/g) || []).length;
+        const closeBrackets = (forced.match(/\]/g) || []).length;
+
+        for (let i = 0; i < (openBrackets - closeBrackets); i++) forced += ']';
+        for (let i = 0; i < (openBraces - closeBraces); i++) forced += '}';
+
+        const finalData = JSON.parse(forced);
+        console.warn('⚠️ [extractJSON] 잘린 JSON을 강제로 복구하여 살려냈습니다!', finalData);
+        return finalData;
+
+      } catch (error3) {
+        console.error('[extractJSON] 최종 파싱 실패 (복구 불가):', cleanText.slice(0, 300) + '...');
+        return null;
+      }
+    }
+  }
+}
