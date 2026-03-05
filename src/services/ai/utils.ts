@@ -174,15 +174,30 @@ export function extractJSON(text: string): any {
     }
   }
 
-  // 2. 정상 파싱 시도
+  // 2. 앞뒤 불필요한 텍스트 제거 (JSON 시작/끝 찾기)
+  const jsonStart = cleanText.search(/[\{\[]/);
+  const jsonEnd = Math.max(cleanText.lastIndexOf('}'), cleanText.lastIndexOf(']'));
+
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd >= jsonStart) {
+    const sliced = cleanText.slice(jsonStart, jsonEnd + 1);
+    try {
+      return JSON.parse(sliced); 
+    } catch {
+      cleanText = cleanText.slice(jsonStart);
+    }
+  }
+
+  // 3. 정상 파싱 시도
   try {
     return JSON.parse(cleanText);
   } catch (error) {
-    // 3. 강력한 Auto-Healer (끊긴 문자열 억지로 닫기)
+    // 4. 강력한 Auto-Healer (끊긴 문자열 억지로 닫기)
     try {
+      // 제어문자 및 줄바꿈을 안전하게 치환
       let forced = cleanText.replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ");
+      forced = forced.replace(/\n/g, "\\n"); // 줄바꿈 이스케이프 처리
       
-      // 열린 따옴표 확인 (정규식 대신 단순 순회로 안전하게 처리)
+      // 열린 따옴표 확인
       let inString = false;
       for (let i = 0; i < forced.length; i++) {
         if (forced[i] === '"' && forced[i-1] !== '\\') {
@@ -191,8 +206,10 @@ export function extractJSON(text: string): any {
       }
       if (inString) forced += '"';
       
-      // 마지막 콤마 제거
+      // 마지막 콤마 찌꺼기 제거
       forced = forced.replace(/,\s*$/g, '');
+      forced = forced.replace(/,\s*}/g, '}');
+      forced = forced.replace(/,\s*]/g, ']');
 
       // 열린/닫힌 괄호 카운트
       let openBraces = 0, closeBraces = 0, openBrackets = 0, closeBrackets = 0;
@@ -217,7 +234,8 @@ export function extractJSON(text: string): any {
 
     } catch (error3) {
       console.error('[extractJSON] 최종 파싱 실패:', cleanText.slice(-100));
-      return null;
+      // 🚨 최후의 보루: 파싱에 완전히 실패하더라도 앱이 죽지 않고 빈 객체 반환
+      return { title: "데이터 생성 지연", slides: [] };
     }
   }
 }
