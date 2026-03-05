@@ -1,6 +1,6 @@
 // ============================================================
 // src/services/ai/api-client.ts - Gemini 및 외부 이미지 API 연동
-// (보안 패치: Vercel 프록시 통합 버전)
+// (보안 패치: Vercel 프록시 통합 + Structured Outputs 강제화 버전)
 // ============================================================
 
 const PROXY_URL = '/api/gemini-proxy';
@@ -10,10 +10,11 @@ const RETRY_BASE_MS = 1_000;
 export async function callGeminiAPI(
   systemInstruction: string,
   userPrompt: string,
-  maxTokens = 8192
+  maxTokens = 8192,
+  schema?: any // ✅ Structured Outputs용 스키마 파라미터 추가
 ): Promise<string> {
   // 프록시 서버로 보낼 페이로드 구성
-  const payload = {
+  const payload: any = {
     model: 'gemini-2.5-flash', // 프록시에서 사용할 모델 명시
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
@@ -23,6 +24,11 @@ export async function callGeminiAPI(
       responseMimeType: "application/json",
     },
   };
+
+  // ✅ 스키마가 전달된 경우 페이로드에 추가하여 완벽한 JSON 형식을 물리적으로 강제함
+  if (schema) {
+    payload.generationConfig.responseSchema = schema;
+  }
 
   let lastError: Error = new Error("알 수 없는 오류가 발생했습니다.");
 
