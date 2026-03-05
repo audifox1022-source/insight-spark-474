@@ -1,8 +1,9 @@
+// src/components/ChatEditPanel.tsx
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Send, Loader2, Sparkles, Bot, User, Minimize2, Maximize2 } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Bot, User, Minimize2 } from 'lucide-react';
 import { Slide } from '@/types/presentation';
 
 interface ChatMessage {
@@ -34,7 +35,7 @@ export function ChatEditPanel({
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingSlide, setPendingSlide] = useState<Slide | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false); // ✅ 최소화 상태 추가
+  const [isMinimized, setIsMinimized] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,7 +44,6 @@ export function ChatEditPanel({
     }
   }, [messages, isMinimized]);
 
-  // 슬라이드가 바뀌면 초기화하고 창을 다시 엶
   useEffect(() => {
     setMessages([]);
     setPendingSlide(null);
@@ -92,7 +92,6 @@ export function ChatEditPanel({
 
   return (
     <AnimatePresence>
-      {/* ── 최소화 상태일 때 떠 있는 작은 버튼 ── */}
       {isMinimized ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -120,7 +119,6 @@ export function ChatEditPanel({
           </Button>
         </motion.div>
       ) : (
-        /* ── 활성화(펼침) 상태의 플로팅 챗 패널 ── */
         <motion.div
           initial={{ y: 50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -128,7 +126,6 @@ export function ChatEditPanel({
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           className="fixed bottom-6 right-6 w-[360px] h-[65vh] min-h-[500px] max-h-[800px] bg-card rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.12)] border border-border z-50 flex flex-col overflow-hidden"
         >
-          {/* 헤더 */}
           <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg gradient-primary flex items-center justify-center shadow-sm">
@@ -140,7 +137,6 @@ export function ChatEditPanel({
               </div>
             </div>
             <div className="flex items-center gap-1">
-              {/* 최소화 버튼 추가 */}
               <Button size="icon" variant="ghost" onClick={() => setIsMinimized(true)} className="w-7 h-7 hover:bg-black/5 dark:hover:bg-white/10">
                 <Minimize2 className="w-3.5 h-3.5" />
               </Button>
@@ -150,7 +146,6 @@ export function ChatEditPanel({
             </div>
           </div>
 
-          {/* 현재 슬라이드 요약 */}
           <div className="px-4 py-2.5 bg-background border-b border-border flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
             <p className="text-xs font-medium truncate text-foreground flex-1">
@@ -158,7 +153,6 @@ export function ChatEditPanel({
             </p>
           </div>
 
-          {/* 메시지 영역 */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/10">
             {messages.length === 0 && (
               <div className="space-y-4">
@@ -170,7 +164,6 @@ export function ChatEditPanel({
                     안녕하세요! 이 슬라이드를 어떻게 수정할까요?
                   </div>
                 </div>
-                {/* 빠른 명령어 */}
                 <div className="space-y-1.5 pt-1 pl-9">
                   <p className="text-[11px] font-medium text-muted-foreground px-1 mb-2">추천 명령어</p>
                   <div className="flex flex-wrap gap-1.5">
@@ -220,7 +213,6 @@ export function ChatEditPanel({
               </div>
             )}
 
-            {/* 적용 버튼 */}
             {pendingSlide && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -240,7 +232,6 @@ export function ChatEditPanel({
             <div ref={bottomRef} />
           </div>
 
-          {/* 입력창 */}
           <div className="p-3 border-t border-border bg-card">
             <div className="flex items-end gap-2 bg-muted/30 p-1.5 rounded-xl border border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/50 transition-all">
               <Textarea
