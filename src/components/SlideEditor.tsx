@@ -42,6 +42,7 @@ interface SlideEditorProps {
   presentation: Presentation;
   onReset: () => void;
   onUpdateSlide: (index: number, updated: Partial<Slide>) => void;
+  onUpdateAllSlides: (updated: Partial<Slide>) => void; // ✅ 전체 일괄 업데이트 함수 추가
   onAddSlide: (afterIndex: number) => void;
   onDeleteSlide: (index: number) => void;
   onDuplicateSlide: (index: number) => void;
@@ -180,7 +181,7 @@ function SortableSlideThumbnail({
 // SlideEditor
 // ══════════════════════════════════════════════════════════════
 export function SlideEditor({
-  presentation, onReset, onUpdateSlide, onAddSlide, onDeleteSlide,
+  presentation, onReset, onUpdateSlide, onUpdateAllSlides, onAddSlide, onDeleteSlide,
   onDuplicateSlide, onMoveSlide, onUpdateTitle, onSave, isSaving,
   onRegenerateSlide, onOpenChat, onOpenChatWithSlide, onOpenReview,
   onReviewAndFix, isFixing, onChangePersona, onCycleLayout,
@@ -675,7 +676,7 @@ export function SlideEditor({
                       <Button size="sm" variant="ghost"
                         className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash 파2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -702,11 +703,24 @@ export function SlideEditor({
                     <div className="space-y-5">
                       <div className="grid grid-cols-2 gap-4">
 
-                        {/* ✅ 제목 크기 — pt 직접 입력 */}
+                        {/* ✅ 제목 크기 — pt 직접 입력 및 전체적용 버튼 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">제목 크기</label>
-                            <span className="text-xs font-mono text-muted-foreground">pt</span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  onUpdateAllSlides({ titleFontPt: slide.titleFontPt ?? 32 });
+                                  toast.success('모든 슬라이드 제목 크기에 일괄 적용되었습니다.');
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                title="현재 제목 크기를 모든 슬라이드에 적용"
+                              >
+                                <CheckSquare className="w-3 h-3" />
+                                전체 적용
+                              </button>
+                              <span className="text-xs font-mono text-muted-foreground">pt</span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <input
@@ -738,11 +752,24 @@ export function SlideEditor({
                           </div>
                         </div>
 
-                        {/* ✅ 내용 크기 — pt 직접 입력 */}
+                        {/* ✅ 내용 크기 — pt 직접 입력 및 전체적용 버튼 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">내용 크기</label>
-                            <span className="text-xs font-mono text-muted-foreground">pt</span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  onUpdateAllSlides({ contentFontPt: slide.contentFontPt ?? 18 });
+                                  toast.success('모든 슬라이드 내용 크기에 일괄 적용되었습니다.');
+                                }}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1"
+                                title="현재 내용 크기를 모든 슬라이드에 적용"
+                              >
+                                <CheckSquare className="w-3 h-3" />
+                                전체 적용
+                              </button>
+                              <span className="text-xs font-mono text-muted-foreground">pt</span>
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <input
