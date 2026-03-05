@@ -8,9 +8,6 @@ import { callGeminiAPI, generateSlideImage } from './api-client';
 
 export const aiService = {
 
-  // ─────────────────────────────────────────────────────────
-  // 목차(Outline) 생성
-  // ─────────────────────────────────────────────────────────
   async getOutline(body: any) {
     const volume = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
@@ -49,27 +46,15 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
   ]
 }`;
 
-    const text = await callGeminiAPI(
-      systemInstruction,
-      userPrompt,
-      constants.OUTLINE_TOKEN_MAP[volume] ?? 8192
-    );
-
+    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.OUTLINE_TOKEN_MAP[volume] ?? 8192);
     const data = utils.extractJSON(text);
 
     return {
       title:   data?.title ?? '새 발표 자료',
-      outline: Array.isArray(data?.outline)
-        ? data.outline
-        : Array.isArray(data)
-        ? data
-        : [],
+      outline: Array.isArray(data?.outline) ? data.outline : Array.isArray(data) ? data : [],
     };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 생성
-  // ─────────────────────────────────────────────────────────
   async generatePresentation(body: any) {
     const volume     = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
@@ -108,12 +93,25 @@ ${typeGuide}
 2. 각 슬라이드 type은 구성안 그대로 고정. 절대 변경 금지.
 3. 원본 데이터의 실제 내용, 수치, 키워드를 그대로 활용하세요.
 4. 빈 content 배열, 빈 chartData, 빈 keyMetrics 절대 금지.
+5. ⚠️ 매우 중요: content, notes, description 등 모든 문자열 값을 짧고 간결하게 작성하세요. 텍스트가 너무 길면 시스템 에러가 발생합니다. 불필요한 서술어를 빼고 명사형으로 개조식 작성하세요.
 
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume]);
+    // 최대 토큰 사용 보장
+    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume] || 8192);
     const json = utils.extractJSON(text);
+
+    // ✅ 방어 로직: 만약 extractJSON이 실패해서 빈 배열을 반환했다면 에러 스로우
+    if (!json || !Array.isArray(json.slides) || json.slides.length === 0) {
+       console.warn("⚠️ AI가 슬라이드 배열을 생성하지 못했습니다. 기본값을 반환합니다.");
+       return { 
+         presentation: { 
+           title: "생성 지연", 
+           slides: [{ type: 'title', title: '데이터 생성 지연', content: ['AI 응답이 길어 끊겼습니다. 분량을 줄여 다시 시도해 주세요.'] }] 
+         } 
+       };
+    }
 
     return { presentation: json };
   },
