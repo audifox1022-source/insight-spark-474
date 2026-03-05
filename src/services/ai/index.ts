@@ -55,15 +55,10 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
       constants.OUTLINE_TOKEN_MAP[volume] ?? 4096
     );
 
-    console.log('[Outline AI 응답 원문]', text);
-
     const data = utils.extractJSON(text);
 
-    console.log('[Outline JSON 파싱 결과]', data);
-
-    // usePresentation.ts가 기대하는 구조로 반환
     return {
-      title:   data?.title ?? '새 발표 자료',
+      title: data?.title ?? '새 발표 자료',
       outline: Array.isArray(data?.outline)
         ? data.outline
         : Array.isArray(data)
@@ -79,7 +74,6 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
     const volume     = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
 
-    // ✅ approvedOutline 방어: outline이 배열인 경우만 사용
     const outlineArray: any[] =
       Array.isArray(body.approvedOutline?.outline)
         ? body.approvedOutline.outline
@@ -87,12 +81,8 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
           ? body.approvedOutline
           : [];
 
-    const slideCount =
-      outlineArray.length ||
-      constants.SLIDE_COUNT_MAP[volume] ||
-      8;
+    const slideCount = outlineArray.length || constants.SLIDE_COUNT_MAP[volume] || 8;
 
-    // ✅ item이 undefined인 경우 필터링, 필드도 안전하게 처리
     const typeGuide = outlineArray
       .filter((item) => item != null)
       .map((item: any, i: number) =>
@@ -122,11 +112,7 @@ ${typeGuide}
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
 
-    const text = await callGeminiAPI(
-      systemInstruction,
-      userPrompt,
-      constants.TOKEN_MAP[volume]
-    );
+    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume]);
     const json = utils.extractJSON(text);
 
     return { presentation: json };
@@ -291,13 +277,7 @@ JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"ke
     };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 외부 내보내기 (Notion / Google)
-  // ─────────────────────────────────────────────────────────
-  async exportToExternal(
-    _presentation: any,
-    _platform: 'notion' | 'google'
-  ): Promise<void> {
+  async exportToExternal(_presentation: any, _platform: 'notion' | 'google'): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 1500));
   },
 };
