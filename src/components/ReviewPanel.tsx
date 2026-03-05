@@ -1,3 +1,4 @@
+// src/components/ReviewPanel.tsx
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ export interface ReviewImprovement {
 export interface ReviewResult {
   overallScore: number;
   summary: string;
-  strengths: string[];        // ✅ 수정: 필수 필드로 명시
+  strengths: string[];
   improvements: ReviewImprovement[];
   generalTips: string[];
 }
@@ -109,7 +110,6 @@ export function ReviewPanel({
     }
   };
 
-  // ✅ 수정: strengths, generalTips null 안전 처리
   const strengths = review?.strengths ?? [];
   const improvements = review?.improvements ?? [];
   const generalTips = review?.generalTips ?? [];
@@ -126,8 +126,6 @@ export function ReviewPanel({
 
         <ScrollArea className="h-[calc(100vh-80px)]">
           <div className="p-6 space-y-6">
-
-            {/* 초기 상태 */}
             {!review && !isLoading && (
               <div className="text-center py-12 space-y-4">
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-accent/10 flex items-center justify-center">
@@ -144,7 +142,6 @@ export function ReviewPanel({
               </div>
             )}
 
-            {/* 로딩 */}
             {isLoading && (
               <div className="text-center py-12 space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-accent mx-auto" />
@@ -152,12 +149,9 @@ export function ReviewPanel({
               </div>
             )}
 
-            {/* 결과 */}
             {review && !isLoading && (
               <AnimatePresence>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-
-                  {/* 점수 요약 */}
                   <div className="flex items-center gap-5 p-5 rounded-xl bg-muted/50 border border-border">
                     <ScoreRing score={review.overallScore} />
                     <div className="flex-1">
@@ -166,7 +160,6 @@ export function ReviewPanel({
                     </div>
                   </div>
 
-                  {/* 잘된 점 */}
                   {strengths.length > 0 && (
                     <div>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
@@ -184,7 +177,6 @@ export function ReviewPanel({
                     </div>
                   )}
 
-                  {/* 개선점 */}
                   {improvements.length > 0 && (
                     <div>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
@@ -259,7 +251,6 @@ export function ReviewPanel({
                     </div>
                   )}
 
-                  {/* 일반 팁 */}
                   {generalTips.length > 0 && (
                     <div>
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-1.5">
