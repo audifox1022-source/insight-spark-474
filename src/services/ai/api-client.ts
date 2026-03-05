@@ -1,7 +1,9 @@
 // ============================================================
-// api-client.ts - Gemini 및 외부 이미지 API 연동
+// src/services/ai/api-client.ts - Gemini 및 외부 이미지 API 연동
+// (보안 패치: Vercel 프록시 통합 버전)
 // ============================================================
 
+const PROXY_URL = '/api/gemini-proxy';
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1_000;
 
@@ -10,10 +12,9 @@ export async function callGeminiAPI(
   userPrompt: string,
   maxTokens = 8192
 ): Promise<string> {
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY 미설정");
-
+  // 프록시 서버로 보낼 페이로드 구성
   const payload = {
+    model: 'gemini-2.5-flash', // 프록시에서 사용할 모델 명시
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
@@ -23,31 +24,50 @@ export async function callGeminiAPI(
     },
   };
 
+  let lastError: Error = new Error("알 수 없는 오류가 발생했습니다.");
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
-      {
+    try {
+      const response = await fetch(PROXY_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+      });
+
+      // 429(Too Many Requests), 503(Service Unavailable) 시 지수 백오프 재시도
+      if (response.status === 429 || response.status === 503) {
+        const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
+        await new Promise((res) => setTimeout(res, waitMs));
+        continue;
       }
-    );
 
-    if (response.status === 429) {
-      await new Promise((res) => setTimeout(res, RETRY_BASE_MS * Math.pow(2, attempt)));
-      continue;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`AI 서버 통신 오류 (${response.status}): ${errorData.error || '알 수 없음'}`);
+      }
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!text?.trim()) {
+        throw new Error("AI가 빈 응답을 반환했습니다.");
+      }
+
+      return text;
+
+    } catch (err: any) {
+      lastError = err;
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise((res) => setTimeout(res, RETRY_BASE_MS * Math.pow(2, attempt)));
+      }
     }
-
-    if (!response.ok) throw new Error(`AI 서버 통신 오류 (${response.status})`);
-    const data = await response.json();
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
   }
-  throw new Error("API 요청 실패");
+  throw lastError;
 }
 
 export async function generateSlideImage(title: string, content: string): Promise<string> {
   try {
-    // 1. Vercel 백엔드 API(이전에 만든 /api/generate-ai-image.js)로 똑똑한 프롬프트 생성 요청
+    // 백엔드 프록시 API 호출 (/api/generate-ai-image.js)
     const response = await fetch('/api/generate-ai-image', {
       method: 'POST',
       headers: {
@@ -55,7 +75,7 @@ export async function generateSlideImage(title: string, content: string): Promis
       },
       body: JSON.stringify({
         title: title,
-        content: content ? [content] : [], // 백엔드 로직에 맞게 배열 형태로 전송
+        content: content ? [content] : [], 
         type: 'background'
       })
     });
@@ -71,7 +91,7 @@ export async function generateSlideImage(title: string, content: string): Promis
     console.error("🚨 백엔드 API 호출 실패, 기본 로직으로 대체합니다:", error);
   }
 
-  // 2. 백엔드 API 호출 실패 시 기존의 Fallback 로직 실행 (안전망)
+  // 백엔드 API 호출 실패 시 Fallback 생성 (안전망)
   const fallbackPrompt = `Professional presentation background, corporate minimal, topic: ${title}`;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(fallbackPrompt)}?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random()*999)}&model=flux`;
 }
