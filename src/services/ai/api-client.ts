@@ -46,7 +46,32 @@ export async function callGeminiAPI(
 }
 
 export async function generateSlideImage(title: string, content: string): Promise<string> {
-  // Imagen 또는 Pollinations 로직 구현 (원본 로직 유지)
-  const prompt = `Professional presentation background, corporate minimal, topic: ${title}`;
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random()*999)}&model=flux`;
+  try {
+    // 1. Vercel 백엔드 API(이전에 만든 /api/generate-ai-image.js)로 똑똑한 프롬프트 생성 요청
+    const response = await fetch('/api/generate-ai-image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: title,
+        content: content ? [content] : [], // 백엔드 로직에 맞게 배열 형태로 전송
+        type: 'background'
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.imageUrl) {
+        console.log("✅ 백엔드 AI 이미지 생성 성공:", data.prompt);
+        return data.imageUrl;
+      }
+    }
+  } catch (error) {
+    console.error("🚨 백엔드 API 호출 실패, 기본 로직으로 대체합니다:", error);
+  }
+
+  // 2. 백엔드 API 호출 실패 시 기존의 Fallback 로직 실행 (안전망)
+  const fallbackPrompt = `Professional presentation background, corporate minimal, topic: ${title}`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(fallbackPrompt)}?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random()*999)}&model=flux`;
 }
