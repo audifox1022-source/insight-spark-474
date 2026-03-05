@@ -292,6 +292,15 @@ export function usePresentation() {
     });
   }, []);
 
+  // ✅ 추가: 모든 슬라이드 일괄 업데이트 함수
+  const updateAllSlides = useCallback((updates: Partial<Slide>) => {
+    setPresentation((prev) => {
+      if (!prev) return prev;
+      const slides = prev.slides.map((s, index) => normalizeSlideForApp({ ...s, ...updates }, index));
+      return { ...prev, slides };
+    });
+  }, []);
+
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -596,7 +605,7 @@ export function usePresentation() {
     changeSlidePersona, cycleLayout,
     updatePresentationMaster,
     isGeneratingImage, generateSlideImage,
-    reset, updateSlide,
+    reset, updateSlide, updateAllSlides, // ✅ 여기에 updateAllSlides 추가됨
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
   };
