@@ -1,3 +1,5 @@
+// src/types/presentation.ts
+
 export interface MeetingInfo {
   week: string;
   department: string;
@@ -95,7 +97,12 @@ export interface Slide {
   stats?: StatItem[];
 
   // ✅ statsCompare 타입 전용 — 좌우 비교 (하위 호환)
-  statsLegacy?: { label: string; leftValue: string; rightValue: string; trend?: 'up' | 'down' | 'neutral' }[];
+  statsLegacy?: {
+    label: string;
+    leftValue: string;
+    rightValue: string;
+    trend?: 'up' | 'down' | 'neutral';
+  }[];
 
   showTrends?: boolean;
   levels?: { title: string; description: string }[];
@@ -106,9 +113,14 @@ export interface Slide {
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid';
   persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
 
+  // 기존 비율 기반 스케일
   titleSizeScale?: number;
   contentSizeScale?: number;
   textSizeScale?: number;
+
+  // ✅ 신규: 직접 pt 지정 (설정되면 우선 적용)
+  titleFontPt?: number;
+  contentFontPt?: number;
 
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   visualRatio?: number;
