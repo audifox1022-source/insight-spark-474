@@ -191,14 +191,14 @@ export async function exportToPdf(
 }
 
 // ─────────────────────────────────────────────────────────────
-// PPT 내보내기 — 편집 가능한 pptxgenjs 구조 (리팩토링 완료)
+// PPT 내보내기 — 동적 폰트/레이아웃 연동 편집 가능 구조
 // ─────────────────────────────────────────────────────────────
 export async function exportToPptx(
   presentation: Presentation,
   brand: BrandSettings = DEFAULT_BRAND
 ): Promise<void> {
   const pptx      = new PptxGenJS();
-  pptx.layout     = 'LAYOUT_WIDE'; // 16:9 (33.87cm × 19.05cm)
+  pptx.layout     = 'LAYOUT_WIDE'; // 16:9 (13.33 x 7.5 inches)
   pptx.author     = brand.companyName;
   pptx.title      = presentation.title;
 
@@ -210,20 +210,26 @@ export async function exportToPptx(
   const LIGHT_BG  = 'F8FAFC';
   const BORDER    = 'E2E8F0';
 
-  // 슬라이드 크기(inches) — LAYOUT_WIDE 기준
+  // 슬라이드 크기(inches)
   const SW = 13.33;
   const SH = 7.5;
 
-  // 공통 여백/치수 상수화
-  const PAD_X = 0.5;
-  const PAD_Y = 0.4;
-  const TITLE_H = 0.7;
-  const CONTENT_Y = PAD_Y + TITLE_H + 0.15;
-  const CONTENT_H = SH - CONTENT_Y - PAD_Y;
-  const CONTENT_W = SW - PAD_X * 2;
+  // ✅ 웹 화면과 최대한 비슷한 비율의 여백 설정
+  const PAD_X = 0.6;
+  const PAD_Y = 0.5;
 
   for (const slide of presentation.slides) {
     const s = pptx.addSlide();
+
+    // ✅ 사용자가 에디터에서 설정한 폰트 크기를 가져옵니다 (없으면 기본값)
+    const TITLE_PT = slide.titleFontPt ?? 32;
+    const CONTENT_PT = slide.contentFontPt ?? 18;
+
+    // 제목 폰트 크기에 비례하여 제목 영역 높이를 동적 계산
+    const TITLE_H = TITLE_PT * 0.025; 
+    const CONTENT_Y = PAD_Y + TITLE_H + 0.2;
+    const CONTENT_H = SH - CONTENT_Y - PAD_Y;
+    const CONTENT_W = SW - PAD_X * 2;
 
     // ── 공통 배경 및 상단 컬러 바 렌더링
     s.addShape(pptx.ShapeType.rect, {
@@ -244,9 +250,9 @@ export async function exportToPptx(
     // ── 슬라이드 번호
     if (slide.slideNumber) {
       s.addText(String(slide.slideNumber), {
-        x: PAD_X, y: SH - 0.35,
+        x: PAD_X, y: SH - 0.4,
         w: 0.4, h: 0.25,
-        fontSize: 9, color: SUBTEXT, fontFace: FONT,
+        fontSize: 10, color: SUBTEXT, fontFace: FONT,
         align: 'center',
       });
     }
@@ -255,14 +261,14 @@ export async function exportToPptx(
     if (brand.logoDataUrl) {
       s.addImage({
         data: brand.logoDataUrl,
-        x: SW - 1.4, y: 0.12,
+        x: SW - 1.5, y: 0.15,
         w: 1.2, h: 0.45,
         sizing: { type: 'contain', w: 1.2, h: 0.45 },
       });
     }
 
     // ══════════════════════════════════════
-    // 슬라이드 타입별 분기 (Switch-Case 도입)
+    // 슬라이드 타입별 분기 
     // ══════════════════════════════════════
     if (slide.type === 'title') {
       s.addShape(pptx.ShapeType.rect, {
@@ -274,30 +280,31 @@ export async function exportToPptx(
         line: { color: PRIMARY, width: 0 },
       });
 
+      // ✅ 타이틀 슬라이드의 제목 크기도 설정값에 비례하여 조정
       s.addText(presentation.title ?? '', {
-        x: PAD_X * 2, y: SH * 0.3,
-        w: SW - PAD_X * 4, h: 1.2,
-        fontSize: 40, bold: true, color: WHITE,
-        fontFace: FONT, align: 'center',
+        x: PAD_X * 2, y: SH * 0.35,
+        w: SW - PAD_X * 4, h: 1.5,
+        fontSize: TITLE_PT + 10, bold: true, color: WHITE,
+        fontFace: FONT, align: 'center', valign: 'middle',
         breakLine: false,
       });
 
       if (slide.content && slide.content.length > 0) {
         s.addText(slide.content[0], {
-          x: PAD_X * 2, y: SH * 0.55,
-          w: SW - PAD_X * 4, h: 0.6,
-          fontSize: 18, color: 'D1E8FF',
-          fontFace: FONT, align: 'center',
+          x: PAD_X * 2, y: SH * 0.6,
+          w: SW - PAD_X * 4, h: 0.8,
+          fontSize: CONTENT_PT + 4, color: 'D1E8FF',
+          fontFace: FONT, align: 'center', valign: 'top'
         });
       }
       if (slide.notes) s.addNotes(slide.notes);
-      continue; // 타이틀은 공통 제목 바가 필요 없으므로 다음 슬라이드로 넘어감
+      continue;
     }
 
     // ── 공통 제목 바 (title 외 모든 슬라이드 적용)
     s.addShape(pptx.ShapeType.rect, {
-      x: PAD_X, y: PAD_Y,
-      w: 0.05, h: TITLE_H * 0.9,
+      x: PAD_X, y: PAD_Y + (TITLE_H * 0.1),
+      w: 0.06, h: TITLE_H * 0.8,
       fill: { type: 'gradient', stops: [
         { position: 0,   color: PRIMARY },
         { position: 100, color: ACCENT  },
@@ -305,10 +312,11 @@ export async function exportToPptx(
       line: { color: PRIMARY, width: 0 },
     });
 
+    // ✅ 사용자가 설정한 TITLE_PT 폰트 크기 적용
     s.addText(slide.title ?? '', {
-      x: PAD_X + 0.15, y: PAD_Y,
-      w: CONTENT_W - 0.2, h: TITLE_H,
-      fontSize: 22, bold: true, color: DARK,
+      x: PAD_X + 0.2, y: PAD_Y,
+      w: CONTENT_W - 0.3, h: TITLE_H,
+      fontSize: TITLE_PT, bold: true, color: DARK,
       fontFace: FONT, valign: 'middle',
     });
 
@@ -318,6 +326,15 @@ export async function exportToPptx(
       line: { color: BORDER, width: 1 },
     });
 
+    // ✅ 사용자가 설정한 레이아웃 텍스트/이미지 비율(visualRatio) 계산
+    const visualRatio = (slide.visualRatio ?? 50) / 100;
+    const hasSplitImage = slide.imageUrl && (slide.layout === 'split-right' || slide.layout === 'split-left');
+    
+    const MAIN_W = hasSplitImage ? CONTENT_W * (1 - visualRatio) - 0.2 : CONTENT_W;
+    const IMG_W  = hasSplitImage ? CONTENT_W * visualRatio : 0;
+    const CONTENT_START_X = (hasSplitImage && slide.layout === 'split-left') ? PAD_X + IMG_W + 0.2 : PAD_X;
+    const IMG_X = slide.layout === 'split-left' ? PAD_X : PAD_X + MAIN_W + 0.2;
+
     // 콘텐츠 렌더링
     switch (slide.type) {
       case 'kpi': {
@@ -325,46 +342,38 @@ export async function exportToPptx(
         const km = slide.keyMetrics;
         const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
         const rows = Math.ceil(km.length / cols);
-        const cardW = (CONTENT_W - (cols - 1) * 0.2) / cols;
+        const cardW = (MAIN_W - (cols - 1) * 0.2) / cols;
         const cardH = (CONTENT_H - (rows - 1) * 0.2) / rows;
         const kpiColors = [PRIMARY, ACCENT, '10b981', 'f59e0b', 'ef4444', '8b5cf6'];
 
         km.forEach((kpi, i) => {
           const col = i % cols;
           const row = Math.floor(i / cols);
-          const x = PAD_X + col * (cardW + 0.2);
+          const x = CONTENT_START_X + col * (cardW + 0.2);
           const y = CONTENT_Y + row * (cardH + 0.2);
           const bgColor = kpiColors[i % kpiColors.length];
 
           s.addShape(pptx.ShapeType.roundRect, {
             x, y, w: cardW, h: cardH,
-            rectRadius: 0.15,
-            fill: { color: bgColor },
-            line: { color: bgColor, width: 0 },
+            rectRadius: 0.15, fill: { color: bgColor }, line: { color: bgColor, width: 0 },
             shadow: { type: 'outer', color: '000000', opacity: 0.15, blur: 8, offset: 4, angle: 90 },
           });
 
           s.addText(kpi.label ?? '', {
-            x: x + 0.15, y: y + cardH * 0.12,
-            w: cardW - 0.3, h: cardH * 0.28,
-            fontSize: 11, color: 'FFFFFF', fontFace: FONT,
-            bold: true, align: 'center', charSpacing: 1.5,
+            x: x + 0.15, y: y + cardH * 0.12, w: cardW - 0.3, h: cardH * 0.28,
+            fontSize: CONTENT_PT - 4, color: 'FFFFFF', fontFace: FONT, bold: true, align: 'center',
           });
 
           s.addText(String(kpi.value ?? ''), {
-            x: x + 0.1, y: y + cardH * 0.38,
-            w: cardW - 0.2, h: cardH * 0.42,
-            fontSize: 28, bold: true, color: WHITE,
-            fontFace: FONT, align: 'center', valign: 'middle',
+            x: x + 0.1, y: y + cardH * 0.38, w: cardW - 0.2, h: cardH * 0.42,
+            fontSize: TITLE_PT + 6, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
           });
 
           if (kpi.trend) {
             const trendSymbol = kpi.trend === 'up' ? '▲ 상승' : kpi.trend === 'down' ? '▼ 하락' : '— 보합';
             s.addText(trendSymbol, {
-              x: x + 0.15, y: y + cardH * 0.8,
-              w: cardW - 0.3, h: cardH * 0.18,
-              fontSize: 10, color: 'FFFFFF', fontFace: FONT,
-              align: 'center', bold: true,
+              x: x + 0.15, y: y + cardH * 0.8, w: cardW - 0.3, h: cardH * 0.18,
+              fontSize: CONTENT_PT - 6, color: 'FFFFFF', fontFace: FONT, align: 'center', bold: true,
             });
           }
         });
@@ -380,7 +389,7 @@ export async function exportToPptx(
             text: h,
             options: {
               bold: true, color: WHITE, fill: { color: PRIMARY },
-              fontFace: FONT, fontSize: 12, align: 'center' as const,
+              fontFace: FONT, fontSize: CONTENT_PT - 2, align: 'center' as const,
             },
           })),
           ...rows.map((row, ri) =>
@@ -389,20 +398,19 @@ export async function exportToPptx(
               options: {
                 color: ci === 0 ? DARK : SUBTEXT,
                 fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
-                fontFace: FONT, fontSize: 11,
-                bold: ci === 0,
-                align: ci === 0 ? 'left' as const : 'center' as const,
+                fontFace: FONT, fontSize: CONTENT_PT - 3,
+                bold: ci === 0, align: ci === 0 ? 'left' as const : 'center' as const,
               },
             }))
           ),
         ];
 
         s.addTable(tableRows, {
-          x: PAD_X, y: CONTENT_Y,
-          w: CONTENT_W, h: CONTENT_H,
+          x: CONTENT_START_X, y: CONTENT_Y,
+          w: MAIN_W, h: CONTENT_H,
           border: { type: 'solid', color: BORDER, pt: 0.5 },
           autoPage: false,
-          colW: Array(headers.length).fill(CONTENT_W / headers.length),
+          colW: Array(headers.length).fill(MAIN_W / headers.length),
         });
         break;
       }
@@ -412,36 +420,36 @@ export async function exportToPptx(
         const rightItems = slide.rightItems ?? [];
         const leftTitle  = slide.leftTitle  ?? 'AS-IS';
         const rightTitle = slide.rightTitle ?? 'TO-BE';
-        const halfW = (CONTENT_W - 0.4) / 2;
+        const halfW = (MAIN_W - 0.4) / 2;
 
         // 왼쪽 패널
         s.addShape(pptx.ShapeType.roundRect, {
-          x: PAD_X, y: CONTENT_Y, w: halfW, h: CONTENT_H,
+          x: CONTENT_START_X, y: CONTENT_Y, w: halfW, h: CONTENT_H,
           rectRadius: 0.1, fill: { color: 'EFF6FF' }, line: { color: '93C5FD', width: 1 },
         });
         s.addShape(pptx.ShapeType.roundRect, {
-          x: PAD_X, y: CONTENT_Y, w: halfW, h: 0.45,
+          x: CONTENT_START_X, y: CONTENT_Y, w: halfW, h: 0.45,
           rectRadius: 0.1, fill: { color: '1E3A8A' }, line: { color: '1E3A8A', width: 0 },
         });
         s.addText(leftTitle, {
-          x: PAD_X, y: CONTENT_Y, w: halfW, h: 0.45,
-          fontSize: 14, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
+          x: CONTENT_START_X, y: CONTENT_Y, w: halfW, h: 0.45,
+          fontSize: CONTENT_PT, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
         });
         leftItems.forEach((item, i) => {
           s.addText(`${i + 1}. ${item}`, {
-            x: PAD_X + 0.15, y: CONTENT_Y + 0.55 + i * 0.42, w: halfW - 0.3, h: 0.38,
-            fontSize: 11, color: '1E3A8A', fontFace: FONT, bold: true, bullet: false,
+            x: CONTENT_START_X + 0.15, y: CONTENT_Y + 0.55 + i * 0.42, w: halfW - 0.3, h: 0.38,
+            fontSize: CONTENT_PT - 3, color: '1E3A8A', fontFace: FONT, bold: true, bullet: false,
           });
         });
 
         // 화살표 중앙
         s.addText('→', {
-          x: PAD_X + halfW + 0.05, y: CONTENT_Y + CONTENT_H / 2 - 0.25,
-          w: 0.3, h: 0.5, fontSize: 20, bold: true, color: PRIMARY, fontFace: FONT, align: 'center',
+          x: CONTENT_START_X + halfW + 0.05, y: CONTENT_Y + CONTENT_H / 2 - 0.25,
+          w: 0.3, h: 0.5, fontSize: TITLE_PT, bold: true, color: PRIMARY, fontFace: FONT, align: 'center',
         });
 
         // 오른쪽 패널
-        const rightX = PAD_X + halfW + 0.4;
+        const rightX = CONTENT_START_X + halfW + 0.4;
         s.addShape(pptx.ShapeType.roundRect, {
           x: rightX, y: CONTENT_Y, w: halfW, h: CONTENT_H,
           rectRadius: 0.1, fill: { color: 'F0FDF4' }, line: { color: '86EFAC', width: 1 },
@@ -452,12 +460,12 @@ export async function exportToPptx(
         });
         s.addText(rightTitle, {
           x: rightX, y: CONTENT_Y, w: halfW, h: 0.45,
-          fontSize: 14, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
+          fontSize: CONTENT_PT, bold: true, color: WHITE, fontFace: FONT, align: 'center', valign: 'middle',
         });
         rightItems.forEach((item, i) => {
           s.addText(`${i + 1}. ${item}`, {
             x: rightX + 0.15, y: CONTENT_Y + 0.55 + i * 0.42, w: halfW - 0.3, h: 0.38,
-            fontSize: 11, color: '064E3B', fontFace: FONT, bold: true,
+            fontSize: CONTENT_PT - 3, color: '064E3B', fontFace: FONT, bold: true,
           });
         });
         break;
@@ -468,8 +476,8 @@ export async function exportToPptx(
         const cd = slide.chartData;
 
         s.addText(`📊 차트 타입: ${cd.chartType ?? 'bar'}`, {
-          x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: 0.4,
-          fontSize: 12, color: SUBTEXT, fontFace: FONT, italic: true,
+          x: CONTENT_START_X, y: CONTENT_Y, w: MAIN_W, h: 0.4,
+          fontSize: CONTENT_PT - 4, color: SUBTEXT, fontFace: FONT, italic: true,
         });
 
         const hasValue2 = cd.data.some(d => d.value2 !== undefined);
@@ -482,7 +490,7 @@ export async function exportToPptx(
             text: h,
             options: {
               bold: true, color: WHITE, fill: { color: PRIMARY },
-              fontFace: FONT, fontSize: 12, align: 'center' as const,
+              fontFace: FONT, fontSize: CONTENT_PT - 2, align: 'center' as const,
             },
           })),
           ...cd.data.map((d, ri) => {
@@ -494,22 +502,21 @@ export async function exportToPptx(
               options: {
                 color: ci === 0 ? DARK : SUBTEXT,
                 fill: { color: ri % 2 === 0 ? WHITE : LIGHT_BG },
-                fontFace: FONT, fontSize: 11,
-                bold: ci === 0,
-                align: ci === 0 ? 'left' as const : 'center' as const,
+                fontFace: FONT, fontSize: CONTENT_PT - 3,
+                bold: ci === 0, align: ci === 0 ? 'left' as const : 'center' as const,
               },
             }));
           }),
         ];
 
         s.addTable(tableRows, {
-          x: PAD_X, y: CONTENT_Y + 0.45,
-          w: CONTENT_W, h: CONTENT_H - 0.45,
+          x: CONTENT_START_X, y: CONTENT_Y + 0.45,
+          w: MAIN_W, h: CONTENT_H - 0.45,
           border: { type: 'solid', color: BORDER, pt: 0.5 },
           autoPage: false,
           colW: hasValue2
-            ? [CONTENT_W * 0.4, CONTENT_W * 0.3, CONTENT_W * 0.3]
-            : [CONTENT_W * 0.5, CONTENT_W * 0.5],
+            ? [MAIN_W * 0.4, MAIN_W * 0.3, MAIN_W * 0.3]
+            : [MAIN_W * 0.5, MAIN_W * 0.5],
         });
         break;
       }
@@ -518,40 +525,38 @@ export async function exportToPptx(
         // CONTENT, PROCESS, TIMELINE 등 기타 슬라이드
         const items = slide.content ?? slide.points ?? slide.items ?? [];
         if (items.length > 0) {
-          const bulletItems = items.map((item, i) => ({
-            text: `${i + 1}.  ${item}`,
+          const bulletItems = items.map((item) => ({
+            text: item,
             options: {
-              fontSize: 15, color: DARK, fontFace: FONT,
-              bullet: false, paraSpaceAfter: 6, indentLevel: 0,
+              fontSize: CONTENT_PT, // ✅ 사용자가 지정한 pt 적용
+              color: DARK, fontFace: FONT,
+              bullet: { type: 'number' }, // 네이티브 넘버링
+              paraSpaceAfter: CONTENT_PT * 0.8, // 글자 크기에 맞춰 문단 간격 조정
+              indentLevel: 0,
             },
           }));
           s.addText(bulletItems, {
-            x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: CONTENT_H,
+            x: CONTENT_START_X, y: CONTENT_Y, w: MAIN_W, h: CONTENT_H,
             valign: 'top', wrap: true,
           });
         } else {
           s.addText('내용을 입력하세요.', {
-            x: PAD_X, y: CONTENT_Y, w: CONTENT_W, h: CONTENT_H,
-            fontSize: 14, color: BORDER, fontFace: FONT, align: 'center', valign: 'middle', italic: true,
+            x: CONTENT_START_X, y: CONTENT_Y, w: MAIN_W, h: CONTENT_H,
+            fontSize: CONTENT_PT, color: BORDER, fontFace: FONT, align: 'center', valign: 'middle', italic: true,
           });
         }
         break;
       }
     }
 
-    // ── 공통: 이미지 처리 (split 레이아웃)
-    if (slide.imageUrl && (slide.layout === 'split-right' || slide.layout === 'split-left')) {
-      const visualRatio = (slide.visualRatio ?? 50) / 100;
-      const textW  = CONTENT_W * (1 - visualRatio) - 0.15;
-      const imgW   = CONTENT_W * visualRatio;
-      const imgX   = slide.layout === 'split-left' ? PAD_X : PAD_X + textW + 0.15;
-
+    // ── 공통: 이미지 처리 (split 레이아웃) ──
+    if (hasSplitImage) {
       try {
         s.addImage({
           path: slide.imageUrl,
-          x: imgX, y: CONTENT_Y,
-          w: imgW, h: CONTENT_H,
-          sizing: { type: 'cover', w: imgW, h: CONTENT_H },
+          x: IMG_X, y: CONTENT_Y,
+          w: IMG_W, h: CONTENT_H,
+          sizing: { type: 'cover', w: IMG_W, h: CONTENT_H },
         });
       } catch {
         // 이미지 URL 오류 무시
