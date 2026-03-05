@@ -1,3 +1,4 @@
+// src/components/PresentationSetupForm.tsx
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -39,8 +40,8 @@ interface PresentationSetupFormProps {
 
 const TEMPLATES = [
   { id: 'auto',     icon: <Wand2 className="w-5 h-5" />,    label: 'AI 자동',   desc: 'AI가 최적 구성 자동 판단',  color: 'from-violet-500 to-purple-600' },
-  { id: 'report',   icon: <FileText className="w-5 h-5" />,  label: '보고서',    desc: '업무 보고서 형식',          color: 'from-blue-500 to-indigo-600' },
-  { id: 'analysis', icon: <BarChart3 className="w-5 h-5" />, label: '분석 자료', desc: '데이터 분석 중심',          color: 'from-cyan-500 to-blue-600' },
+  { id: 'report',   icon: <FileText className="w-5 h-5" />,  label: '보고서',    desc: '업무 보고서 형식',         color: 'from-blue-500 to-indigo-600' },
+  { id: 'analysis', icon: <BarChart3 className="w-5 h-5" />, label: '분석 자료', desc: '데이터 분석 중심',         color: 'from-cyan-500 to-blue-600' },
   { id: 'proposal', icon: <Lightbulb className="w-5 h-5" />, label: '기획안',    desc: '제안서 / 기획 발표',        color: 'from-amber-500 to-orange-600' },
   { id: 'summary',  icon: <Layout className="w-5 h-5" />,    label: '요약 자료', desc: '핵심만 정리한 요약본',      color: 'from-emerald-500 to-teal-600' },
 ];
