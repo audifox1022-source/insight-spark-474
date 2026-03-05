@@ -1,6 +1,6 @@
 // src/components/SlideEditor.tsx
 import React, { useState } from 'react';
-import { Slide } from '@/types/presentation';
+import { Slide, Presentation } from '@/types/presentation';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -22,25 +22,54 @@ import {
   ChevronUp,
 } from 'lucide-react';
 
+// ✅ Index.tsx에서 넘겨주는 모든 Props를 받을 수 있도록 인터페이스 확장
 interface SlideEditorProps {
-  slides: Slide[];
-  currentSlide: number;
+  slides?: Slide[];
+  currentSlide?: number;
+  presentation?: Presentation;
   onUpdateSlide: (slideIndex: number, updates: Partial<Slide>) => void;
   onAddContent?: (slideIndex: number) => void;
   onRemoveContent?: (slideIndex: number, contentIndex: number) => void;
+  
+  // Index.tsx에서 새롭게 주입하는 Props 목록
+  onReset?: () => void;
+  onUpdateAllSlides?: (updates: Partial<Slide>) => void;
+  onAddSlide?: (afterIndex: number) => void;
+  onDeleteSlide?: (index: number) => void;
+  onDuplicateSlide?: (index: number) => void;
+  onMoveSlide?: (from: number, to: number) => void;
+  onUpdateTitle?: (title: string) => void;
+  onSave?: () => void;
+  isSaving?: boolean;
+  onRegenerateSlide?: (slideIndex: number, userInstruction?: string) => void;
+  onOpenChat?: () => void;
+  onOpenReview?: () => void;
+  onReviewAndFix?: () => void;
+  isFixing?: boolean;
+  onChangePersona?: (idx: number, persona: string) => void;
+  onCycleLayout?: (slideIndex: number) => void;
+  updatePresentationMaster?: (updatedPresentation: Partial<Presentation>) => void; // 에러 원인이었던 함수
+  isGeneratingImage?: boolean;
+  generateSlideImage?: (slideIndex: number) => void;
 }
 
-// ✅ named export (Index.tsx의 import { SlideEditor } 와 일치)
 export function SlideEditor({
   slides,
-  currentSlide,
+  currentSlide = 0,
+  presentation,
   onUpdateSlide,
   onAddContent,
   onRemoveContent,
+  updatePresentationMaster,
+  // 나머지 props들은 필요에 따라 내부에서 구조 분해 할당하여 사용 가능합니다.
+  ...props 
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
 
-  const slide = slides[currentSlide];
+  // presentation 객체가 prop으로 넘어오면 그 안의 slides를 우선적으로 사용하도록 방어 로직 추가
+  const activeSlides = slides || presentation?.slides || [];
+  const slide = activeSlides[currentSlide];
+
   if (!slide) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
