@@ -1,5 +1,5 @@
 // ============================================================
-// ai-service.ts — 2단계: 참고 양식(Reference) 구조 및 스타일 완벽 복제 고도화 버전 + 빌드 에러 수정 완결판
+// ai-service.ts — PPT 퀄리티 매칭 레이아웃 강화 버전
 // ============================================================
 
 const DIFFICULTY_MAP: Record<string, string> = {
@@ -45,7 +45,7 @@ const ALLOWED_SLIDE_TYPES = [
 type AllowedSlideType = typeof ALLOWED_SLIDE_TYPES[number];
 
 // ============================================================
-// System Prompt Core
+// ✅ AI 프롬프트 강화: getSystemPromptCore
 // ============================================================
 function getSystemPromptCore(difficulty = "medium"): string {
   const tone = DIFFICULTY_MAP[difficulty] ?? DIFFICULTY_MAP.medium;
@@ -75,55 +75,86 @@ function getSystemPromptCore(difficulty = "medium"): string {
 - 중요 데이터는 chart/kpi 타입 활용
 - 텍스트는 5줄 이하로 제한 (불릿 포인트 기준)
 
+[🎨 고급 레이아웃 옵션 — PPT 퀄리티 매칭]
+
+**layout 필드 활용** — 슬라이드 특성에 맞게 선택
+- "default": 기본 중앙 정렬 레이아웃
+- "split-left": 좌측 이미지/비주얼 + 우측 텍스트 (이미지 강조형)
+- "split-right": 좌측 텍스트 + 우측 이미지/비주얼 (텍스트 강조형)
+- "grid": 3단 또는 2단 그리드 카드 레이아웃 (요소 나열형)
+
+✅ **사용 예시:**
+- 제품/서비스 소개 → "split-left" 또는 "split-right" (이미지와 설명 병행)
+- 핵심 가치/강점 → "grid" (3~4개 카드형 나열)
+- 프로세스 설명 → "split-right" (좌측 단계 설명 + 우측 시각화)
+- 데이터 중심 → "default" + chart/kpi 타입
+
+[📐 레이아웃별 규칙]
+
+**split-left / split-right:**
+✅ content 불릿: 3~5개 (시각 자료와 균형)
+✅ imageUrl 필드 적극 활용 (비주얼 영역에 표시)
+✅ subhead 활용 (타이틀 아래 강조 문구)
+❌ 불릿 6개 초과 금지
+
+**grid:**
+✅ content 개수: 4~6개 (그리드 셀 개수)
+✅ 각 항목: 15~20자 이내 (카드 크기 제한)
+✅ 첫 번째 카드는 자동으로 강조 표시됨
+❌ 6개 초과 금지
+
 [✅ 타입별 레이아웃 규칙 — 반드시 준수]
 
 1. **content** (일반 내용) ⚠️ 가장 흔한 실수 방지
-   ✅ 불릿 포인트: 3~5개 (최대 6개)
-   ✅ 각 불릿은 2줄 이하 (25자 이내)
-   ✅ 제목 + 불릿 외에 추가 텍스트 최소화
-   ❌ 절대 금지: 6개 초과 불릿, 80자 초과 텍스트
+✅ 불릿 포인트: 3~5개 (최대 6개)
+✅ 각 불릿은 2줄 이하 (25자 이내)
+✅ 제목 + 불릿 외에 추가 텍스트 최소화
+✅ layout 활용: 이미지 포함 시 "split-left" 또는 "split-right"
+❌ 절대 금지: 6개 초과 불릿, 80자 초과 텍스트
 
 2. **chart** (차트)
-   ✅ 데이터 포인트: 4~8개 권장
-   ✅ labels 배열 길이 = 4~8개
-   ❌ 절대 금지: 10개 초과 데이터 포인트
+✅ 데이터 포인트: 4~8개 권장
+✅ labels 배열 길이 = 4~8개
+❌ 절대 금지: 10개 초과 데이터 포인트
 
 3. **table** (표)
-   ✅ 열(headers): 3~5개 권장 (최대 7개)
-   ✅ 행(rows): 4~8개 권장
-   ✅ 헤더 강조 필수
-   ❌ 절대 금지: 7개 초과 열, 10개 초과 행
+✅ 열(headers): 3~5개 권장 (최대 7개)
+✅ 행(rows): 4~8개 권장
+✅ 헤더 강조 필수
+❌ 절대 금지: 7개 초과 열, 10개 초과 행
 
 4. **kpi** (핵심지표)
-   ✅ 지표 개수: 3~4개 (최대 6개)
-   ✅ 각 지표: 큰 숫자 + 라벨 + 트렌드
-   ❌ 절대 금지: 6개 초과 지표
+✅ 지표 개수: 3~4개 (최대 6개)
+✅ 각 지표: 큰 숫자 + 라벨 + 트렌드
+❌ 절대 금지: 6개 초과 지표
 
 5. **process** (프로세스/단계)
-   ✅ 3~4단계 권장 (최대 5단계)
-   ✅ 좌→우 흐름 (Horizontal Flow)
-   ✅ 각 단계: 제목 + 1줄 설명
+✅ 3~4단계 권장 (최대 5단계)
+✅ 좌→우 흐름 (Horizontal Flow)
+✅ 각 단계: 제목 + 1줄 설명
 
 6. **compare** (비교)
-   ✅ 좌우 분할 레이아웃 (50:50)
-   ✅ 각 항목 3~4개
-   ✅ 대칭 구조 유지
+✅ 좌우 분할 레이아웃 (50:50)
+✅ 각 항목 3~4개
+✅ 대칭 구조 유지
 
 7. **timeline** (타임라인)
-   ✅ 단계: 4~6개
-   ✅ 완료/진행/예정 상태 구분
+✅ 단계: 4~6개
+✅ 완료/진행/예정 상태 구분
+✅ milestones 필드 사용: [{label, date, state: "done"|"next"|"todo"}]
 
 8. **cards** (카드형)
-   ✅ 카드 개수: 4~6개
-   ✅ 각 카드: 제목 + 2줄 설명
+✅ 카드 개수: 4~6개
+✅ 각 카드: 제목 + 2줄 설명
+✅ layout "grid" 활용 권장
 
 9. **agenda** (목차)
-   ✅ 항목: 4~6개 권장 (최대 8개)
-   ✅ 각 항목은 한 줄로 요약
+✅ 항목: 4~6개 권장 (최대 8개)
+✅ 각 항목은 한 줄로 요약
 
 10. **summary** (마무리)
-    ✅ 핵심 메시지 3~5개
-    ✅ 마지막에 CTA (Call to Action) 추가
+✅ 핵심 메시지 3~5개
+✅ 마지막에 CTA (Call to Action) 추가
 
 [🔥 슬라이드 생성 시 체크리스트]
 ✅ 각 슬라이드는 **하나의 핵심 메시지**만 전달
@@ -131,6 +162,7 @@ function getSystemPromptCore(difficulty = "medium"): string {
 ✅ 시각 자료(차트/표/KPI)를 **적극 활용**
 ✅ 타입별 레이아웃 규칙을 **정확히 준수**
 ✅ 슬라이드 간 **일관성** 유지 (톤앤매너)
+✅ **layout 필드 적극 활용** (특히 content 타입)
 
 [❌ 절대 하지 말 것]
 ❌ content에 6개 초과 불릿
@@ -139,17 +171,18 @@ function getSystemPromptCore(difficulty = "medium"): string {
 ❌ 7개 초과 표 열
 ❌ 한 슬라이드에 여러 주제 혼재
 ❌ "데이터 없음", "추후 입력" 같은 placeholder 텍스트
+❌ layout 필드를 사용하지 않는 단조로운 구성
 `;
 }
 
 // ============================================================
-// SLIDE SCHEMA
+// SLIDE_SCHEMA
 // ============================================================
 const SLIDE_SCHEMA = `
 [📐 슬라이드 타입 고정 목록 — 반드시 아래 12개 중 하나만 사용]
 type      | 용도                         | 필수 필드
 ----------|------------------------------|------------------------------------------
-title     | 표지 (1번 슬라이드 전용)     | content: [부제목] (1~2개)
+title     | 표지 (1번 슬라이드 전용)      | content: [부제목] (1~2개)
 agenda    | 목차                         | content: [항목들] (3~8개)
 content   | 일반 불릿                    | content: [항목들] (3~6개) ⚠️ 6개 초과 절대 금지
 process   | 순서/단계                    | content: [단계들] (3~5개, 순서 중요)
@@ -162,18 +195,61 @@ quote     | 인용구                       | text, author
 timeline  | 타임라인                     | milestones [{label, date, state}] (4~6개)
 summary   | 마무리 (마지막 슬라이드 전용) | content: [핵심 요약] (3~5개)
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ **layout 필드 활용 예시**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[content 타입 + split-left 레이아웃 — 좋은 예시 ✅]
+{
+  "title": "핵심 기능",
+  "type": "content",
+  "layout": "split-left",
+  "subhead": "사용자 중심 설계",
+  "content": [
+    "직관적인 인터페이스",
+    "실시간 데이터 동기화",
+    "모바일 최적화",
+    "클라우드 백업 지원"
+  ],
+  "imageUrl": "https://..."
+}
+✅ 좌측 이미지 + 우측 불릿 4개, 균형 잡힌 구성
+
+[content 타입 + grid 레이아웃 — 좋은 예시 ✅]
+{
+  "title": "우리의 강점",
+  "type": "content",
+  "layout": "grid",
+  "content": [
+    "업계 최고 기술력",
+    "24/7 고객 지원",
+    "합리적인 가격",
+    "검증된 보안 시스템"
+  ]
+}
+✅ 4개 카드 그리드, 간결한 15자 이내 항목
+
 [📊 chart 타입 chartData 구조 예시]
 "chartData": {
-  "type": "bar",
-  "labels": ["1분기", "2분기", "3분기"],
-  "datasets": [{"label": "매출(억)", "data": [120, 145, 168]}]
+  "chartType": "bar",
+  "data": [
+    {"name": "1분기", "value": 120},
+    {"name": "2분기", "value": 145},
+    {"name": "3분기", "value": 168}
+  ],
+  "series1Label": "매출(억)",
+  "showLegend": true
 }
-type은 "bar" | "line" | "pie" | "area" 중 하나.
+
+chartType은 "bar" | "line" | "pie" | "area" 중 하나.
 
 [📋 table 타입 tableData 구조 예시]
 "tableData": {
   "headers": ["항목", "현황", "목표"],
-  "rows": [["생산량", "1,200톤", "1,500톤"], ["불량률", "2.1%", "1.5%"]]
+  "rows": [
+    ["생산량", "1,200톤", "1,500톤"],
+    ["불량률", "2.1%", "1.5%"]
+  ]
 }
 
 [🎯 kpi 타입 keyMetrics 구조 예시]
@@ -182,6 +258,7 @@ type은 "bar" | "line" | "pie" | "area" 중 하나.
   {"label": "불량률", "value": "2.1%", "trend": "down"},
   {"label": "가동률", "value": "87%", "trend": "flat"}
 ]
+
 trend는 "up" | "down" | "flat" 중 하나.
 
 [🔄 compare 타입 구조 예시]
@@ -193,9 +270,10 @@ trend는 "up" | "down" | "flat" 중 하나.
 [📅 timeline 타입 milestones 구조 예시]
 "milestones": [
   {"label": "착수", "date": "2025.01", "state": "done"},
-  {"label": "중간점검","date": "2025.06", "state": "next"},
+  {"label": "중간점검", "date": "2025.06", "state": "next"},
   {"label": "완료", "date": "2025.12", "state": "todo"}
 ]
+
 state는 "done" | "next" | "todo" 중 하나.
 
 [🔥 타입 사용 절대 규칙]
@@ -210,6 +288,7 @@ state는 "done" | "next" | "todo" 중 하나.
 9. **chart 타입 데이터 포인트는 4~8개 권장, 10개 초과 절대 금지.**
 10. **table 타입 열은 3~5개 권장, 7개 초과 금지.**
 11. **kpi 타입 지표는 3~4개 권장, 6개 초과 금지.**
+12. **layout 필드를 적극 활용하여 단조로운 구성 방지.**
 `;
 
 const MAX_FILE_BYTES = 80_000;
@@ -243,9 +322,11 @@ function extractTextFromItem(item: any, depth = 0): string[] {
       return [cleanStr];
     }
   }
+
   if (Array.isArray(item)) {
     return item.flatMap((el) => extractTextFromItem(el, depth + 1));
   }
+
   if (typeof item === "object") {
     const result: string[] = [];
     const title = item.title || item.heading || item.name || item.subject || "";
@@ -275,10 +356,11 @@ function extractTextFromItem(item: any, depth = 0): string[] {
     }
     return result;
   }
+
   return [String(item)];
 }
 
-const TYPE_ALIAS_MAP: Record<string, AllowedSlideType> = {
+const TYPE_ALIAS_MAP: Record<string, string> = {
   'cover': 'title', 'intro': 'title', 'introduction': 'title', 'opening': 'title',
   'toc': 'agenda', 'tableofcontents': 'agenda', 'index': 'agenda', 'outline': 'agenda',
   'text': 'content', 'bullet': 'content', 'bullets': 'content',
@@ -377,6 +459,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
         yAxisLabel: raw.yAxisLabel ?? undefined,
       };
     }
+
     if (parsedChartData) {
       s.chartData = parsedChartData;
       s.tableData = { headers: [], rows: [] };
@@ -463,6 +546,7 @@ function normalizeSlide(s: any, index = 0, total = 1): any {
     s.tableData = { headers: [], rows: [] };
     s.keyMetrics = [];
 
+  // ── 그 외 (title / agenda / content / process / cards / summary) ──
   } else {
     s.chartData = null;
     s.tableData = { headers: [], rows: [] };
@@ -487,89 +571,48 @@ function countUnbalancedBrackets(str: string): { braces: number; brackets: numbe
       if (ch === strChar) inString = false;
       continue;
     }
+
     if (ch === '"' || ch === "'") {
       inString = true;
       strChar = ch;
       continue;
     }
+
     if (ch === '{') braces++;
     else if (ch === '}') braces--;
     else if (ch === '[') brackets++;
     else if (ch === ']') brackets--;
   }
+
   return { braces, brackets };
 }
 
-// ✅ 정규표현식(match)을 제거하고 indexOf 기반으로 안전하게 추출하도록 수정
 function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
+  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (mdMatch) cleanText = mdMatch[1].trim();
 
-  // 1. 마크다운 코드 블록 제거
-  const jsonStart = cleanText.indexOf('```json');
-  if (jsonStart !== -1) {
-    const startIdx = jsonStart + 7;
-    const endIdx = cleanText.indexOf('```', startIdx);
-    if (endIdx !== -1) {
-      cleanText = cleanText.substring(startIdx, endIdx).trim();
-    }
-  } else {
-    const start = cleanText.indexOf('```');
-    if (start !== -1) {
-      const firstBraceAfterStart = cleanText.indexOf('{', start);
-      const firstBracketAfterStart = cleanText.indexOf('[', start);
-      
-      let actualStart = -1;
-      if (firstBraceAfterStart !== -1 && firstBracketAfterStart !== -1) {
-        actualStart = Math.min(firstBraceAfterStart, firstBracketAfterStart);
-      } else if (firstBraceAfterStart !== -1) {
-        actualStart = firstBraceAfterStart;
-      } else if (firstBracketAfterStart !== -1) {
-        actualStart = firstBracketAfterStart;
-      }
-
-      if (actualStart !== -1) {
-        const end = cleanText.lastIndexOf('```');
-        if (end !== -1 && end > actualStart) {
-          cleanText = cleanText.substring(actualStart, end).trim();
-        }
-      }
-    }
-  }
-
-  // 파싱 후 유효성 검사 로직
   const tryParse = (str: string) => {
-    try {
-      let parsed = JSON.parse(str);
-      
-      // ✅ 객체 타입 보장 및 slides/outline 배열 검사 추가
-      if (parsed && typeof parsed === 'object') {
-        if (Array.isArray(parsed.slides)) {
-          const total = parsed.slides.length;
-          parsed.slides = parsed.slides.map((s: any, i: number) => normalizeSlide(s, i, total));
-        } else if (Array.isArray(parsed.outline)) {
-          const total = parsed.outline.length;
-          parsed.outline = parsed.outline.map((item: any, i: number) => ({
-            ...item,
-            type: normalizeType(item.type || 'content', i, total),
-          }));
-        } else if (Array.isArray(parsed)) {
-          // 배열 자체로 반환된 경우 (방어적 코드)
-          return parsed;
-        }
-        return parsed;
-      }
-      return null;
-    } catch (e) {
-      throw e; // 재시도를 위해 에러 던짐
+    const parsed = JSON.parse(str);
+    if (parsed && Array.isArray(parsed.slides)) {
+      const total = parsed.slides.length;
+      parsed.slides = parsed.slides.map((s: any, i: number) =>
+        normalizeSlide(s, i, total)
+      );
     }
+    if (parsed && Array.isArray(parsed.outline)) {
+      const total = parsed.outline.length;
+      parsed.outline = parsed.outline.map((item: any, i: number) => ({
+        ...item,
+        type: normalizeType(item.type || 'content', i, total),
+      }));
+    }
+    return parsed;
   };
 
-  try { 
-    return tryParse(cleanText); 
-  } catch {}
+  try { return tryParse(cleanText); } catch {}
 
-  // 2. 손상된 JSON 복구 로직
   try {
     const firstBrace = cleanText.indexOf("{");
     const firstBracket = cleanText.indexOf("[");
@@ -638,6 +681,7 @@ async function callGeminiAPI(
       await new Promise((res) => setTimeout(res, waitMs));
       continue;
     }
+
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
       const message = (errorBody as any)?.error?.message || "알 수 없는 오류";
@@ -645,6 +689,7 @@ async function callGeminiAPI(
       if (response.status === 403) throw new Error("API 키가 유효하지 않습니다.");
       throw new Error(`AI 서버 통신 오류 (${response.status}): ${message}`);
     }
+
     const data = await response.json();
     const candidate = data?.candidates?.[0];
     if (!candidate) throw new Error("AI 응답에 결과가 없습니다.");
@@ -652,6 +697,7 @@ async function callGeminiAPI(
     if (!text || text.trim() === "") throw new Error("빈 응답이 반환되었습니다.");
     return text;
   }
+
   throw lastError;
 }
 
@@ -725,25 +771,6 @@ function generateWithPollinationsImgDirect(
 
 export const aiService = {
 
-  async analyzeReferenceStructure(referenceData: string) {
-    const systemInstruction = "당신은 프레젠테이션 템플릿 및 구조 분석 전문가입니다.";
-    const userPrompt = `다음은 사용자가 참고하고자 하는 '레퍼런스(참고 양식) 문서'의 텍스트/구조 데이터입니다.
-이 문서의 목차 전개 방식, 슬라이드 당 텍스트 분량, 선호하는 레이아웃(표, 차트, 불릿 등), 어조(Tone & Manner)를 심층 분석하세요.
-
-[레퍼런스 데이터]
-${referenceData.slice(0, 15000)}
-
-반드시 아래 JSON 형식으로만 반환하세요:
-{
-  "storyline": "목차 전개 및 스토리텔링 특징 요약",
-  "textDensity": "슬라이드 당 텍스트 분량 및 문장 스타일 (예: 개조식, 서술형, 매우 간결함 등)",
-  "preferredLayouts": ["chart", "table", "content"],
-  "toneAndManner": "전반적인 어조 및 디자인 무드"
-}`;
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 2048);
-    return extractJSON(text) || null;
-  },
-
   async getOutline(body: any) {
     const volume = body.settings?.volume || "standard";
     const difficulty = body.settings?.difficulty || "medium";
@@ -758,103 +785,28 @@ ${referenceData.slice(0, 15000)}
       body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
     ].filter(Boolean).join('\n');
 
-    const refContext = body.referenceStructure ? `
-[✨ 레퍼런스(참고 양식) 구조 반영 절대 규칙]
-사용자가 업로드한 참고 양식의 분석 결과입니다:
-- 스토리라인 전개 방식: ${body.referenceStructure.storyline}
-- 선호 레이아웃: ${body.referenceStructure.preferredLayouts?.join(', ')}
-- 톤앤매너: ${body.referenceStructure.toneAndManner}
-
-👉 위 레퍼런스의 '스토리라인 전개 방식'과 '톤앤매너'를 현재 원본 데이터에 맞게 적용하여 목차를 구성하세요.` : '';
-
     const systemInstruction = getSystemPromptCore(difficulty);
-    const userPrompt = `당신은 전문 발표 기획자입니다. 아래 원본 데이터를 꼼꼼히 읽고 핵심 내용을 파악하여 발표 목차를 설계하세요.
+    const userPrompt = `${volumeGuideline}
+${meetingContext}
+[미션] 아래 데이터를 분석해 ${targetCount}개 슬라이드 목차를 작성하세요.
+첫 슬라이드 type="title", 마지막 슬라이드 type="summary".
+JSON 반환: {"title":"전체제목","outline":[{"slideNumber":1,"title":"슬라이드제목","type":"title","description":"간단설명"}]}
 
-[📄 원본 데이터]
-${fileDataStr}
+[파일 데이터]:
+${fileDataStr}`;
 
-${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
-${refContext}
-
-[🔥 목차 설계 절대 규칙]
-1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline})
-2. 슬라이드 타입: title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary 중 하나만 사용
-3. 필수 타입 배분:
-   - 8장 이상: chart 최소 1개, kpi 최소 1개
-   - 13장 이상: table 최소 1개, compare 최소 1개 추가
-   - content 타입은 전체의 40% 이하로 제한
-4. 슬라이드 1번 type = 반드시 "title"
-5. 슬라이드 2번 type = 반드시 "agenda" (4장 이상)
-6. 마지막 슬라이드 type = 반드시 "summary"
-7. 수치/통계 데이터 → chart 또는 kpi, 단계/절차 → process, 비교 → compare, 일정 → timeline, 표 데이터 → table
-8. outline 배열 길이 = 정확히 ${targetCount}개
-9. 반드시 각 outline 항목에 "description" 필드를 채워넣으세요. (비워두면 안 됨)
-
-반드시 아래 JSON 형식만 반환:
-{
-  "title": "발표 제목",
-  "outline": [
-    {"slideNumber":1,"title":"표지 제목","type":"title","description":"발표 주제 및 배경"},
-    {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 발표 구성 안내"},
-    {"slideNumber":${targetCount},"title":"마무리","type":"summary","description":"핵심 내용 요약 및 결론"}
-  ]
-}`;
-
-    const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume] ?? 4096);
-    let data = extractJSON(text);
-
-    if (!data) {
-      data = {
-        title: "기획안",
-        outline: Array.from({ length: targetCount }, (_, i) => ({
-          slideNumber: i + 1,
-          title: i === 0 ? "표지" : i === 1 ? "목차" : i === targetCount - 1 ? "마무리" : `내용 ${i}`,
-          type: i === 0 ? "title" : i === 1 ? "agenda" : i === targetCount - 1 ? "summary" : "content",
-          description: "내용 작성 필요",
-        })),
-      };
-    }
-
-    if (Array.isArray(data)) data = { title: "새 발표 자료", outline: data };
-    if (!data.outline || !Array.isArray(data.outline)) {
-      data.outline = data.slides && Array.isArray(data.slides) ? data.slides : [];
-    }
-
-    if (data.outline.length > targetCount)
-      data.outline = data.outline.slice(0, targetCount);
-
-    while (data.outline.length < targetCount) {
-      const idx = data.outline.length + 1;
-      data.outline.push({
-        slideNumber: idx,
-        title: idx === targetCount ? "마무리" : `추가 내용 ${idx}`,
-        type: idx === targetCount ? "summary" : "content",
-        description: "세부 내용 작성 필요",
-      });
-    }
-
-    const total = data.outline.length;
-    data.outline = data.outline.map((item: any, i: number) => ({
-      ...item,
-      slideNumber: i + 1,
-      type: normalizeType(item.type || 'content', i, total),
-    }));
-
-    return { title: data.title ?? "새 발표 자료", outline: data.outline };
+    const text = await callGeminiAPI(systemInstruction, userPrompt, OUTLINE_TOKEN_MAP[volume]);
+    const json = extractJSON(text);
+    if (!json?.outline) throw new Error("목차 파싱 실패");
+    return { outline: json };
   },
 
-  async generatePresentation(body: any) {
-    const difficulty = body.settings?.difficulty || "medium";
+  async generateSlides(body: any) {
     const volume = body.settings?.volume || "standard";
-    const slideCount = body.approvedOutline?.outline?.length
-      ?? SLIDE_COUNT_MAP[volume]
-      ?? 8;
+    const difficulty = body.settings?.difficulty || "medium";
+    const maxTokens = TOKEN_MAP[volume];
 
-    const typeGuide = (body.approvedOutline?.outline || [])
-      .map((item: any, i: number) =>
-        ` ${i + 1}번 "${item.title}" → type="${item.type}" | 주제: ${item.description || '없음'}`
-      ).join('\n');
-
+    const fileDataStr = truncateFileData(body.fileData);
     const meetingContext = [
       body.meetingInfo?.week ? `보고 주차: ${body.meetingInfo.week}` : '',
       body.meetingInfo?.department ? `부서: ${body.meetingInfo.department}` : '',
@@ -862,112 +814,24 @@ ${refContext}
       body.meetingInfo?.notes ? `추가 지시사항: ${body.meetingInfo.notes}` : '',
     ].filter(Boolean).join('\n');
 
-    const refContext = body.referenceStructure ? `
-[✨ 레퍼런스(참고 양식) 스타일 완벽 복제 절대 규칙]
-사용자가 업로드한 참고 양식의 분석 결과입니다:
-- 텍스트 밀도 및 문구 스타일: ${body.referenceStructure.textDensity}
-- 선호 레이아웃: ${body.referenceStructure.preferredLayouts?.join(', ')}
-- 톤앤매너: ${body.referenceStructure.toneAndManner}
-
-👉 슬라이드 내용을 작성할 때, 위 레퍼런스의 '텍스트 밀도(길이, 개조식 형태)'와 '문구 스타일'을 100% 모방하여 작성하세요.
-👉 레퍼런스가 단어 위주의 극도로 간결한 형태라면, 본문 내용도 철저히 단어/짧은 구문 위주로 축약해야 합니다.` : '';
-
     const systemInstruction = getSystemPromptCore(difficulty);
     const userPrompt = `${SLIDE_SCHEMA}
+${meetingContext}
+[미션] 아래 목차를 바탕으로 모든 슬라이드를 완성하세요.
+목차: ${JSON.stringify(body.outline)}
+파일 데이터: ${fileDataStr}
 
-당신은 전문 발표자료 작성 전문가입니다. 아래 원본 데이터를 꼼꼼히 읽고 각 슬라이드에 실제 내용을 채워 넣으세요.
+[규칙]
+1. 첫 슬라이드 type="title", 마지막 type="summary" 필수.
+2. 각 슬라이드 type의 필수 필드 반드시 포함.
+3. content 불릿 6개 이하, chart 데이터 8개 이하, table 열 5개 이하, kpi 지표 4개 이하.
+4. layout 필드 적극 활용 (split-left, split-right, grid 등).
+5. JSON만 반환: {"title":"전체제목","slides":[...]}`;
 
-[📄 원본 데이터]
-${truncateFileData(body.fileData)}
-
-${meetingContext ? `[📋 발표 맥락]\n${meetingContext}` : ''}
-${refContext}
-
-[📋 구성안]
-${typeGuide}
-
-[🔥 슬라이드 작성 절대 규칙]
-1. slides 배열 길이 = 반드시 정확히 ${slideCount}개.
-2. 각 슬라이드 type은 구성안 그대로 고정. 절대 변경 금지.
-3. 원본 데이터의 실제 내용, 수치, 키워드를 그대로 활용하세요.
-4. 빈 content 배열, 빈 chartData, 빈 keyMetrics 절대 금지.
-
-[📐 타입별 작성 기준 — 레이아웃 규칙 엄수]
-- content : 불릿 3~5개 (최대 6개), 각 불릿 25자 이내 명사형 종결
-- chart : chartData.type(bar/line/pie/area), labels 4~8개, datasets에 실제 수치
-- table : headers 3~5개, rows 4~8개, 실제 데이터 기반
-- kpi : keyMetrics 3~4개 (최대 6개), 실제 수치와 trend(up/down/flat)
-- compare : leftTitle/rightTitle, leftItems/rightItems 각 3~5개
-- process : content에 단계 순서대로 3~5개
-- timeline: milestones 4~6개, date와 state(done/next/todo)
-- cards : 4~6개, "제목: 설명" 형식
-- summary : 핵심 결론 3~5개, 행동 권고사항 포함
-
-[⚠️ 절대 금지]
-- "데이터 없음", "추후 입력" 같은 placeholder 텍스트
-- chart 슬라이드인데 chartData가 null
-- table 슬라이드인데 headers가 비어있음
-- kpi 슬라이드인데 keyMetrics가 빈 배열
-- content 타입에 6개 초과 불릿
-- chart 타입에 10개 초과 데이터 포인트
-- table 타입에 7개 초과 열
-- kpi 타입에 6개 초과 지표
-
-반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
-{"title":"제목","slides":[]}`;
-
-    const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume]);
-    let data = extractJSON(text);
-
-    if (!data) {
-      data = {
-        title: body.approvedOutline?.title || "자동 생성 발표자료",
-        slides: (body.approvedOutline?.outline || []).map((item: any, i: number) =>
-          makeEmptySlide(item.slideNumber, item, slideCount)
-        ),
-      };
-    }
-
-    if (Array.isArray(data)) data = { title: "새 발표 자료", slides: data };
-    if (!data.slides || !Array.isArray(data.slides)) data.slides = [];
-
-    const total = slideCount;
-    data.slides = data.slides.map((s: any, i: number) => normalizeSlide(s, i, total));
-
-    const approvedOutline: any[] = body.approvedOutline?.outline || [];
-
-    if (approvedOutline.length > 0 && data.slides.length < approvedOutline.length) {
-      const missing = approvedOutline.slice(data.slides.length);
-      missing.forEach((item: any) => {
-        const idx = data.slides.length;
-        data.slides.push(makeEmptySlide(idx + 1, item, total));
-      });
-    }
-
-    if (approvedOutline.length > 0 && data.slides.length > approvedOutline.length) {
-      const originalLastSlide = data.slides[data.slides.length - 1];
-      data.slides = data.slides.slice(0, approvedOutline.length);
-      const newLast = data.slides[data.slides.length - 1];
-      if (newLast && newLast.type !== 'summary' && originalLastSlide?.type === 'summary') {
-        data.slides[data.slides.length - 1] = {
-          ...originalLastSlide,
-          slideNumber: data.slides.length,
-        };
-      }
-    }
-
-    data.slides = data.slides.map((s: any, i: number) => {
-      const outlineType = approvedOutline[i]
-        ? normalizeType(approvedOutline[i].type, i, total)
-        : s.type;
-
-      if (outlineType !== s.type) {
-        return normalizeSlide({ ...s, type: outlineType }, i, total);
-      }
-      return { ...s, slideNumber: i + 1 };
-    });
-
-    return { presentation: data };
+    const text = await callGeminiAPI(systemInstruction, userPrompt, maxTokens);
+    const json = extractJSON(text);
+    if (!json?.slides) throw new Error("슬라이드 생성 실패");
+    return { presentation: json };
   },
 
   async regenerateSlide(body: any) {
@@ -978,7 +842,7 @@ ${typeGuide}
 요청사항: ${body.userInstruction || "더 풍부하고 임팩트 있게"}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 포함.
 레이아웃 규칙 준수: content 불릿 6개 이하, chart 데이터 8개 이하, table 열 5개 이하, kpi 지표 4개 이하.
-JSON만 반환.`;
+layout 필드 적극 활용. JSON만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
     if (!json) throw new Error("재생성 파싱 실패");
@@ -993,7 +857,7 @@ JSON만 반환.`;
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 포함.
 레이아웃 규칙 준수: content 불릿 6개 이하, chart 데이터 8개 이하, table 열 5개 이하, kpi 지표 4개 이하.
-JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
+layout 필드 적극 활용. JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
     if (json?.slide) json.slide = normalizeSlide(json.slide, 1, 3);
@@ -1007,7 +871,7 @@ JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
 현재 슬라이드: ${JSON.stringify(body.currentSlide)}
 [규칙] type은 "${body.currentSlide?.type}"으로 고정. 해당 type의 필수 필드 반드시 유지.
 레이아웃 규칙 준수: content 불릿 6개 이하, chart 데이터 8개 이하, table 열 5개 이하, kpi 지표 4개 이하.
-JSON만 반환.`;
+layout 필드 적극 활용. JSON만 반환.`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
     const json = extractJSON(text);
     if (!json) throw new Error("스타일 변환 파싱 실패");
@@ -1026,6 +890,7 @@ JSON만 반환.`;
   "improvements": [{"slideNumber":1,"slideIndex":0,"category":"readability","severity":"high","issue":"문제점","suggestion":"개선 제안"}],
   "generalTips": ["팁 1", "팁 2", "팁 3"]
 }
+
 category: readability|content|structure|visual|data / severity: high|medium|low`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
@@ -1050,6 +915,7 @@ category: readability|content|structure|visual|data / severity: high|medium|low`
     const userPrompt = `${SLIDE_SCHEMA}
 [미션] 전체 발표자료를 최적화하세요. 각 슬라이드 type 유지, 필수 필드 보존.
 레이아웃 규칙 엄수: content 불릿 6개 이하, chart 데이터 8개 이하, table 열 5개 이하, kpi 지표 4개 이하.
+layout 필드 적극 활용하여 다양한 구성 구현.
 현재 발표자료: ${JSON.stringify(body.presentation)}
 JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     const text = await callGeminiAPI(systemInstruction, userPrompt, TOKEN_MAP[volume]);
