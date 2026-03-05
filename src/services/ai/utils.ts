@@ -173,7 +173,37 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
 /**
  * AI의 텍스트 응답에서 JSON을 추출하고 망가진 경우 복구를 시도합니다.
  */
-export function extractJSON(text: string): any | null {
+export function extractJSON(text: string): any {
   if (!text) return null;
   let cleanText = text.trim();
-  const mdMatch = cleanText.match(/
+
+  // ✅ 마크다운 코드블록 제거
+  const mdMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (mdMatch) {
+    cleanText = mdMatch[1].trim();
+  }
+
+  // ✅ 앞뒤 불필요한 텍스트 제거 (JSON 시작/끝 찾기)
+  const jsonStart = cleanText.indexOf('{');
+  const jsonEnd   = cleanText.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    cleanText = cleanText.slice(jsonStart, jsonEnd + 1);
+  }
+
+  try {
+    return JSON.parse(cleanText);
+  } catch {
+    // JSON 수리 시도
+    try {
+      const repaired = cleanText
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*]/g, ']')
+        .replace(/(['"])?([a-zA-Z0-9_]+)(['"])?\s*:/g, '"$2":')
+        .replace(/:\s*'([^']*)'/g, ': "$1"');
+      return JSON.parse(repaired);
+    } catch {
+      console.error('[extractJSON] 파싱 실패:', cleanText.slice(0, 200));
+      return null;
+    }
+  }
+}
