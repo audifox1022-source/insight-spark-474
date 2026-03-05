@@ -15,6 +15,7 @@ export function truncateFileData(fileData: any): string {
   const encoded = encoder.encode(raw);
   if (encoded.length <= MAX_FILE_BYTES) return raw;
   const sliced = encoded.slice(0, MAX_FILE_BYTES);
+  const decoder = new TextDecoder("utf-8", { fatal: false });
   const decoded = decoder.decode(sliced);
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
