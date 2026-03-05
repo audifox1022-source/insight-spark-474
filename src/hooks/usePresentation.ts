@@ -50,11 +50,15 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
   const baseRaw = (raw && typeof raw === 'object') ? raw : {};
   
   const rawContent = baseRaw.content ?? baseRaw.points ?? baseRaw.bullets ?? baseRaw.items ?? baseRaw.list ?? [];
-  let content: string[] = Array.isArray(rawContent)
-    ? rawContent
-        .map((p: any) => typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p))
-        .filter(item => item && item.trim().length > 0) 
-    : typeof rawContent === 'string' ? [rawContent] : [];
+  let content: string[] = [];
+  
+  if (Array.isArray(rawContent)) {
+     content = rawContent
+       .map((p: any) => typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p))
+       .filter(item => item && item.trim().length > 0);
+  } else if (typeof rawContent === 'string') {
+     content = [rawContent];
+  }
     
   if (content.length === 0) content = ["내용이 없습니다."];
 
@@ -97,36 +101,47 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
   } as Slide;
 }
 
-// 🚨 가장 중요: 여기서 빈 배열이 넘어오면 강제로 에러 안내 슬라이드를 끼워 넣습니다.
+// 🚨 철통 방어: 어떠한 쓰레기 값이 들어와도 무조건 유효한 슬라이드 배열 반환
 function normalizePresentationSlides(presentation: any): Presentation {
   const fallbackSlide: Slide = { 
     slideNumber: 1, 
     type: 'title', 
     layout: 'default', 
-    title: '데이터 로드 실패', 
-    content: ['AI가 데이터를 올바르게 생성하지 못했거나, 너무 긴 응답으로 인해 끊겼습니다.', '내용을 요약하여 다시 시도해 주세요.'], 
+    title: '데이터 구조 손상 안내', 
+    content: ['AI 응답 구조가 손상되어 데이터를 온전히 불러오지 못했습니다.', '좌측 AI 채팅 수정을 통해 다시 쓰기를 요청해 보세요.'], 
     keyMetrics: [], 
     persona: 'standard' 
   };
 
-  if (!presentation || typeof presentation !== 'object') {
-    return { title: '새 발표 자료', theme: 'blue', slides: [fallbackSlide] };
+  let validSlides: Slide[] = [];
+
+  // 배열 여부를 안전하게 검사하여 확보
+  if (presentation && typeof presentation === 'object') {
+     if (Array.isArray(presentation.slides)) {
+         validSlides = presentation.slides;
+     } else if (Array.isArray(presentation)) {
+         validSlides = presentation;
+     } else if (presentation.slide && Array.isArray(presentation.slide)) {
+         validSlides = presentation.slide;
+     }
   }
 
-  let slides = Array.isArray(presentation.slides) ? presentation.slides : [];
-  
-  if (slides.length === 0) {
-    console.warn("⚠️ normalizePresentationSlides: slides 배열이 비어있어 기본 슬라이드를 채웁니다.");
-    slides = [fallbackSlide];
+  // null, undefined 등 객체가 아닌 요소 전부 필터링
+  validSlides = validSlides.filter(s => s && typeof s === 'object');
+
+  // 완전히 비어버린 경우 최후의 방어 슬라이드 삽입
+  if (validSlides.length === 0) {
+     console.warn("⚠️ normalizePresentationSlides: 유효한 슬라이드가 없어 기본 슬라이드를 렌더링합니다.");
+     validSlides = [fallbackSlide];
   } else {
-    slides = slides.map(normalizeSlideForApp);
+     validSlides = validSlides.map((s, i) => normalizeSlideForApp(s, i));
   }
   
   return { 
     ...presentation, 
-    title: presentation.title || '새 발표 자료', 
-    theme: presentation.theme || 'blue', 
-    slides 
+    title: presentation?.title || '새 발표 자료', 
+    theme: presentation?.theme || 'blue', 
+    slides: validSlides
   };
 }
 
@@ -270,15 +285,32 @@ export function usePresentation() {
       const resData = await retryWithBackoff(async () => await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline ?? null, referenceStructure }), { maxRetries: 1, onRetry: (a, m) => toast.loading(`재시도 중... ${a}/${m}`, { id: 'gen-retry' }) });
       toast.dismiss('gen-retry');
       
-      const { presentation: fixedPresentation, totalWarnings, fixedSlides } = validateAndFixPresentation(resData.presentation);
+      // ✅ 1단계: AI 원본 응답을 무조건 정규화하여 빈 배열이나 객체 파손 방지
+      let safePresentation = normalizePresentationSlides(resData?.presentation);
+
+      // ✅ 2단계: 정규화된 데이터를 바탕으로 레이아웃 Validator 수행 (실패해도 앱이 죽지 않음)
+      try {
+        const { presentation: fixedPresentation, fixedSlides } = validateAndFixPresentation(safePresentation);
+        
+        // Validator가 정상적으로 배열을 반환했다면 최종 반영
+        if (fixedPresentation && Array.isArray(fixedPresentation.slides)) {
+           safePresentation = normalizePresentationSlides(fixedPresentation);
+        }
+
+        if (fixedSlides > 0) {
+           toast.success(`발표자료 생성 완료 (${fixedSlides}개 슬라이드 자동 보정)`);
+        } else {
+           toast.success('발표자료 생성 완료!');
+        }
+      } catch (valErr) {
+        console.error("Validator Error:", valErr);
+        toast.success('발표자료 생성 완료 (일부 포맷 자동조정 생략됨)');
+      }
       
-      // ✅ 여기서 무조건 유효한 슬라이드 배열이 보장됨
-      const normalizedData = normalizePresentationSlides(fixedPresentation);
-      setPresentation(normalizedData);
-      
-      setCurrentChatSlideIndex(0); // 첫 슬라이드로 초기화
+      // 3단계: 안전하게 처리된 데이터를 State에 할당
+      setPresentation(safePresentation);
+      setCurrentChatSlideIndex(0);
       setStep('preview');
-      toast.success(`발표자료 생성 완료${fixedSlides > 0 ? ` (${fixedSlides}개 슬라이드 자동 보정)` : ''}`);
     } catch (err: any) {
       toast.dismiss('gen-retry');
       toast.error(getKoreanErrorMessage(err));
@@ -426,8 +458,9 @@ export function usePresentation() {
 
   const deleteSlide = useCallback((index: number) => {
     setPresentation((prev) => {
-      if (!prev || prev.slides.length <= 1) return prev;
+      if (!prev || prev.slides.length <= 1) return prev; // 하나 남은 슬라이드는 삭제 방지
       const slides = prev.slides.filter((_, i) => i !== index);
+      // 현재 보고있는 인덱스가 배열 범위를 벗어나지 않게 조정
       setCurrentChatSlideIndex(c => Math.max(0, Math.min(c, slides.length - 1)));
       return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
     });
@@ -482,8 +515,20 @@ export function usePresentation() {
     setIsFixing(true); toast.loading('최적화 중...', { id: 'fix' });
     try {
       const resData = await retryWithBackoff(async () => await aiService.reviewAndFix({ presentation, settings }), { maxRetries: 1 });
-      const { presentation: fixedPresentation } = validateAndFixPresentation(resData.result.presentation);
-      setPresentation(normalizePresentationSlides(fixedPresentation));
+      
+      // ✅ 여기서도 정규화를 먼저 거친 후 검증기에 통과시킵니다.
+      let safePresentation = normalizePresentationSlides(resData?.result?.presentation);
+      
+      try {
+         const { presentation: fixedPresentation } = validateAndFixPresentation(safePresentation);
+         if (fixedPresentation && Array.isArray(fixedPresentation.slides)) {
+             safePresentation = normalizePresentationSlides(fixedPresentation);
+         }
+      } catch (valErr) {
+         console.error("Review Validator Error:", valErr);
+      }
+      
+      setPresentation(safePresentation);
       toast.success('최적화 완료!', { id: 'fix' });
     } catch (err: any) { toast.error(getKoreanErrorMessage(err), { id: 'fix' }); } finally { setIsFixing(false); }
   }, [presentation, settings]);
