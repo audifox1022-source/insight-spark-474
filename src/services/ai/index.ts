@@ -249,10 +249,10 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     const systemInstruction = '당신은 문서 구조 분석 전문가입니다.';
     const userPrompt = `다음 문서의 구조와 양식을 분석하세요.
 문서: ${content.slice(0, 3000)}
-JSON 반환: {"structure":"구조 설명","slideTypes":["type1","type2"],"style":"스타일 특징"}`;
+JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"keyPatterns":["특징1"]}`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 1024);
-    return utils.extractJSON(text) || {};
+    return utils.extractJSON(text) || { structure: [], slideCount: 0, keyPatterns: [] };
   },
 
   // ─────────────────────────────────────────────────────────
