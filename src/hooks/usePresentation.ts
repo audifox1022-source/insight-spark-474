@@ -49,7 +49,6 @@ function convertAIChartData(rawChartData: any): SlideChartData | undefined {
 function normalizeSlideForApp(raw: any, index: number): Slide {
   const baseRaw = (raw && typeof raw === 'object') ? raw : {};
   
-  // ✅ 렌더러 크래시 방지: 문자열 배열 외의 값들 걸러내기
   const rawContent = baseRaw.content ?? baseRaw.points ?? baseRaw.bullets ?? baseRaw.items ?? baseRaw.list ?? [];
   let content: string[] = Array.isArray(rawContent)
     ? rawContent
@@ -59,7 +58,7 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
     
   if (content.length === 0) content = ["내용이 없습니다."];
 
-  const validTypes = ['title', 'agenda', 'content', 'chart', 'compare', 'kpi', 'summary', 'quote', 'section', 'image'];
+  const validTypes = ['title', 'agenda', 'content', 'chart', 'compare', 'kpi', 'summary', 'quote', 'section', 'image', 'process', 'table', 'timeline', 'cards'];
   let slideType = (baseRaw.type && typeof baseRaw.type === 'string') ? baseRaw.type.toLowerCase() : 'content';
   if (!validTypes.includes(slideType)) slideType = 'content';
   
@@ -98,13 +97,37 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
   } as Slide;
 }
 
+// 🚨 가장 중요: 여기서 빈 배열이 넘어오면 강제로 에러 안내 슬라이드를 끼워 넣습니다.
 function normalizePresentationSlides(presentation: any): Presentation {
-  const defaultSlide: Slide = { slideNumber: 1, type: 'title', layout: 'default', title: '슬라이드 생성 오류', content: ['AI가 데이터를 올바르게 생성하지 못했습니다. 다시 시도해 주세요.'], keyMetrics: [], persona: 'standard' };
-  if (!presentation || typeof presentation !== 'object') return { title: '새 발표 자료', theme: 'blue', slides: [defaultSlide] };
+  const fallbackSlide: Slide = { 
+    slideNumber: 1, 
+    type: 'title', 
+    layout: 'default', 
+    title: '데이터 로드 실패', 
+    content: ['AI가 데이터를 올바르게 생성하지 못했거나, 너무 긴 응답으로 인해 끊겼습니다.', '내용을 요약하여 다시 시도해 주세요.'], 
+    keyMetrics: [], 
+    persona: 'standard' 
+  };
+
+  if (!presentation || typeof presentation !== 'object') {
+    return { title: '새 발표 자료', theme: 'blue', slides: [fallbackSlide] };
+  }
+
   let slides = Array.isArray(presentation.slides) ? presentation.slides : [];
-  if (slides.length === 0) slides = [defaultSlide];
-  else slides = slides.map(normalizeSlideForApp);
-  return { ...presentation, title: presentation.title || '새 발표 자료', theme: presentation.theme || 'blue', slides };
+  
+  if (slides.length === 0) {
+    console.warn("⚠️ normalizePresentationSlides: slides 배열이 비어있어 기본 슬라이드를 채웁니다.");
+    slides = [fallbackSlide];
+  } else {
+    slides = slides.map(normalizeSlideForApp);
+  }
+  
+  return { 
+    ...presentation, 
+    title: presentation.title || '새 발표 자료', 
+    theme: presentation.theme || 'blue', 
+    slides 
+  };
 }
 
 export function usePresentation() {
@@ -246,8 +269,14 @@ export function usePresentation() {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(async () => await aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline: approvedOutline ?? null, referenceStructure }), { maxRetries: 1, onRetry: (a, m) => toast.loading(`재시도 중... ${a}/${m}`, { id: 'gen-retry' }) });
       toast.dismiss('gen-retry');
+      
       const { presentation: fixedPresentation, totalWarnings, fixedSlides } = validateAndFixPresentation(resData.presentation);
-      setPresentation(normalizePresentationSlides(fixedPresentation));
+      
+      // ✅ 여기서 무조건 유효한 슬라이드 배열이 보장됨
+      const normalizedData = normalizePresentationSlides(fixedPresentation);
+      setPresentation(normalizedData);
+      
+      setCurrentChatSlideIndex(0); // 첫 슬라이드로 초기화
       setStep('preview');
       toast.success(`발표자료 생성 완료${fixedSlides > 0 ? ` (${fixedSlides}개 슬라이드 자동 보정)` : ''}`);
     } catch (err: any) {
@@ -373,6 +402,7 @@ export function usePresentation() {
     setMeetingInfo(saved.meetingInfo);
     setSettings(saved.settings);
     setTemplate(saved.template);
+    setCurrentChatSlideIndex(0);
     setStep('preview');
     setHistoryOpen(false);
     toast.success(`"${saved.title}" 불러오기 완료`);
@@ -398,6 +428,7 @@ export function usePresentation() {
     setPresentation((prev) => {
       if (!prev || prev.slides.length <= 1) return prev;
       const slides = prev.slides.filter((_, i) => i !== index);
+      setCurrentChatSlideIndex(c => Math.max(0, Math.min(c, slides.length - 1)));
       return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
     });
   }, []);
@@ -417,6 +448,7 @@ export function usePresentation() {
       const slides = [...prev.slides];
       const [moved] = slides.splice(from, 1);
       slides.splice(to, 0, moved);
+      setCurrentChatSlideIndex(to);
       return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
     });
   }, []);
@@ -424,7 +456,7 @@ export function usePresentation() {
   const updatePresentationTitle = useCallback((title: string) => setPresentation((prev) => (prev ? { ...prev, title } : prev)), []);
 
   const reset = useCallback(() => {
-    setStep('upload'); setParsedFiles([]); setFileNames([]); setPresentation(null); setOutline(null); setTemplate('auto'); setReviewResult(null); clearReferenceFile();
+    setStep('upload'); setParsedFiles([]); setFileNames([]); setPresentation(null); setOutline(null); setTemplate('auto'); setReviewResult(null); clearReferenceFile(); setCurrentChatSlideIndex(0);
   }, [clearReferenceFile]);
 
   const requestReview = useCallback(async () => {
@@ -459,6 +491,6 @@ export function usePresentation() {
   const openChatWithSlide = useCallback((slideIndex: number) => { setCurrentChatSlideIndex(slideIndex); setChatOpen(true); }, []);
 
   return {
-    step, setStep, dataSummary: dataSummary(), fileNames, meetingInfo, setMeetingInfo, settings, setSettings, template, setTemplate, outline, isLoadingOutline, presentation, isGenerating, isSaving, handleSave, savedList, isLoadingList, historyOpen, setHistoryOpen, openHistory, loadFromHistory, deleteFromHistory, chatOpen, setChatOpen, currentChatSlideIndex, openChatWithSlide, reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix, isFixing, reviewAndFixPresentation, isDark, toggleDark, appTheme, changeTheme, handleFilesUpload, removeFile, handlePromptSubmit, referenceFileName, isAnalyzingReference, referenceStructure, handleReferenceFileUpload, clearReferenceFile, requestOutline, generatePresentation, regenerateSlide, requestChatEdit, changeSlidePersona, cycleLayout, updatePresentationMaster, isGeneratingImage, generateSlideImage, reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
+    step, setStep, dataSummary: dataSummary(), fileNames, meetingInfo, setMeetingInfo, settings, setSettings, template, setTemplate, outline, isLoadingOutline, presentation, isGenerating, isSaving, handleSave, savedList, isLoadingList, historyOpen, setHistoryOpen, openHistory, loadFromHistory, deleteFromHistory, chatOpen, setChatOpen, currentChatSlideIndex, setCurrentChatSlideIndex, openChatWithSlide, reviewOpen, setReviewOpen, reviewResult, isReviewing, requestReview, applyReviewFix, isFixing, reviewAndFixPresentation, isDark, toggleDark, appTheme, changeTheme, handleFilesUpload, removeFile, handlePromptSubmit, referenceFileName, isAnalyzingReference, referenceStructure, handleReferenceFileUpload, clearReferenceFile, requestOutline, generatePresentation, regenerateSlide, requestChatEdit, changeSlidePersona, cycleLayout, updatePresentationMaster, isGeneratingImage, generateSlideImage, reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide, updatePresentationTitle,
   };
 }
