@@ -1,4 +1,8 @@
-import React from 'react';
+// ============================================================
+// ScaledSlide.tsx — 이미지 배경 수정 완료 버전 (기존 코드 기반)
+// ============================================================
+
+import React, { useState } from 'react';  // ✅ useState 추가
 import {
   ArrowRight,
   Layers,
@@ -76,6 +80,10 @@ interface Slide {
   imageUrl?: string;
   layout?: string;
   notes?: string;
+  // ✅ 추가: quote, timeline 타입용
+  text?: string;
+  author?: string;
+  milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo' }[];
 }
 
 interface ScaledSlideProps {
@@ -105,6 +113,40 @@ const P = {
     'linear-gradient(135deg,#ef4444 0%,#b91c1c 100%)',
     'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
   ],
+};
+
+// ══════════════════════════════════════════════════════════════
+// ✅ 신규 추가: SlideBackground — 이미지 배경 전용 컴포넌트
+// ══════════════════════════════════════════════════════════════
+const SlideBackground: React.FC<{ imageUrl?: string }> = ({ imageUrl }) => {
+  const [imgError, setImgError] = useState(false);
+  if (!imageUrl || imgError) return null;
+  return (
+    <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
+      <img
+        src={imageUrl}
+        alt=""
+        onError={() => setImgError(true)}
+        crossOrigin="anonymous"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: 'center',
+          display: 'block',
+        }}
+      />
+      {/* 텍스트 가독성을 위한 반투명 오버레이 */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(135deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.65) 100%)',
+        }}
+      />
+    </div>
+  );
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -189,6 +231,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
         fontWeight: 900,
         color: '#000',
         userSelect: 'none',
+        zIndex: 2,  // ✅ zIndex 추가
       }}
     >
       {watermark}
@@ -210,6 +253,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
+          zIndex: 2,  // ✅ zIndex 추가
         }}
       >
         <img
@@ -230,13 +274,25 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   // ──────────────────────────────────────────────────────────────
   const SlideNum = ({ light = false }: { light?: boolean }) =>
     slide.slideNumber ? (
-      <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '1rem',
+          left: '2rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          zIndex: 2,  // ✅ zIndex 추가
+        }}
+      >
         <div
           style={{
             width: '1.9rem',
             height: '1.9rem',
             borderRadius: '50%',
-            background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.accent})`,
+            background: light
+              ? 'rgba(255,255,255,0.25)'
+              : `linear-gradient(135deg,${P.primary},${P.accent})`,
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -372,10 +428,23 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const td = slide.tableData;
     if (!td?.headers?.length) return <EmptyPlaceholder icon={TableIcon} label="테이블 데이터 없음" />;
 
-    const paddingY = slide.tableDensity === 'compact' ? '0.55rem' : slide.tableDensity === 'relaxed' ? '1.2rem' : '0.85rem';
+    const paddingY =
+      slide.tableDensity === 'compact'
+        ? '0.55rem'
+        : slide.tableDensity === 'relaxed'
+        ? '1.2rem'
+        : '0.85rem';
 
     return (
-      <div style={{ width: '100%', overflowX: 'auto', borderRadius: 14, boxShadow: '0 2px 16px rgba(0,0,0,0.06)', border: `1px solid ${P.border}` }}>
+      <div
+        style={{
+          width: '100%',
+          overflowX: 'auto',
+          borderRadius: 14,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+          border: `1px solid ${P.border}`,
+        }}
+      >
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: contentFontSize }}>
           <thead>
             <tr>
@@ -390,7 +459,8 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     textAlign: 'left',
                     fontSize: `${1.2 * contentSizeScale}rem`,
                     whiteSpace: 'nowrap',
-                    borderRight: i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
+                    borderRight:
+                      i < td.headers!.length - 1 ? '1px solid rgba(255,255,255,0.15)' : 'none',
                   }}
                 >
                   {h}
@@ -432,17 +502,24 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     if (!km?.length) return <EmptyPlaceholder icon={Target} label="KPI 데이터 없음" />;
 
     const cols = km.length <= 2 ? km.length : km.length === 4 ? 2 : 3;
-    
-    // ✅ KPI 개수에 따라 폰트 크기 자동 축소
-    const valueFontSize = km.length >= 6 ? 2.2 : km.length >= 4 ? 2.6 : 3.0;
-    const labelFontSize = km.length >= 6 ? 0.85 : km.length >= 4 ? 0.95 : 1.05;
-    const trendFontSize = km.length >= 6 ? 0.75 : km.length >= 4 ? 0.85 : 0.95;
-    const cardPadding = km.length >= 6 ? '1rem 0.9rem' : '1.5rem 1.3rem';
+
+    const valueFontSize  = km.length >= 6 ? 2.2 : km.length >= 4 ? 2.6 : 3.0;
+    const labelFontSize  = km.length >= 6 ? 0.85 : km.length >= 4 ? 0.95 : 1.05;
+    const trendFontSize  = km.length >= 6 ? 0.75 : km.length >= 4 ? 0.85 : 0.95;
+    const cardPadding    = km.length >= 6 ? '1rem 0.9rem' : '1.5rem 1.3rem';
 
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.1rem', height: '100%', alignContent: 'center' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gap: '1.1rem',
+          height: '100%',
+          alignContent: 'center',
+        }}
+      >
         {km.map((kpi, i) => {
-          const isUp = kpi.trend === 'up';
+          const isUp   = kpi.trend === 'up';
           const isDown = kpi.trend === 'down';
           return (
             <div
@@ -479,15 +556,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
               >
                 {kpi.label}
               </div>
-              <div style={{ 
-                fontSize: `${valueFontSize * contentSizeScale}rem`, 
-                fontWeight: 900, 
-                lineHeight: 1.1, 
-                letterSpacing: -1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                maxWidth: '100%',
-              }}>
+              <div
+                style={{
+                  fontSize: `${valueFontSize * contentSizeScale}rem`,
+                  fontWeight: 900,
+                  lineHeight: 1.1,
+                  letterSpacing: -1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: '100%',
+                }}
+              >
                 {kpi.value}
               </div>
               {kpi.trend && (
@@ -504,7 +583,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                     padding: '0.2rem 0.75rem',
                   }}
                 >
-                  {isUp && <TrendingUp style={{ width: '1em', height: '1em' }} />}
+                  {isUp   && <TrendingUp   style={{ width: '1em', height: '1em' }} />}
                   {isDown && <TrendingDown style={{ width: '1em', height: '1em' }} />}
                   {!isUp && !isDown && <Minus style={{ width: '1em', height: '1em' }} />}
                   {isUp ? '상승' : isDown ? '하락' : '보합'}
@@ -530,28 +609,26 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     const leftTitle  = slide.leftTitle  ?? 'AS-IS';
     const rightTitle = slide.rightTitle ?? 'TO-BE';
 
-    // ✅ 대비 강화 색상 팔레트 (WCAG AA 준수)
-    const LEFT_BG     = '#1e3a8a';   // 진한 파랑 헤더
-    const LEFT_LIGHT  = '#eff6ff';   // 연한 파랑 바디
-    const LEFT_BADGE  = '#1d4ed8';   // 파랑 번호 뱃지
-    const LEFT_BORDER = '#93c5fd';   // 파랑 테두리
-    const LEFT_TEXT   = '#1e3a8a';   // 파랑 텍스트
+    const LEFT_BG     = '#1e3a8a';
+    const LEFT_LIGHT  = '#eff6ff';
+    const LEFT_BADGE  = '#1d4ed8';
+    const LEFT_BORDER = '#93c5fd';
+    const LEFT_TEXT   = '#1e3a8a';
 
-    const RIGHT_BG    = '#064e3b';   // 진한 초록 헤더
-    const RIGHT_LIGHT = '#f0fdf4';   // 연한 초록 바디
-    const RIGHT_BADGE = '#047857';   // 초록 번호 뱃지
-    const RIGHT_BORDER= '#86efac';   // 초록 테두리
-    const RIGHT_TEXT  = '#064e3b';   // 초록 텍스트
+    const RIGHT_BG    = '#064e3b';
+    const RIGHT_LIGHT = '#f0fdf4';
+    const RIGHT_BADGE = '#047857';
+    const RIGHT_BORDER= '#86efac';
+    const RIGHT_TEXT  = '#064e3b';
 
     const maxRows = Math.max(leftItems.length, rightItems.length);
 
-    // ✅ 항목 수에 따라 폰트·패딩·간격 자동 축소
-    const itemFontSize  = `${Math.max(0.85, 1.3 - maxRows * 0.07) * contentSizeScale}rem`;
-    const itemPadding   = maxRows >= 7 ? '0.35rem 0.7rem' : maxRows >= 5 ? '0.45rem 0.85rem' : '0.6rem 1rem';
-    const itemGap       = maxRows >= 7 ? '0.4rem' : maxRows >= 5 ? '0.55rem' : '0.7rem';
-    const bodyPadding   = maxRows >= 7 ? '0.6rem' : maxRows >= 5 ? '0.75rem' : '0.9rem';
-    const badgeSize     = `${Math.max(1.3, 1.6 - maxRows * 0.04) * contentSizeScale}rem`;
-    const badgeFontSize = `${Math.max(0.7, 0.8 - maxRows * 0.02) * contentSizeScale}rem`;
+    const itemFontSize = `${Math.max(0.85, 1.3 - maxRows * 0.07) * contentSizeScale}rem`;
+    const itemPadding  = maxRows >= 7 ? '0.35rem 0.7rem'  : maxRows >= 5 ? '0.45rem 0.85rem' : '0.6rem 1rem';
+    const itemGap      = maxRows >= 7 ? '0.4rem'           : maxRows >= 5 ? '0.55rem'         : '0.7rem';
+    const bodyPadding  = maxRows >= 7 ? '0.6rem'           : maxRows >= 5 ? '0.75rem'         : '0.9rem';
+    const badgeSize    = `${Math.max(1.3, 1.6 - maxRows * 0.04) * contentSizeScale}rem`;
+    const badgeFontSize= `${Math.max(0.7, 0.8 - maxRows * 0.02) * contentSizeScale}rem`;
 
     const renderPanel = (
       items: string[],
@@ -563,74 +640,83 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       textColor: string,
     ) => (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
-        <div style={{
-          background: headerBg,
-          color: '#ffffff',
-          padding: '0.75rem 1rem',
-          borderRadius: '10px 10px 0 0',
-          fontSize: `${1.1 * contentSizeScale}rem`,
-          fontWeight: 800,
-          textAlign: 'center',
-          letterSpacing: 0.5,
-          flexShrink: 0,
-          textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-        }}>
+        <div
+          style={{
+            background: headerBg,
+            color: '#ffffff',
+            padding: '0.75rem 1rem',
+            borderRadius: '10px 10px 0 0',
+            fontSize: `${1.1 * contentSizeScale}rem`,
+            fontWeight: 800,
+            textAlign: 'center',
+            letterSpacing: 0.5,
+            flexShrink: 0,
+            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+          }}
+        >
           {title}
         </div>
-
-        <div style={{
-          flex: 1,
-          background: bodyBg,
-          border: `2px solid ${borderColor}`,
-          borderTop: 'none',
-          borderRadius: '0 0 10px 10px',
-          padding: bodyPadding,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: itemGap,
-          overflow: 'hidden',
-          minHeight: 0,
-        }}>
+        <div
+          style={{
+            flex: 1,
+            background: bodyBg,
+            border: `2px solid ${borderColor}`,
+            borderTop: 'none',
+            borderRadius: '0 0 10px 10px',
+            padding: bodyPadding,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: itemGap,
+            overflow: 'hidden',
+            minHeight: 0,
+          }}
+        >
           {items.map((item, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.6rem',
-              background: '#ffffff',
-              borderRadius: 8,
-              padding: itemPadding,
-              border: `1px solid ${borderColor}`,
-              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-              flexShrink: 0,
-            }}>
-              <span style={{
-                flexShrink: 0,
-                width: badgeSize,
-                height: badgeSize,
-                borderRadius: '50%',
-                background: badgeColor,
-                color: '#ffffff',
+            <div
+              key={i}
+              style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: badgeFontSize,
-                fontWeight: 800,
-              }}>
+                gap: '0.6rem',
+                background: '#ffffff',
+                borderRadius: 8,
+                padding: itemPadding,
+                border: `1px solid ${borderColor}`,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  flexShrink: 0,
+                  width: badgeSize,
+                  height: badgeSize,
+                  borderRadius: '50%',
+                  background: badgeColor,
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: badgeFontSize,
+                  fontWeight: 800,
+                }}
+              >
                 {i + 1}
               </span>
-
-              <span style={{
-                fontSize: itemFontSize,
-                fontWeight: 700,
-                color: textColor,
-                lineHeight: 1.3,
-                flex: 1,
-                wordBreak: 'keep-all',
-                overflow: 'hidden',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-              }}>
+              <span
+                style={{
+                  fontSize: itemFontSize,
+                  fontWeight: 700,
+                  color: textColor,
+                  lineHeight: 1.3,
+                  flex: 1,
+                  wordBreak: 'keep-all',
+                  overflow: 'hidden',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                }}
+              >
                 {typeof item === 'string' ? item : JSON.stringify(item)}
               </span>
             </div>
@@ -640,38 +726,42 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     );
 
     return (
-      <div style={{
-        display: 'flex',
-        gap: '1.2rem',
-        height: '100%',
-        alignItems: 'stretch',
-        minHeight: 0,
-        overflow: 'hidden',
-      }}>
-        {renderPanel(leftItems, leftTitle, LEFT_BG, LEFT_LIGHT, LEFT_BADGE, LEFT_BORDER, LEFT_TEXT)}
-
-        <div style={{
+      <div
+        style={{
           display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          paddingTop: '2.5rem',
-        }}>
-          <div style={{
-            width: '2.5rem',
-            height: '2.5rem',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1e3a8a, #047857)',
+          gap: '1.2rem',
+          height: '100%',
+          alignItems: 'stretch',
+          minHeight: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {renderPanel(leftItems,  leftTitle,  LEFT_BG,  LEFT_LIGHT,  LEFT_BADGE,  LEFT_BORDER,  LEFT_TEXT)}
+        <div
+          style={{
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
-          }}>
+            flexShrink: 0,
+            paddingTop: '2.5rem',
+          }}
+        >
+          <div
+            style={{
+              width: '2.5rem',
+              height: '2.5rem',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #1e3a8a, #047857)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+            }}
+          >
             <ArrowRight style={{ width: '1.3rem', height: '1.3rem', color: '#ffffff', strokeWidth: 3 }} />
           </div>
         </div>
-
         {renderPanel(rightItems, rightTitle, RIGHT_BG, RIGHT_LIGHT, RIGHT_BADGE, RIGHT_BORDER, RIGHT_TEXT)}
       </div>
     );
@@ -683,11 +773,18 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const renderBullets = () => {
     if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
 
-    // 레이아웃: grid
     if (layout === 'grid') {
       const cols = content.length <= 4 ? 2 : 3;
       return (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.8rem', height: '100%', alignContent: 'center' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${cols}, 1fr)`,
+            gap: '0.8rem',
+            height: '100%',
+            alignContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div
               key={i}
@@ -729,10 +826,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
       );
     }
 
-    // 레이아웃: highlight
     if (layout === 'highlight') {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: '100%', justifyContent: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div
               key={i}
@@ -740,17 +844,32 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.9rem',
-                background: i === 0 ? `linear-gradient(135deg,${P.primary}18,${P.primary}06)` : '#f8fafc',
+                background:
+                  i === 0
+                    ? `linear-gradient(135deg,${P.primary}18,${P.primary}06)`
+                    : '#f8fafc',
                 borderRadius: 10,
                 padding: '0.8rem 1.1rem',
-                border: i === 0 ? `1.5px solid ${P.primary}40` : `1px solid ${P.border}`,
-                transition: 'all 0.2s',
+                border:
+                  i === 0 ? `1.5px solid ${P.primary}40` : `1px solid ${P.border}`,
               }}
             >
               <CheckCircle2
-                style={{ width: `${1.3 * contentSizeScale}rem`, height: `${1.3 * contentSizeScale}rem`, color: i === 0 ? P.primary : '#94a3b8', flexShrink: 0 }}
+                style={{
+                  width: `${1.3 * contentSizeScale}rem`,
+                  height: `${1.3 * contentSizeScale}rem`,
+                  color: i === 0 ? P.primary : '#94a3b8',
+                  flexShrink: 0,
+                }}
               />
-              <span style={{ fontSize: contentFontSize, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? P.text : P.subtext, lineHeight: 1.45 }}>
+              <span
+                style={{
+                  fontSize: contentFontSize,
+                  fontWeight: i === 0 ? 700 : 500,
+                  color: i === 0 ? P.text : P.subtext,
+                  lineHeight: 1.45,
+                }}
+              >
                 {typeof item === 'string' ? item : JSON.stringify(item)}
               </span>
             </div>
@@ -763,7 +882,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     return (
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {content.map((item, i) => (
-          <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.9rem', fontSize: contentFontSize, color: '#1a2133', lineHeight: 1.5 }}>
+          <li
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.9rem',
+              fontSize: contentFontSize,
+              color: '#1a2133',
+              lineHeight: 1.5,
+            }}
+          >
             <span
               style={{
                 flexShrink: 0,
@@ -783,7 +912,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             >
               {i + 1}
             </span>
-            <span style={{ fontWeight: 600, color: '#1a2133' }}>{typeof item === 'string' ? item : JSON.stringify(item)}</span>
+            <span style={{ fontWeight: 600, color: '#1a2133' }}>
+              {typeof item === 'string' ? item : JSON.stringify(item)}
+            </span>
           </li>
         ))}
       </ul>
@@ -796,10 +927,26 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   const renderInfographic = () => {
     if (slide.infographicType === 'cycle') {
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', height: '100%', gap: '0.7rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            height: '100%',
+            gap: '0.7rem',
+          }}
+        >
           {content.map((item, i) => (
             <React.Fragment key={i}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', maxWidth: 150 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  maxWidth: 150,
+                }}
+              >
                 <div
                   style={{
                     width: '6.5rem',
@@ -820,11 +967,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 >
                   {typeof item === 'string' ? item : JSON.stringify(item)}
                 </div>
-                <span style={{ fontSize: `${0.85 * contentSizeScale}rem`, color: P.subtext, fontWeight: 600, letterSpacing: 0.5 }}>
+                <span
+                  style={{
+                    fontSize: `${0.85 * contentSizeScale}rem`,
+                    color: P.subtext,
+                    fontWeight: 600,
+                    letterSpacing: 0.5,
+                  }}
+                >
                   STEP {i + 1}
                 </span>
               </div>
-              {i < content.length - 1 && <ArrowRight style={{ color: P.primary, flexShrink: 0, width: '1.6rem', height: '1.6rem', opacity: 0.7 }} />}
+              {i < content.length - 1 && (
+                <ArrowRight
+                  style={{
+                    color: P.primary,
+                    flexShrink: 0,
+                    width: '1.6rem',
+                    height: '1.6rem',
+                    opacity: 0.7,
+                  }}
+                />
+              )}
             </React.Fragment>
           ))}
         </div>
@@ -833,7 +997,15 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
 
     if (slide.infographicType === 'process') {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', height: '100%', justifyContent: 'center' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.7rem',
+            height: '100%',
+            justifyContent: 'center',
+          }}
+        >
           {content.map((item, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.9rem' }}>
               <div
@@ -882,14 +1054,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   // ══════════════════════════════════════════════════════════════
   const renderContent = () => {
     switch (slide.type) {
-      case 'chart':
-        return renderChart();
-      case 'table':
-        return renderTable();
-      case 'kpi':
-        return renderKPI();
-      case 'compare':
-        return renderCompare();
+      case 'chart':   return renderChart();
+      case 'table':   return renderTable();
+      case 'kpi':     return renderKPI();
+      case 'compare': return renderCompare();
       default:
         if (!content.length) return <EmptyPlaceholder icon={Layers} label="콘텐츠 없음" />;
         return renderInfographic();
@@ -901,22 +1069,84 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   // ══════════════════════════════════════════════════════════════
   if (isFirstSlide && slide.type !== 'chart' && slide.type !== 'table' && slide.type !== 'kpi') {
     return (
-      <div className={`aspect-video w-full relative overflow-hidden ${containerClassName}`} style={{ background: P.bg }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
+      <div
+        className={`aspect-video w-full relative overflow-hidden ${containerClassName}`}
+        style={{ background: P.bg }}
+      >
+        {/* ✅ 이미지 배경 레이어 (zIndex: 0) */}
+        <SlideBackground imageUrl={slide.imageUrl} />
+
+        {/* 상단 그라디언트 바 */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0,
+            height: '0.45rem',
+            background: `linear-gradient(90deg,${P.primary},${P.accent})`,
+            zIndex: 1,
+          }}
+        />
 
         {Watermark}
         <Logo />
         <SlideNum />
 
-        <div style={{ height: '100%', padding: '2.2rem 2.5rem 2.5rem', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.2rem', paddingBottom: '0.6rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-            <div style={{ width: '0.32rem', height: `${2.8 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
-            <h1 style={{ fontWeight: 900, color: P.text, fontSize: `${3.5 * titleSizeScale}rem`, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
+        {/* ✅ 콘텐츠 영역 — position:relative + zIndex:1 로 이미지 위에 표시 */}
+        <div
+          style={{
+            height: '100%',
+            padding: '2.2rem 2.5rem 2.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            position: 'relative',
+            zIndex: 1,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.8rem',
+              marginBottom: '1.2rem',
+              paddingBottom: '0.6rem',
+              borderBottom: `1.5px solid ${P.border}`,
+              flexShrink: 0,
+            }}
+          >
+            <div
+              style={{
+                width: '0.32rem',
+                height: `${2.8 * titleSizeScale}rem`,
+                background: `linear-gradient(180deg,${P.primary},${P.accent})`,
+                borderRadius: 4,
+                flexShrink: 0,
+              }}
+            />
+            <h1
+              style={{
+                fontWeight: 900,
+                color: P.text,
+                fontSize: `${3.5 * titleSizeScale}rem`,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+                flex: 1,
+                margin: 0,
+              }}
+            >
               {slide.title}
             </h1>
           </div>
 
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1.5rem' }}>
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '1.5rem',
+            }}
+          >
             <div
               style={{
                 display: 'inline-flex',
@@ -939,29 +1169,41 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
             </div>
 
             {content.length > 0 && (
-              <div style={{ 
-                textAlign: 'center',
-                maxWidth: '85%',
-                background: P.muted,
-                borderRadius: 14,
-                padding: '1.6rem 2.5rem',
-                border: `1px solid ${P.border}`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-              }}>
-                <p style={{ 
-                  color: P.text, 
-                  fontSize: `${1.9 * contentSizeScale}rem`, 
-                  fontWeight: 600, 
-                  lineHeight: 1.55,
-                  margin: 0,
-                }}>
+              <div
+                style={{
+                  textAlign: 'center',
+                  maxWidth: '85%',
+                  background: P.muted,
+                  borderRadius: 14,
+                  padding: '1.6rem 2.5rem',
+                  border: `1px solid ${P.border}`,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
+                }}
+              >
+                <p
+                  style={{
+                    color: P.text,
+                    fontSize: `${1.9 * contentSizeScale}rem`,
+                    fontWeight: 600,
+                    lineHeight: 1.55,
+                    margin: 0,
+                  }}
+                >
                   {content[0]}
                 </p>
               </div>
             )}
 
             {content.length > 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem', width: '100%', maxWidth: '75%' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.7rem',
+                  width: '100%',
+                  maxWidth: '75%',
+                }}
+              >
                 {content.slice(1).map((item, i) => (
                   <div
                     key={i}
@@ -976,8 +1218,22 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                       boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                     }}
                   >
-                    <CheckCircle2 style={{ width: `${1.4 * contentSizeScale}rem`, height: `${1.4 * contentSizeScale}rem`, color: P.primary, flexShrink: 0 }} />
-                    <span style={{ fontSize: `${1.25 * contentSizeScale}rem`, fontWeight: 500, color: P.subtext, lineHeight: 1.45 }}>
+                    <CheckCircle2
+                      style={{
+                        width: `${1.4 * contentSizeScale}rem`,
+                        height: `${1.4 * contentSizeScale}rem`,
+                        color: P.primary,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: `${1.25 * contentSizeScale}rem`,
+                        fontWeight: 500,
+                        color: P.subtext,
+                        lineHeight: 1.45,
+                      }}
+                    >
                       {typeof item === 'string' ? item : JSON.stringify(item)}
                     </span>
                   </div>
@@ -995,31 +1251,104 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
   // ══════════════════════════════════════════════════════════════
   const hasImage = !!slide.imageUrl;
   const visualRatio = slide.visualRatio ?? 50;
-  const textRatio = 100 - visualRatio;
-  const imageSide = layout === 'split-right' ? 'left' : 'right';
+  const textRatio   = 100 - visualRatio;
+  const imageSide   = layout === 'split-right' ? 'left' : 'right';
 
   return (
     <div className={`aspect-video w-full relative bg-white overflow-hidden ${containerClassName}`}>
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '0.45rem', background: `linear-gradient(90deg,${P.primary},${P.accent})` }} />
+      {/* ✅ 이미지 배경 레이어 (zIndex: 0) — split 레이아웃이 아닐 때 배경으로 표시 */}
+      {layout !== 'split-left' && layout !== 'split-right' && (
+        <SlideBackground imageUrl={slide.imageUrl} />
+      )}
+
+      {/* 상단 그라디언트 바 */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0,
+          height: '0.45rem',
+          background: `linear-gradient(90deg,${P.primary},${P.accent})`,
+          zIndex: 1,
+        }}
+      />
 
       {Watermark}
       <Logo />
       <SlideNum />
 
-      <div style={{ height: '100%', padding: '2.2rem 2.5rem 2.5rem', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem', paddingBottom: '0.6rem', borderBottom: `1.5px solid ${P.border}`, flexShrink: 0 }}>
-          <div style={{ width: '0.32rem', height: `${2.1 * titleSizeScale}rem`, background: `linear-gradient(180deg,${P.primary},${P.accent})`, borderRadius: 4, flexShrink: 0 }} />
-          <h2 style={{ fontWeight: 900, color: P.text, fontSize: titleFontSize, letterSpacing: '-0.02em', lineHeight: 1.2, flex: 1, margin: 0 }}>
+      {/* ✅ 콘텐츠 영역 — position:relative + zIndex:1 */}
+      <div
+        style={{
+          height: '100%',
+          padding: '2.2rem 2.5rem 2.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        {/* 제목 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem',
+            marginBottom: '1rem',
+            paddingBottom: '0.6rem',
+            borderBottom: `1.5px solid ${P.border}`,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              width: '0.32rem',
+              height: `${2.1 * titleSizeScale}rem`,
+              background: `linear-gradient(180deg,${P.primary},${P.accent})`,
+              borderRadius: 4,
+              flexShrink: 0,
+            }}
+          />
+          <h2
+            style={{
+              fontWeight: 900,
+              color: P.text,
+              fontSize: titleFontSize,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
+              flex: 1,
+              margin: 0,
+            }}
+          >
             {slide.title}
           </h2>
         </div>
 
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '1.2rem', minHeight: 0 }}>
-          <div style={{ width: hasImage ? `${textRatio}%` : '100%', overflow: 'hidden', order: imageSide === 'left' ? 2 : 1 }}>
+        {/* 본문 */}
+        <div
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            display: 'flex',
+            gap: '1.2rem',
+            minHeight: 0,
+          }}
+        >
+          {/* 텍스트/콘텐츠 영역 */}
+          <div
+            style={{
+              width:
+                hasImage && (layout === 'split-left' || layout === 'split-right')
+                  ? `${textRatio}%`
+                  : '100%',
+              overflow: 'hidden',
+              order: imageSide === 'left' ? 2 : 1,
+            }}
+          >
             {renderContent()}
           </div>
 
-          {hasImage && slide.imageUrl && (
+          {/* ✅ split 레이아웃일 때만 이미지 패널을 옆에 표시 */}
+          {hasImage && (layout === 'split-left' || layout === 'split-right') && (
             <div
               style={{
                 width: `${visualRatio}%`,
@@ -1030,7 +1359,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
                 boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
               }}
             >
-              <img src={slide.imageUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img
+                src={slide.imageUrl}
+                alt=""
+                crossOrigin="anonymous"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             </div>
           )}
         </div>
@@ -1038,3 +1373,5 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({ slide, containerClassN
     </div>
   );
 };
+
+export default ScaledSlide;
