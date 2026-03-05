@@ -88,7 +88,8 @@ function normalizePresentationSlides(presentation: any): Presentation {
 }
 
 export function usePresentation() {
-  const [step,           setStep]           = useState<AppStep>('upload');
+  // ✅ 핵심 수정: AppStep → ExtendedStep
+  const [step,           setStep]           = useState<ExtendedStep>('upload');
   const [parsedFiles,    setParsedFiles]    = useState<ParsedFileData[]>([]);
   const [fileNames,      setFileNames]      = useState<string[]>([]);
   const [template,       setTemplate]       = useState<string>('auto');
@@ -269,7 +270,7 @@ export function usePresentation() {
     }
 
     setIsLoadingOutline(true);
-    setStep('outline' as ExtendedStep);
+    setStep('outline'); // ✅ 핵심 수정: as ExtendedStep 캐스팅 제거
 
     try {
       const payload = buildAIPayload(parsedFiles);
@@ -304,12 +305,10 @@ export function usePresentation() {
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
   // ─────────────────────────────────────────────────────────
-  // ✅ 슬라이드 생성 — 디버깅 코드 추가
+  // 슬라이드 생성
   // ─────────────────────────────────────────────────────────
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
 
-    // ══════════════════════════════════════════════════════
-    // 🔍 디버깅: 상태 확인
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('🚀 [generatePresentation] 호출됨');
     console.log('📂 parsedFiles.length  :', parsedFiles.length);
@@ -323,7 +322,6 @@ export function usePresentation() {
     console.log('⚙️  settings            :', settings);
     console.log('🎨 template            :', template);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    // ══════════════════════════════════════════════════════
 
     if (parsedFiles.length === 0) {
       console.error('❌ [generatePresentation] parsedFiles가 비어있음! 생성 중단.');
