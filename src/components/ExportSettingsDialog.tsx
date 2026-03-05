@@ -9,7 +9,8 @@ import { BrandSettings, DEFAULT_BRAND } from '@/lib/export-presentation';
 interface ExportSettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onExport: (format: 'pptx' | 'pdf', brand: BrandSettings) => void;
+  // ✅ onExport 함수 시그니처 수정: 'pptx-image' 타입 추가
+  onExport: (format: 'pptx' | 'pptx-image' | 'pdf', brand: BrandSettings) => void;
   isExporting: boolean;
 }
 
@@ -206,22 +207,35 @@ export function ExportSettingsDialog({ open, onOpenChange, onExport, isExporting
         </div>
 
         {/* Export buttons */}
-        <div className="flex gap-2 pt-2">
-          <Button
-            className="flex-1 gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90"
-            onClick={() => onExport('pptx', brand)}
-            disabled={isExporting}
-          >
-            PPT 내보내기
-          </Button>
-          <Button
-            variant="outline"
-            className="flex-1 gap-2"
-            onClick={() => onExport('pdf', brand)}
-            disabled={isExporting}
-          >
-            PDF 내보내기
-          </Button>
+        <div className="flex flex-col gap-2 pt-2">
+          {/* ✅ 버튼 레이아웃 수정 및 고화질 PPT 버튼 추가 */}
+          <div className="flex gap-2">
+            <Button
+              className="flex-1 gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90"
+              onClick={() => onExport('pptx', brand)}
+              disabled={isExporting}
+            >
+              PPT 내보내기 (텍스트/차트 수정 가능)
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 gap-2 border-primary/20 text-primary hover:bg-primary/5"
+              onClick={() => onExport('pptx-image', brand)}
+              disabled={isExporting}
+            >
+              고화질 이미지 PPT (디자인 100% 동일)
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 gap-2"
+              onClick={() => onExport('pdf', brand)}
+              disabled={isExporting}
+            >
+              PDF 내보내기
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
