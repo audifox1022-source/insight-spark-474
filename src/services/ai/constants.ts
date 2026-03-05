@@ -30,10 +30,11 @@ export const TOKEN_MAP: Record<string, number> = {
   comprehensive: 32768,
 };
 
+// ✅ 잘림 현상 방지를 위해 목차 생성 토큰을 모두 최대치(8192)로 상향 조정
 export const OUTLINE_TOKEN_MAP: Record<string, number> = {
-  brief: 4096,
-  standard: 4096,
-  detailed: 6000,
+  brief: 8192,
+  standard: 8192,
+  detailed: 8192,
   comprehensive: 8192,
 };
 
