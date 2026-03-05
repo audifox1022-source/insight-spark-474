@@ -6,6 +6,9 @@ import { MAX_FILE_BYTES, ALLOWED_SLIDE_TYPES, AllowedSlideType, TYPE_ALIAS_MAP }
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: false });
 
+/**
+ * 대용량 파일 데이터를 전송 가능한 크기로 제한합니다.
+ */
 export function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
   const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
@@ -16,6 +19,9 @@ export function truncateFileData(fileData: any): string {
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
+/**
+ * 다양한 형태의 데이터 구조에서 순수 텍스트 리스트를 추출합니다.
+ */
 export function extractTextFromItem(item: any, depth = 0): string[] {
   if (depth > 4) return [String(item)];
   if (!item) return [];
@@ -59,6 +65,9 @@ export function extractTextFromItem(item: any, depth = 0): string[] {
   return [String(item)];
 }
 
+/**
+ * 슬라이드 타입을 표준 타입으로 변환합니다.
+ */
 export function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
   if (index === 0) return 'title';
   if (index === total - 1) return 'summary';
@@ -67,6 +76,9 @@ export function normalizeType(raw: string, index: number, total: number): Allowe
   return (TYPE_ALIAS_MAP[lower] as AllowedSlideType) ?? 'content';
 }
 
+/**
+ * 슬라이드 객체의 데이터를 검증하고 필수 필드를 보장합니다.
+ */
 export function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
@@ -156,26 +168,38 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   return s;
 }
 
+/**
+ * AI의 텍스트 응답에서 JSON을 추출하고 망가진 경우 복구를 시도합니다.
+ */
 export function extractJSON(text: string): any {
   if (!text) return null;
   let cleanText = text.trim();
 
-  // 1. 마크다운 분리
-  const codeBlockStart = cleanText.indexOf('```json');
-  const fallbackStart = cleanText.indexOf('```');
-  const startIdx = codeBlockStart !== -1 ? codeBlockStart + 7 : (fallbackStart !== -1 ? fallbackStart + 3 : -1);
-  
-  if (startIdx !== -1) {
-    const endIdx = cleanText.lastIndexOf('```');
-    if (endIdx !== -1 && endIdx > startIdx) {
-      cleanText = cleanText.substring(startIdx, endIdx).trim();
+  // ✅ 정규표현식 완전 배제: indexOf를 이용해 안전하게 마크다운 코드블록을 도려냅니다.
+  let startIndex = cleanText.indexOf('```json');
+  if (startIndex !== -1) {
+    startIndex += 7;
+  } else {
+    startIndex = cleanText.indexOf('```');
+    if (startIndex !== -1) {
+      startIndex += 3;
+    }
+  }
+
+  if (startIndex !== -1) {
+    const endIndex = cleanText.indexOf('```', startIndex);
+    if (endIndex !== -1) {
+      cleanText = cleanText.substring(startIndex, endIndex).trim();
     } else {
-      cleanText = cleanText.substring(startIdx).trim();
+      cleanText = cleanText.substring(startIndex).trim();
     }
   }
 
   // 2. 앞뒤 불필요한 텍스트 제거 (JSON 시작/끝 찾기)
-  const jsonStart = cleanText.search(/[\{\[]/);
+  const jsonStart = cleanText.indexOf('{') !== -1 && cleanText.indexOf('[') !== -1 
+    ? Math.min(cleanText.indexOf('{'), cleanText.indexOf('['))
+    : Math.max(cleanText.indexOf('{'), cleanText.indexOf('['));
+    
   const jsonEnd = Math.max(cleanText.lastIndexOf('}'), cleanText.lastIndexOf(']'));
 
   if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd >= jsonStart) {
@@ -195,7 +219,7 @@ export function extractJSON(text: string): any {
     try {
       // 제어문자 및 줄바꿈을 안전하게 치환
       let forced = cleanText.replace(/[\u0000-\u0009\u000B-\u001F]+/g, " ");
-      forced = forced.replace(/\n/g, "\\n"); // 줄바꿈 이스케이프 처리
+      forced = forced.replace(/\n/g, "\\n"); 
       
       // 열린 따옴표 확인
       let inString = false;
@@ -234,7 +258,6 @@ export function extractJSON(text: string): any {
 
     } catch (error3) {
       console.error('[extractJSON] 최종 파싱 실패:', cleanText.slice(-100));
-      // 🚨 최후의 보루: 파싱에 완전히 실패하더라도 앱이 죽지 않고 빈 객체 반환
       return { title: "데이터 생성 지연", slides: [] };
     }
   }
