@@ -1,5 +1,5 @@
 // ============================================================
-// utils.ts - 데이터 가공 및 파싱 로직 (완성본)
+// src/services/ai/utils.ts - 데이터 가공 및 파싱 로직 (완성본)
 // ============================================================
 import { MAX_FILE_BYTES, ALLOWED_SLIDE_TYPES, AllowedSlideType, TYPE_ALIAS_MAP } from './constants';
 
@@ -177,5 +177,5 @@ export function extractJSON(text: string): any {
   if (!text) return null;
   let cleanText = text.trim();
 
-  // 1. 마크다운 코드블록 제거
-  const mdMatch = cleanText.match(/
+  // ✅ Vite(esbuild) 정규식 빌드 에러 해결: RegExp 객체 사용으로 백틱 파싱 충돌 방지
+  const mdMatch = cleanText.match(new RegExp('
