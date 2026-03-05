@@ -1,11 +1,14 @@
 // ============================================================
-// utils.ts - 데이터 가공 및 파싱 로직
+// utils.ts - 데이터 가공 및 파싱 로직 (완성본)
 // ============================================================
 import { MAX_FILE_BYTES, ALLOWED_SLIDE_TYPES, AllowedSlideType, TYPE_ALIAS_MAP } from './constants';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: false });
 
+/**
+ * 대용량 파일 데이터를 전송 가능한 크기로 제한합니다.
+ */
 export function truncateFileData(fileData: any): string {
   if (!fileData) return "제공된 파일 데이터 없음";
   const raw = typeof fileData === "string" ? fileData : JSON.stringify(fileData);
@@ -16,6 +19,9 @@ export function truncateFileData(fileData: any): string {
   return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
+/**
+ * 다양한 형태의 데이터 구조에서 순수 텍스트 리스트를 추출합니다.
+ */
 export function extractTextFromItem(item: any, depth = 0): string[] {
   if (depth > 4) return [String(item)];
   if (!item) return [];
@@ -59,6 +65,9 @@ export function extractTextFromItem(item: any, depth = 0): string[] {
   return [String(item)];
 }
 
+/**
+ * 슬라이드 타입을 표준 타입으로 변환합니다.
+ */
 export function normalizeType(raw: string, index: number, total: number): AllowedSlideType {
   if (index === 0) return 'title';
   if (index === total - 1) return 'summary';
@@ -67,6 +76,9 @@ export function normalizeType(raw: string, index: number, total: number): Allowe
   return (TYPE_ALIAS_MAP[lower] as AllowedSlideType) ?? 'content';
 }
 
+/**
+ * 슬라이드 객체의 데이터를 검증하고 필수 필드를 보장합니다.
+ */
 export function normalizeSlide(s: any, index = 0, total = 1): any {
   if (!s || typeof s !== "object") {
     return {
@@ -88,7 +100,7 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   const contentArray = Array.isArray(rawContent) ? rawContent : typeof rawContent === "string" ? [rawContent] : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
-  // ── 타입별 보정 로직 (chart, table, kpi 등 원본 유지) ──
+  // ── 타입별 보정 로직 (chart, table, kpi 등) ──
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
@@ -157,6 +169,9 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   return s;
 }
 
+/**
+ * AI의 텍스트 응답에서 JSON을 추출하고 망가진 경우 복구를 시도합니다.
+ */
 export function extractJSON(text: string): any | null {
   if (!text) return null;
   let cleanText = text.trim();
