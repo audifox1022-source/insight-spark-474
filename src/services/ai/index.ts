@@ -49,7 +49,11 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
   ]
 }`;
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.OUTLINE_TOKEN_MAP[volume] ?? 4096);
+    const text = await callGeminiAPI(
+      systemInstruction,
+      userPrompt,
+      constants.OUTLINE_TOKEN_MAP[volume] ?? 4096
+    );
 
     console.log('[Outline AI 응답 원문]', text);
 
@@ -57,12 +61,14 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
 
     console.log('[Outline JSON 파싱 결과]', data);
 
-    // ✅ usePresentation.ts가 기대하는 구조로 반환
+    // usePresentation.ts가 기대하는 구조로 반환
     return {
       title:   data?.title ?? '새 발표 자료',
-      outline: Array.isArray(data?.outline) ? data.outline
-             : Array.isArray(data)          ? data
-             : [],
+      outline: Array.isArray(data?.outline)
+        ? data.outline
+        : Array.isArray(data)
+        ? data
+        : [],
     };
   },
 
@@ -70,16 +76,29 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
   // 슬라이드 생성
   // ─────────────────────────────────────────────────────────
   async generatePresentation(body: any) {
-    const volume = body.settings?.volume || 'standard';
+    const volume     = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
-    const slideCount = body.approvedOutline?.outline?.length
-      ?? constants.SLIDE_COUNT_MAP[volume]
-      ?? 8;
 
-    const typeGuide = (body.approvedOutline?.outline || [])
+    // ✅ approvedOutline 방어: outline이 배열인 경우만 사용
+    const outlineArray: any[] =
+      Array.isArray(body.approvedOutline?.outline)
+        ? body.approvedOutline.outline
+        : Array.isArray(body.approvedOutline)
+          ? body.approvedOutline
+          : [];
+
+    const slideCount =
+      outlineArray.length ||
+      constants.SLIDE_COUNT_MAP[volume] ||
+      8;
+
+    // ✅ item이 undefined인 경우 필터링, 필드도 안전하게 처리
+    const typeGuide = outlineArray
+      .filter((item) => item != null)
       .map((item: any, i: number) =>
-        ` ${i + 1}번 "${item.title}" → type="${item.type}" | 주제: ${item.description || '없음'}`
-      ).join('\n');
+        ` ${i + 1}번 "${item?.title ?? ''}" → type="${item?.type ?? 'content'}" | 주제: ${item?.description ?? '없음'}`
+      )
+      .join('\n');
 
     const systemInstruction = prompts.getSystemPromptCore(difficulty);
     const userPrompt = `${prompts.SLIDE_SCHEMA}
@@ -103,7 +122,11 @@ ${typeGuide}
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume]);
+    const text = await callGeminiAPI(
+      systemInstruction,
+      userPrompt,
+      constants.TOKEN_MAP[volume]
+    );
     const json = utils.extractJSON(text);
 
     return { presentation: json };
@@ -261,7 +284,11 @@ JSON 반환: {"structure":"구조 설명","slideTypes":["type1","type2"],"style"
 반드시 JSON만 반환: {"primaryColor":"#1B3A5C","accentColor":"#0D8ECF","description":"스타일 설명"}`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 512);
-    return utils.extractJSON(text) || { primaryColor: '#1B3A5C', accentColor: '#0D8ECF', description: '' };
+    return utils.extractJSON(text) || {
+      primaryColor: '#1B3A5C',
+      accentColor: '#0D8ECF',
+      description: '',
+    };
   },
 
   // ─────────────────────────────────────────────────────────
