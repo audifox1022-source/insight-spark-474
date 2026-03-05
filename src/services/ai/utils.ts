@@ -101,6 +101,7 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   const contentArray = Array.isArray(rawContent) ? rawContent : typeof rawContent === "string" ? [rawContent] : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
 
+  // ── 타입별 보정 로직 (chart, table, kpi 등) ──
   if (s.type === 'chart') {
     const raw = s.chartData || {};
     let parsedChartData: any = null;
@@ -178,6 +179,3 @@ export function extractJSON(text: string): any {
 
   // 1. 마크다운 코드블록 제거
   const mdMatch = cleanText.match(/
-http://googleusercontent.com/immersive_entry_chip/0
-
-이 세 파일을 덮어씌워 주시면 더 이상 문자열이 잘려서 에러가 발생하며 멈추는 일은 발생하지 않을 것입니다!
