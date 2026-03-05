@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts — 렌더링 크래시 방지(엄격한 정규화) 및 컨텍스트 강화 버전
+// usePresentation.ts — 엄격한 데이터 검증 및 렌더링 크래시 철통 방어 버전
 // ============================================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -49,23 +49,13 @@ function convertAIChartData(rawChartData: any): SlideChartData | undefined {
   } as SlideChartData;
 }
 
-// ✅ 렌더링 크래시 방지: 속성 누락 시 기본값(Fallback)을 엄격하게 적용
+// ✅ 렌더링 크래시 철통 방어: 화이트리스트 기반 엄격한 정규화
 function normalizeSlideForApp(raw: any, index: number): Slide {
-  if (!raw || typeof raw !== 'object') {
-    return {
-      slideNumber: index + 1,
-      type: 'content',
-      layout: 'default',
-      title: '',
-      content: [],
-      keyMetrics: [],
-      notes: '',
-      persona: 'standard'
-    } as Slide;
-  }
+  const baseRaw = (raw && typeof raw === 'object') ? raw : {};
 
-  const rawContent = raw.content ?? raw.points ?? raw.bullets ?? raw.items ?? raw.list ?? [];
-  const content: string[] = Array.isArray(rawContent)
+  // 1. Content 배열 추출 방어
+  const rawContent = baseRaw.content ?? baseRaw.points ?? baseRaw.bullets ?? baseRaw.items ?? baseRaw.list ?? [];
+  let content: string[] = Array.isArray(rawContent)
     ? rawContent.map((p: any) =>
         typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p)
       )
@@ -73,37 +63,87 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
     ? [rawContent]
     : [];
 
-  const keyMetrics = Array.isArray(raw.keyMetrics) ? raw.keyMetrics : [];
-  const chartData  = convertAIChartData(raw.chartData);
+  // 2. Type 화이트리스트 검사 (React UI 컴포넌트 매핑 크래시 방지)
+  const validTypes = ['title', 'agenda', 'content', 'chart', 'compare', 'kpi', 'summary', 'quote', 'section', 'image'];
+  let slideType = (baseRaw.type && typeof baseRaw.type === 'string') ? baseRaw.type.toLowerCase() : 'content';
+  if (!validTypes.includes(slideType)) {
+    slideType = 'content';
+  }
 
-  // AI가 type이나 layout을 누락할 경우 undefined가 되어 UI에서 크래시 유발. 방어 코드 추가.
-  const slideType = (raw.type && typeof raw.type === 'string') ? raw.type : 'content';
-  const slideLayout = (raw.layout && typeof raw.layout === 'string') ? raw.layout : 'default';
+  // 3. Layout 화이트리스트 검사 (레이아웃 스타일 매핑 크래시 방지)
+  const validLayouts = ['default', 'split-left', 'split-right', 'highlight', 'grid', 'full'];
+  let slideLayout = (baseRaw.layout && typeof baseRaw.layout === 'string') ? baseRaw.layout.toLowerCase() : 'default';
+  if (!validLayouts.includes(slideLayout)) {
+    slideLayout = 'default';
+  }
+
+  // 4. KPI 데이터 누락 방어
+  let keyMetrics = Array.isArray(baseRaw.keyMetrics) ? baseRaw.keyMetrics : [];
+  if (slideType === 'kpi' && keyMetrics.length === 0) {
+    keyMetrics = [{ label: '주요 지표', value: '데이터 누락', description: 'AI가 지표를 생성하지 못했습니다.' }];
+  }
+
+  // 5. Chart 데이터 누락 방어
+  let chartData = convertAIChartData(baseRaw.chartData);
+  if (slideType === 'chart' && !chartData) {
+    chartData = {
+      chartType: 'bar',
+      title: baseRaw.title || '차트 데이터 (임시)',
+      data: [{ name: 'A', value: 10 }, { name: 'B', value: 20 }],
+      series1Label: '데이터',
+      showLegend: false
+    };
+  }
+
+  // 6. Compare 항목 누락 방어
+  if (slideType === 'compare' && content.length < 2) {
+    content = ['비교 항목 A', '비교 항목 B', ...content];
+  }
 
   return {
-    ...raw,
-    slideNumber: raw.slideNumber ?? index + 1,
-    type:        slideType,
-    layout:      slideLayout,
-    title:       raw.title || '',
+    ...baseRaw,
+    slideNumber: Number(baseRaw.slideNumber) || index + 1,
+    type: slideType,
+    layout: slideLayout,
+    title: baseRaw.title || '제목 없음',
     content,
     keyMetrics,
     chartData,
-    notes:       raw.notes || '',
-    imageUrl:    raw.imageUrl || undefined,
-    persona:     raw.persona || 'standard',
+    notes: baseRaw.notes || '',
+    imageUrl: baseRaw.imageUrl || undefined,
+    persona: baseRaw.persona || 'standard',
   } as Slide;
 }
 
+// ✅ 발표 자료 전체 객체 방어 로직 추가
 function normalizePresentationSlides(presentation: any): Presentation {
-  if (!presentation || !Array.isArray(presentation.slides)) {
-    return { title: presentation?.title || '새 발표 자료', theme: 'blue', slides: [] };
+  const defaultSlide: Slide = {
+    slideNumber: 1,
+    type: 'title',
+    layout: 'default',
+    title: '슬라이드 생성 오류',
+    content: ['AI가 데이터를 올바르게 생성하지 못했습니다. 다시 시도해 주세요.'],
+    keyMetrics: [],
+    persona: 'standard'
+  };
+
+  if (!presentation || typeof presentation !== 'object') {
+    return { title: '새 발표 자료', theme: 'blue', slides: [defaultSlide] };
   }
+
+  let slides = Array.isArray(presentation.slides) ? presentation.slides : [];
+  
+  if (slides.length === 0) {
+    slides = [defaultSlide];
+  } else {
+    slides = slides.map(normalizeSlideForApp);
+  }
+
   return {
     ...presentation,
     title: presentation.title || '새 발표 자료',
-    theme: presentation.theme || 'blue', // ✅ 전역 테마 누락 시 기본값 지정
-    slides: presentation.slides.map(normalizeSlideForApp),
+    theme: presentation.theme || 'blue',
+    slides,
   };
 }
 
