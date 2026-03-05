@@ -94,7 +94,7 @@ const Index = () => {
     savedList, isLoadingList,
     historyOpen, setHistoryOpen, openHistory,
     loadFromHistory, deleteFromHistory,
-    chatOpen, setChatOpen, currentChatSlideIndex, // ✅ 추가된 상태 가져오기
+    chatOpen, setChatOpen, currentChatSlideIndex,
     reviewOpen, setReviewOpen,
     reviewResult, isReviewing,
     requestReview, applyReviewFix,
@@ -108,9 +108,16 @@ const Index = () => {
     changeSlidePersona, cycleLayout,
     updatePresentationMaster,
     isGeneratingImage, generateSlideImage,
-    reset, updateSlide, updateAllSlides, addSlide, // ✅ updateAllSlides 추가
+    reset, updateSlide, updateAllSlides, addSlide,
     deleteSlide, duplicateSlide,
     moveSlide, updatePresentationTitle,
+
+    // ✅ 추가된 참고 양식 관련 함수와 상태 가져오기
+    referenceFileName,
+    isAnalyzingReference,
+    referenceStructure,
+    handleReferenceFileUpload,
+    clearReferenceFile,
   } = usePresentation()
 
   const guide        = getStepGuide(step)
@@ -517,10 +524,16 @@ const Index = () => {
                     <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 파일 업로드</span>
                   </div>
 
+                  {/* ✅ 수정된 FileUploadZone 호출 (참고 양식 props 전달) */}
                   <FileUploadZone
                     onFilesSelect={handleFilesUpload}
                     fileNames={fileNames}
                     onRemoveFile={removeFile}
+                    onReferenceSelect={handleReferenceFileUpload}
+                    referenceFileName={referenceFileName}
+                    onRemoveReference={clearReferenceFile}
+                    isAnalyzingReference={isAnalyzingReference}
+                    referenceStructure={referenceStructure}
                   />
 
                   {fileNames.length > 0 && (
