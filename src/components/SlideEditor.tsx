@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  RotateCcw, Download, Plus, Trash2, Copy,
+  RotateCcw, Download, Plus, Trash2, Copy, // ✅ Trash2가 올바르게 임포트됨
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, Check, X, Pencil, Play, Save,
   GripVertical, Loader2, Sparkles, MessageSquare, Keyboard,
@@ -42,7 +42,7 @@ interface SlideEditorProps {
   presentation: Presentation;
   onReset: () => void;
   onUpdateSlide: (index: number, updated: Partial<Slide>) => void;
-  onUpdateAllSlides: (updated: Partial<Slide>) => void; // ✅ 전체 일괄 업데이트 함수 추가
+  onUpdateAllSlides: (updated: Partial<Slide>) => void; 
   onAddSlide: (afterIndex: number) => void;
   onDeleteSlide: (index: number) => void;
   onDuplicateSlide: (index: number) => void;
@@ -673,10 +673,11 @@ export function SlideEditor({
                         onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}>
                         <Plus className="w-3.5 h-3.5" />
                       </Button>
+                      {/* ✅ "Trash 파2" -> "Trash2" 로 오타 수정 완료 */}
                       <Button size="sm" variant="ghost"
                         className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}>
-                        <Trash 파2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" /> 
                       </Button>
                     </div>
                   </div>
@@ -703,7 +704,7 @@ export function SlideEditor({
                     <div className="space-y-5">
                       <div className="grid grid-cols-2 gap-4">
 
-                        {/* ✅ 제목 크기 — pt 직접 입력 및 전체적용 버튼 */}
+                        {/* 제목 크기 — pt 직접 입력 및 전체적용 버튼 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">제목 크기</label>
@@ -752,7 +753,7 @@ export function SlideEditor({
                           </div>
                         </div>
 
-                        {/* ✅ 내용 크기 — pt 직접 입력 및 전체적용 버튼 */}
+                        {/* 내용 크기 — pt 직접 입력 및 전체적용 버튼 */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-xs font-semibold text-muted-foreground">내용 크기</label>
