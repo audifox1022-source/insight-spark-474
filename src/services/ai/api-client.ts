@@ -1,6 +1,6 @@
 // ============================================================
 // src/services/ai/api-client.ts - Gemini 및 외부 이미지 API 연동
-// (보안 패치: Vercel 프록시 통합 + Structured Outputs 강제화 버전)
+// (보안 패치: Vercel 프록시 통합 버전)
 // ============================================================
 
 const PROXY_URL = '/api/gemini-proxy';
@@ -10,12 +10,11 @@ const RETRY_BASE_MS = 1_000;
 export async function callGeminiAPI(
   systemInstruction: string,
   userPrompt: string,
-  maxTokens = 8192,
-  schema?: any // ✅ Structured Outputs용 스키마 파라미터 추가
+  maxTokens = 8192
 ): Promise<string> {
   // 프록시 서버로 보낼 페이로드 구성
-  const payload: any = {
-    model: 'gemini-2.5-flash', // 프록시에서 사용할 모델 명시
+  const payload = {
+    model: 'gemini-2.5-flash', 
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
@@ -24,11 +23,6 @@ export async function callGeminiAPI(
       responseMimeType: "application/json",
     },
   };
-
-  // ✅ 스키마가 전달된 경우 페이로드에 추가하여 완벽한 JSON 형식을 물리적으로 강제함
-  if (schema) {
-    payload.generationConfig.responseSchema = schema;
-  }
 
   let lastError: Error = new Error("알 수 없는 오류가 발생했습니다.");
 
@@ -40,7 +34,6 @@ export async function callGeminiAPI(
         body: JSON.stringify(payload),
       });
 
-      // 429(Too Many Requests), 503(Service Unavailable) 시 지수 백오프 재시도
       if (response.status === 429 || response.status === 503) {
         const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
         await new Promise((res) => setTimeout(res, waitMs));
@@ -73,7 +66,6 @@ export async function callGeminiAPI(
 
 export async function generateSlideImage(title: string, content: string): Promise<string> {
   try {
-    // 백엔드 프록시 API 호출 (/api/generate-ai-image.js)
     const response = await fetch('/api/generate-ai-image', {
       method: 'POST',
       headers: {
@@ -97,7 +89,6 @@ export async function generateSlideImage(title: string, content: string): Promis
     console.error("🚨 백엔드 API 호출 실패, 기본 로직으로 대체합니다:", error);
   }
 
-  // 백엔드 API 호출 실패 시 Fallback 생성 (안전망)
   const fallbackPrompt = `Professional presentation background, corporate minimal, topic: ${title}`;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(fallbackPrompt)}?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random()*999)}&model=flux`;
 }
