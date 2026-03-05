@@ -16,7 +16,6 @@ import {
   Type,
   AlignLeft,
   Image as ImageIcon,
-  Table as TableIcon,
   Plus,
   Trash2,
   ChevronDown,
@@ -31,7 +30,8 @@ interface SlideEditorProps {
   onRemoveContent?: (slideIndex: number, contentIndex: number) => void;
 }
 
-export default function SlideEditor({
+// ✅ named export (Index.tsx의 import { SlideEditor } 와 일치)
+export function SlideEditor({
   slides,
   currentSlide,
   onUpdateSlide,
@@ -55,7 +55,7 @@ export default function SlideEditor({
 
   return (
     <div className="h-full overflow-y-auto px-6 py-6 space-y-5">
-      
+
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* 기본 정보 */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -67,15 +67,14 @@ export default function SlideEditor({
             <Type className="w-4 h-4 text-primary" />
             <span className="text-sm font-bold text-foreground">기본 정보</span>
           </div>
-          {expandedSection === 'basic' ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {expandedSection === 'basic'
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {expandedSection === 'basic' && (
           <div className="space-y-4">
+
             {/* 제목 */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-2 block">제목</label>
@@ -87,7 +86,7 @@ export default function SlideEditor({
               />
             </div>
 
-            {/* 부제목 (subhead) */}
+            {/* 부제목 */}
             {slide.type !== 'title' && (
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-2 block">부제목</label>
@@ -125,6 +124,7 @@ export default function SlideEditor({
                 </SelectContent>
               </Select>
             </div>
+
           </div>
         )}
       </div>
@@ -140,21 +140,19 @@ export default function SlideEditor({
             <SlidersHorizontal className="w-4 h-4 text-primary" />
             <span className="text-sm font-bold text-foreground">슬라이드 설정</span>
           </div>
-          {expandedSection === 'settings' ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {expandedSection === 'settings'
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {expandedSection === 'settings' && (
           <div className="space-y-5">
-            
-            {/* ✅ 레이아웃 선택 (신규 5가지 옵션) */}
+
+            {/* ✅ 레이아웃 선택 — 5가지 옵션 */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-2 block">레이아웃</label>
-              <Select 
-                value={slide.layout ?? 'default'} 
+              <Select
+                value={slide.layout ?? 'default'}
                 onValueChange={v => onUpdateSlide(currentSlide, { layout: v as Slide['layout'] })}>
                 <SelectTrigger className="w-full h-9 text-sm">
                   <SelectValue />
@@ -168,16 +166,18 @@ export default function SlideEditor({
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground mt-1">
-                {slide.layout === 'split-left' && '📐 좌측 비주얼 + 우측 텍스트 (이미지 강조)'}
+                {slide.layout === 'split-left'  && '📐 좌측 비주얼 + 우측 텍스트 (이미지 강조)'}
                 {slide.layout === 'split-right' && '📐 좌측 텍스트 + 우측 비주얼 (내용 강조)'}
-                {slide.layout === 'grid' && '📐 2~3단 그리드 카드 레이아웃'}
-                {slide.layout === 'highlight' && '📐 핵심 강조 박스형'}
+                {slide.layout === 'grid'        && '📐 2~3단 그리드 카드 레이아웃'}
+                {slide.layout === 'highlight'   && '📐 핵심 강조 박스형'}
                 {(!slide.layout || slide.layout === 'default') && '📐 표준 중앙 정렬 레이아웃'}
               </p>
             </div>
 
+            {/* ✅ 폰트 크기 — 제목 36pt / 내용 20pt 기본값 */}
             <div className="grid grid-cols-2 gap-4">
-              {/* ✅ 제목 크기 — 기본값 36pt */}
+
+              {/* 제목 크기 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-muted-foreground">제목 크기</label>
@@ -193,9 +193,9 @@ export default function SlideEditor({
                     className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
-                    className="text-xs px-2 h-9 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                     onClick={() => onUpdateSlide(currentSlide, { titleFontPt: 36 })}
-                    title="기본값(36pt)으로 초기화">
+                    title="기본값(36pt)으로 초기화"
+                    className="text-xs px-2 h-9 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
                     초기화
                   </button>
                 </div>
@@ -206,14 +206,15 @@ export default function SlideEditor({
                       className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${
                         (slide.titleFontPt ?? 36) === pt
                           ? 'bg-primary text-white border-primary'
-                          : 'bg-background border-border text-muted-foreground hover:border-primary/40'}`}>
+                          : 'bg-background border-border text-muted-foreground hover:border-primary/40'
+                      }`}>
                       {pt}pt
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* ✅ 내용 크기 — 기본값 20pt */}
+              {/* 내용 크기 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-muted-foreground">내용 크기</label>
@@ -229,9 +230,9 @@ export default function SlideEditor({
                     className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm font-mono text-center focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
-                    className="text-xs px-2 h-9 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
                     onClick={() => onUpdateSlide(currentSlide, { contentFontPt: 20 })}
-                    title="기본값(20pt)으로 초기화">
+                    title="기본값(20pt)으로 초기화"
+                    className="text-xs px-2 h-9 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
                     초기화
                   </button>
                 </div>
@@ -242,12 +243,14 @@ export default function SlideEditor({
                       className={`text-[10px] px-1.5 py-0.5 rounded border transition-all ${
                         (slide.contentFontPt ?? 20) === pt
                           ? 'bg-primary text-white border-primary'
-                          : 'bg-background border-border text-muted-foreground hover:border-primary/40'}`}>
+                          : 'bg-background border-border text-muted-foreground hover:border-primary/40'
+                      }`}>
                       {pt}pt
                     </button>
                   ))}
                 </div>
               </div>
+
             </div>
 
             {/* 텍스트:이미지 비율 */}
@@ -258,23 +261,30 @@ export default function SlideEditor({
                   {100 - (slide.visualRatio ?? 50)} : {slide.visualRatio ?? 50}
                 </span>
               </div>
-              <input type="range" min={30} max={70} step={5}
+              <input
+                type="range" min={30} max={70} step={5}
                 value={slide.visualRatio ?? 50}
                 onChange={e => onUpdateSlide(currentSlide, { visualRatio: parseInt(e.target.value) })}
-                className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer" />
+                className="w-full accent-primary h-1.5 bg-border rounded-lg appearance-none cursor-pointer"
+              />
               <div className="flex justify-between text-[10px] text-muted-foreground mt-1 px-1">
-                <span>텍스트 많이</span><span>균형</span><span>이미지 많이</span>
+                <span>텍스트 많이</span>
+                <span>균형</span>
+                <span>이미지 많이</span>
               </div>
             </div>
 
-            {/* 표 밀도 (table 타입일 때만 표시) */}
+            {/* 표 밀도 — table 타입일 때만 표시 */}
             {slide.tableData?.headers && slide.tableData.headers.length > 0 && (
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-2 block">표 밀도</label>
                 <div className="flex gap-2">
                   {(['compact', 'normal', 'relaxed'] as const).map(d => (
                     <Button key={d} size="sm"
-                      variant={(slide.tableDensity === d || (!slide.tableDensity && d === 'normal')) ? 'default' : 'outline'}
+                      variant={
+                        (slide.tableDensity === d || (!slide.tableDensity && d === 'normal'))
+                          ? 'default' : 'outline'
+                      }
                       className="flex-1 text-xs h-8"
                       onClick={() => onUpdateSlide(currentSlide, { tableDensity: d })}>
                       {d === 'compact' ? '좁게' : d === 'normal' ? '보통' : '넓게'}
@@ -283,6 +293,7 @@ export default function SlideEditor({
                 </div>
               </div>
             )}
+
           </div>
         )}
       </div>
@@ -298,28 +309,23 @@ export default function SlideEditor({
             <AlignLeft className="w-4 h-4 text-primary" />
             <span className="text-sm font-bold text-foreground">콘텐츠 편집</span>
           </div>
-          {expandedSection === 'content' ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {expandedSection === 'content'
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {expandedSection === 'content' && (
           <div className="space-y-4">
-            {/* content 배열 (일반 불릿 포인트) */}
+
+            {/* 일반 content 배열 */}
             {slide.content && slide.content.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-xs font-semibold text-muted-foreground">내용 항목</label>
                   {onAddContent && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-2 text-xs"
+                    <Button size="sm" variant="ghost" className="h-6 px-2 text-xs"
                       onClick={() => onAddContent(currentSlide)}>
-                      <Plus className="w-3 h-3 mr-1" />
-                      추가
+                      <Plus className="w-3 h-3 mr-1" />추가
                     </Button>
                   )}
                 </div>
@@ -337,9 +343,7 @@ export default function SlideEditor({
                         placeholder={`항목 ${idx + 1}`}
                       />
                       {onRemoveContent && slide.content!.length > 1 && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                        <Button size="sm" variant="ghost"
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           onClick={() => onRemoveContent(currentSlide, idx)}>
                           <Trash2 className="w-4 h-4" />
@@ -386,8 +390,7 @@ export default function SlideEditor({
                   />
                   <label className="text-xs font-semibold text-muted-foreground mt-3 mb-2 block">왼쪽 항목</label>
                   {slide.leftItems?.map((item, idx) => (
-                    <Input
-                      key={idx}
+                    <Input key={idx}
                       value={item}
                       onChange={e => {
                         const newItems = [...(slide.leftItems || [])];
@@ -408,8 +411,7 @@ export default function SlideEditor({
                   />
                   <label className="text-xs font-semibold text-muted-foreground mt-3 mb-2 block">오른쪽 항목</label>
                   {slide.rightItems?.map((item, idx) => (
-                    <Input
-                      key={idx}
+                    <Input key={idx}
                       value={item}
                       onChange={e => {
                         const newItems = [...(slide.rightItems || [])];
@@ -419,6 +421,55 @@ export default function SlideEditor({
                       className="mb-2"
                       placeholder={`오른쪽 항목 ${idx + 1}`}
                     />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* timeline 타입 */}
+            {slide.type === 'timeline' && slide.milestones && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-2 block">마일스톤</label>
+                <div className="space-y-3">
+                  {slide.milestones.map((m, idx) => (
+                    <div key={idx} className="grid grid-cols-3 gap-2 p-3 bg-background rounded-lg border border-border">
+                      <Input
+                        value={m.label}
+                        onChange={e => {
+                          const newMs = [...slide.milestones!];
+                          newMs[idx] = { ...newMs[idx], label: e.target.value };
+                          onUpdateSlide(currentSlide, { milestones: newMs });
+                        }}
+                        placeholder="라벨"
+                        className="text-xs"
+                      />
+                      <Input
+                        value={m.date}
+                        onChange={e => {
+                          const newMs = [...slide.milestones!];
+                          newMs[idx] = { ...newMs[idx], date: e.target.value };
+                          onUpdateSlide(currentSlide, { milestones: newMs });
+                        }}
+                        placeholder="날짜"
+                        className="text-xs"
+                      />
+                      <Select
+                        value={m.state}
+                        onValueChange={v => {
+                          const newMs = [...slide.milestones!];
+                          newMs[idx] = { ...newMs[idx], state: v as 'done' | 'next' | 'todo' };
+                          onUpdateSlide(currentSlide, { milestones: newMs });
+                        }}>
+                        <SelectTrigger className="h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="done">✅ 완료</SelectItem>
+                          <SelectItem value="next">🔵 진행중</SelectItem>
+                          <SelectItem value="todo">⬜ 예정</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -478,12 +529,17 @@ export default function SlideEditor({
               </div>
             )}
 
-            {/* 내용이 없을 때 */}
-            {!slide.content?.length && slide.type !== 'quote' && slide.type !== 'compare' && slide.type !== 'table' && (
+            {/* 내용 없을 때 */}
+            {!slide.content?.length
+              && slide.type !== 'quote'
+              && slide.type !== 'compare'
+              && slide.type !== 'table'
+              && slide.type !== 'timeline' && (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <p>내용이 없습니다. 추가 버튼을 눌러주세요.</p>
               </div>
             )}
+
           </div>
         )}
       </div>
@@ -499,11 +555,9 @@ export default function SlideEditor({
             <ImageIcon className="w-4 h-4 text-primary" />
             <span className="text-sm font-bold text-foreground">이미지</span>
           </div>
-          {expandedSection === 'image' ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {expandedSection === 'image'
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {expandedSection === 'image' && (
@@ -543,22 +597,18 @@ export default function SlideEditor({
             <AlignLeft className="w-4 h-4 text-primary" />
             <span className="text-sm font-bold text-foreground">발표자 노트</span>
           </div>
-          {expandedSection === 'notes' ? (
-            <ChevronUp className="w-4 h-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-muted-foreground" />
-          )}
+          {expandedSection === 'notes'
+            ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
         </button>
 
         {expandedSection === 'notes' && (
-          <div>
-            <Textarea
-              value={slide.notes || ''}
-              onChange={e => onUpdateSlide(currentSlide, { notes: e.target.value })}
-              className="min-h-[120px]"
-              placeholder="발표 시 참고할 노트를 입력하세요"
-            />
-          </div>
+          <Textarea
+            value={slide.notes || ''}
+            onChange={e => onUpdateSlide(currentSlide, { notes: e.target.value })}
+            className="min-h-[120px]"
+            placeholder="발표 시 참고할 노트를 입력하세요"
+          />
         )}
       </div>
 
