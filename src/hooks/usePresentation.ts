@@ -88,7 +88,6 @@ function normalizePresentationSlides(presentation: any): Presentation {
 }
 
 export function usePresentation() {
-  // ✅ 핵심 수정: AppStep → ExtendedStep
   const [step,           setStep]           = useState<ExtendedStep>('upload');
   const [parsedFiles,    setParsedFiles]    = useState<ParsedFileData[]>([]);
   const [fileNames,      setFileNames]      = useState<string[]>([]);
@@ -111,7 +110,6 @@ export function usePresentation() {
   const [reviewOpen,     setReviewOpen]     = useState(false);
   const [isFixing,       setIsFixing]       = useState(false);
 
-  // ✅ 참고 양식 관련 상태
   const [referenceFile,          setReferenceFile]          = useState<ParsedFileData | null>(null);
   const [referenceFileName,      setReferenceFileName]      = useState<string | null>(null);
   const [isAnalyzingReference,   setIsAnalyzingReference]   = useState(false);
@@ -122,7 +120,6 @@ export function usePresentation() {
     return 'blue';
   });
 
-  // ✅ parsedFiles 변화 추적 (디버깅)
   useEffect(() => {
     console.log('📂 [parsedFiles 변화]', parsedFiles.length, '개:', parsedFiles.map(f => f.fileName));
   }, [parsedFiles]);
@@ -270,7 +267,7 @@ export function usePresentation() {
     }
 
     setIsLoadingOutline(true);
-    setStep('outline'); // ✅ 핵심 수정: as ExtendedStep 캐스팅 제거
+    setStep('outline');
 
     try {
       const payload = buildAIPayload(parsedFiles);
@@ -315,7 +312,9 @@ export function usePresentation() {
     console.log('📂 parsedFiles         :', parsedFiles.map(f => ({
       name: f.fileName,
       type: f.fileType,
-      contentLen: typeof f.content === 'string' ? f.content.length : JSON.stringify(f.content).length,
+      contentLen: f.content
+        ? (typeof f.content === 'string' ? f.content.length : JSON.stringify(f.content).length)
+        : 0,
     })));
     console.log('📋 approvedOutline     :', approvedOutline);
     console.log('⚙️  meetingInfo         :', meetingInfo);
@@ -748,7 +747,6 @@ export function usePresentation() {
     appTheme,    changeTheme,
     handleFilesUpload, removeFile, handlePromptSubmit,
 
-    // ✅ 참고 양식
     referenceFileName,
     isAnalyzingReference,
     referenceStructure,
