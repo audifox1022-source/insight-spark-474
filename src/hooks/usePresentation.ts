@@ -15,7 +15,6 @@ import { validateAndFixPresentation } from '@/lib/layout-validator';
 
 export type ExtendedStep = AppStep | 'outline';
 
-// 임시 타입 선언 (이 파일에서만 사용)
 export interface ReferenceStructure {
   slideCount: number;
   structure: { type: string; title: string }[];
@@ -49,29 +48,41 @@ function convertAIChartData(rawChartData: any): SlideChartData | undefined {
 
 function normalizeSlideForApp(raw: any, index: number): Slide {
   const baseRaw = (raw && typeof raw === 'object') ? raw : {};
+  
+  // ✅ 렌더러 크래시 방지: 문자열 배열 외의 값들 걸러내기
   const rawContent = baseRaw.content ?? baseRaw.points ?? baseRaw.bullets ?? baseRaw.items ?? baseRaw.list ?? [];
   let content: string[] = Array.isArray(rawContent)
-    ? rawContent.map((p: any) => typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p))
+    ? rawContent
+        .map((p: any) => typeof p === 'object' ? String(p.title ?? p.text ?? JSON.stringify(p)) : String(p))
+        .filter(item => item && item.trim().length > 0) 
     : typeof rawContent === 'string' ? [rawContent] : [];
+    
+  if (content.length === 0) content = ["내용이 없습니다."];
+
   const validTypes = ['title', 'agenda', 'content', 'chart', 'compare', 'kpi', 'summary', 'quote', 'section', 'image'];
   let slideType = (baseRaw.type && typeof baseRaw.type === 'string') ? baseRaw.type.toLowerCase() : 'content';
   if (!validTypes.includes(slideType)) slideType = 'content';
+  
   const validLayouts = ['default', 'split-left', 'split-right', 'highlight', 'grid', 'full'];
   let slideLayout = (baseRaw.layout && typeof baseRaw.layout === 'string') ? baseRaw.layout.toLowerCase() : 'default';
   if (!validLayouts.includes(slideLayout)) slideLayout = 'default';
+  
   let keyMetrics = Array.isArray(baseRaw.keyMetrics) ? baseRaw.keyMetrics : [];
   if (slideType === 'kpi' && keyMetrics.length === 0) {
     keyMetrics = [{ label: '주요 지표', value: '데이터 누락', description: 'AI가 지표를 생성하지 못했습니다.' }];
   }
+  
   let chartData = convertAIChartData(baseRaw.chartData);
   if (slideType === 'chart' && !chartData) {
     chartData = {
       chartType: 'bar', title: baseRaw.title || '차트 데이터 (임시)', data: [{ name: 'A', value: 10 }, { name: 'B', value: 20 }], series1Label: '데이터', showLegend: false
     };
   }
+  
   if (slideType === 'compare' && content.length < 2) {
     content = ['비교 항목 A', '비교 항목 B', ...content];
   }
+  
   return {
     ...baseRaw,
     slideNumber: Number(baseRaw.slideNumber) || index + 1,
