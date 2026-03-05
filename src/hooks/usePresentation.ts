@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts — 3단계: 레이아웃 검증 자동 적용 버전
+// usePresentation.ts — 3단계: 레이아웃 검증 자동 적용 버전 + 참고 양식 연동
 // ============================================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -11,7 +11,6 @@ import { ReviewResult } from '@/components/ReviewPanel';
 import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 import { aiService } from '@/lib/ai-service';
-// ✅ 3단계 추가: 레이아웃 검증 모듈 import
 import { validateAndFixPresentation } from '@/lib/layout-validator';
 
 export type ExtendedStep = AppStep | 'outline';
@@ -109,6 +108,12 @@ export function usePresentation() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [isFixing, setIsFixing] = useState(false);
 
+  // ✅ 참고 양식 관련 상태 추가
+  const [referenceFile, setReferenceFile] = useState<ParsedFileData | null>(null);
+  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
+  const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
+  const [referenceStructure, setReferenceStructure] = useState<any | null>(null);
+
   const [appTheme, setAppTheme] = useState(() => {
     if (typeof window !== 'undefined') return localStorage.getItem('apptheme') || 'blue';
     return 'blue';
@@ -181,6 +186,40 @@ export function usePresentation() {
     setFileNames((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  // ✅ 참고 양식 파일 업로드 핸들러
+  const handleReferenceFileUpload = useCallback(async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    setReferenceFileName(file.name);
+    setIsAnalyzingReference(true);
+    setReferenceStructure(null);
+
+    try {
+      const parsed = await parseFile(file);
+      setReferenceFile(parsed);
+
+      const result = await aiService.analyzeReferenceStructure(
+        typeof parsed.content === 'string' ? parsed.content : JSON.stringify(parsed.content)
+      );
+      setReferenceStructure(result);
+      toast.success('참고 양식 분석이 완료되었습니다.');
+    } catch (err: any) {
+      toast.error('참고 양식 분석 중 오류가 발생했습니다.');
+      console.error(err);
+      setReferenceFileName(null);
+      setReferenceFile(null);
+    } finally {
+      setIsAnalyzingReference(false);
+    }
+  }, []);
+
+  const clearReferenceFile = useCallback(() => {
+    setReferenceFile(null);
+    setReferenceFileName(null);
+    setReferenceStructure(null);
+  }, []);
+
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
     const dummyFile: ParsedFileData = {
@@ -203,7 +242,13 @@ export function usePresentation() {
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(
-        async () => await aiService.getOutline({ fileData: payload, meetingInfo, settings, template }),
+        async () => await aiService.getOutline({ 
+          fileData: payload, 
+          meetingInfo, 
+          settings, 
+          template,
+          referenceStructure // ✅ 참고 양식 정보 함께 전달
+        }),
         {
           maxRetries: 1,
           onRetry: (attempt, max) => toast.loading(`재시도 중... ${attempt}/${max}`, { id: 'outline-retry' }),
@@ -223,9 +268,8 @@ export function usePresentation() {
     } finally {
       setIsLoadingOutline(false);
     }
-  }, [parsedFiles, meetingInfo, settings, template]);
+  }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
-  // ✅ 3단계 핵심: generatePresentation — 레이아웃 검증 + 자동 수정 적용
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
     if (parsedFiles.length === 0) return;
     setStep('generating');
@@ -239,6 +283,7 @@ export function usePresentation() {
           settings,
           template,
           approvedOutline: approvedOutline ?? null,
+          referenceStructure // ✅ 참고 양식 정보 함께 전달
         }),
         {
           maxRetries: 1,
@@ -247,7 +292,6 @@ export function usePresentation() {
       );
       toast.dismiss('gen-retry');
 
-      // ✅ 3단계: AI 생성 후 레이아웃 검증 + 자동 수정
       const { presentation: fixedPresentation, totalWarnings, fixedSlides } =
         validateAndFixPresentation(resData.presentation);
 
@@ -255,7 +299,6 @@ export function usePresentation() {
       setPresentation(normalized);
       setStep('preview');
 
-      // 수정된 슬라이드가 있으면 사용자에게 알림
       if (fixedSlides > 0) {
         toast.success(
           `발표자료가 생성되었습니다! (레이아웃 자동 최적화: ${fixedSlides}개 슬라이드)`,
@@ -265,7 +308,6 @@ export function usePresentation() {
         toast.success('발표자료가 생성되었습니다!');
       }
 
-      // 개발 환경에서 검증 결과 콘솔 출력
       if (totalWarnings > 0) {
         console.info(`[Layout Validator] 총 ${totalWarnings}개 경고, ${fixedSlides}개 슬라이드 자동 수정 완료`);
       }
@@ -277,7 +319,7 @@ export function usePresentation() {
     } finally {
       setIsGenerating(false);
     }
-  }, [parsedFiles, meetingInfo, settings, template]);
+  }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
     setPresentation((prev) => (prev ? { ...prev, ...updates } : prev));
@@ -292,7 +334,6 @@ export function usePresentation() {
     });
   }, []);
 
-  // ✅ 추가: 모든 슬라이드 일괄 업데이트 함수
   const updateAllSlides = useCallback((updates: Partial<Slide>) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -503,7 +544,8 @@ export function usePresentation() {
     setOutline(null);
     setTemplate('auto');
     setReviewResult(null);
-  }, []);
+    clearReferenceFile(); // ✅ 초기화 시 참고 양식도 지움
+  }, [clearReferenceFile]);
 
   const requestReview = useCallback(async () => {
     if (!presentation) return;
@@ -543,7 +585,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ✅ 3단계: reviewAndFixPresentation — 최적화 후에도 레이아웃 검증 적용
   const reviewAndFixPresentation = useCallback(async () => {
     if (!presentation) return;
     setIsFixing(true);
@@ -557,7 +598,6 @@ export function usePresentation() {
         }
       );
 
-      // ✅ AI 최적화 후에도 레이아웃 검증 + 자동 수정 적용
       const { presentation: fixedPresentation, fixedSlides } =
         validateAndFixPresentation(resData.result.presentation);
 
@@ -600,12 +640,20 @@ export function usePresentation() {
     isDark, toggleDark,
     appTheme, changeTheme,
     handleFilesUpload, removeFile, handlePromptSubmit,
+    
+    // ✅ 참고 양식 props 추가
+    referenceFileName,
+    isAnalyzingReference,
+    referenceStructure,
+    handleReferenceFileUpload,
+    clearReferenceFile,
+
     requestOutline, generatePresentation,
     regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout,
     updatePresentationMaster,
     isGeneratingImage, generateSlideImage,
-    reset, updateSlide, updateAllSlides, // ✅ 여기에 updateAllSlides 추가됨
+    reset, updateSlide, updateAllSlides,
     addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle,
   };
