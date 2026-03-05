@@ -1,8 +1,5 @@
 // ============================================================
-// ScaledSlide.tsx — PPT 퀄리티 매칭 완전 개선판
-// Phase 1: 폰트 크기 상향 (36pt/20pt 기본값)
-// Phase 2: 섹션타이틀 대문자, 블루 강조 통일, 수치 강조
-// Phase 3: 좌우 비대칭, 3단 그리드, 타임라인 레이아웃 확장
+// ScaledSlide.tsx — PPT 퀄리티 매칭 완전 개선판 (안정화 버전)
 // ============================================================
 import React, { useState } from 'react';
 import {
@@ -40,19 +37,19 @@ interface Slide {
   type?: string;
   title?: string;
   subhead?: string;
-  content?: string[];
-  points?: string[];
-  items?: string[];
-  steps?: string[];
-  leftItems?: string[];
-  rightItems?: string[];
+  content?: any[]; // string[] 에서 any[]로 변경하여 안정성 확보
+  points?: any[];
+  items?: any[];
+  steps?: any[];
+  leftItems?: any[];
+  rightItems?: any[];
   leftTitle?: string;
   rightTitle?: string;
   infographicType?: string;
   chartData?: SlideChartData;
-  tableData?: { headers?: string[]; rows?: string[][] };
+  tableData?: { headers?: string[]; rows?: any[][] };
   headers?: string[];
-  rows?: string[][];
+  rows?: any[][];
   keyMetrics?: SlideMetric[];
   slideNumber?: number;
   titleSizeScale?: number;
@@ -67,9 +64,6 @@ interface Slide {
   text?: string;
   author?: string;
   milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo'; description?: string }[];
-  levels?: { title: string; description: string }[];
-  flows?: { steps: string }[];
-  stats?: { label: string; value: string; unit?: string }[];
 }
 interface ScaledSlideProps {
   slide: Slide;
@@ -79,17 +73,17 @@ interface ScaledSlideProps {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 팔레트 — PPT의 #4E83F9 블루 중심으로 통일
+// 팔레트
 // ══════════════════════════════════════════════════════════════
 const P = {
-  primary:    '#4E83F9',   // ✅ PPT와 동일한 블루
+  primary:    '#4E83F9',
   primaryDark:'#2563EB',
   bg:         '#ffffff',
-  text:       '#242424',   // ✅ PPT와 동일
+  text:       '#242424',
   subtext:    '#64748b',
   border:     '#e2e8f0',
   muted:      '#f8fafc',
-  dark:       '#1a2133',   // 다크 배경용
+  dark:       '#1a2133',
   chartColors: ['#4E83F9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],
   kpiGradients: [
     'linear-gradient(135deg,#4E83F9 0%,#2563EB 100%)',
@@ -102,94 +96,93 @@ const P = {
 };
 
 // ══════════════════════════════════════════════════════════════
-// Phase 1: pt → px 변환
+// 유틸리티 함수 & 공통 컴포넌트
 // ══════════════════════════════════════════════════════════════
 function ptToPx(pt: number): string { return `${(pt * 1.333).toFixed(1)}px`; }
 
-// ══════════════════════════════════════════════════════════════
-// Phase 2: 섹션 타이틀 컴포넌트 — 대문자 + 블루 + 트래킹
-// ══════════════════════════════════════════════════════════════
+// ✅ 방어 로직: 객체가 들어와도 에러 없이 문자열로 변환
+function safeString(item: any): string {
+  if (typeof item === 'string') return item;
+  if (item === null || item === undefined) return '';
+  return JSON.stringify(item);
+}
+
 const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = ({ children, light = false }) => (
-  <div style={{
-    color: light ? 'rgba(255,255,255,0.6)' : P.primary,
-    fontSize: '11px',
-    fontWeight: 800,
-    letterSpacing: '0.18em',
-    textTransform: 'uppercase',
-    marginBottom: '0.6rem',
-  }}>
+  <div style={{ color: light ? 'rgba(255,255,255,0.6)' : P.primary, fontSize: '11px', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
     {children}
   </div>
 );
 
-// Phase 2: 수치 강조 컴포넌트
 const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => (
   <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-    <span style={{
-      fontSize: '3.6rem',
-      fontWeight: 900,
-      color: light ? '#fff' : P.primary,
-      lineHeight: 1,
-      letterSpacing: '-0.02em',
-    }}>{value}</span>
+    <span style={{ fontSize: '3.6rem', fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</span>
     {unit && <span style={{ fontSize: '1.2rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext }}>{unit}</span>}
   </div>
 );
 
-// Phase 2: 인라인 블루 강조 (텍스트 중 키워드)
-const Highlight: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span style={{ color: P.primary, fontWeight: 700 }}>{children}</span>
-);
-
-// ══════════════════════════════════════════════════════════════
-// SlideBackground
-// ══════════════════════════════════════════════════════════════
 const SlideBackground: React.FC<{ imageUrl?: string }> = ({ imageUrl }) => {
   const [imgError, setImgError] = useState(false);
   if (!imageUrl || imgError) return null;
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
-      <img
-        src={imageUrl} alt=""
-        onError={() => setImgError(true)}
-        crossOrigin="anonymous"
-        style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-      />
-      <div style={{ position: 'absolute', inset: 0,
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.68) 100%)' }} />
+      <img src={imageUrl} alt="" onError={() => setImgError(true)} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.68) 100%)' }} />
     </div>
   );
 };
 
-// ══════════════════════════════════════════════════════════════
-// CustomTooltip
-// ══════════════════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: '#1e293b', color: '#fff', borderRadius: 8, padding: '8px 14px', fontSize: 13 }}>
       <div style={{ marginBottom: 4, fontWeight: 700, opacity: 0.7 }}>{label}</div>
-      {payload.map((p: any, i: number) => (
-        <div key={i} style={{ color: p.color }}>{p.name}: <strong>{p.value}</strong></div>
-      ))}
+      {payload.map((p: any, i: number) => <div key={i} style={{ color: p.color }}>{p.name}: <strong>{p.value}</strong></div>)}
     </div>
   );
 };
 
-// ══════════════════════════════════════════════════════════════
-// EmptyPlaceholder
-// ══════════════════════════════════════════════════════════════
 const EmptyPlaceholder = ({ icon: Icon, label }: { icon: React.FC<any>; label: string }) => (
-  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: P.muted, borderRadius: 16, border: `2px dashed ${P.border}`,
-    color: '#94a3b8', flexDirection: 'column', gap: 10 }}>
+  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: P.muted, borderRadius: 16, border: `2px dashed ${P.border}`, color: '#94a3b8', flexDirection: 'column', gap: 10 }}>
     <Icon style={{ width: 40, height: 40, opacity: 0.25 }} />
     <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
   </div>
 );
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ✅ 핵심 개선: 내부 컴포넌트들을 함수 밖으로 완전히 분리
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const SlideLogo = ({ logoUrl, invert = false }: { logoUrl?: string; invert?: boolean }) => {
+  if (!logoUrl) return null;
+  return (
+    <div style={{ position: 'absolute', top: '1.3rem', right: '1.8rem', width: '5.5rem', height: '2.8rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', zIndex: 2 }}>
+      <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: invert ? 'brightness(0) invert(1)' : undefined }} />
+    </div>
+  );
+};
+
+const SlideNumber = ({ number, light = false }: { number?: number; light?: boolean }) => {
+  if (!number) return null;
+  return (
+    <div style={{ position: 'absolute', bottom: '1rem', left: '2rem', display: 'flex', alignItems: 'center', gap: 8, zIndex: 2 }}>
+      <div style={{ width: '1.9rem', height: '1.9rem', borderRadius: '50%', background: light ? 'rgba(255,255,255,0.25)' : `linear-gradient(135deg,${P.primary},${P.primaryDark})`, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.78rem', fontWeight: 700 }}>
+        {number}
+      </div>
+    </div>
+  );
+};
+
+const SlideWatermark = ({ text }: { text?: string }) => {
+  if (!text) return null;
+  return (
+    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.03, transform: 'rotate(-30deg)', fontSize: '9rem', fontWeight: 900, color: '#000', userSelect: 'none', zIndex: 2 }}>
+      {text}
+    </div>
+  );
+};
+
+
 // ══════════════════════════════════════════════════════════════
-// 차트 렌더러
+// 렌더러 함수들
 // ══════════════════════════════════════════════════════════════
 function renderChart(cd?: SlideChartData) {
   if (!cd?.data?.length) return <EmptyPlaceholder icon={BarIcon} label="차트 데이터 없음" />;
@@ -201,10 +194,7 @@ function renderChart(cd?: SlideChartData) {
     return (
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie data={cd.data} dataKey="value" nameKey="name" cx="50%" cy="50%"
-            outerRadius="70%" paddingAngle={3}
-            label={(e) => `${e.name}: ${(e.percent! * 100).toFixed(0)}%`}
-            labelLine={{ stroke: '#94a3b8' }}>
+          <Pie data={cd.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" paddingAngle={3} label={(e) => `${e.name}: ${(e.percent! * 100).toFixed(0)}%`} labelLine={{ stroke: '#94a3b8' }}>
             {cd.data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
           </Pie>
           {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
@@ -222,12 +212,8 @@ function renderChart(cd?: SlideChartData) {
           <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
           {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-          <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'}
-            stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
-          {cd.data[0]?.value2 !== undefined && (
-            <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'}
-              stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />
-          )}
+          <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
+          {cd.data[0]?.value2 !== undefined && <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />}
         </LineChart>
       </ResponsiveContainer>
     );
@@ -247,13 +233,11 @@ function renderChart(cd?: SlideChartData) {
           <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
           {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-          <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'}
-            stroke={colors[0]} strokeWidth={3} fill="url(#ag1)" />
+          <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} fill="url(#ag1)" />
         </AreaChart>
       </ResponsiveContainer>
     );
   }
-  // default: bar
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart {...common} barSize={cd.data[0]?.value2 !== undefined ? 14 : 22}>
@@ -263,17 +247,12 @@ function renderChart(cd?: SlideChartData) {
         <Tooltip content={<CustomTooltip />} />
         {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
         <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[4,4,0,0]} />
-        {cd.data[0]?.value2 !== undefined && (
-          <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[4,4,0,0]} />
-        )}
+        {cd.data[0]?.value2 !== undefined && <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[4,4,0,0]} />}
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// Phase 3: 타임라인 슬라이드 전용 렌더러
-// ══════════════════════════════════════════════════════════════
 function renderTimeline(slide: Slide, contentFontSize: string) {
   const milestones = slide.milestones ?? [];
   const stateConfig = {
@@ -284,47 +263,20 @@ function renderTimeline(slide: Slide, contentFontSize: string) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%', position: 'relative' }}>
-      {/* 수직선 */}
-      <div style={{
-        position: 'absolute', left: '19px', top: '20px', bottom: '20px',
-        width: '2px', background: `linear-gradient(to bottom, ${P.primary}, #e2e8f0)`,
-        zIndex: 0,
-      }} />
-
+      <div style={{ position: 'absolute', left: '19px', top: '20px', bottom: '20px', width: '2px', background: `linear-gradient(to bottom, ${P.primary}, #e2e8f0)`, zIndex: 0 }} />
       {milestones.map((m, i) => {
         const cfg = stateConfig[m.state] ?? stateConfig.todo;
         return (
           <div key={i} style={{ display: 'flex', gap: '1.2rem', alignItems: 'flex-start', position: 'relative', paddingBottom: '1.4rem' }}>
-            {/* 아이콘 */}
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-              background: m.state === 'done' ? P.primary : m.state === 'next' ? '#fef3c7' : '#f1f5f9',
-              color: m.state === 'done' ? '#fff' : cfg.color,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: `2px solid ${m.state === 'done' ? P.primary : m.state === 'next' ? '#f59e0b' : '#e2e8f0'}`,
-              zIndex: 1, boxShadow: m.state === 'done' ? `0 0 0 4px ${P.primary}22` : undefined,
-            }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: m.state === 'done' ? P.primary : m.state === 'next' ? '#fef3c7' : '#f1f5f9', color: m.state === 'done' ? '#fff' : cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${m.state === 'done' ? P.primary : m.state === 'next' ? '#f59e0b' : '#e2e8f0'}`, zIndex: 1, boxShadow: m.state === 'done' ? `0 0 0 4px ${P.primary}22` : undefined }}>
               {cfg.icon}
             </div>
-            {/* 내용 */}
-            <div style={{
-              flex: 1, background: m.state === 'done' ? `${P.primary}08` : P.muted,
-              borderRadius: 12, padding: '0.8rem 1.2rem',
-              border: `1px solid ${m.state === 'done' ? `${P.primary}22` : P.border}`,
-            }}>
+            <div style={{ flex: 1, background: m.state === 'done' ? `${P.primary}08` : P.muted, borderRadius: 12, padding: '0.8rem 1.2rem', border: `1px solid ${m.state === 'done' ? `${P.primary}22` : P.border}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                 <span style={{ fontSize: contentFontSize, fontWeight: 700, color: P.text }}>{m.label}</span>
-                <span style={{
-                  fontSize: '11px', fontWeight: 600, padding: '2px 10px', borderRadius: 20,
-                  background: m.state === 'done' ? `${P.primary}18` : m.state === 'next' ? '#fef3c7' : P.border,
-                  color: m.state === 'done' ? P.primary : m.state === 'next' ? '#d97706' : '#94a3b8',
-                }}>
-                  {m.date}
-                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: m.state === 'done' ? `${P.primary}18` : m.state === 'next' ? '#fef3c7' : P.border, color: m.state === 'done' ? P.primary : m.state === 'next' ? '#d97706' : '#94a3b8' }}>{m.date}</span>
               </div>
-              {m.description && (
-                <p style={{ fontSize: '0.85em', color: P.subtext, margin: 0, lineHeight: 1.5 }}>{m.description}</p>
-              )}
+              {m.description && <p style={{ fontSize: '0.85em', color: P.subtext, margin: 0, lineHeight: 1.5 }}>{m.description}</p>}
             </div>
           </div>
         );
@@ -333,41 +285,24 @@ function renderTimeline(slide: Slide, contentFontSize: string) {
   );
 }
 
-// ══════════════════════════════════════════════════════════════
-// Phase 3: 좌우 비대칭 레이아웃 렌더러
-// ══════════════════════════════════════════════════════════════
 function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize: string, isRight: boolean) {
-  const content = slide.content ?? slide.points ?? slide.items ?? [];
+  const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const visualRatio = slide.visualRatio ?? 45;
   const textRatio = 100 - visualRatio;
 
   const textPanel = (
     <div style={{ flex: textRatio, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
       <SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel>
-      <h2 style={{
-        fontSize: titleFontSize, fontWeight: 900, color: P.text,
-        lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0,
-      }}>
-        {slide.title}
-      </h2>
-      {slide.subhead && (
-        <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>
-          {slide.subhead}
-        </p>
-      )}
+      <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}>{slide.title}</h2>
+      {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
       <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-        {(content as string[]).map((item, i) => (
+        {rawContent.map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
-            <div style={{
-              width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-              background: `${P.primary}15`, color: P.primary,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '11px', fontWeight: 800, marginTop: '1px',
-            }}>
+            <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, background: `${P.primary}15`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
               {String(i + 1).padStart(2, '0')}
             </div>
-            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55 }}>{item}</span>
+            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55 }}>{safeString(item)}</span>
           </div>
         ))}
       </div>
@@ -375,66 +310,32 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
   );
 
   const visualPanel = (
-    <div style={{
-      flex: visualRatio,
-      background: `linear-gradient(145deg, ${P.primary}18 0%, ${P.primary}08 100%)`,
-      borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      border: `1px solid ${P.primary}22`, position: 'relative', overflow: 'hidden',
-    }}>
+    <div style={{ flex: visualRatio, background: `linear-gradient(145deg, ${P.primary}18 0%, ${P.primary}08 100%)`, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${P.primary}22`, position: 'relative', overflow: 'hidden' }}>
       <SlideBackground imageUrl={slide.imageUrl} />
       {!slide.imageUrl && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '5rem', fontWeight: 900, color: `${P.primary}30`, lineHeight: 1 }}>
-            {String(slide.slideNumber ?? '').padStart(2, '0')}
-          </div>
+          <div style={{ fontSize: '5rem', fontWeight: 900, color: `${P.primary}30`, lineHeight: 1 }}>{String(slide.slideNumber ?? '').padStart(2, '0')}</div>
         </div>
       )}
     </div>
   );
 
-  return (
-    <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>
-      {isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}
-    </div>
-  );
+  return <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>{isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}</div>;
 }
 
-// ══════════════════════════════════════════════════════════════
-// Phase 3: 3단 그리드 카드 렌더러
-// ══════════════════════════════════════════════════════════════
 function renderGridCards(slide: Slide, contentFontSize: string) {
   const items = slide.content ?? slide.points ?? slide.items ?? [];
   const cols = items.length <= 2 ? 2 : items.length <= 4 ? 2 : 3;
 
   return (
-    <div style={{
-      display: 'grid',
-      gridTemplateColumns: `repeat(${cols}, 1fr)`,
-      gap: '1rem', width: '100%',
-    }}>
-      {(items as string[]).map((item, i) => (
-        <div key={i} style={{
-          background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.primaryDark})` : P.muted,
-          borderRadius: 16, padding: '1.4rem 1.2rem',
-          border: `1px solid ${i === 0 ? 'transparent' : P.border}`,
-          display: 'flex', flexDirection: 'column', gap: '0.7rem',
-          boxShadow: i === 0 ? `0 8px 24px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)',
-          transition: 'transform 0.2s',
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: i === 0 ? 'rgba(255,255,255,0.25)' : `${P.primary}15`,
-            color: i === 0 ? '#fff' : P.primary,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '14px', fontWeight: 800,
-          }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', width: '100%' }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.primaryDark})` : P.muted, borderRadius: 16, padding: '1.4rem 1.2rem', border: `1px solid ${i === 0 ? 'transparent' : P.border}`, display: 'flex', flexDirection: 'column', gap: '0.7rem', boxShadow: i === 0 ? `0 8px 24px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)', transition: 'transform 0.2s' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: i === 0 ? 'rgba(255,255,255,0.25)' : `${P.primary}15`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800 }}>
             {String(i + 1).padStart(2, '0')}
           </div>
-          <p style={{
-            fontSize: contentFontSize, lineHeight: 1.55, margin: 0,
-            color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 400,
-          }}>
-            {item}
+          <p style={{ fontSize: contentFontSize, lineHeight: 1.55, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 400 }}>
+            {safeString(item)}
           </p>
         </div>
       ))}
@@ -449,114 +350,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   slide, containerClassName = '', logoUrl, watermark,
 }) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
-  const content: string[] = Array.isArray(rawContent) ? (rawContent as string[]) : [];
+  const content = Array.isArray(rawContent) ? rawContent : [];
 
-  // ─ Phase 1: 폰트 크기 기본값 상향 (36pt / 20pt)
-  const titleFontSize = slide.titleFontPt
-    ? ptToPx(slide.titleFontPt)
-    : ptToPx((slide.titleSizeScale ?? 1) * 36);  // ✅ 32 → 36
-
-  const contentFontSize = slide.contentFontPt
-    ? ptToPx(slide.contentFontPt)
-    : ptToPx((slide.contentSizeScale ?? 1) * 20);  // ✅ 18 → 20
-
+  const titleFontSize = slide.titleFontPt ? ptToPx(slide.titleFontPt) : ptToPx((slide.titleSizeScale ?? 1) * 36);
+  const contentFontSize = slide.contentFontPt ? ptToPx(slide.contentFontPt) : ptToPx((slide.contentSizeScale ?? 1) * 20);
   const layout = slide.layout ?? 'default';
-  const isFirstSlide = (slide.slideNumber ?? 1) === 1 || slide.type === 'title';
-
-  // ── 워터마크
-  const Watermark = watermark ? (
-    <div style={{
-      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
-      justifyContent: 'center', pointerEvents: 'none', opacity: 0.03,
-      transform: 'rotate(-30deg)', fontSize: '9rem', fontWeight: 900,
-      color: '#000', userSelect: 'none', zIndex: 2,
-    }}>
-      {watermark}
-    </div>
-  ) : null;
-
-  // ── 로고
-  const Logo = ({ invert = false }: { invert?: boolean }) =>
-    logoUrl ? (
-      <div style={{
-        position: 'absolute', top: '1.3rem', right: '1.8rem',
-        width: '5.5rem', height: '2.8rem', display: 'flex',
-        alignItems: 'center', justifyContent: 'flex-end', zIndex: 2,
-      }}>
-        <img src={logoUrl} alt="Logo"
-          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
-            filter: invert ? 'brightness(0) invert(1)' : undefined }} />
-      </div>
-    ) : null;
-
-  // ── 슬라이드 번호
-  const SlideNum = ({ light = false }: { light?: boolean }) =>
-    slide.slideNumber ? (
-      <div style={{
-        position: 'absolute', bottom: '1rem', left: '2rem',
-        display: 'flex', alignItems: 'center', gap: 8, zIndex: 2,
-      }}>
-        <div style={{
-          width: '1.9rem', height: '1.9rem', borderRadius: '50%',
-          background: light
-            ? 'rgba(255,255,255,0.25)'
-            : `linear-gradient(135deg,${P.primary},${P.primaryDark})`,
-          color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.78rem', fontWeight: 700,
-        }}>
-          {slide.slideNumber}
-        </div>
-      </div>
-    ) : null;
-
-  // ══════════════════════════════════════════════════════════════
-  // 슬라이드 타입별 렌더링
-  // ══════════════════════════════════════════════════════════════
 
   // ── 1. 타이틀 슬라이드
   if (slide.type === 'title') {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.dark, color: '#fff',
-        fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-      }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.dark, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif" }}>
         <SlideBackground imageUrl={slide.imageUrl} />
-        {/* 왼쪽 블루 세로 바 */}
-        <div style={{
-          position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px',
-          background: `linear-gradient(to bottom, ${P.primary}, ${P.primaryDark})`,
-          zIndex: 1,
-        }} />
-        {Watermark}
-        <Logo invert />
-        <div style={{
-          position: 'relative', zIndex: 1,
-          padding: '0 5% 0 7%', height: '100%',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.2rem',
-        }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: `linear-gradient(to bottom, ${P.primary}, ${P.primaryDark})`, zIndex: 1 }} />
+        <SlideWatermark text={watermark} />
+        <SlideLogo logoUrl={logoUrl} invert />
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.2rem' }}>
           <SectionLabel light>PRESENTATION</SectionLabel>
-          <h1 style={{
-            fontSize: titleFontSize, fontWeight: 900, color: '#fff',
-            lineHeight: 1.15, letterSpacing: '-0.025em', margin: 0,
-            maxWidth: '75%',
-          }}>
-            {slide.title}
-          </h1>
-          {slide.subhead && (
-            <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>
-              {slide.subhead}
-            </p>
-          )}
-          {/* 구분선 */}
+          <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.025em', margin: 0, maxWidth: '75%' }}>{slide.title}</h1>
+          {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
           <div style={{ width: '4rem', height: '3px', background: P.primary, borderRadius: 2 }} />
-          {content.length > 0 && (
-            <p style={{ fontSize: '0.9em', color: 'rgba(255,255,255,0.55)', maxWidth: '65%', lineHeight: 1.6, margin: 0 }}>
-              {content[0]}
-            </p>
-          )}
+          {content.length > 0 && <p style={{ fontSize: '0.9em', color: 'rgba(255,255,255,0.55)', maxWidth: '65%', lineHeight: 1.6, margin: 0 }}>{safeString(content[0])}</p>}
         </div>
-        <SlideNum light />
+        <SlideNumber number={slide.slideNumber} light />
       </div>
     );
   }
@@ -564,45 +379,17 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ── 2. 섹션 구분 슬라이드
   if (slide.type === 'section') {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.primary, color: '#fff',
-        fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        display: 'flex', alignItems: 'center',
-      }}>
-        {/* 배경 원형 장식 */}
-        <div style={{
-          position: 'absolute', right: '-8%', top: '50%', transform: 'translateY(-50%)',
-          width: '45%', paddingBottom: '45%', borderRadius: '50%',
-          background: 'rgba(255,255,255,0.08)', zIndex: 0,
-        }} />
-        <div style={{
-          position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)',
-          width: '28%', paddingBottom: '28%', borderRadius: '50%',
-          background: 'rgba(255,255,255,0.06)', zIndex: 0,
-        }} />
-        {Watermark}
-        <Logo invert />
-        <div style={{
-          position: 'relative', zIndex: 1,
-          padding: '0 5% 0 7%',
-          display: 'flex', flexDirection: 'column', gap: '0.8rem',
-        }}>
-          {slide.slideNumber && (
-            <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>
-              {String(slide.slideNumber).padStart(2, '0')}
-            </div>
-          )}
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>
-            {slide.title}
-          </h2>
-          {content[0] && (
-            <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>
-              {content[0]}
-            </p>
-          )}
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.primary, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', right: '-8%', top: '50%', transform: 'translateY(-50%)', width: '45%', paddingBottom: '45%', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', zIndex: 0 }} />
+        <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', width: '28%', paddingBottom: '28%', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', zIndex: 0 }} />
+        <SlideWatermark text={watermark} />
+        <SlideLogo logoUrl={logoUrl} invert />
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
+          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
+          {content[0] && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>{safeString(content[0])}</p>}
         </div>
-        <SlideNum light />
+        <SlideNumber number={slide.slideNumber} light />
       </div>
     );
   }
@@ -612,49 +399,23 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const metrics = slide.keyMetrics;
     const cols = metrics.length <= 2 ? 2 : metrics.length <= 4 ? 4 : 3;
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        padding: '5% 7%',
-      }}>
-        {Watermark}<Logo /><SlideBackground imageUrl={slide.imageUrl} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* 헤더 */}
-          <div>
-            <SectionLabel>KPI METRICS</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-              {slide.title}
-            </h2>
-          </div>
-          {/* KPI 카드 그리드 */}
+          <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', flex: 1 }}>
             {metrics.map((m, i) => {
               const isFirst = i === 0;
               return (
-                <div key={i} style={{
-                  borderRadius: 18, padding: '1.5rem',
-                  background: isFirst ? P.kpiGradients[0] : P.muted,
-                  border: `1px solid ${isFirst ? 'transparent' : P.border}`,
-                  boxShadow: isFirst ? `0 12px 32px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)',
-                  display: 'flex', flexDirection: 'column', gap: '0.5rem',
-                }}>
-                  <div style={{
-                    fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase',
-                    color: isFirst ? 'rgba(255,255,255,0.6)' : P.subtext,
-                  }}>
-                    {m.label}
-                  </div>
+                <div key={i} style={{ borderRadius: 18, padding: '1.5rem', background: isFirst ? P.kpiGradients[0] : P.muted, border: `1px solid ${isFirst ? 'transparent' : P.border}`, boxShadow: isFirst ? `0 12px 32px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.6)' : P.subtext }}>{m.label}</div>
                   <BigNumber value={m.value} light={isFirst} />
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
                       {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, color: '#ef4444' }} />}
                       {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
-                      {m.description && (
-                        <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>
-                          {m.description}
-                        </span>
-                      )}
+                      {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.description}</span>}
                     </div>
                   )}
                 </div>
@@ -662,80 +423,48 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             })}
           </div>
         </div>
-        <SlideNum />
+        <SlideNumber number={slide.slideNumber} />
       </div>
     );
   }
 
-  // ── 4. 타임라인 슬라이드 (Phase 3 신규)
+  // ── 4. 타임라인 슬라이드
   if (slide.type === 'timeline' && slide.milestones?.length) {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        padding: '5% 7%',
-      }}>
-        {Watermark}<Logo /><SlideBackground imageUrl={slide.imageUrl} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', gap: '3rem' }}>
-          {/* 왼쪽 헤더 */}
           <div style={{ width: '28%', flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
             <SectionLabel>TIMELINE</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-              {slide.title}
-            </h2>
-            {content[0] && (
-              <p style={{ fontSize: contentFontSize, color: P.subtext, lineHeight: 1.6, margin: 0 }}>
-                {content[0]}
-              </p>
-            )}
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2>
+            {content[0] && <p style={{ fontSize: contentFontSize, color: P.subtext, lineHeight: 1.6, margin: 0 }}>{safeString(content[0])}</p>}
             <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
           </div>
-          {/* 오른쪽 타임라인 */}
-          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
-            {renderTimeline(slide, contentFontSize)}
-          </div>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>{renderTimeline(slide, contentFontSize)}</div>
         </div>
-        <SlideNum />
+        <SlideNumber number={slide.slideNumber} />
       </div>
     );
   }
 
-  // ── 5. 인용/후기 슬라이드
+  // ── 5. 인용 슬라이드
   if (slide.type === 'quote') {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.dark, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          position: 'absolute', top: '-10%', left: '-5%',
-          width: '50%', paddingBottom: '50%', borderRadius: '50%',
-          background: `${P.primary}12`, zIndex: 0,
-        }} />
-        {Watermark}<Logo invert />
-        <div style={{
-          position: 'relative', zIndex: 1, textAlign: 'center',
-          padding: '0 10%', display: 'flex', flexDirection: 'column', gap: '1.5rem',
-        }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.dark, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '50%', paddingBottom: '50%', borderRadius: '50%', background: `${P.primary}12`, zIndex: 0 }} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} invert />
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 10%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ fontSize: '5rem', lineHeight: 1, color: P.primary, fontWeight: 900, opacity: 0.4 }}>"</div>
-          <p style={{
-            fontSize: titleFontSize, fontWeight: 700, color: '#fff',
-            lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em',
-          }}>
-            {slide.text ?? slide.title}
-          </p>
+          <p style={{ fontSize: titleFontSize, fontWeight: 700, color: '#fff', lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em' }}>{slide.text ?? slide.title}</p>
           {slide.author && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
               <div style={{ width: '2rem', height: '2px', background: P.primary }} />
-              <span style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>
-                {slide.author}
-              </span>
+              <span style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>{slide.author}</span>
               <div style={{ width: '2rem', height: '2px', background: P.primary }} />
             </div>
           )}
         </div>
-        <SlideNum light />
+        <SlideNumber number={slide.slideNumber} light />
       </div>
     );
   }
@@ -745,67 +474,39 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const leftItems  = slide.leftItems  ?? [];
     const rightItems = slide.rightItems ?? [];
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        padding: '5% 7%',
-      }}>
-        {Watermark}<Logo />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          <div>
-            <SectionLabel>COMPARISON</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-              {slide.title}
-            </h2>
-          </div>
+          <div><SectionLabel>COMPARISON</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', flex: 1 }}>
-            {/* 왼쪽 */}
-            <div style={{
-              background: `linear-gradient(145deg,${P.primary}12,${P.primary}05)`,
-              borderRadius: 18, padding: '1.4rem',
-              border: `1px solid ${P.primary}22`,
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.primary, marginBottom: '0.8rem' }}>
-                {(slide.leftTitle ?? 'BEFORE').toUpperCase()}
-              </div>
+            <div style={{ background: `linear-gradient(145deg,${P.primary}12,${P.primary}05)`, borderRadius: 18, padding: '1.4rem', border: `1px solid ${P.primary}22` }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.primary, marginBottom: '0.8rem' }}>{(slide.leftTitle ?? 'BEFORE').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {leftItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: P.primary, marginTop: '0.45em', flexShrink: 0 }} />
-                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{item}</span>
+                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{safeString(item)}</span>
                   </div>
                 ))}
               </div>
             </div>
-            {/* 중앙 VS */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: '50%',
-                background: P.dark, color: '#fff',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '10px', fontWeight: 800,
-              }}>VS</div>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: P.dark, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>VS</div>
             </div>
-            {/* 오른쪽 */}
-            <div style={{
-              background: P.muted, borderRadius: 18, padding: '1.4rem',
-              border: `1px solid ${P.border}`,
-            }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.subtext, marginBottom: '0.8rem' }}>
-                {(slide.rightTitle ?? 'AFTER').toUpperCase()}
-              </div>
+            <div style={{ background: P.muted, borderRadius: 18, padding: '1.4rem', border: `1px solid ${P.border}` }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.subtext, marginBottom: '0.8rem' }}>{(slide.rightTitle ?? 'AFTER').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {rightItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', marginTop: '0.45em', flexShrink: 0 }} />
-                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{item}</span>
+                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{safeString(item)}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
         </div>
-        <SlideNum />
+        <SlideNumber number={slide.slideNumber} />
       </div>
     );
   }
@@ -813,22 +514,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ── 7. 차트 슬라이드
   if (slide.type === 'chart' || slide.chartData) {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        padding: '5% 7%',
-      }}>
-        {Watermark}<Logo />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <SectionLabel>DATA VISUALIZATION</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-              {slide.title}
-            </h2>
-          </div>
+          <div><SectionLabel>DATA VISUALIZATION</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ flex: 1 }}>{renderChart(slide.chartData)}</div>
         </div>
-        <SlideNum />
+        <SlideNumber number={slide.slideNumber} />
       </div>
     );
   }
@@ -840,194 +532,87 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const density = slide.tableDensity ?? 'normal';
     const cellPad = density === 'compact' ? '0.45rem 0.75rem' : density === 'relaxed' ? '0.9rem 1.2rem' : '0.65rem 1rem';
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        padding: '4.5% 6%',
-      }}>
-        {Watermark}<Logo />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '4.5% 6%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <SectionLabel>DATA TABLE</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-              {slide.title}
-            </h2>
-          </div>
+          <div><SectionLabel>DATA TABLE</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ flex: 1, overflowY: 'auto', borderRadius: 16, border: `1px solid ${P.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: contentFontSize }}>
               <thead>
                 <tr style={{ background: `linear-gradient(135deg,${P.primary},${P.primaryDark})` }}>
-                  {tableHeaders.map((h, i) => (
-                    <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left',
-                      fontSize: '0.9em', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                      {h}
-                    </th>
-                  ))}
+                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', fontSize: '0.9em', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{safeString(h)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row, ri) => (
-                  <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : P.muted,
-                    borderBottom: `1px solid ${P.border}` }}>
-                    {row.map((cell, ci) => (
-                      <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext,
-                        fontWeight: ci === 0 ? 600 : 400 }}>
-                        {cell}
-                      </td>
-                    ))}
+                  <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : P.muted, borderBottom: `1px solid ${P.border}` }}>
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400 }}>{safeString(cell)}</td>)}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
-        <SlideNum />
+        <SlideNumber number={slide.slideNumber} />
       </div>
     );
   }
 
-  // ── 9. 마무리/클로징 슬라이드
-  if (slide.type === 'closing' || slide.type === 'action') {
+  // ── 9. 마무리 슬라이드
+  if (slide.type === 'closing' || slide.type === 'action' || slide.type === 'summary') {
     return (
-      <div className={containerClassName} style={{
-        aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-        background: `linear-gradient(135deg, ${P.dark} 0%, #0f172a 100%)`,
-        fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-        display: 'flex', alignItems: 'center',
-      }}>
-        <div style={{
-          position: 'absolute', right: '5%', bottom: '5%',
-          width: '40%', paddingBottom: '40%', borderRadius: '50%',
-          background: `${P.primary}10`, zIndex: 0,
-        }} />
-        {Watermark}<Logo invert />
-        <div style={{
-          position: 'relative', zIndex: 1, padding: '0 5% 0 7%',
-          display: 'flex', flexDirection: 'column', gap: '1.5rem',
-        }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${P.dark} 0%, #0f172a 100%)`, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', right: '5%', bottom: '5%', width: '40%', paddingBottom: '40%', borderRadius: '50%', background: `${P.primary}10`, zIndex: 0 }} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} invert />
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <SectionLabel light>NEXT STEPS</SectionLabel>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0 }}>
-            {slide.title}
-          </h2>
+          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0 }}>{slide.title}</h2>
           <div style={{ width: '4rem', height: '3px', background: P.primary, borderRadius: 2 }} />
           {content.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
               {content.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
                   <ArrowRight style={{ width: 18, height: 18, color: P.primary, marginTop: '0.15em', flexShrink: 0 }} />
-                  <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{item}</span>
+                  <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{safeString(item)}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <SlideNum light />
+        <SlideNumber number={slide.slideNumber} light />
       </div>
     );
   }
 
-  // ── 10. Phase 3: split-left / split-right 레이아웃
-  if (layout === 'split-left') return (
-    <div className={containerClassName} style={{
-      aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-      background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-      padding: '5% 6%',
-    }}>
-      {Watermark}<Logo />
-      <div style={{ position: 'relative', zIndex: 1, height: '100%' }}>
-        {renderSplitLayout(slide, titleFontSize, contentFontSize, false)}
-      </div>
-      <SlideNum />
-    </div>
-  );
-
-  if (layout === 'split-right') return (
-    <div className={containerClassName} style={{
-      aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-      background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-      padding: '5% 6%',
-    }}>
-      {Watermark}<Logo />
-      <div style={{ position: 'relative', zIndex: 1, height: '100%' }}>
-        {renderSplitLayout(slide, titleFontSize, contentFontSize, true)}
-      </div>
-      <SlideNum />
-    </div>
-  );
-
-  if (layout === 'grid') return (
-    <div className={containerClassName} style={{
-      aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-      background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-      padding: '5% 7%',
-    }}>
-      {Watermark}<Logo />
-      <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-        <div>
-          <SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-            {slide.title}
-          </h2>
-        </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>
-          {renderGridCards(slide, contentFontSize)}
-        </div>
-      </div>
-      <SlideNum />
-    </div>
-  );
+  // ── 10. Split / Grid 레이아웃
+  if (layout === 'split-left') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, false)}</div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'split-right') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, true)}</div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
 
   // ── 11. 기본 콘텐츠 슬라이드 (default)
   return (
-    <div className={containerClassName} style={{
-      aspectRatio: '16/9', position: 'relative', overflow: 'hidden',
-      background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif",
-      padding: '5% 7%',
-    }}>
+    <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
       <SlideBackground imageUrl={slide.imageUrl} />
-      {Watermark}<Logo />
+      <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
       <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-
-        {/* 헤더 */}
         <div style={{ flexShrink: 0 }}>
           <SectionLabel>{slide.type?.toUpperCase() ?? 'CONTENT'}</SectionLabel>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>
-            {slide.title}
-          </h2>
-          {slide.subhead && (
-            <p style={{ fontSize: '0.85em', color: P.primary, fontWeight: 600, margin: '0.4rem 0 0' }}>
-              {slide.subhead}
-            </p>
-          )}
-          {/* Phase 2: 블루 구분선 */}
+          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2>
+          {slide.subhead && <p style={{ fontSize: '0.85em', color: P.primary, fontWeight: 600, margin: '0.4rem 0 0' }}>{slide.subhead}</p>}
           <div style={{ width: '2.5rem', height: '3px', background: P.primary, borderRadius: 2, marginTop: '0.7rem' }} />
         </div>
-
-        {/* 본문 콘텐츠 */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.65rem', justifyContent: 'flex-start' }}>
           {content.map((item, i) => (
             <div key={i} style={{ display: 'flex', gap: '0.9rem', alignItems: 'flex-start' }}>
-              {/* Phase 2: 번호 강조 */}
-              <div style={{
-                width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
-                background: i === 0 ? P.primary : `${P.primary}12`,
-                color: i === 0 ? '#fff' : P.primary,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '12px', fontWeight: 800, marginTop: '1px',
-              }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? P.primary : `${P.primary}12`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, marginTop: '1px' }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
-              <p style={{
-                fontSize: contentFontSize, color: P.text, lineHeight: 1.6,
-                margin: 0, flex: 1,
-              }}>
-                {item}
-              </p>
+              <p style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, margin: 0, flex: 1 }}>{safeString(item)}</p>
             </div>
           ))}
         </div>
       </div>
-      <SlideNum />
+      <SlideNumber number={slide.slideNumber} />
     </div>
   );
 };
