@@ -18,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  RotateCcw, Download, Plus, Trash2, Copy, // ✅ Trash2가 올바르게 임포트됨
+  RotateCcw, Download, Plus, Trash2, Copy,
   TrendingUp, TrendingDown, Minus, BarChart3, Target,
   ClipboardList, Layout, Check, X, Pencil, Play, Save,
   GripVertical, Loader2, Sparkles, MessageSquare, Keyboard,
@@ -26,7 +26,8 @@ import {
   SlidersHorizontal, ImagePlus, CheckSquare, Layers,
   Scissors, Merge,
 } from 'lucide-react';
-import { exportToPptx, exportToPdf, BrandSettings } from '@/lib/export-presentation';
+// ✅ exportToPptxAsImage 함수 import 추가
+import { exportToPptx, exportToPptxAsImage, exportToPdf, BrandSettings } from '@/lib/export-presentation';
 import { ExportSettingsDialog } from '@/components/ExportSettingsDialog';
 import { PresentationMode } from '@/components/PresentationMode';
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
@@ -236,12 +237,16 @@ export function SlideEditor({
     }
   };
 
-  const handleExport = async (format: 'pptx' | 'pdf', brand: BrandSettings) => {
+  // ✅ handleExport 함수 수정: 'pptx-image' 타입 처리 추가
+  const handleExport = async (format: 'pptx' | 'pptx-image' | 'pdf', brand: BrandSettings) => {
     setIsExporting(true);
     try {
       if (format === 'pptx') await exportToPptx(presentation, brand);
-      else                   await exportToPdf(presentation, brand);
-      toast.success(`${format.toUpperCase()} 내보내기 완료!`);
+      else if (format === 'pptx-image') await exportToPptxAsImage(presentation, brand);
+      else await exportToPdf(presentation, brand);
+      
+      const typeLabel = format === 'pptx-image' ? '고화질 PPT' : format.toUpperCase();
+      toast.success(`${typeLabel} 내보내기 완료!`);
       setExportDialogOpen(false);
     } catch {
       toast.error('내보내기 실패');
@@ -673,11 +678,10 @@ export function SlideEditor({
                         onClick={() => { onAddSlide(currentSlide); setCurrentSlide(currentSlide + 1); }}>
                         <Plus className="w-3.5 h-3.5" />
                       </Button>
-                      {/* ✅ "Trash 파2" -> "Trash2" 로 오타 수정 완료 */}
                       <Button size="sm" variant="ghost"
                         className="h-7 w-7 p-0 text-primary-foreground/70 hover:text-destructive hover:bg-destructive/10"
                         onClick={() => handleDeleteSlide(currentSlide)} disabled={slides.length <= 1}>
-                        <Trash2 className="w-3.5 h-3.5" /> 
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
