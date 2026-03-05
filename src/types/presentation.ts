@@ -1,4 +1,6 @@
+// ============================================================
 // src/types/presentation.ts
+// ============================================================
 
 export interface MeetingInfo {
   week: string;
@@ -40,7 +42,8 @@ export type SlideType =
   | 'stepUp'
   | 'imageText'
   | 'chart'
-  | 'data';
+  | 'data'
+  | 'summary';   // ✅ 추가: AI 응답 'summary' 타입 호환
 
 // ✅ SlideChart(Recharts) 컴포넌트 전용 타입
 export interface SlideChartData {
@@ -62,7 +65,7 @@ export interface SlideChartData {
 // ✅ chart 슬라이드 stats 아이템 (AI 반환 형식)
 export interface StatItem {
   label: string;
-  value: string;  // 숫자 문자열
+  value: string; // 숫자 문자열
   unit?: string;
 }
 
@@ -78,6 +81,7 @@ export interface Slide {
   sectionNo?: string;
   twoColumn?: boolean;
   columns?: number;
+  content?: string[];    // ✅ 추가: AI가 content 필드로 반환
   points?: string[];
   items?: any[];
   steps?: string[];
@@ -97,12 +101,7 @@ export interface Slide {
   stats?: StatItem[];
 
   // ✅ statsCompare 타입 전용 — 좌우 비교 (하위 호환)
-  statsLegacy?: {
-    label: string;
-    leftValue: string;
-    rightValue: string;
-    trend?: 'up' | 'down' | 'neutral';
-  }[];
+  statsLegacy?: { label: string; leftValue: string; rightValue: string; trend?: 'up' | 'down' | 'neutral' }[];
 
   showTrends?: boolean;
   levels?: { title: string; description: string }[];
@@ -113,14 +112,9 @@ export interface Slide {
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid';
   persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
 
-  // 기존 비율 기반 스케일
   titleSizeScale?: number;
   contentSizeScale?: number;
   textSizeScale?: number;
-
-  // ✅ 신규: 직접 pt 지정 (설정되면 우선 적용)
-  titleFontPt?: number;
-  contentFontPt?: number;
 
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   visualRatio?: number;
@@ -135,6 +129,12 @@ export interface Slide {
   // ✅ SlideChart(Recharts) 직접 데이터 — 고급 차트용
   chartData?: SlideChartData;
 
+  // ✅ 추가: AI가 tableData 필드로 반환
+  tableData?: {
+    headers: string[];
+    rows: string[][];
+  };
+
   imageUrl?: string;
 }
 
@@ -148,7 +148,8 @@ export interface Presentation {
   updatedAt?: string;
 }
 
-export type AppStep = 'upload' | 'info' | 'generating' | 'preview';
+// ✅ 핵심 수정: 'outline' 추가 — 구성안 화면이 안 보이던 원인!
+export type AppStep = 'upload' | 'info' | 'outline' | 'generating' | 'preview';
 
 export interface OutlineData {
   title: string;
