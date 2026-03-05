@@ -37,16 +37,15 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
 6. 마지막 슬라이드 type = 반드시 "summary"
 7. 수치/통계 데이터 → chart 또는 kpi, 단계/절차 → process, 비교 → compare, 일정 → timeline, 표 데이터 → table
 8. outline 배열 길이 = 정확히 ${targetCount}개
-9. ⚠️ 각 outline 항목의 "description" 필드는 반드시 50자 이내의 단문으로 아주 짧게 요약하세요. (길어지면 출력 에러 발생함)
-10. ⚠️ JSON 형식이 절대 깨지지 않도록 주의하고, 문자열 안에 이스케이프되지 않은 줄바꿈(\\n)이나 따옴표(")를 절대 사용하지 마세요.
+9. ⚠️ 중요: "description" 필드에는 절대 긴 문장을 쓰지 마세요. 무조건 "명사형 핵심 키워드 2~3개"로만 작성하세요. (예: "매출 분석 및 전망")
 
 반드시 아래 JSON 형식만 반환:
 {
   "title": "발표 제목",
   "outline": [
-    {"slideNumber":1,"title":"표지 제목","type":"title","description":"발표 주제 및 배경"},
-    {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 발표 구성 안내"},
-    {"slideNumber":${targetCount},"title":"마무리","type":"summary","description":"핵심 내용 요약 및 결론"}
+    {"slideNumber":1,"title":"표지 제목","type":"title","description":"주제 키워드"},
+    {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 구성"},
+    {"slideNumber":${targetCount},"title":"마무리","type":"summary","description":"최종 요약"}
   ]
 }`;
 
@@ -56,13 +55,8 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
       constants.OUTLINE_TOKEN_MAP[volume] ?? 8192
     );
 
-    console.log('[Outline AI 응답 원문]', text);
-
     const data = utils.extractJSON(text);
 
-    console.log('[Outline JSON 파싱 결과]', data);
-
-    // usePresentation.ts가 기대하는 구조로 반환
     return {
       title:   data?.title ?? '새 발표 자료',
       outline: Array.isArray(data?.outline)
@@ -80,7 +74,6 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
     const volume     = body.settings?.volume || 'standard';
     const difficulty = body.settings?.difficulty || 'medium';
 
-    // ✅ approvedOutline 방어: outline이 배열인 경우만 사용
     const outlineArray: any[] =
       Array.isArray(body.approvedOutline?.outline)
         ? body.approvedOutline.outline
@@ -88,12 +81,8 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
           ? body.approvedOutline
           : [];
 
-    const slideCount =
-      outlineArray.length ||
-      constants.SLIDE_COUNT_MAP[volume] ||
-      8;
+    const slideCount = outlineArray.length || constants.SLIDE_COUNT_MAP[volume] || 8;
 
-    // ✅ item이 undefined인 경우 필터링, 필드도 안전하게 처리
     const typeGuide = outlineArray
       .filter((item) => item != null)
       .map((item: any, i: number) =>
@@ -123,19 +112,12 @@ ${typeGuide}
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
 
-    const text = await callGeminiAPI(
-      systemInstruction,
-      userPrompt,
-      constants.TOKEN_MAP[volume]
-    );
+    const text = await callGeminiAPI(systemInstruction, userPrompt, constants.TOKEN_MAP[volume]);
     const json = utils.extractJSON(text);
 
     return { presentation: json };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 재생성
-  // ─────────────────────────────────────────────────────────
   async regenerateSlide(body: any) {
     const systemInstruction = prompts.getSystemPromptCore(body.settings?.difficulty);
     const userPrompt = `${prompts.SLIDE_SCHEMA}
@@ -151,9 +133,6 @@ JSON만 반환.`;
     return { slide: utils.normalizeSlide(json, 1, 3) };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 채팅 편집
-  // ─────────────────────────────────────────────────────────
   async chatEdit(body: any) {
     const systemInstruction = prompts.getSystemPromptCore();
     const userPrompt = `${prompts.SLIDE_SCHEMA}
@@ -169,9 +148,6 @@ JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
     return { result: json || {} };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 페르소나 변경
-  // ─────────────────────────────────────────────────────────
   async changePersona(body: any) {
     const systemInstruction = prompts.getSystemPromptCore(body.persona);
     const userPrompt = `${prompts.SLIDE_SCHEMA}
@@ -186,9 +162,6 @@ JSON만 반환.`;
     return { slide: utils.normalizeSlide(json, 1, 3) };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 리뷰
-  // ─────────────────────────────────────────────────────────
   async review(body: any) {
     const systemInstruction = '당신은 프레젠테이션 전문 검토자입니다.';
     const userPrompt = `다음 프레젠테이션을 검토하고 반드시 아래 JSON 형식만 반환하세요.
@@ -218,9 +191,6 @@ category: readability|content|structure|visual|data / severity: high|medium|low`
     };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 전체 최적화
-  // ─────────────────────────────────────────────────────────
   async reviewAndFix(body: any) {
     const difficulty = body.settings?.difficulty || 'medium';
     const volume     = body.settings?.volume     || 'detailed';
@@ -243,9 +213,6 @@ JSON 반환: {"presentation":{...},"summary":"변경 요약"}`;
     return { result: data };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 참고 양식 분석
-  // ─────────────────────────────────────────────────────────
   async analyzeReferenceStructure(content: string) {
     const systemInstruction = '당신은 문서 구조 분석 전문가입니다.';
     const userPrompt = `다음 문서의 구조와 양식을 분석하세요.
@@ -256,14 +223,8 @@ JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"ke
     return utils.extractJSON(text) || { structure: [], slideCount: 0, keyPatterns: [] };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 이미지 생성
-  // ─────────────────────────────────────────────────────────
   generateImage: generateSlideImage,
 
-  // ─────────────────────────────────────────────────────────
-  // 인포그래픽 분석
-  // ─────────────────────────────────────────────────────────
   async analyzeInfographic(content: string[]) {
     const systemInstruction = '당신은 데이터 시각화 전문가입니다.';
     const userPrompt = `다음 리스트의 관계를 분석해 최적의 인포그래픽 타입을 선택하세요.
@@ -275,9 +236,6 @@ JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"ke
     return utils.extractJSON(text) || { type: 'grid' };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 템플릿 분석
-  // ─────────────────────────────────────────────────────────
   async analyzeTemplate(templateData: string) {
     const systemInstruction = '당신은 디자인 분석 전문가입니다.';
     const userPrompt = `다음 템플릿 데이터를 분석하여 주요 색상과 스타일을 추출하세요.
@@ -292,13 +250,7 @@ JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"ke
     };
   },
 
-  // ─────────────────────────────────────────────────────────
-  // 외부 내보내기 (Notion / Google)
-  // ─────────────────────────────────────────────────────────
-  async exportToExternal(
-    _presentation: any,
-    _platform: 'notion' | 'google'
-  ): Promise<void> {
+  async exportToExternal(_presentation: any, _platform: 'notion' | 'google'): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 1500));
   },
 };
