@@ -1,588 +1,712 @@
-// src/components/PresentationSetupForm.tsx
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+// ============================================================
+// src/pages/Index.tsx — 최상위 메인 페이지
+// ============================================================
+import { useState } from 'react'
+import { usePresentation } from '@/hooks/usePresentation'
+import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
+import { FileUploadZone } from '@/components/FileUploadZone'
+import { PresentationSetupForm } from '@/components/PresentationSetupForm'
+import { GeneratingState } from '@/components/GeneratingState'
+import { SlideEditor } from '@/components/SlideEditor'
+import { HistoryPanel } from '@/components/HistoryPanel'
+import { OutlinePreview } from '@/components/OutlinePreview'
+import { ChatEditPanel } from '@/components/ChatEditPanel'
+import { ReviewPanel } from '@/components/ReviewPanel'
+import { useVisitorCount } from '@/hooks/useVisitorCount'
+import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
+import { FormGeneratorWorkspace } from '@/components/FormGeneratorWorkspace'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { MeetingInfo, PresentationSettings } from '@/types/presentation';
-import {
-  Sparkles, ArrowLeft, SlidersHorizontal, Layout, FileText,
-  BarChart3, Lightbulb, Wand2, Star, Trash2, BookmarkPlus,
-  ChevronDown, ChevronUp, Upload, Loader2, Palette, X, ClipboardList,
-} from 'lucide-react';
-import { saveFavoriteTemplate, loadFavoriteTemplates, deleteFavoriteTemplate, FavoriteTemplate } from '@/lib/favorite-templates';
-import { toast } from 'sonner';
-import { aiService } from '@/lib/ai-service';
-import { ReferenceStructure } from '@/hooks/usePresentation';
+  Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
+  HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
+  X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
+  Users, Eye, Globe, CheckCircle2,
+} from 'lucide-react'
+import { Button }   from '@/components/ui/button'
+import { Input }    from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { motion, AnimatePresence } from 'framer-motion'
+import { supabase }    from '@/integrations/supabase/client'
+import { useNavigate } from 'react-router-dom'
+import { toast }       from 'sonner'
 
-interface PresentationSetupFormProps {
-  info: MeetingInfo;
-  onChange: (info: MeetingInfo) => void;
-  settings: PresentationSettings;
-  onSettingsChange: (settings: PresentationSettings) => void;
-  onGenerate: () => void;
-  onBack: () => void;
-  isGenerating: boolean;
-  fileNames: string[];
-  dataSummary: string;
-  template: string;
-  setTemplate: (t: string) => void;
-  referenceFileName: string;
-  isAnalyzingReference: boolean;
-  referenceStructure: ReferenceStructure | null;
-  onReferenceFileUpload: (files: File[]) => void;
-  onClearReferenceFile: () => void;
+type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] }
+type Preset = {
+  id: string; icon: string; label: string
+  fields: PresetField[]
+  generate: (data: Record<string, string>) => string
 }
 
-const TEMPLATES = [
-  { id: 'auto',     icon: <Wand2 className="w-5 h-5" />,    label: 'AI 자동',   desc: 'AI가 최적 구성 자동 판단',  color: 'from-violet-500 to-purple-600' },
-  { id: 'report',   icon: <FileText className="w-5 h-5" />,  label: '보고서',    desc: '업무 보고서 형식',         color: 'from-blue-500 to-indigo-600' },
-  { id: 'analysis', icon: <BarChart3 className="w-5 h-5" />, label: '분석 자료', desc: '데이터 분석 중심',         color: 'from-cyan-500 to-blue-600' },
-  { id: 'proposal', icon: <Lightbulb className="w-5 h-5" />, label: '기획안',    desc: '제안서 / 기획 발표',        color: 'from-amber-500 to-orange-600' },
-  { id: 'summary',  icon: <Layout className="w-5 h-5" />,    label: '요약 자료', desc: '핵심만 정리한 요약본',      color: 'from-emerald-500 to-teal-600' },
-];
+const PROMPT_PRESETS: Preset[] = [
+  {
+    id: 'newproduct', icon: '🚀', label: '신제품 발표',
+    fields: [
+      { id: 'topic',  label: '제품명/서비스명', placeholder: 'B2B SaaS 플랫폼', suggestions: ['B2B SaaS', 'AI 어시스턴트'] },
+      { id: 'target', label: '타겟 고객',        placeholder: 'HR 담당자',         suggestions: ['2030세대', 'HR담당자', 'IT팀', 'MZ세대'] },
+      { id: 'goal',   label: '핵심 목표',        placeholder: '도입 2배 증가',      suggestions: ['매출 20%', '비용 10% 절감', '효율 30% 향상'] },
+    ],
+    generate: d => `${d.topic} 신제품 발표자료. 타겟: ${d.target}. 목표: ${d.goal}`,
+  },
+  {
+    id: 'report', icon: '📊', label: '업무 보고',
+    fields: [
+      { id: 'period',      label: '보고 기간',  placeholder: '2025년 1분기',  suggestions: ['2026년 1분기', '상반기', '2025년'] },
+      { id: 'achievement', label: '주요 성과',  placeholder: '매출 25% 달성', suggestions: ['매출 25% 달성', '고객 1만명 돌파', 'NPS 15점 상승'] },
+      { id: 'plan',        label: 'Next Step', placeholder: '다음 분기 계획 2가지', suggestions: ['시장 확대', '신규 채용', '제품 개선'] },
+    ],
+    generate: d => `${d.period} 업무 보고. 성과: ${d.achievement}. Next Step: ${d.plan}`,
+  },
+  {
+    id: 'proposal', icon: '🤝', label: '제안서',
+    fields: [
+      { id: 'client',   label: '고객사',        placeholder: 'A사 IT팀',      suggestions: ['A사', 'B그룹', 'C공사'] },
+      { id: 'solution', label: '제안 솔루션',   placeholder: 'AI 자동화',      suggestions: ['RPA 도입', 'AI 전환', '클라우드 마이그레이션'] },
+      { id: 'benefit',  label: '기대 Benefit',  placeholder: '비용 30% 절감', suggestions: ['ROI 300%', '시간 50% 단축', '오류 5분의1 감소'] },
+    ],
+    generate: d => `${d.client} 대상 ${d.solution} 제안서. 기대효과: ${d.benefit}`,
+  },
+]
 
-const DIFFICULTY_OPTIONS = [
-  { value: 'easy',      label: '초급',   desc: '쉬운 설명' },
-  { value: 'medium',    label: '중급',   desc: '실무 표준' },
-  { value: 'hard',      label: '고급',   desc: '전문가용' },
-  { value: 'executive', label: '임원용', desc: 'ROI 중심' },
-];
+const Index = () => {
+  const navigate = useNavigate()
 
-const VOLUME_OPTIONS = [
-  { value: 'brief',         label: '간략 (3-5장)' },
-  { value: 'standard',      label: '표준 (6-10장)' },
-  { value: 'detailed',      label: '상세 (11-15장)' },
-  { value: 'comprehensive', label: '완전 (16장+)' },
-];
+  type AppMode = 'presentation' | 'form' | 'translator'
+  const [activeApp,      setActiveApp]      = useState<AppMode>('presentation')
+  const [themeMenuOpen,  setThemeMenuOpen]  = useState(false)
+  const [helpOpen,       setHelpOpen]       = useState(false)
+  const [activePresetId, setActivePresetId] = useState<string>('manual')
+  const [presetData,     setPresetData]     = useState<Record<string, string>>({})
+  const [manualPrompt,   setManualPrompt]   = useState('')
 
-export function PresentationSetupForm({
-  info, onChange, settings, onSettingsChange,
-  onGenerate, onBack, isGenerating,
-  fileNames, dataSummary, template, setTemplate,
-  referenceFileName, isAnalyzingReference, referenceStructure,
-  onReferenceFileUpload, onClearReferenceFile,
-}: PresentationSetupFormProps) {
-  const [favorites, setFavorites] = useState<FavoriteTemplate[]>([]);
-  const [showFavorites, setShowFavorites] = useState(false);
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
-  const [favName, setFavName] = useState('내 PPT 설정');
-  const [templateFile, setTemplateFile] = useState<string | null>(null);
-  const [templateFileName, setTemplateFileName] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [extractedStyle, setExtractedStyle] = useState<{
-    primaryColor: string; accentColor: string; description: string;
-  } | null>(null);
-  const templateInputRef = useRef<HTMLInputElement>(null);
-  const referenceInputRef = useRef<HTMLInputElement>(null);
+  const { stats: visitorStats } = useVisitorCount()
 
-  useEffect(() => { setFavorites(loadFavoriteTemplates()); }, []);
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    toast.success('로그아웃 되었습니다.')
+    navigate('/auth', { replace: true })
+  }
 
-  const update = (key: keyof MeetingInfo, value: string) =>
-    onChange({ ...info, [key]: value });
+  const {
+    step, setStep,
+    dataSummary, fileNames,
+    meetingInfo, setMeetingInfo,
+    settings, setSettings,
+    template, setTemplate,
+    outline, isLoadingOutline,
+    presentation, isGenerating,
+    isSaving, handleSave,
+    savedList, isLoadingList,
+    historyOpen, setHistoryOpen, openHistory,
+    loadFromHistory, deleteFromHistory,
+    chatOpen, setChatOpen, currentChatSlideIndex,
+    reviewOpen, setReviewOpen,
+    reviewResult, isReviewing,
+    requestReview, applyReviewFix,
+    isFixing, reviewAndFixPresentation,
+    isDark, toggleDark,
+    appTheme, changeTheme,
+    handleFilesUpload, removeFile,
+    handlePromptSubmit,
+    requestOutline, generatePresentation,
+    regenerateSlide, requestChatEdit,
+    changeSlidePersona, cycleLayout,
+    updatePresentationMaster,
+    isGeneratingImage, generateSlideImage,
+    reset, updateSlide, updateAllSlides, addSlide,
+    deleteSlide, duplicateSlide,
+    moveSlide, updatePresentationTitle,
+    referenceFileName,
+    isAnalyzingReference,
+    referenceStructure,
+    handleReferenceFileUpload,
+    clearReferenceFile,
+  } = usePresentation()
 
-  const updateSetting = <K extends keyof PresentationSettings>(
-    key: K, value: PresentationSettings[K]
-  ) => onSettingsChange({ ...settings, [key]: value });
+  const guide        = getStepGuide(step)
+  const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId)
 
-  const handleSaveFavorite = () => {
-    if (!favName.trim()) { toast.error('이름을 입력해주세요.'); return; }
-    saveFavoriteTemplate(favName.trim(), template, settings, {
-      department: info.department, reporter: info.reporter,
-    });
-    setFavorites(loadFavoriteTemplates());
-    setFavName('내 PPT 설정');
-    setShowSaveDialog(false);
-    toast.success(`"${favName}" 저장 완료`);
-  };
-
-  const handleLoadFavorite = (fav: FavoriteTemplate) => {
-    setTemplate(fav.template);
-    onSettingsChange(fav.settings);
-    if (fav.meetingInfo?.department) onChange({ ...info, department: fav.meetingInfo.department });
-    if (fav.meetingInfo?.reporter) onChange({ ...info, reporter: fav.meetingInfo.reporter ?? '' });
-    setShowFavorites(false);
-    toast.success(`"${fav.name}" 불러옴`);
-  };
-
-  const handleDeleteFavorite = (id: string, name: string) => {
-    deleteFavoriteTemplate(id);
-    setFavorites(loadFavoriteTemplates());
-    toast.success(`"${name}" 삭제됨`);
-  };
-
-  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.name.match(/\.(pptx?|png|jpe?g)$/i)) {
-      toast.error('PPT, PNG, JPG 파일만 지원합니다.');
-      return;
-    }
-    setTemplateFileName(file.name);
-    setIsAnalyzing(true);
-    setExtractedStyle(null);
-    try {
-      const reader = new FileReader();
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      setTemplateFile(dataUrl);
-      const result = await aiService.analyzeTemplate(dataUrl);
-      setExtractedStyle({
-        primaryColor: result.primaryColor || '#1B3A5C',
-        accentColor: result.accentColor || '#0D8ECF',
-        description: result.description || '',
-      });
-      toast.success('템플릿 스타일 분석 완료!');
-    } catch (err: any) {
-      toast.error(err?.message || '분석 중 오류가 발생했습니다.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const clearTemplate = () => {
-    setTemplateFile(null);
-    setTemplateFileName('');
-    setExtractedStyle(null);
-    if (templateInputRef.current) templateInputRef.current.value = '';
-  };
-
-  const handleReferenceInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) onReferenceFileUpload(files);
-  };
+  const headerIcon = () => {
+    if (activeApp === 'translator') return <Globe    className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'form')       return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
+    return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 30 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="w-full max-w-2xl mx-auto space-y-6"
-    >
-      {/* 업로드된 파일 표시 */}
-      {fileNames.length > 0 && (
-        <div className="rounded-xl bg-card border border-border p-4 shadow-card">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-success text-lg">✅</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-medium text-sm truncate">{fileNames.join(', ')}</p>
-              <p className="text-xs text-muted-foreground">{dataSummary}</p>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
 
-      {/* 즐겨찾기 */}
-      {favorites.length > 0 && (
-        <div className="rounded-xl bg-card border border-border shadow-card overflow-hidden">
-          <button
-            onClick={() => setShowFavorites(!showFavorites)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
-          >
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-              즐겨찾기 {favorites.length}개
-            </div>
-            {showFavorites
-              ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
-              : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-          </button>
-          <AnimatePresence>
-            {showFavorites && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="px-5 pb-4 space-y-2 border-t border-border pt-3">
-                  {favorites.map((fav) => (
-                    <div key={fav.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors group">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{fav.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {TEMPLATES.find((t) => t.id === fav.template)?.label} ·{' '}
-                          {DIFFICULTY_OPTIONS.find((d) => d.value === fav.settings.difficulty)?.label} ·{' '}
-                          {VOLUME_OPTIONS.find((v) => v.value === fav.settings.volume)?.label}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button size="sm" variant="ghost" onClick={() => handleLoadFavorite(fav)} className="h-7 text-xs px-2 text-primary hover:bg-primary/10">
-                          불러오기
-                        </Button>
-                        <button onClick={() => handleDeleteFavorite(fav.id, fav.name)} className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+      {/* ── HEADER ───────────────────────────────────────────── */}
+      <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
 
-      {/* 템플릿 선택 */}
-      <div className="rounded-xl bg-card border border-border p-5 shadow-card space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Layout className="w-4 h-4 text-primary" />
-            템플릿 선택
-          </div>
-          <Button
-            size="sm" variant="ghost"
-            onClick={() => setShowSaveDialog(!showSaveDialog)}
-            className="h-7 text-xs gap-1.5 text-muted-foreground hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-          >
-            <BookmarkPlus className="w-3.5 h-3.5" />
-            즐겨찾기 저장
-          </Button>
-        </div>
-
-        <AnimatePresence>
-          {showSaveDialog && (
+          {/* 로고 + 앱 이름 */}
+          <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
+              className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
+              whileHover={{ scale: 1.08, rotate: 6 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
             >
-              <div className="flex gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
-                <Input
-                  value={favName}
-                  onChange={(e) => setFavName(e.target.value)}
-                  placeholder="설정 이름..."
-                  className="h-8 text-sm flex-1 bg-white dark:bg-card"
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveFavorite(); }}
-                  autoFocus
-                />
-                <Button size="sm" onClick={handleSaveFavorite} className="h-8 px-3 gradient-primary text-primary-foreground border-0">저장</Button>
-                <Button size="sm" variant="ghost" onClick={() => setShowSaveDialog(false)} className="h-8 w-8 p-0">
-                  <X className="w-3.5 h-3.5" />
+              {headerIcon()}
+            </motion.div>
+            <div className="min-w-0">
+              <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
+                WorkAI
+              </h1>
+              <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
+                AI 업무 자동화 플랫폼
+              </p>
+            </div>
+          </div>
+
+          {/* 탭 메뉴 — 3개 */}
+          <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
+            <button
+              onClick={() => setActiveApp('presentation')}
+              className={[
+                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                activeApp === 'presentation'
+                  ? 'bg-background shadow-sm text-primary border border-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+              ].join(' ')}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              발표자료
+            </button>
+
+            <button
+              onClick={() => setActiveApp('form')}
+              className={[
+                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                activeApp === 'form'
+                  ? 'bg-background shadow-sm text-primary border border-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+              ].join(' ')}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              문서 생성기
+            </button>
+
+            <button
+              onClick={() => setActiveApp('translator')}
+              className={[
+                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                activeApp === 'translator'
+                  ? 'bg-background shadow-sm text-primary border border-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+              ].join(' ')}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              AI 번역
+            </button>
+          </div>
+
+          {/* 우측 버튼 */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {activeApp === 'presentation' && (
+              <StepIndicator currentStep={step} />
+            )}
+
+            <div className="w-px h-6 bg-border/60 mx-1.5 hidden sm:block" />
+
+            <Button
+              variant="ghost" size="sm"
+              onClick={openHistory}
+              className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">저장 목록</span>
+            </Button>
+
+            <Button
+              variant="ghost" size="icon"
+              onClick={() => setHelpOpen(true)}
+              className="w-8 h-8 text-muted-foreground hover:text-foreground"
+              title="도움말"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+
+            <div className="w-px h-5 bg-border/60 mx-0.5" />
+
+            <div className="relative">
+              <Button
+                variant="ghost" size="icon"
+                onClick={() => setThemeMenuOpen(!themeMenuOpen)}
+                className="w-8 h-8 text-muted-foreground hover:text-foreground"
+                title="테마 변경"
+              >
+                <Palette className="w-4 h-4" />
+              </Button>
+              <AnimatePresence>
+                {themeMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                    className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1 overflow-hidden"
+                  >
+                    {(['blue', 'navy', 'purple', 'green', 'orange'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { changeTheme(t); setThemeMenuOpen(false) }}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3"
+                      >
+                        <div className={[
+                          'w-3.5 h-3.5 rounded-full border border-border/50 flex-shrink-0',
+                          t === 'blue'   ? 'bg-blue-500'    :
+                          t === 'navy'   ? 'bg-slate-700'   :
+                          t === 'purple' ? 'bg-purple-500'  :
+                          t === 'green'  ? 'bg-emerald-500' : 'bg-orange-500',
+                        ].join(' ')} />
+                        <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}
+                        </span>
+                        {appTheme === t && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <Button
+              variant="ghost" size="icon"
+              onClick={toggleDark}
+              className="w-8 h-8 text-muted-foreground hover:text-foreground"
+              title={isDark ? '라이트 모드' : '다크 모드'}
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+
+            <div className="w-px h-5 bg-border/60 mx-0.5" />
+
+            <Button
+              variant="ghost" size="icon"
+              onClick={handleLogout}
+              className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors"
+              title="로그아웃"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+
+        </div>
+      </header>
+
+      {/* ── 도움말 팝업 ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {helpOpen && activeApp === 'presentation' && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setHelpOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1,    y: 0  }}
+              exit={{   opacity: 0, scale: 0.95, y: 20  }}
+              onClick={e => e.stopPropagation()}
+              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+                <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
+                  <BookOpen className="w-5 h-5 text-primary" />
+                  WorkAI 사용 가이드
+                </h2>
+                <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full">
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
+                {[
+                  { icon: <MessageSquare     className="w-6 h-6 text-blue-600 dark:text-blue-400" />,     bg: 'bg-blue-100 dark:bg-blue-900/30',     title: '1. 주제 입력',   desc: '발표 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
+                  { icon: <UploadCloud       className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>, bg: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: 'PDF, Word, 텍스트 등 기존 자료를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
+                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400"/>,  bg: 'bg-purple-100 dark:bg-purple-900/30',   title: '3. 발표 설정',   desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
+                  { icon: <FileText          className="w-6 h-6 text-amber-600 dark:text-amber-400" />,   bg: 'bg-amber-100 dark:bg-amber-900/30',     title: '4. 편집 & 저장', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className={`w-12 h-12 rounded-full ${item.bg} flex items-center justify-center flex-shrink-0`}>
+                      {item.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-foreground mb-1">{item.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 border-t border-border bg-muted/10 text-center">
+                <Button onClick={() => setHelpOpen(false)} className="px-10 py-5 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-90">
+                  시작하기
                 </Button>
               </div>
             </motion.div>
-          )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── 단계 가이드 바 ───────────────────────────────────── */}
+      {activeApp === 'presentation' && step !== 'preview' && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
+            className="border-b border-border bg-accent/5"
+          >
+            <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center gap-3">
+              <div className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
+                <HelpCircle className="w-4 h-4 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-foreground">{guide.title}</p>
+                <p className="text-xs text-muted-foreground">{guide.desc}</p>
+              </div>
+            </div>
+          </motion.div>
         </AnimatePresence>
+      )}
 
-        <div className="grid grid-cols-1 gap-2">
-          {TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.id}
-              onClick={() => setTemplate(tpl.id)}
-              className={`flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                template === tpl.id
-                  ? 'border-primary bg-primary/5 shadow-card'
-                  : 'border-border bg-muted/30 hover:border-primary/30 hover:bg-muted/60'
-              }`}
-            >
-              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${tpl.color} flex items-center justify-center text-white flex-shrink-0`}>
-                {tpl.icon}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm">{tpl.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{tpl.desc}</p>
-              </div>
-              {template === tpl.id && (
-                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ── MAIN CONTENT ─────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col relative overflow-hidden">
 
-      {/* 슬라이드 설정 */}
-      <div className="rounded-xl bg-card border border-border p-5 shadow-card space-y-4">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <SlidersHorizontal className="w-4 h-4 text-primary" />
-          슬라이드 설정
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="difficulty">난이도</Label>
-            <Select
-              value={settings.difficulty}
-              onValueChange={(v) => updateSetting('difficulty', v as PresentationSettings['difficulty'])}
-            >
-              <SelectTrigger id="difficulty"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DIFFICULTY_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="font-medium">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{opt.desc}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="volume">슬라이드 수</Label>
-            <Select
-              value={settings.volume}
-              onValueChange={(v) => updateSetting('volume', v as PresentationSettings['volume'])}
-            >
-              <SelectTrigger id="volume"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {VOLUME_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+        {/* 문서 생성기 탭 */}
+        {activeApp === 'form' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
+            <FormGeneratorWorkspace />
+          </main>
+        )}
 
-      {/* 발표 정보 */}
-      <details className="rounded-xl bg-card border border-border shadow-card group">
-        <summary className="flex items-center gap-2 text-sm font-semibold text-foreground px-5 py-4 cursor-pointer select-none list-none hover:bg-muted/30 transition-colors rounded-xl">
-          <FileText className="w-4 h-4 text-primary" />
-          발표 정보
-          <span className="text-muted-foreground font-normal text-xs ml-1">(선택사항)</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
-          <div className="space-y-2">
-            <Label htmlFor="topic">주제 / 보고 주차</Label>
-            <Input
-              id="topic"
-              placeholder="예: 2024년 3월 2주차"
-              value={info.week}
-              onChange={(e) => update('week', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="reporter">보고자</Label>
-              <Input
-                id="reporter"
-                placeholder="홍길동"
-                value={info.reporter}
-                onChange={(e) => update('reporter', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="department">부서</Label>
-              <Input
-                id="department"
-                placeholder="생산부"
-                value={info.department}
-                onChange={(e) => update('department', e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="notes">추가 지시사항</Label>
-            <Textarea
-              id="notes"
-              placeholder="강조할 내용, 제외할 내용, 특별 요청사항 등을 입력하세요."
-              value={info.notes}
-              onChange={(e) => update('notes', e.target.value)}
-              rows={3}
-            />
-          </div>
-        </div>
-      </details>
+        {/* 번역 탭 */}
+        {activeApp === 'translator' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
+            <TranslatorWorkspace />
+          </main>
+        )}
 
-      {/* PPT 스타일 템플릿 */}
-      <details className="rounded-xl bg-card border border-border shadow-card group">
-        <summary className="flex items-center gap-2 text-sm font-semibold text-foreground px-5 py-4 cursor-pointer select-none list-none hover:bg-muted/30 transition-colors rounded-xl">
-          <Palette className="w-4 h-4 text-primary" />
-          PPT 스타일 템플릿
-          <span className="text-muted-foreground font-normal text-xs ml-1">(선택사항)</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">
-            기존 PPT 파일이나 이미지를 업로드하면 스타일을 분석해 발표자료에 반영합니다.
-          </p>
-          <input
-            ref={templateInputRef}
-            type="file"
-            accept=".pptx,.ppt,.png,.jpg,.jpeg"
-            onChange={handleTemplateUpload}
-            className="hidden"
-          />
-          {!templateFile ? (
-            <Button
-              variant="outline"
-              onClick={() => templateInputRef.current?.click()}
-              disabled={isAnalyzing}
-              className="w-full gap-2 py-6 border-dashed"
-            >
-              {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              {isAnalyzing ? '분석 중...' : 'PPT 또는 이미지 업로드'}
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <FileText className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{templateFileName}</p>
-                  {isAnalyzing && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" /> 스타일 분석 중...
-                    </p>
-                  )}
-                </div>
-                <button onClick={clearTemplate} className="text-muted-foreground hover:text-destructive transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {extractedStyle && (
+        {/* 발표자료 탭 */}
+        {activeApp === 'presentation' && (
+          <main className={[
+            'mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto',
+            step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl',
+          ].join(' ')}>
+
+            {/* STEP: upload */}
+            {step === 'upload' && (
+              <div className="space-y-10">
                 <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-xl bg-accent/5 border border-accent/20 space-y-3"
+                  initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="text-center max-w-lg mx-auto"
                 >
-                  <p className="text-xs font-semibold text-accent flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5" /> 추출된 스타일
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.primaryColor }} />
-                      <span className="text-xs font-mono text-muted-foreground">{extractedStyle.primaryColor}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md border border-border shadow-sm" style={{ backgroundColor: extractedStyle.accentColor }} />
-                      <span className="text-xs font-mono text-muted-foreground">{extractedStyle.accentColor}</span>
-                    </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent text-xs font-semibold mb-4">
+                    <Sparkles className="w-3 h-3" /> AI 발표자료 생성기
                   </div>
-                  {extractedStyle.description && (
-                    <p className="text-xs text-muted-foreground">{extractedStyle.description}</p>
-                  )}
-                </motion.div>
-              )}
-            </div>
-          )}
-        </div>
-      </details>
-
-      {/* 참고 양식 파일 */}
-      <details className="rounded-xl bg-card border border-border shadow-card group">
-        <summary className="flex items-center gap-2 text-sm font-semibold text-foreground px-5 py-4 cursor-pointer select-none list-none hover:bg-muted/30 transition-colors rounded-xl">
-          <ClipboardList className="w-4 h-4 text-primary" />
-          참고 양식 파일
-          <span className="text-muted-foreground font-normal text-xs ml-1">(선택사항)</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground ml-auto transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="px-5 pb-5 space-y-4 border-t border-border pt-4">
-          <p className="text-xs text-muted-foreground">
-            기존 보고서나 PPT를 올리면 <strong>그 양식 구조대로</strong> 슬라이드를 자동 구성합니다.
-          </p>
-          <input
-            ref={referenceInputRef}
-            type="file"
-            accept=".pdf,.pptx,.ppt,.docx,.txt"
-            onChange={handleReferenceInputChange}
-            className="hidden"
-          />
-          {!referenceFileName ? (
-            <Button
-              variant="outline"
-              onClick={() => referenceInputRef.current?.click()}
-              disabled={isAnalyzingReference}
-              className="w-full gap-2 py-6 border-dashed border-amber-300 hover:border-amber-400 hover:bg-amber-50/50 dark:hover:bg-amber-950/20"
-            >
-              {isAnalyzingReference
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <ClipboardList className="w-4 h-4 text-amber-600" />}
-              {isAnalyzingReference ? '양식 분석 중...' : '참고할 양식 파일 업로드 (PDF, PPTX, DOCX)'}
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0">
-                  <ClipboardList className="w-4 h-4 text-amber-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{referenceFileName}</p>
-                  {isAnalyzingReference ? (
-                    <p className="text-xs text-amber-600 flex items-center gap-1">
-                      <Loader2 className="w-3 h-3 animate-spin" /> 양식 구조 분석 중...
-                    </p>
-                  ) : referenceStructure ? (
-                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                      ✅ {referenceStructure.slideCount}장 구조 인식 완료
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  onClick={onClearReferenceFile}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {referenceStructure && referenceStructure.structure.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/50 space-y-2"
-                >
-                  <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                    인식된 슬라이드 구조
+                  <h2 className="text-4xl font-black tracking-tight leading-tight">
+                    WorkAI로<br />
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+                      발표자료 자동 생성
+                    </span>
+                  </h2>
+                  <p className="text-muted-foreground mt-4 text-base leading-relaxed">
+                    주제를 입력하거나 파일을 올리면<br className="hidden sm:block" />
+                    PDF·Word 등 모든 자료를 분석해 완성도 높은 발표자료를 만들어 드립니다.
                   </p>
-                  <div className="space-y-1">
-                    {referenceStructure.structure.slice(0, 5).map((s, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="font-mono w-4 text-right">{i + 1}.</span>
-                        <span className="px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-mono">
-                          {s.type}
-                        </span>
-                        <span className="truncate">{s.title}</span>
-                      </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="max-w-3xl mx-auto space-y-4"
+                >
+                  {/* 프리셋 탭 */}
+                  <div className="flex flex-wrap items-center justify-center gap-2 mb-4 p-1 bg-muted/50 rounded-2xl w-fit mx-auto border border-border">
+                    <button
+                      onClick={() => setActivePresetId('manual')}
+                      className={[
+                        'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
+                        activePresetId === 'manual' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground',
+                      ].join(' ')}
+                    >
+                      <PencilLine className="w-4 h-4" /> 직접 입력
+                    </button>
+                    {PROMPT_PRESETS.map(preset => (
+                      <button
+                        key={preset.id}
+                        onClick={() => { setActivePresetId(preset.id); setPresetData({}) }}
+                        className={[
+                          'flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all',
+                          activePresetId === preset.id ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground hover:text-foreground',
+                        ].join(' ')}
+                      >
+                        <span>{preset.icon}</span>
+                        <span>{preset.label}</span>
+                      </button>
                     ))}
-                    {referenceStructure.structure.length > 5 && (
-                      <p className="text-xs text-muted-foreground pl-6">
-                        ... 외 {referenceStructure.structure.length - 5}개
-                      </p>
-                    )}
                   </div>
-                  {referenceStructure.keyPatterns.length > 0 && (
-                    <p className="text-xs text-muted-foreground pt-1 border-t border-amber-200/50">
-                      📌 {referenceStructure.keyPatterns[0]}
-                    </p>
+
+                  {/* 입력 영역 */}
+                  <AnimatePresence mode="wait">
+                    {activePreset ? (
+                      <motion.div
+                        key={activePreset.id}
+                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                        className="bg-card rounded-2xl border-2 border-primary/20 p-6 shadow-glow space-y-6"
+                      >
+                        <div className="space-y-5">
+                          {activePreset.fields.map(field => (
+                            <div key={field.id} className="space-y-2.5">
+                              <label className="text-sm font-bold text-foreground">{field.label}</label>
+                              <div className="flex flex-wrap gap-2">
+                                {field.suggestions.map(sug => (
+                                  <button
+                                    key={sug}
+                                    onClick={() => setPresetData(p => ({ ...p, [field.id]: sug }))}
+                                    className="text-xs px-3 py-1.5 bg-muted/50 hover:bg-primary/10 border border-border hover:border-primary/30 text-muted-foreground hover:text-primary rounded-lg transition-all text-left"
+                                  >
+                                    {sug}
+                                  </button>
+                                ))}
+                              </div>
+                              <Input
+                                value={presetData[field.id] ?? ''}
+                                onChange={e => setPresetData(p => ({ ...p, [field.id]: e.target.value }))}
+                                placeholder={field.placeholder}
+                                className="bg-background h-11"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-2 border-t border-border">
+                          <Button
+                            onClick={() => handlePromptSubmit(activePreset.generate(presetData))}
+                            className="w-full h-14 rounded-xl gap-2 gradient-primary border-0 text-white font-bold text-base shadow-sm"
+                          >
+                            <Sparkles className="w-5 h-5" /> AI 발표자료 생성
+                          </Button>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="manual"
+                        initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+                        className="space-y-4"
+                      >
+                        <div className="bg-card rounded-2xl border-2 border-primary/20 p-2 shadow-glow flex items-start gap-2 focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all">
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 ml-1 mt-1">
+                            <MessageSquare className="w-6 h-6 text-primary" />
+                          </div>
+                          <Textarea
+                            value={manualPrompt}
+                            onChange={e => setManualPrompt(e.target.value)}
+                            placeholder="예) 2026년 상반기 생산 실적 보고서 / 태웅 15000톤 프레스 가동 현황..."
+                            className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
+                            rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                handlePromptSubmit(manualPrompt)
+                              }
+                            }}
+                          />
+                          <Button
+                            onClick={() => handlePromptSubmit(manualPrompt)}
+                            disabled={!manualPrompt.trim()}
+                            className="h-14 rounded-xl px-6 gap-2 gradient-primary border-0 text-white font-bold mt-1 shadow-sm"
+                          >
+                            <Send className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* 구분선 */}
+                  <div className="relative flex items-center justify-center py-2 max-w-3xl mx-auto">
+                    <div className="border-t border-border absolute w-full" />
+                    <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 파일 업로드</span>
+                  </div>
+
+                  <FileUploadZone
+                    onFilesSelect={handleFilesUpload}
+                    fileNames={fileNames}
+                    onRemoveFile={removeFile}
+                    onReferenceSelect={handleReferenceFileUpload}
+                    referenceFileName={referenceFileName}
+                    onRemoveReference={clearReferenceFile}
+                    isAnalyzingReference={isAnalyzingReference}
+                    referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
+                  />
+
+                  {fileNames.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-center">
+                      <Button
+                        onClick={() => setStep('info')}
+                        size="lg"
+                        className="gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 px-10 py-6 text-base font-bold shadow-glow"
+                      >
+                        다음 단계로 <ArrowRight className="w-5 h-5" />
+                      </Button>
+                    </motion.div>
                   )}
                 </motion.div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* STEP: info */}
+            {step === 'info' && dataSummary && (
+              <div className="space-y-6">
+                <PresentationSetupForm
+                  info={meetingInfo}
+                  onChange={setMeetingInfo}
+                  settings={settings}
+                  onSettingsChange={setSettings}
+                  onGenerate={requestOutline}
+                  onBack={() => setStep('upload')}
+                  isGenerating={isLoadingOutline}
+                  fileNames={fileNames}
+                  dataSummary={dataSummary}
+                  template={template}
+                  setTemplate={setTemplate}
+                  referenceFileName={referenceFileName || ''}
+                  isAnalyzingReference={isAnalyzingReference}
+                  referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
+                  onReferenceFileUpload={handleReferenceFileUpload}
+                  onClearReferenceFile={clearReferenceFile}
+                />
+              </div>
+            )}
+
+            {/* STEP: outline */}
+            {step === 'outline' && (
+              <div className="space-y-6">
+                {isLoadingOutline && !outline ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+                      <Loader2 className="w-7 h-7 text-primary-foreground animate-spin" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">목차를 구성하고 있습니다…</p>
+                  </div>
+                ) : (
+                  <OutlinePreview
+                    outline={outline!}
+                    isGenerating={isGenerating}
+                    onConfirm={(approvedOutline) => generatePresentation(approvedOutline)}
+                    onBack={() => setStep('info')}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* STEP: generating */}
+            {step === 'generating' && <GeneratingState />}
+
+            {/* STEP: preview */}
+            {step === 'preview' && presentation && (
+              // ✅ SlideEditorProps 인터페이스와 일치하게 안전하게 모든 함수 전달
+              <SlideEditor
+                presentation={presentation}
+                onUpdateSlide={updateSlide}
+                onAddContent={addSlide}
+                onRemoveContent={deleteSlide}
+                onReset={reset}
+                onUpdateAllSlides={updateAllSlides}
+                onAddSlide={addSlide}
+                onDeleteSlide={deleteSlide}
+                onDuplicateSlide={duplicateSlide}
+                onMoveSlide={moveSlide}
+                onUpdateTitle={updatePresentationTitle}
+                onSave={handleSave}
+                isSaving={isSaving}
+                onRegenerateSlide={regenerateSlide}
+                onOpenChat={() => setChatOpen(true)}
+                onOpenReview={() => setReviewOpen(true)}
+                onReviewAndFix={reviewAndFixPresentation}
+                isFixing={isFixing}
+                onChangePersona={changeSlidePersona}
+                onCycleLayout={cycleLayout}
+                updatePresentationMaster={updatePresentationMaster}
+                isGeneratingImage={isGeneratingImage}
+                generateSlideImage={generateSlideImage}
+              />
+            )}
+
+          </main>
+        )}
+      </div>
+
+      {/* ── 히스토리 / 채팅 / 리뷰 패널 ──────────────────────── */}
+      {activeApp === 'presentation' && (
+        <>
+          <HistoryPanel
+            open={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            items={savedList}
+            isLoading={isLoadingList}
+            onLoad={loadFromHistory}
+            onDelete={deleteFromHistory}
+          />
+          {step === 'preview' && presentation && (
+            <>
+              <ChatEditPanel
+                open={chatOpen}
+                onClose={() => setChatOpen(false)}
+                currentSlide={presentation.slides[currentChatSlideIndex || 0]}
+                slideIndex={currentChatSlideIndex || 0}
+                onApply={(updatedSlide) => updateSlide(currentChatSlideIndex || 0, updatedSlide)}
+                onRequestEdit={requestChatEdit}
+              />
+              <ReviewPanel
+                open={reviewOpen}
+                onClose={() => setReviewOpen(false)}
+                review={reviewResult}
+                isLoading={isReviewing}
+                onRequestReview={requestReview}
+                onGoToSlide={() => setReviewOpen(false)}
+                onApplyFix={applyReviewFix}
+              />
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── FOOTER ───────────────────────────────────────────── */}
+      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
+        <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">
+            Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span>{' '}
+            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
+              audifox1022@gmail.com
+            </a>
+          </p>
+
+          {visitorStats && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-4"
+            >
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Eye className="w-3.5 h-3.5 text-primary/60" />
+                <span>누적 방문</span>
+                <span className="font-bold text-foreground">{(visitorStats.total_visits ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="w-px h-3 bg-border" />
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="w-3.5 h-3.5 text-primary/60" />
+                <span>순방문자</span>
+                <span className="font-bold text-foreground">{(visitorStats.unique_users ?? 0).toLocaleString()}</span>
+              </div>
+              <div className="w-px h-3 bg-border" />
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>오늘</span>
+                <span className="font-bold text-foreground">{(visitorStats.today_visits ?? 0).toLocaleString()}</span>
+              </div>
+            </motion.div>
           )}
         </div>
-      </details>
+      </footer>
 
-      {/* 하단 버튼 */}
-      <div className="flex gap-3 pt-2">
-        <Button variant="outline" onClick={onBack} className="gap-2">
-          <ArrowLeft className="w-4 h-4" />
-          뒤로
-        </Button>
-        <Button
-          onClick={onGenerate}
-          disabled={isGenerating}
-          className="flex-1 gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 py-5 text-base"
-        >
-          <Sparkles className="w-5 h-5" />
-          {isGenerating ? '생성 중...' : 'AI 발표자료 생성'}
-        </Button>
-      </div>
-    </motion.div>
-  );
+    </div>
+  )
 }
+
+export default Index
