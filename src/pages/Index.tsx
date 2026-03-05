@@ -1,3 +1,6 @@
+// ============================================================
+// src/pages/Index.tsx — 최상위 메인 페이지
+// ============================================================
 import { useState } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
 import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
@@ -111,8 +114,6 @@ const Index = () => {
     reset, updateSlide, updateAllSlides, addSlide,
     deleteSlide, duplicateSlide,
     moveSlide, updatePresentationTitle,
-
-    // ✅ 추가된 참고 양식 관련 함수와 상태 가져오기
     referenceFileName,
     isAnalyzingReference,
     referenceStructure,
@@ -524,7 +525,6 @@ const Index = () => {
                     <span className="bg-background px-4 text-sm text-muted-foreground font-medium relative z-10">또는 파일 업로드</span>
                   </div>
 
-                  {/* ✅ 수정된 FileUploadZone 호출 (참고 양식 props 전달) */}
                   <FileUploadZone
                     onFilesSelect={handleFilesUpload}
                     fileNames={fileNames}
@@ -533,7 +533,7 @@ const Index = () => {
                     referenceFileName={referenceFileName}
                     onRemoveReference={clearReferenceFile}
                     isAnalyzingReference={isAnalyzingReference}
-                    referenceStructure={referenceStructure}
+                    referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
                   />
 
                   {fileNames.length > 0 && (
@@ -566,6 +566,11 @@ const Index = () => {
                   dataSummary={dataSummary}
                   template={template}
                   setTemplate={setTemplate}
+                  referenceFileName={referenceFileName || ''}
+                  isAnalyzingReference={isAnalyzingReference}
+                  referenceStructure={referenceStructure as any} // ✅ 타입 호환성 처리
+                  onReferenceFileUpload={handleReferenceFileUpload}
+                  onClearReferenceFile={clearReferenceFile}
                 />
               </div>
             )}
@@ -582,7 +587,7 @@ const Index = () => {
                   </div>
                 ) : (
                   <OutlinePreview
-                    outline={outline}
+                    outline={outline!}
                     isGenerating={isGenerating}
                     onConfirm={(approvedOutline) => generatePresentation(approvedOutline)}
                     onBack={() => setStep('info')}
@@ -596,11 +601,14 @@ const Index = () => {
 
             {/* STEP: preview */}
             {step === 'preview' && presentation && (
+              // ✅ SlideEditorProps 인터페이스와 일치하게 안전하게 모든 함수 전달
               <SlideEditor
                 presentation={presentation}
-                onReset={reset}
                 onUpdateSlide={updateSlide}
-                onUpdateAllSlides={updateAllSlides} // ✅ 전체 슬라이드 업데이트 연동
+                onAddContent={addSlide}
+                onRemoveContent={deleteSlide}
+                onReset={reset}
+                onUpdateAllSlides={updateAllSlides}
                 onAddSlide={addSlide}
                 onDeleteSlide={deleteSlide}
                 onDuplicateSlide={duplicateSlide}
@@ -641,9 +649,9 @@ const Index = () => {
               <ChatEditPanel
                 open={chatOpen}
                 onClose={() => setChatOpen(false)}
-                currentSlide={presentation.slides[currentChatSlideIndex || 0]} // ✅ 버그 수정: 활성화된 슬라이드 인덱스 사용
-                slideIndex={currentChatSlideIndex || 0} // ✅ 버그 수정
-                onApply={(updatedSlide) => updateSlide(currentChatSlideIndex || 0, updatedSlide)} // ✅ 버그 수정
+                currentSlide={presentation.slides[currentChatSlideIndex || 0]}
+                slideIndex={currentChatSlideIndex || 0}
+                onApply={(updatedSlide) => updateSlide(currentChatSlideIndex || 0, updatedSlide)}
                 onRequestEdit={requestChatEdit}
               />
               <ReviewPanel
