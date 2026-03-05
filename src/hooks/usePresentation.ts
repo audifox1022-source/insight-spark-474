@@ -1,5 +1,5 @@
 // ============================================================
-// usePresentation.ts — 수정 버전 (불변성 원칙 준수)
+// usePresentation.ts — 이미지 생성 컨텍스트 강화 버전
 // ============================================================
 
 import { useState, useCallback, useEffect } from 'react';
@@ -88,7 +88,6 @@ function normalizePresentationSlides(presentation: any): Presentation {
 }
 
 export function usePresentation() {
-  // ✅ 핵심 수정: AppStep → ExtendedStep
   const [step,            setStep]            = useState<ExtendedStep>('upload');
   const [parsedFiles,     setParsedFiles]     = useState<ParsedFileData[]>([]);
   const [fileNames,       setFileNames]       = useState<string[]>([]);
@@ -111,7 +110,6 @@ export function usePresentation() {
   const [reviewOpen,      setReviewOpen]      = useState(false);
   const [isFixing,        setIsFixing]        = useState(false);
 
-  // ✅ 참고 양식 관련 상태
   const [referenceFile,          setReferenceFile]          = useState<ParsedFileData | null>(null);
   const [referenceFileName,      setReferenceFileName]      = useState<string | null>(null);
   const [isAnalyzingReference,   setIsAnalyzingReference]   = useState(false);
@@ -122,7 +120,6 @@ export function usePresentation() {
     return 'blue';
   });
 
-  // ✅ parsedFiles 변화 추적 (디버깅)
   useEffect(() => {
     console.log('📂 [parsedFiles 변화]', parsedFiles.length, '개:', parsedFiles.map(f => f.fileName));
   }, [parsedFiles]);
@@ -162,9 +159,6 @@ export function usePresentation() {
     return parsedFiles.map((f) => f.summary).join(' ');
   }, [parsedFiles]);
 
-  // ─────────────────────────────────────────────────────────
-  // 파일 업로드
-  // ─────────────────────────────────────────────────────────
   const handleFilesUpload = useCallback(async (files: File[]) => {
     try {
       const results   = await Promise.all(files.map(parseFile));
@@ -201,9 +195,6 @@ export function usePresentation() {
     setFileNames((prev)   => prev.filter((_, i) => i !== index));
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 참고 양식 파일 업로드
-  // ─────────────────────────────────────────────────────────
   const handleReferenceFileUpload = useCallback(async (files: File[]) => {
     const file = files[0];
     if (!file) return;
@@ -237,9 +228,6 @@ export function usePresentation() {
     setReferenceStructure(null);
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 프롬프트 직접 입력
-  // ─────────────────────────────────────────────────────────
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
     const dummyFile: ParsedFileData = {
@@ -258,9 +246,6 @@ export function usePresentation() {
     toast.success('프롬프트가 입력되었습니다!');
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 목차(Outline) 요청
-  // ─────────────────────────────────────────────────────────
   const requestOutline = useCallback(async () => {
     console.log('📋 [requestOutline] parsedFiles.length:', parsedFiles.length);
 
@@ -270,7 +255,7 @@ export function usePresentation() {
     }
 
     setIsLoadingOutline(true);
-    setStep('outline'); // ✅ 핵심 수정: as ExtendedStep 캐스팅 제거
+    setStep('outline');
 
     try {
       const payload = buildAIPayload(parsedFiles);
@@ -304,9 +289,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 생성
-  // ─────────────────────────────────────────────────────────
   const generatePresentation = useCallback(async (approvedOutline?: OutlineData) => {
 
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -386,9 +368,6 @@ export function usePresentation() {
     }
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 업데이트
-  // ─────────────────────────────────────────────────────────
   const updatePresentationMaster = useCallback((updates: Partial<Presentation>) => {
     setPresentation((prev) => (prev ? { ...prev, ...updates } : prev));
   }, []);
@@ -412,9 +391,6 @@ export function usePresentation() {
     });
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 재생성
-  // ─────────────────────────────────────────────────────────
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -434,9 +410,6 @@ export function usePresentation() {
     }
   }, [presentation, parsedFiles, updateSlide]);
 
-  // ─────────────────────────────────────────────────────────
-  // 채팅 편집
-  // ─────────────────────────────────────────────────────────
   const requestChatEdit = useCallback(async (
     message: string,
     slideIndex: number,
@@ -457,9 +430,6 @@ export function usePresentation() {
     }
   }, [presentation]);
 
-  // ─────────────────────────────────────────────────────────
-  // 페르소나 변경
-  // ─────────────────────────────────────────────────────────
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
@@ -489,20 +459,34 @@ export function usePresentation() {
   }, [presentation, updateSlide]);
 
   // ─────────────────────────────────────────────────────────
-  // AI 이미지 생성
+  // AI 이미지 생성 (개선된 부분)
   // ─────────────────────────────────────────────────────────
   const generateSlideImage = useCallback(async (slideIndex: number) => {
     if (!presentation) return;
     const currentSlide = presentation.slides[slideIndex];
+    
     setIsGeneratingImage(true);
     toast.loading('AI 배경 이미지 생성 중...', { id: 'gen-image' });
+    
     try {
+      // 1. 슬라이드 본문 추출
       const contentStr = Array.isArray(currentSlide.content) && currentSlide.content.length > 0
         ? currentSlide.content.join(' ')
         : '';
-      const imageUrl = await aiService.generateImage(currentSlide.title, contentStr);
+        
+      // 2. AI에게 '전체 발표 주제'와 '현재 슬라이드 주제'를 같이 넘겨주어 맥락 파악 강화
+      const contextAwareTitle = `[발표 주제: ${presentation.title}] - ${currentSlide.title}`;
+
+      // 3. 재시도 로직(retryWithBackoff)을 통과시켜 네트워크 오류 등에 대비
+      const imageUrl = await retryWithBackoff(
+        async () => await aiService.generateImage(contextAwareTitle, contentStr),
+        { maxRetries: 1, onRetry: () => toast.loading('이미지 생성 재시도 중...', { id: 'gen-image' }) }
+      );
+
+      // 4. 상태 업데이트
       updateSlide(slideIndex, { imageUrl });
       toast.success('AI 이미지 생성 완료!', { id: 'gen-image' });
+      
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err), { id: 'gen-image' });
     } finally {
@@ -510,9 +494,6 @@ export function usePresentation() {
     }
   }, [presentation, updateSlide]);
 
-  // ─────────────────────────────────────────────────────────
-  // 레이아웃 순환
-  // ─────────────────────────────────────────────────────────
   const cycleLayout = useCallback((slideIndex: number) => {
     if (!presentation) return;
     const layouts: Slide['layout'][] = ['default', 'split-left', 'split-right', 'highlight', 'grid'];
@@ -522,9 +503,6 @@ export function usePresentation() {
     toast.success('레이아웃 변경됨');
   }, [presentation, updateSlide]);
 
-  // ─────────────────────────────────────────────────────────
-  // 저장 / 히스토리
-  // ─────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!presentation) return;
     setIsSaving(true);
@@ -578,9 +556,6 @@ export function usePresentation() {
     }
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 슬라이드 추가 / 삭제 / 복제 / 이동
-  // ─────────────────────────────────────────────────────────
   const addSlide = useCallback((afterIndex: number) => {
     setPresentation((prev) => {
       if (!prev) return prev;
@@ -630,9 +605,6 @@ export function usePresentation() {
     setPresentation((prev) => (prev ? { ...prev, title } : prev));
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // 리셋
-  // ─────────────────────────────────────────────────────────
   const reset = useCallback(() => {
     setStep('upload');
     setParsedFiles([]);
@@ -644,9 +616,6 @@ export function usePresentation() {
     clearReferenceFile();
   }, [clearReferenceFile]);
 
-  // ─────────────────────────────────────────────────────────
-  // 리뷰 / 전체 최적화
-  // ─────────────────────────────────────────────────────────
   const requestReview = useCallback(async () => {
     if (!presentation) return;
     setIsReviewing(true);
@@ -720,9 +689,6 @@ export function usePresentation() {
     setChatOpen(true);
   }, []);
 
-  // ─────────────────────────────────────────────────────────
-  // return
-  // ─────────────────────────────────────────────────────────
   return {
     step, setStep,
     dataSummary: dataSummary(),
@@ -744,7 +710,6 @@ export function usePresentation() {
     appTheme,    changeTheme,
     handleFilesUpload, removeFile, handlePromptSubmit,
 
-    // ✅ 참고 양식
     referenceFileName,
     isAnalyzingReference,
     referenceStructure,
