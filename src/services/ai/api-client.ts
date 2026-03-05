@@ -1,6 +1,5 @@
 // ============================================================
-// src/services/ai/api-client.ts - Gemini 및 외부 이미지 API 연동
-// (보안 패치: Vercel 프록시 통합 버전)
+// src/services/ai/api-client.ts - Gemini 연동 (프록시 안정화 버전)
 // ============================================================
 
 const PROXY_URL = '/api/gemini-proxy';
@@ -12,15 +11,14 @@ export async function callGeminiAPI(
   userPrompt: string,
   maxTokens = 8192
 ): Promise<string> {
-  // 프록시 서버로 보낼 페이로드 구성
   const payload = {
     model: 'gemini-2.5-flash', 
     system_instruction: { parts: [{ text: systemInstruction }] },
     contents: [{ role: "user", parts: [{ text: userPrompt }] }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0.1, // 창의성보다 형식을 엄격하게 지키도록 낮춤
       maxOutputTokens: maxTokens,
-      responseMimeType: "application/json",
+      responseMimeType: "application/json", // JSON 모드만 유지 (스키마 제외)
     },
   };
 
@@ -68,9 +66,7 @@ export async function generateSlideImage(title: string, content: string): Promis
   try {
     const response = await fetch('/api/generate-ai-image', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: title,
         content: content ? [content] : [], 
@@ -80,15 +76,12 @@ export async function generateSlideImage(title: string, content: string): Promis
 
     if (response.ok) {
       const data = await response.json();
-      if (data.imageUrl) {
-        console.log("✅ 백엔드 AI 이미지 생성 성공:", data.prompt);
-        return data.imageUrl;
-      }
+      if (data.imageUrl) return data.imageUrl;
     }
   } catch (error) {
-    console.error("🚨 백엔드 API 호출 실패, 기본 로직으로 대체합니다:", error);
+    console.error("🚨 백엔드 API 호출 실패:", error);
   }
 
-  const fallbackPrompt = `Professional presentation background, corporate minimal, topic: ${title}`;
+  const fallbackPrompt = `Professional presentation background, minimal, topic: ${title}`;
   return `https://image.pollinations.ai/prompt/${encodeURIComponent(fallbackPrompt)}?width=1280&height=720&nologo=true&seed=${Math.floor(Math.random()*999)}&model=flux`;
 }
