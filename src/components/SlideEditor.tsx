@@ -26,7 +26,8 @@ import {
   Wand2,
   Play,
   Save,
-  Download
+  Download,
+  ClipboardCheck
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
 
@@ -73,6 +74,7 @@ export function SlideEditor({
   onAddContent,
   onRemoveContent,
   onOpenChat,
+  onOpenReview,
   onRegenerateSlide,
   onSave,
   isSaving,
@@ -191,6 +193,14 @@ export function SlideEditor({
               className="gap-1.5 h-8 text-xs font-semibold gradient-primary border-0">
               <MessageSquare className="w-3.5 h-3.5" /> AI 채팅 수정
             </Button>
+            {onOpenReview && (
+              <Button
+                onClick={onOpenReview}
+                size="sm"
+                className="gap-1.5 h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white border-0 shadow-sm">
+                <ClipboardCheck className="w-3.5 h-3.5" /> AI 리뷰
+              </Button>
+            )}
           </div>
         </div>
 
