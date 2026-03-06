@@ -145,8 +145,9 @@ export function autoFixLayout(slide: any): any {
   ) {
     // 불릿 6개 초과 시 상위 6개만 유지
     if (fixed.content.length > 6) {
+      const originalLength = fixed.content.length;
       fixed.content = fixed.content.slice(0, 6);
-      console.warn(`[AutoFix] 슬라이드 "${fixed.title}": 불릿 ${fixed.content.length + (fixed.content.length - 6)}개 → 6개로 축소`);
+      console.warn(`[AutoFix] 슬라이드 "${fixed.title}": 불릿 ${originalLength}개 → 6개로 축소`);
     }
 
     // 80자 초과 텍스트 자동 요약

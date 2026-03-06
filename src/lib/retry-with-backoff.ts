@@ -26,24 +26,25 @@ function classifyError(err: unknown): { isTimeout: boolean; isNetwork: boolean; 
   };
 }
 
-export function getKoreanErrorMessage(err: unknown, context: string): string {
+export function getKoreanErrorMessage(err: unknown, context: string = ''): string {
   const { isTimeout, isNetwork, isServerError } = classifyError(err);
+  const prefix = context ? `${context} 중 ` : '';
 
   if (isTimeout) {
-    return `${context} 중 시간이 초과되었습니다. 파일 크기를 줄이거나 잠시 후 다시 시도해주세요.`;
+    return `${prefix}시간이 초과되었습니다. 파일 크기를 줄이거나 잠시 후 다시 시도해주세요.`;
   }
   if (isNetwork) {
-    return `${context} 중 네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.`;
+    return `${prefix}네트워크 연결에 실패했습니다. 인터넷 연결을 확인해주세요.`;
   }
   if (isServerError) {
-    return `${context} 중 서버 오류가 발생했습니다. 잠시 후 자동으로 재시도됩니다.`;
+    return `${prefix}서버 오류가 발생했습니다. 잠시 후 자동으로 재시도됩니다.`;
   }
 
   const original = err instanceof Error ? err.message : String(err);
   if (original && original.length > 0 && original.length < 200) {
-    return `${context} 실패: ${original}`;
+    return context ? `${context} 실패: ${original}` : `오류 발생: ${original}`;
   }
-  return `${context} 중 알 수 없는 오류가 발생했습니다. 다시 시도해주세요.`;
+  return `${prefix}알 수 없는 오류가 발생했습니다. 다시 시도해주세요.`;
 }
 
 function shouldRetry(err: unknown): boolean {
