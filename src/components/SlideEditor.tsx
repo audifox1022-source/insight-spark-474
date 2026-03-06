@@ -30,6 +30,7 @@ import {
   ClipboardCheck
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
+import { SlideImageEditor } from './SlideImageEditor';
 
 interface SlideEditorProps {
   slides?: Slide[];
@@ -661,7 +662,7 @@ export function SlideEditor({
             )}
           </div>
 
-          {/* 이미지 */}
+          {/* 배경 & 이미지 */}
           <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('image')}
@@ -670,7 +671,7 @@ export function SlideEditor({
                 <div className="p-1.5 bg-rose-500/10 rounded-md text-rose-600 group-hover:bg-rose-500 group-hover:text-white transition-colors">
                   <ImageIcon className="w-4 h-4" />
                 </div>
-                <span className="text-[15px] font-bold text-foreground">배경 & 이미지 설정</span>
+                <span className="text-[15px] font-bold text-foreground">배경 &amp; 이미지 설정</span>
               </div>
               {expandedSection === 'image'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -678,31 +679,16 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'image' && (
-              <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">이미지 URL</label>
-                  <Input
-                    value={slide.imageUrl || ''}
-                    onChange={e => onUpdateSlide(currentSlide, { imageUrl: e.target.value })}
-                    placeholder="https://example.com/image.jpg"
-                    className="h-9 text-sm"
-                  />
-                </div>
-                {slide.imageUrl && (
-                  <div className="rounded-lg overflow-hidden border border-border bg-black/5 aspect-video flex items-center justify-center relative group">
-                    <img
-                      src={slide.imageUrl}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={e => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => onUpdateSlide(currentSlide, { imageUrl: undefined })}>삭제</Button>
-                    </div>
-                  </div>
-                )}
+              <div className="pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <SlideImageEditor
+                  imageUrl={slide.imageUrl}
+                  bgGradient={(slide as any).bgGradient}
+                  slideTitle={slide.title || ''}
+                  slideContent={Array.isArray(slide.content) ? slide.content.join(' ') : ''}
+                  slideType={slide.type || 'content'}
+                  onChange={url => onUpdateSlide(currentSlide, { imageUrl: url })}
+                  onGradientChange={g => onUpdateSlide(currentSlide, { bgGradient: g } as any)}
+                />
               </div>
             )}
           </div>

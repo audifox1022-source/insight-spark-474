@@ -37,7 +37,7 @@ interface Slide {
   type?: string;
   title?: string;
   subhead?: string;
-  content?: any[]; // string[] 에서 any[]로 변경하여 안정성 확보
+  content?: any[];
   points?: any[];
   items?: any[];
   steps?: any[];
@@ -59,6 +59,7 @@ interface Slide {
   visualRatio?: number;
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   imageUrl?: string;
+  bgGradient?: string;           // ← 그라디언트 배경 (NEW)
   layout?: string;
   notes?: string;
   text?: string;
@@ -120,8 +121,14 @@ const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = (
   </div>
 );
 
-const SlideBackground: React.FC<{ imageUrl?: string }> = ({ imageUrl }) => {
+const SlideBackground: React.FC<{ imageUrl?: string; bgGradient?: string }> = ({ imageUrl, bgGradient }) => {
   const [imgError, setImgError] = useState(false);
+  // 그라디언트 배경 (bgGradient 우선, 이미지 없을 때)
+  if (bgGradient && (!imageUrl || imgError)) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0, background: bgGradient }} />
+    );
+  }
   if (!imageUrl || imgError) return null;
   return (
     <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
@@ -365,7 +372,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '60%', height: '60%', background: P.primary, borderRadius: '50%', filter: 'blur(140px)', opacity: 0.15, zIndex: 0 }} />
         <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: '50%', height: '50%', background: P.primaryDark, borderRadius: '50%', filter: 'blur(120px)', opacity: 0.2, zIndex: 0 }} />
 
-        <SlideBackground imageUrl={slide.imageUrl} />
+        <SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: `linear-gradient(to bottom, ${P.primary}, #fff)`, zIndex: 1, boxShadow: `0 0 20px ${P.primary}80` }} />
         <SlideWatermark text={watermark} />
         <SlideLogo logoUrl={logoUrl} invert />
@@ -408,7 +415,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
         {/* Subtle Ambient Background for KPI */}
         <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: P.primary, borderRadius: '50%', filter: 'blur(150px)', opacity: 0.05, pointerEvents: 'none' }} />
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', flex: 1 }}>
@@ -442,7 +449,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   if (slide.type === 'timeline' && slide.milestones?.length) {
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', gap: '3rem' }}>
           <div style={{ width: '28%', flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
             <SectionLabel>TIMELINE</SectionLabel>
