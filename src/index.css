@@ -1,89 +1,107 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 30% 12%;
+    /* ── 신뢰 비즈니스 (Trust Business) 라이트 테마 ── */
+    --background: 172 30% 96%;        /* #F4F9F9 아이보리 화이트 */
+    --foreground: 222 47% 11%;        /* #1A1A2E 딥 네이비 */
     --card: 0 0% 100%;
-    --card-foreground: 220 30% 12%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 30% 12%;
-    
-    /* 기본 블루 테마 */
-    --primary: 215 60% 22%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 25% 93%;
-    --secondary-foreground: 215 60% 22%;
-    --muted: 220 15% 94%;
-    --muted-foreground: 220 10% 46%;
-    --accent: 200 80% 44%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 215 60% 22%;
-    --radius: 0.625rem;
-    
-    --sidebar-background: 215 60% 22%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 200 80% 44%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 50% 30%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 215 40% 32%;
-    --sidebar-ring: 200 80% 44%;
+    --popover-foreground: 222 47% 11%;
 
-    /* 공통 토큰 */
-    --success: 152 60% 40%;
+    /* 메인 색상: 딥 틸 #0D5C63 */
+    --primary: 184 78% 22%;
+    --primary-foreground: 0 0% 100%;
+
+    /* 보조 색상 */
+    --secondary: 172 25% 93%;
+    --secondary-foreground: 184 78% 22%;
+    --muted: 172 20% 94%;
+    --muted-foreground: 200 12% 46%;
+
+    /* 강조 색상: 민트 그린 #2EC4B6 */
+    --accent: 176 60% 47%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 172 25% 87%;
+    --input: 172 25% 87%;
+    --ring: 176 60% 47%;
+    --radius: 0.75rem;
+
+    /* 사이드바: 딥 다크 틸 #0D2B2E */
+    --sidebar-background: 183 57% 12%;
+    --sidebar-foreground: 172 30% 96%;
+    --sidebar-primary: 176 60% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 183 45% 20%;
+    --sidebar-accent-foreground: 172 30% 96%;
+    --sidebar-border: 183 40% 22%;
+    --sidebar-ring: 176 60% 47%;
+
+    /* 상태 색상 */
+    --success: 145 63% 42%;           /* #27AE60 에메랄드 */
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    --info: 200 80% 44%;
+    --info: 176 60% 47%;
     --info-foreground: 0 0% 100%;
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(190 70% 50%));
-    --gradient-surface: linear-gradient(180deg, hsl(220 20% 97%), hsl(220 15% 94%));
-    --shadow-card: 0 1px 3px 0 hsl(220 30% 12% / 0.06), 0 1px 2px -1px hsl(220 30% 12% / 0.06);
-    --shadow-elevated: 0 10px 25px -5px hsl(220 30% 12% / 0.08), 0 8px 10px -6px hsl(220 30% 12% / 0.04);
-    --shadow-glow: 0 0 20px hsl(var(--accent) / 0.2);
-    --font-display: 'Noto Sans KR', sans-serif;
-    --font-body: 'Noto Sans KR', sans-serif;
+
+    /* 그라디언트 */
+    --gradient-primary: linear-gradient(135deg, hsl(184 78% 22%), hsl(176 60% 47%));
+    --gradient-accent: linear-gradient(135deg, hsl(176 60% 47%), hsl(168 60% 55%));
+    --gradient-surface: linear-gradient(180deg, hsl(172 30% 96%), hsl(172 20% 94%));
+
+    /* 그림자 */
+    --shadow-card: 0 1px 3px 0 hsl(184 78% 22% / 0.07), 0 1px 2px -1px hsl(184 78% 22% / 0.07);
+    --shadow-elevated: 0 10px 25px -5px hsl(184 78% 22% / 0.12), 0 8px 10px -6px hsl(184 78% 22% / 0.06);
+    --shadow-glow: 0 0 20px hsl(176 60% 47% / 0.25);
+
+    /* 폰트 */
+    --font-display: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
   }
 
   .dark {
-    --background: 220 25% 8%;
-    --foreground: 210 40% 96%;
-    --card: 220 25% 12%;
-    --card-foreground: 210 40% 96%;
-    --popover: 220 25% 12%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 200 80% 55%;
-    --primary-foreground: 220 30% 8%;
-    --secondary: 220 20% 18%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 220 20% 18%;
-    --muted-foreground: 220 10% 60%;
-    --accent: 200 80% 55%;
-    --accent-foreground: 220 30% 8%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 20% 22%;
-    --input: 220 20% 22%;
-    --ring: 200 80% 55%;
-    --sidebar-background: 220 25% 10%;
-    --sidebar-foreground: 210 40% 96%;
-    --sidebar-primary: 200 80% 55%;
-    --sidebar-primary-foreground: 220 30% 8%;
-    --sidebar-accent: 220 20% 18%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 220 20% 22%;
-    --sidebar-ring: 200 80% 55%;
-    --gradient-surface: linear-gradient(180deg, hsl(220 25% 10%), hsl(220 25% 8%));
+    /* ── 신뢰 비즈니스 다크 테마 ── */
+    --background: 183 55% 7%;         /* 매우 짙은 틸 다크 */
+    --foreground: 172 25% 95%;
+    --card: 183 50% 11%;
+    --card-foreground: 172 25% 95%;
+    --popover: 183 50% 11%;
+    --popover-foreground: 172 25% 95%;
+
+    --primary: 176 60% 52%;           /* 다크에서 민트 더 밝게 */
+    --primary-foreground: 183 55% 7%;
+    --secondary: 183 40% 17%;
+    --secondary-foreground: 172 25% 95%;
+    --muted: 183 40% 17%;
+    --muted-foreground: 172 15% 62%;
+    --accent: 176 60% 52%;
+    --accent-foreground: 183 55% 7%;
+    --destructive: 0 62% 35%;
+    --destructive-foreground: 172 25% 95%;
+    --border: 183 35% 20%;
+    --input: 183 35% 20%;
+    --ring: 176 60% 52%;
+
+    --sidebar-background: 183 58% 6%;
+    --sidebar-foreground: 172 25% 95%;
+    --sidebar-primary: 176 60% 52%;
+    --sidebar-primary-foreground: 183 55% 7%;
+    --sidebar-accent: 183 45% 14%;
+    --sidebar-accent-foreground: 172 25% 95%;
+    --sidebar-border: 183 35% 18%;
+    --sidebar-ring: 176 60% 52%;
+
+    --gradient-surface: linear-gradient(180deg, hsl(183 50% 9%), hsl(183 55% 7%));
   }
 
   /* ✨ 테마: 네이비 (기업용) */
@@ -138,9 +156,13 @@
   body {
     @apply bg-background text-foreground transition-colors duration-300;
     font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
   }
 }
 
@@ -204,10 +226,10 @@
   }
   .print-slide-header * { color: white !important; }
   .print-metric-card {
-    background: #f5f6f8 !important;
+    background: #f4f9f9 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    border: 1px solid #e2e5ea;
+    border: 1px solid #d6eaeb;
     border-radius: 3mm;
     padding: 4mm 5mm;
   }
@@ -219,7 +241,7 @@
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
   .print-notes {
-    margin-top: auto; padding-top: 4mm; border-top: 1px solid #e2e5ea; font-size: 8pt; color: #6b7a8d !important; font-style: italic;
+    margin-top: auto; padding-top: 4mm; border-top: 1px solid #d6eaeb; font-size: 8pt; color: #5c6b73 !important; font-style: italic;
   }
   @page { size: A4 landscape; margin: 8mm; }
 }
