@@ -543,24 +543,28 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   const tableHeaders = slide.tableData?.headers ?? slide.headers ?? [];
   const tableRows = slide.tableData?.rows ?? slide.rows ?? [];
   if (slide.type === 'table' || (tableHeaders.length > 0 && tableRows.length > 0)) {
-    const density = slide.tableDensity ?? 'normal';
-    const cellPad = density === 'compact' ? '0.45rem 0.75rem' : density === 'relaxed' ? '0.9rem 1.2rem' : '0.65rem 1rem';
+    // 행 수에 따라 폰트와 패딩을 자동으로 줄여서 스크롤 없이 한 화면에 표시
+    const rowCount = tableRows.length;
+    const autoFontScale = rowCount <= 5 ? 1 : rowCount <= 8 ? 0.85 : rowCount <= 12 ? 0.72 : 0.62;
+    const autoTableFontSize = `calc(${contentFontSize} * ${autoFontScale})`;
+    const cellPad = rowCount <= 5 ? '0.6rem 1rem' : rowCount <= 8 ? '0.42rem 0.85rem' : '0.3rem 0.7rem';
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '4.5% 6%' }}>
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
-        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           <div><SectionLabel>DATA TABLE</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
-          <div style={{ flex: 1, overflowY: 'auto', borderRadius: 16, border: `1px solid ${P.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: contentFontSize }}>
+          {/* overflowY 제거 — 스크롤 없이 슬라이드 안에 딱 맞게 표시 */}
+          <div style={{ flex: 1, overflow: 'hidden', borderRadius: 16, border: `1px solid ${P.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: autoTableFontSize, tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: `linear-gradient(135deg,${P.primary},${P.primaryDark})` }}>
-                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', fontSize: '0.9em', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{safeString(h)}</th>)}
+                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{safeString(h)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row, ri) => (
                   <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : P.muted, borderBottom: `1px solid ${P.border}` }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400 }}>{safeString(cell)}</td>)}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{safeString(cell)}</td>)}
                   </tr>
                 ))}
               </tbody>
