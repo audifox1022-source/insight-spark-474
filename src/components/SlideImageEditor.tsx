@@ -110,11 +110,12 @@ async function searchUnsplash(query: string, page: number) {
 // AI 이미지 생성 (Pollinations.ai 직접 호출 — 로컬도 작동)
 // ──────────────────────────────────────────────────────────
 function buildPollinationsUrl(title: string, content: string, seed?: number) {
-  // 슬라이드 내용 기반 영문 프롬프트 자동 생성
-  const contentSnippet = content?.slice(0, 60) || '';
-  const prompt = `Professional presentation background, modern minimalist design, topic: ${title} ${contentSnippet}, 4K, no text, no letters, clean business aesthetic`;
+  const snippet = (content || '').slice(0, 80).trim();
+  const topic = [title, snippet].filter(Boolean).join(', ');
+  // 심플한 영문 프롬프트 — 특수문자 최소화로 파싱 오류 방지
+  const prompt = `professional business presentation slide background, ${topic}, minimal clean design, blue teal gradient, 4K, no text, no letters, no watermark`;
   const s = seed ?? Math.floor(Math.random() * 999999);
-  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&seed=${s}&model=flux`;
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1280&height=720&nologo=true&seed=${s}`;
 }
 
 // ──────────────────────────────────────────────────────────
