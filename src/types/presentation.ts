@@ -43,7 +43,8 @@ export type SlideType =
   | 'imageText'
   | 'chart'
   | 'data'
-  | 'summary';   // ✅ 추가: AI 응답 'summary' 타입 호환
+  | 'summary'
+  | 'action';
 
 // ✅ SlideChart(Recharts) 컴포넌트 전용 타입
 export interface SlideChartData {
@@ -89,7 +90,7 @@ export interface Slide {
   rightTitle?: string;
   leftItems?: string[];
   rightItems?: string[];
-  milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo' }[];
+  milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo'; description?: string }[];
   lanes?: { title: string; items: string }[];
   centerText?: string;
   headers?: string[];
@@ -115,6 +116,8 @@ export interface Slide {
   titleSizeScale?: number;
   contentSizeScale?: number;
   textSizeScale?: number;
+  titleFontPt?: number;
+  contentFontPt?: number;
 
   tableDensity?: 'compact' | 'normal' | 'relaxed';
   visualRatio?: number;

@@ -21,13 +21,13 @@ import {
   X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
   Users, Eye, Globe, CheckCircle2,
 } from 'lucide-react'
-import { Button }   from '@/components/ui/button'
-import { Input }    from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase }    from '@/integrations/supabase/client'
+import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
-import { toast }       from 'sonner'
+import { toast } from 'sonner'
 import { exportToPptx } from '@/lib/export-presentation' // ✅ PPT 내보내기 함수 임포트
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] }
@@ -41,27 +41,27 @@ const PROMPT_PRESETS: Preset[] = [
   {
     id: 'newproduct', icon: '🚀', label: '신제품 발표',
     fields: [
-      { id: 'topic',  label: '제품명/서비스명', placeholder: 'B2B SaaS 플랫폼', suggestions: ['B2B SaaS', 'AI 어시스턴트'] },
-      { id: 'target', label: '타겟 고객',        placeholder: 'HR 담당자',         suggestions: ['2030세대', 'HR담당자', 'IT팀', 'MZ세대'] },
-      { id: 'goal',   label: '핵심 목표',        placeholder: '도입 2배 증가',      suggestions: ['매출 20%', '비용 10% 절감', '효율 30% 향상'] },
+      { id: 'topic', label: '제품명/서비스명', placeholder: 'B2B SaaS 플랫폼', suggestions: ['B2B SaaS', 'AI 어시스턴트'] },
+      { id: 'target', label: '타겟 고객', placeholder: 'HR 담당자', suggestions: ['2030세대', 'HR담당자', 'IT팀', 'MZ세대'] },
+      { id: 'goal', label: '핵심 목표', placeholder: '도입 2배 증가', suggestions: ['매출 20%', '비용 10% 절감', '효율 30% 향상'] },
     ],
     generate: d => `${d.topic} 신제품 발표자료. 타겟: ${d.target}. 목표: ${d.goal}`,
   },
   {
     id: 'report', icon: '📊', label: '업무 보고',
     fields: [
-      { id: 'period',      label: '보고 기간',  placeholder: '2025년 1분기',  suggestions: ['2026년 1분기', '상반기', '2025년'] },
-      { id: 'achievement', label: '주요 성과',  placeholder: '매출 25% 달성', suggestions: ['매출 25% 달성', '고객 1만명 돌파', 'NPS 15점 상승'] },
-      { id: 'plan',        label: 'Next Step', placeholder: '다음 분기 계획 2가지', suggestions: ['시장 확대', '신규 채용', '제품 개선'] },
+      { id: 'period', label: '보고 기간', placeholder: '2025년 1분기', suggestions: ['2026년 1분기', '상반기', '2025년'] },
+      { id: 'achievement', label: '주요 성과', placeholder: '매출 25% 달성', suggestions: ['매출 25% 달성', '고객 1만명 돌파', 'NPS 15점 상승'] },
+      { id: 'plan', label: 'Next Step', placeholder: '다음 분기 계획 2가지', suggestions: ['시장 확대', '신규 채용', '제품 개선'] },
     ],
     generate: d => `${d.period} 업무 보고. 성과: ${d.achievement}. Next Step: ${d.plan}`,
   },
   {
     id: 'proposal', icon: '🤝', label: '제안서',
     fields: [
-      { id: 'client',   label: '고객사',        placeholder: 'A사 IT팀',      suggestions: ['A사', 'B그룹', 'C공사'] },
-      { id: 'solution', label: '제안 솔루션',   placeholder: 'AI 자동화',      suggestions: ['RPA 도입', 'AI 전환', '클라우드 마이그레이션'] },
-      { id: 'benefit',  label: '기대 Benefit',  placeholder: '비용 30% 절감', suggestions: ['ROI 300%', '시간 50% 단축', '오류 5분의1 감소'] },
+      { id: 'client', label: '고객사', placeholder: 'A사 IT팀', suggestions: ['A사', 'B그룹', 'C공사'] },
+      { id: 'solution', label: '제안 솔루션', placeholder: 'AI 자동화', suggestions: ['RPA 도입', 'AI 전환', '클라우드 마이그레이션'] },
+      { id: 'benefit', label: '기대 Benefit', placeholder: '비용 30% 절감', suggestions: ['ROI 300%', '시간 50% 단축', '오류 5분의1 감소'] },
     ],
     generate: d => `${d.client} 대상 ${d.solution} 제안서. 기대효과: ${d.benefit}`,
   },
@@ -71,12 +71,12 @@ const Index = () => {
   const navigate = useNavigate()
 
   type AppMode = 'presentation' | 'form' | 'translator'
-  const [activeApp,      setActiveApp]      = useState<AppMode>('presentation')
-  const [themeMenuOpen,  setThemeMenuOpen]  = useState(false)
-  const [helpOpen,       setHelpOpen]       = useState(false)
+  const [activeApp, setActiveApp] = useState<AppMode>('presentation')
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [activePresetId, setActivePresetId] = useState<string>('manual')
-  const [presetData,     setPresetData]     = useState<Record<string, string>>({})
-  const [manualPrompt,   setManualPrompt]   = useState('')
+  const [presetData, setPresetData] = useState<Record<string, string>>({})
+  const [manualPrompt, setManualPrompt] = useState('')
 
   const { stats: visitorStats } = useVisitorCount()
 
@@ -126,12 +126,12 @@ const Index = () => {
     currentSlideIndex, setCurrentSlideIndex,
   } = usePresentation()
 
-  const guide        = getStepGuide(step)
+  const guide = getStepGuide(step)
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId)
 
   const headerIcon = () => {
-    if (activeApp === 'translator') return <Globe    className="w-[18px] h-[18px] text-primary-foreground" />
-    if (activeApp === 'form')       return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'form') return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
     return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
   }
 
@@ -256,10 +256,10 @@ const Index = () => {
                       >
                         <div className={[
                           'w-3.5 h-3.5 rounded-full border border-border/50 flex-shrink-0',
-                          t === 'blue'   ? 'bg-blue-500'    :
-                          t === 'navy'   ? 'bg-slate-700'   :
-                          t === 'purple' ? 'bg-purple-500'  :
-                          t === 'green'  ? 'bg-emerald-500' : 'bg-orange-500',
+                          t === 'blue' ? 'bg-blue-500' :
+                            t === 'navy' ? 'bg-slate-700' :
+                              t === 'purple' ? 'bg-purple-500' :
+                                t === 'green' ? 'bg-emerald-500' : 'bg-orange-500',
                         ].join(' ')} />
                         <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>
                           {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -306,8 +306,8 @@ const Index = () => {
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1,    y: 0  }}
-              exit={{   opacity: 0, scale: 0.95, y: 20  }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={e => e.stopPropagation()}
               className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
             >
@@ -323,10 +323,10 @@ const Index = () => {
 
               <div className="p-6 overflow-y-auto custom-scrollbar space-y-8 bg-background/50">
                 {[
-                  { icon: <MessageSquare     className="w-6 h-6 text-blue-600 dark:text-blue-400" />,     bg: 'bg-blue-100 dark:bg-blue-900/30',     title: '1. 주제 입력',   desc: '발표 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
-                  { icon: <UploadCloud       className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>, bg: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: 'PDF, Word, 텍스트 등 기존 자료를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
-                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400"/>,  bg: 'bg-purple-100 dark:bg-purple-900/30',   title: '3. 발표 설정',   desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
-                  { icon: <FileText          className="w-6 h-6 text-amber-600 dark:text-amber-400" />,   bg: 'bg-amber-100 dark:bg-amber-900/30',     title: '4. 편집 & 저장', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
+                  { icon: <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />, bg: 'bg-blue-100 dark:bg-blue-900/30', title: '1. 주제 입력', desc: '발표 주제를 자유롭게 입력하거나, 프리셋을 선택해 빠르게 시작하세요.' },
+                  { icon: <UploadCloud className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />, bg: 'bg-emerald-100 dark:bg-emerald-900/30', title: '2. 파일 업로드', desc: 'PDF, Word, 텍스트 등 기존 자료를 업로드하면 AI가 내용을 분석해 슬라이드를 구성합니다.' },
+                  { icon: <SlidersHorizontal className="w-6 h-6 text-purple-600 dark:text-purple-400" />, bg: 'bg-purple-100 dark:bg-purple-900/30', title: '3. 발표 설정', desc: '발표 목적, 청중, 시간, 난이도 등을 설정해 AI가 최적화된 슬라이드 구성을 제안합니다.' },
+                  { icon: <FileText className="w-6 h-6 text-amber-600 dark:text-amber-400" />, bg: 'bg-amber-100 dark:bg-amber-900/30', title: '4. 편집 & 저장', desc: '슬라이드를 클릭해 직접 수정하거나, AI 채팅으로 내용을 개선하고 저장하세요.' },
                 ].map((item, i) => (
                   <div key={i} className="flex gap-4">
                     <div className={`w-12 h-12 rounded-full ${item.bg} flex items-center justify-center flex-shrink-0`}>
@@ -571,6 +571,11 @@ const Index = () => {
                   dataSummary={dataSummary}
                   template={template}
                   setTemplate={setTemplate}
+                  referenceFileName={referenceFileName}
+                  isAnalyzingReference={isAnalyzingReference}
+                  referenceStructure={referenceStructure}
+                  onReferenceFileUpload={handleReferenceFileUpload}
+                  onClearReferenceFile={clearReferenceFile}
                 />
               </div>
             )}
@@ -625,7 +630,7 @@ const Index = () => {
                 updatePresentationMaster={updatePresentationMaster}
                 isGeneratingImage={isGeneratingImage}
                 generateSlideImage={generateSlideImage}
-                
+
                 // 컨텐츠 추가 삭제 핸들러 연결
                 onAddContent={(idx) => {
                   const newContent = [...(presentation.slides[idx].content || []), '새 항목'];
@@ -635,13 +640,21 @@ const Index = () => {
                   const newContent = presentation.slides[sIdx].content?.filter((_, i) => i !== cIdx);
                   updateSlide(sIdx, { content: newContent });
                 }}
-                
-                // 내보내기 기능 연결
-                onOpenExport={async () => {
-                  toast.loading('PPT를 생성 중입니다...', { id: 'export' });
+
+                onOpenExport={async (format?: string) => {
+                  toast.loading('문서를 생성 중입니다...', { id: 'export' });
                   try {
-                    await exportToPptx(presentation);
-                    toast.success('PPT 다운로드가 완료되었습니다!', { id: 'export' });
+                    const { exportToPdf, exportToPptxAsImage } = await import('@/lib/export-presentation');
+
+                    if (format === 'pdf') {
+                      await exportToPdf(presentation);
+                    } else if (format === 'pptx-image') {
+                      await exportToPptxAsImage(presentation);
+                    } else {
+                      await exportToPptx(presentation);
+                    }
+
+                    toast.success('다운로드가 완료되었습니다!', { id: 'export' });
                   } catch (error) {
                     console.error(error);
                     toast.error('내보내기 중 오류가 발생했습니다.', { id: 'export' });

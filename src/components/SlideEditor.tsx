@@ -35,7 +35,7 @@ interface SlideEditorProps {
   presentation?: Presentation;
   currentSlide: number;
   onSlideChange: (index: number) => void;
-  
+
   onUpdateSlide: (slideIndex: number, updates: Partial<Slide>) => void;
   onAddContent?: (slideIndex: number) => void;
   onRemoveContent?: (slideIndex: number, contentIndex: number) => void;
@@ -46,7 +46,7 @@ interface SlideEditorProps {
   onDuplicateSlide?: (index: number) => void;
   onMoveSlide?: (from: number, to: number) => void;
   onUpdateTitle?: (title: string) => void;
-  
+
   onSave?: () => void;
   isSaving?: boolean;
   onOpenExport?: () => void;
@@ -106,20 +106,20 @@ export function SlideEditor({
 
   return (
     <div className="flex h-[calc(100vh-140px)] w-full rounded-2xl border border-border overflow-hidden bg-background shadow-sm">
-      
+
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* 1. 좌측/중앙: 슬라이드 미리보기 (Preview) 영역 */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div className="flex-1 bg-muted/30 p-6 flex flex-col relative overflow-hidden">
-        
+
         {/* 상단: 슬라이드 네비게이션 및 액션 버튼들 */}
         <div className="flex items-center justify-between mb-6 bg-card px-4 py-3 rounded-xl border border-border shadow-sm flex-shrink-0">
           {/* 좌측: 이동 */}
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handlePrevSlide} 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrevSlide}
               disabled={currentSlide === 0}
               className="gap-1 h-8">
               <ChevronLeft className="w-4 h-4" /> 이전
@@ -127,10 +127,10 @@ export function SlideEditor({
             <div className="font-bold text-sm text-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
               {currentSlide + 1} <span className="text-muted-foreground font-normal mx-1">/</span> {activeSlides.length}
             </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleNextSlide} 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextSlide}
               disabled={currentSlide === activeSlides.length - 1}
               className="gap-1 h-8">
               다음 <ChevronRight className="w-4 h-4" />
@@ -149,22 +149,45 @@ export function SlideEditor({
                 <Save className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '저장'}
               </Button>
             )}
-            {onOpenExport && (
-              <Button variant="outline" size="sm" onClick={onOpenExport} className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
-                <Download className="w-3.5 h-3.5" /> 내보내기
+            <div className="relative group">
+              <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
+                <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
               </Button>
-            )}
+              <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border shadow-elevated rounded-xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
+                <button
+                  onClick={() => onOpenExport?.('pptx')}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50"
+                  title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다."
+                >
+                  PPT 파워포인트
+                </button>
+                <button
+                  onClick={() => onOpenExport?.('pptx-image')}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50 text-emerald-600"
+                  title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다."
+                >
+                  PPT (이미지 고정본)
+                </button>
+                <button
+                  onClick={() => onOpenExport?.('pdf')}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium text-blue-600"
+                  title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다."
+                >
+                  PDF 문서
+                </button>
+              </div>
+            </div>
             <div className="w-px h-4 bg-border mx-1" />
-            <Button 
-              variant="secondary" 
-              size="sm" 
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => onRegenerateSlide?.(currentSlide)}
               className="gap-1.5 h-8 text-xs font-semibold">
               <Wand2 className="w-3.5 h-3.5" /> 다시 쓰기
             </Button>
-            <Button 
+            <Button
               onClick={onOpenChat}
-              size="sm" 
+              size="sm"
               className="gap-1.5 h-8 text-xs font-semibold gradient-primary border-0">
               <MessageSquare className="w-3.5 h-3.5" /> AI 채팅 수정
             </Button>
@@ -174,8 +197,8 @@ export function SlideEditor({
         {/* 중앙: 실제 슬라이드 렌더링 캔버스 */}
         <div className="flex-1 w-full flex flex-col items-center justify-center overflow-auto custom-scrollbar pb-6">
           <div className="w-full max-w-[1000px] aspect-[16/9] shadow-2xl rounded-sm border border-border/50 overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300">
-            <ScaledSlide 
-              slide={slide} 
+            <ScaledSlide
+              slide={slide}
               containerClassName="w-full h-full"
             />
           </div>
@@ -609,10 +632,10 @@ export function SlideEditor({
                   && slide.type !== 'compare'
                   && slide.type !== 'table'
                   && slide.type !== 'timeline' && (
-                  <div className="text-center py-6 bg-background rounded-lg border border-dashed border-border text-muted-foreground text-xs">
-                    <p>내용 항목이 없습니다.</p>
-                  </div>
-                )}
+                    <div className="text-center py-6 bg-background rounded-lg border border-dashed border-border text-muted-foreground text-xs">
+                      <p>내용 항목이 없습니다.</p>
+                    </div>
+                  )}
               </div>
             )}
           </div>
