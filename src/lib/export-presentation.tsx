@@ -32,8 +32,10 @@ const SAFE_FONT = `${FONT}, Malgun Gothic, Arial, sans-serif`;
 // ─────────────────────────────────────────────────────────────
 // 유틸리티
 // ─────────────────────────────────────────────────────────────
-function hex(color: string): string {
-  return color.startsWith('#') ? color.slice(1) : color;
+function hex(color: string | null | undefined, fallback: string = '000000'): string {
+  if (!color) return fallback;
+  const clean = color.startsWith('#') ? color.slice(1) : color;
+  return clean || fallback;
 }
 
 // 🚨 객체가 들어올 경우를 대비한 안전한 문자열 반환 함수
@@ -138,9 +140,9 @@ export async function exportToPptx(
   pptx.title = presentation.title || 'Untitled';
 
   // 사용자가 테마색을 크게 바꾸지 않았다면 기본 팔레트 사용
-  const isBrandCustom = brand.primaryColor !== '1B3A5C';
-  const PRIMARY = hex(isBrandCustom ? brand.primaryColor : '#4E83F9');
-  const ACCENT = hex(isBrandCustom ? brand.accentColor : '#10b981');
+  const isBrandCustom = !!brand.primaryColor && brand.primaryColor !== '1B3A5C';
+  const PRIMARY = hex(isBrandCustom ? brand.primaryColor : '#4E83F9', '4E83F9');
+  const ACCENT = hex(isBrandCustom ? brand.accentColor : '#10b981', '10b981');
   const PRIMARY_DARK = hex('#2563EB');
   const WHITE = 'FFFFFF';
   const BG = 'FFFFFF';
