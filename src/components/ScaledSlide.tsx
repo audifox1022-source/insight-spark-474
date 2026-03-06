@@ -75,24 +75,25 @@ interface ScaledSlideProps {
 
 // ══════════════════════════════════════════════════════════════
 // 팔레트
-// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════// 신뢰 비즈니스 (Trust Business) 팔레트
 const P = {
-  primary: '#4E83F9',
-  primaryDark: '#2563EB',
-  bg: '#ffffff',
-  text: '#242424',
-  subtext: '#64748b',
-  border: '#e2e8f0',
-  muted: '#f8fafc',
-  dark: '#1a2133',
-  chartColors: ['#4E83F9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
+  primary: '#0D5C63',            // 딛 틸
+  primaryDark: '#064E55',
+  accent: '#2EC4B6',             // 민트 그린
+  bg: '#F4F9F9',                 // 아이보리 화이트
+  text: '#1A1A2E',               // 딛 네이비
+  subtext: '#5c7a82',
+  border: '#C8DEDE',
+  muted: '#EEF6F6',
+  dark: '#0D2B2E',               // 딛은 틸 다크
+  chartColors: ['#2EC4B6', '#0D5C63', '#27AE60', '#F59E0B', '#EF4444', '#8B5CF6'],
   kpiGradients: [
-    'linear-gradient(135deg,#4E83F9 0%,#2563EB 100%)',
-    'linear-gradient(135deg,#10b981 0%,#059669 100%)',
-    'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)',
-    'linear-gradient(135deg,#8b5cf6 0%,#6d28d9 100%)',
-    'linear-gradient(135deg,#ef4444 0%,#b91c1c 100%)',
-    'linear-gradient(135deg,#06b6d4 0%,#0284c7 100%)',
+    'linear-gradient(135deg,#0D5C63 0%,#2EC4B6 100%)',
+    'linear-gradient(135deg,#27AE60 0%,#4ADE80 100%)',
+    'linear-gradient(135deg,#0369A1 0%,#38BDF8 100%)',
+    'linear-gradient(135deg,#6D28D9 0%,#A78BFA 100%)',
+    'linear-gradient(135deg,#B45309 0%,#FCD34D 100%)',
+    'linear-gradient(135deg,#BE123C 0%,#FB7185 100%)',
   ],
 };
 
@@ -114,12 +115,17 @@ const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = (
   </div>
 );
 
-const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => (
-  <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
-    <span style={{ fontSize: '3.6rem', fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1, letterSpacing: '-0.02em' }}>{value}</span>
-    {unit && <span style={{ fontSize: '1.2rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext }}>{unit}</span>}
-  </div>
-);
+// BigNumber: 값 길이에 따라 폰트 자동 충소
+const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => {
+  const len = (value || '').replace(/\s/g, '').length;
+  const fs = len <= 4 ? '2.8rem' : len <= 6 ? '2.2rem' : '1.8rem';
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
+      <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em', wordBreak: 'keep-all' }}>{value}</span>
+      {unit && <span style={{ fontSize: '1rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext }}>{unit}</span>}
+    </div>
+  );
+};
 
 const SlideBackground: React.FC<{ imageUrl?: string; bgGradient?: string }> = ({ imageUrl, bgGradient }) => {
   const [imgError, setImgError] = useState(false);
@@ -191,20 +197,28 @@ const SlideWatermark = ({ text }: { text?: string }) => {
 // ══════════════════════════════════════════════════════════════
 // 렌더러 함수들
 // ══════════════════════════════════════════════════════════════
+// renderChart: 차트 렌더러 (고정 높이로 ResponsiveContainer 사용 — flex:1 문제 해결)
 function renderChart(cd?: SlideChartData) {
   if (!cd?.data?.length) return <EmptyPlaceholder icon={BarIcon} label="차트 데이터 없음" />;
   const colors = P.chartColors;
-  const common = { data: cd.data, margin: { top: 10, right: 20, bottom: 10, left: 0 } };
-  const axisTick = { fill: '#94a3b8', fontSize: 13 };
+  // value가 문자열이면 숫자로 변환
+  const safeData = cd.data.map(d => ({
+    ...d,
+    value: typeof d.value === 'string' ? parseFloat(d.value) || 0 : (d.value ?? 0),
+    value2: d.value2 !== undefined ? (typeof d.value2 === 'string' ? parseFloat(d.value2) || 0 : d.value2) : undefined,
+  }));
+  const common = { data: safeData, margin: { top: 10, right: 24, bottom: 50, left: 0 } };
+  const axisTick = { fill: '#94a3b8', fontSize: 11 };
+  const xTickProps = { angle: -20, textAnchor: 'end' as const, interval: 0 };
 
   if (cd.chartType === 'pie') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie data={cd.data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" paddingAngle={3} label={(e) => `${e.name}: ${(e.percent! * 100).toFixed(0)}%`} labelLine={{ stroke: '#94a3b8' }}>
-            {cd.data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+          <Pie data={safeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" paddingAngle={3} label={(e) => `${e.name}: ${(e.percent! * 100).toFixed(0)}%`} labelLine={{ stroke: '#94a3b8' }}>
+            {safeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
           </Pie>
-          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
+          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 12 }} />}
           <Tooltip content={<CustomTooltip />} />
         </PieChart>
       </ResponsiveContainer>
@@ -212,52 +226,56 @@ function renderChart(cd?: SlideChartData) {
   }
   if (cd.chartType === 'line') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart {...common}>
           <CartesianGrid strokeDasharray="3 3" stroke={P.border} />
-          <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+          <XAxis dataKey="name" tick={{ ...axisTick, ...xTickProps }} axisLine={false} tickLine={false} />
           <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
-          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-          <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} />
-          {cd.data[0]?.value2 !== undefined && <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />}
+          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+          <Line type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} dot={{ r: 5, fill: colors[0] }} activeDot={{ r: 7 }} />
+          {safeData[0]?.value2 !== undefined && <Line type="monotone" dataKey="value2" name={cd.series2Label ?? '시리즈2'} stroke={colors[1]} strokeWidth={3} dot={{ r: 5, fill: colors[1] }} />}
         </LineChart>
       </ResponsiveContainer>
     );
   }
   if (cd.chartType === 'area') {
     return (
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height={220}>
         <AreaChart {...common}>
           <defs>
             <linearGradient id="ag1" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={colors[0]} stopOpacity={0.25} />
-              <stop offset="95%" stopColor={colors[0]} stopOpacity={0.02} />
+              <stop offset="5%" stopColor={colors[0]} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={colors[0]} stopOpacity={0.03} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke={P.border} />
-          <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+          <XAxis dataKey="name" tick={{ ...axisTick, ...xTickProps }} axisLine={false} tickLine={false} />
           <YAxis tick={axisTick} axisLine={false} tickLine={false} />
           <Tooltip content={<CustomTooltip />} />
-          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
+          {cd.showLegend && <Legend wrapperStyle={{ fontSize: 12 }} />}
           <Area type="monotone" dataKey="value" name={cd.series1Label ?? '시리즈1'} stroke={colors[0]} strokeWidth={3} fill="url(#ag1)" />
         </AreaChart>
       </ResponsiveContainer>
     );
   }
+  // 기본: 바 차트
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart {...common} barSize={cd.data[0]?.value2 !== undefined ? 14 : 22}>
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart {...common} barSize={safeData.length > 6 ? 14 : safeData[0]?.value2 !== undefined ? 12 : 24}>
         <CartesianGrid strokeDasharray="3 3" stroke={P.border} />
-        <XAxis dataKey="name" tick={axisTick} axisLine={false} tickLine={false} />
+        <XAxis dataKey="name" tick={{ ...axisTick, ...xTickProps }} axisLine={false} tickLine={false} />
         <YAxis tick={axisTick} axisLine={false} tickLine={false} />
         <Tooltip content={<CustomTooltip />} />
-        {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-        <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[4, 4, 0, 0]} />
-        {cd.data[0]?.value2 !== undefined && <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[4, 4, 0, 0]} />}
+        {cd.showLegend && <Legend wrapperStyle={{ fontSize: 12 }} />}
+        <Bar dataKey="value" name={cd.series1Label ?? '데이터'} radius={[6, 6, 0, 0]}>
+          {safeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+        </Bar>
+        {safeData[0]?.value2 !== undefined && <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[6, 6, 0, 0]} />}
       </BarChart>
     </ResponsiveContainer>
   );
+}
 }
 
 function renderTimeline(slide: Slide, contentFontSize: string) {
@@ -539,7 +557,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div><SectionLabel>DATA VISUALIZATION</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
-          <div style={{ flex: 1 }}>{renderChart(slide.chartData)}</div>
+          <div style={{ minHeight: 240 }}>{renderChart(slide.chartData)}</div>
         </div>
         <SlideNumber number={slide.slideNumber} />
       </div>
@@ -565,13 +583,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: autoTableFontSize, tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: `linear-gradient(135deg,${P.primary},${P.primaryDark})` }}>
-                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{safeString(h)}</th>)}
+                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', wordBreak: 'keep-all' }}>{safeString(h)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row, ri) => (
                   <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : P.muted, borderBottom: `1px solid ${P.border}` }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{safeString(cell)}</td>)}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400, wordBreak: 'keep-all', lineHeight: 1.4 }}>{safeString(cell)}</td>)}
                   </tr>
                 ))}
               </tbody>
