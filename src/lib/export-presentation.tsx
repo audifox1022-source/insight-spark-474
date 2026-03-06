@@ -65,7 +65,7 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
   const W = 1920;
   const H = 1080;
   const container = document.createElement('div');
-  container.style.cssText = `position: fixed; top: 0; left: 0; width: ${W}px; height: ${H}px; z-index: 99999; pointer-events: none; overflow: hidden; background: #ffffff;`;
+  container.style.cssText = `position: fixed; top: 0; left: 0; width: ${W}px; height: ${H}px; z-index: -9999; pointer-events: none; overflow: hidden; background: #ffffff; transform: scale(1); transform-origin: top left;`;
   document.body.appendChild(container);
 
   const brandStyle = document.createElement('style');
@@ -82,19 +82,23 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
   return new Promise<string>(async (resolve, reject) => {
     try {
       root.render(
-        <div style={{ width: W, height: H, background: '#ffffff', overflow: 'hidden' }}>
+        <div id="export-root" style={{ width: W, height: H, background: '#ffffff', overflow: 'hidden' }}>
           <ScaledSlide slide={slide} logoUrl={brand.logoDataUrl ?? undefined} watermark={brand.companyName} />
         </div>
       );
 
-      await new Promise((res) => setTimeout(res, 150));
+      await new Promise((res) => setTimeout(res, 500)); // Increase wait for charts/images to render
       await waitForImagesToLoad(reactRoot);
 
       const canvas = await html2canvas(reactRoot, {
-        scale: 2,
+        scale: 1, // Let 1920x1080 act as default scale without blowing up memory
+        width: W,
+        height: H,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
+        windowWidth: W,
+        windowHeight: H,
       });
 
       resolve(canvas.toDataURL('image/jpeg', 0.95));
@@ -102,9 +106,11 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
       console.error("Failed to capture slide:", err);
       reject(err);
     } finally {
-      root.unmount();
-      if (document.body.contains(container)) document.body.removeChild(container);
-      if (document.head.contains(brandStyle)) document.head.removeChild(brandStyle);
+      setTimeout(() => { // unmount cleanup safely
+        root.unmount();
+        if (document.body.contains(container)) document.body.removeChild(container);
+        if (document.head.contains(brandStyle)) document.head.removeChild(brandStyle);
+      }, 0);
     }
   });
 }
@@ -277,7 +283,7 @@ export async function exportToPptx(
       s.addText(safeString(slide.subhead), {
         x: PAD_X, y: currentY, w: SW - (PAD_X * 2), h: 0.4, fontSize: CONTENT_PT - 2, color: PRIMARY, bold: true, fontFace: SAFE_FONT
       });
-      currentY += 0.5;
+      currentY += 0.65;
     }
 
     s.addShape('rect', { x: PAD_X, y: currentY + 0.1, w: 0.8, h: 0.05, fill: { color: PRIMARY } });
@@ -333,7 +339,7 @@ export async function exportToPptx(
               shadow: isFirst ? { type: 'outer', blur: 15, offset: 5, color: PRIMARY, opacity: 0.3 } : undefined
             });
 
-            if (slide.type === 'kpi') {
+            if (slide.type === 'kpi' && slide.keyMetrics?.length) {
               s.addText(safeString(item.label), { x: cx + 0.2, y: cy + 0.2, w: cardW - 0.4, h: 0.3, fontSize: 10, bold: true, color: isFirst ? WHITE : SUBTEXT, transparency: isFirst ? 40 : 0, fontFace: SAFE_FONT });
               s.addText(safeString(item.value), { x: cx + 0.2, y: cy + 0.6, w: cardW - 0.4, h: 0.5, fontSize: CONTENT_PT + 14, bold: true, color: isFirst ? WHITE : PRIMARY, fontFace: SAFE_FONT, valign: 'middle' });
               if (item.description) {
@@ -429,8 +435,8 @@ export async function exportToPptx(
       case 'chart':
         if (slide.chartData?.data) {
           const cd = slide.chartData;
-          const chartTypes: any = { bar: pptx.ChartType.bar, line: pptx.ChartType.line, pie: pptx.ChartType.pie, area: pptx.ChartType.area };
-          const chartTypeToUse = chartTypes[cd.chartType || 'bar'] || pptx.ChartType.bar;
+          const chartTypes: any = { bar: 'bar', line: 'line', pie: 'pie', area: 'area' };
+          const chartTypeToUse = chartTypes[cd.chartType || 'bar'] || 'bar';
           try {
             s.addChart(chartTypeToUse,
               [
