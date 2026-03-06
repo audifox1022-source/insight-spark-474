@@ -195,8 +195,8 @@ export function SlideEditor({
         </div>
 
         {/* 중앙: 실제 슬라이드 렌더링 캔버스 */}
-        <div className="flex-1 w-full flex flex-col items-center justify-center overflow-auto custom-scrollbar pb-6">
-          <div className="w-full max-w-[1000px] aspect-[16/9] shadow-2xl rounded-sm border border-border/50 overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300">
+        <div className="flex-1 w-full flex flex-col items-center justify-center overflow-auto custom-scrollbar pb-6 bg-slate-50/50">
+          <div className="w-full max-w-[1024px] aspect-[16/9] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] ring-1 ring-border/20 rounded-xl overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300 transform sm:scale-95 md:scale-100">
             <ScaledSlide
               slide={slide}
               containerClassName="w-full h-full"
@@ -208,17 +208,24 @@ export function SlideEditor({
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* 2. 우측: 슬라이드 속성 편집 패널 */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="w-[420px] h-full border-l border-border bg-card shrink-0 flex flex-col relative z-10 shadow-[-4px_0_24px_rgba(0,0,0,0.02)]">
-        <div className="h-full overflow-y-auto px-5 py-6 space-y-5 custom-scrollbar">
+      <div className="w-[420px] h-full border-l border-border bg-white/40 backdrop-blur-xl shrink-0 flex flex-col relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.03)]">
+        <div className="h-full overflow-y-auto px-6 py-8 space-y-6 custom-scrollbar">
+
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-bold text-foreground tracking-tight">슬라이드 편집</h3>
+            <span className="text-xs font-semibold px-2 py-1 bg-primary/10 text-primary rounded-full">Slide {currentSlide + 1} / {presentation.slides.length}</span>
+          </div>
 
           {/* 기본 정보 */}
-          <div className="bg-muted/20 rounded-xl p-4 border border-border shadow-sm">
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('basic')}
-              className="w-full flex items-center justify-between mb-3 pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <Type className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">기본 정보</span>
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-primary/10 rounded-md text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Type className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">기본 텍스트 설정</span>
               </div>
               {expandedSection === 'basic'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -226,7 +233,7 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'basic' && (
-              <div className="space-y-4 pt-1">
+              <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">제목</label>
                   <Input
@@ -276,13 +283,15 @@ export function SlideEditor({
           </div>
 
           {/* 슬라이드 설정 */}
-          <div className="bg-muted/20 rounded-xl p-4 border border-border shadow-sm">
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('settings')}
-              className="w-full flex items-center justify-between mb-3 pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">디자인 설정</span>
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-indigo-500/10 rounded-md text-indigo-600 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                  <SlidersHorizontal className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">디자인 & 레이아웃</span>
               </div>
               {expandedSection === 'settings'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -290,7 +299,7 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'settings' && (
-              <div className="space-y-5 pt-1">
+              <div className="space-y-5 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">레이아웃 구조</label>
                   <Select
@@ -399,13 +408,15 @@ export function SlideEditor({
           </div>
 
           {/* 콘텐츠 편집 */}
-          <div className="bg-muted/20 rounded-xl p-4 border border-border shadow-sm">
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('content')}
-              className="w-full flex items-center justify-between mb-3 pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <AlignLeft className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">상세 내용 편집</span>
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-emerald-500/10 rounded-md text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                  <AlignLeft className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">상세 내용 데이터</span>
               </div>
               {expandedSection === 'content'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -413,7 +424,7 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'content' && (
-              <div className="space-y-4 pt-1">
+              <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 {/* 일반 리스트 타입 */}
                 {slide.content && slide.content.length > 0 && (
                   <div>
@@ -641,13 +652,15 @@ export function SlideEditor({
           </div>
 
           {/* 이미지 */}
-          <div className="bg-muted/20 rounded-xl p-4 border border-border shadow-sm">
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('image')}
-              className="w-full flex items-center justify-between mb-3 pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">배경/이미지</span>
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-rose-500/10 rounded-md text-rose-600 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+                  <ImageIcon className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">배경 & 이미지 설정</span>
               </div>
               {expandedSection === 'image'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -655,7 +668,7 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'image' && (
-              <div className="space-y-3 pt-1">
+              <div className="space-y-4 pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">이미지 URL</label>
                   <Input
@@ -685,13 +698,15 @@ export function SlideEditor({
           </div>
 
           {/* 발표자 노트 */}
-          <div className="bg-muted/20 rounded-xl p-4 border border-border shadow-sm">
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
             <button
               onClick={() => toggleSection('notes')}
-              className="w-full flex items-center justify-between mb-3 pb-2 border-b border-border/50">
-              <div className="flex items-center gap-2">
-                <AlignLeft className="w-4 h-4 text-primary" />
-                <span className="text-sm font-bold text-foreground">발표자 노트</span>
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-500/10 rounded-md text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                  <AlignLeft className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">발표자 노트 (스크립트)</span>
               </div>
               {expandedSection === 'notes'
                 ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -699,12 +714,14 @@ export function SlideEditor({
             </button>
 
             {expandedSection === 'notes' && (
-              <Textarea
-                value={slide.notes || ''}
-                onChange={e => onUpdateSlide(currentSlide, { notes: e.target.value })}
-                className="min-h-[120px] text-[13px] leading-relaxed resize-y mt-1"
-                placeholder="발표 시 참고할 대본이나 노트를 입력하세요."
-              />
+              <div className="pt-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                <Textarea
+                  value={slide.notes || ''}
+                  onChange={e => onUpdateSlide(currentSlide, { notes: e.target.value })}
+                  className="min-h-[120px] text-[13px] leading-relaxed resize-y mt-1"
+                  placeholder="발표 시 참고할 대본이나 노트를 입력하세요."
+                />
+              </div>
             )}
           </div>
 

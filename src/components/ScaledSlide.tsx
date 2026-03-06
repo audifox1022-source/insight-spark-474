@@ -76,15 +76,15 @@ interface ScaledSlideProps {
 // 팔레트
 // ══════════════════════════════════════════════════════════════
 const P = {
-  primary:    '#4E83F9',
-  primaryDark:'#2563EB',
-  bg:         '#ffffff',
-  text:       '#242424',
-  subtext:    '#64748b',
-  border:     '#e2e8f0',
-  muted:      '#f8fafc',
-  dark:       '#1a2133',
-  chartColors: ['#4E83F9','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'],
+  primary: '#4E83F9',
+  primaryDark: '#2563EB',
+  bg: '#ffffff',
+  text: '#242424',
+  subtext: '#64748b',
+  border: '#e2e8f0',
+  muted: '#f8fafc',
+  dark: '#1a2133',
+  chartColors: ['#4E83F9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
   kpiGradients: [
     'linear-gradient(135deg,#4E83F9 0%,#2563EB 100%)',
     'linear-gradient(135deg,#10b981 0%,#059669 100%)',
@@ -246,8 +246,8 @@ function renderChart(cd?: SlideChartData) {
         <YAxis tick={axisTick} axisLine={false} tickLine={false} />
         <Tooltip content={<CustomTooltip />} />
         {cd.showLegend && <Legend wrapperStyle={{ fontSize: 13 }} />}
-        <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[4,4,0,0]} />
-        {cd.data[0]?.value2 !== undefined && <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[4,4,0,0]} />}
+        <Bar dataKey="value" name={cd.series1Label ?? '시리즈1'} fill={colors[0]} radius={[4, 4, 0, 0]} />
+        {cd.data[0]?.value2 !== undefined && <Bar dataKey="value2" name={cd.series2Label ?? '시리즈2'} fill={colors[1]} radius={[4, 4, 0, 0]} />}
       </BarChart>
     </ResponsiveContainer>
   );
@@ -296,13 +296,13 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
       <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}>{slide.title}</h2>
       {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
       <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         {rawContent.map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
-            <div style={{ width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0, background: `${P.primary}15`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, marginTop: '1px' }}>
+          <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', padding: '0.4rem 0' }}>
+            <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${P.primary}15, ${P.primary}05)`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, marginTop: '2px', border: `1px solid ${P.primary}30`, boxShadow: `0 2px 8px ${P.primary}20` }}>
               {String(i + 1).padStart(2, '0')}
             </div>
-            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.55 }}>{safeString(item)}</span>
+            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500 }}>{safeString(item)}</span>
           </div>
         ))}
       </div>
@@ -310,11 +310,11 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
   );
 
   const visualPanel = (
-    <div style={{ flex: visualRatio, background: `linear-gradient(145deg, ${P.primary}18 0%, ${P.primary}08 100%)`, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${P.primary}22`, position: 'relative', overflow: 'hidden' }}>
+    <div style={{ flex: visualRatio, background: `linear-gradient(145deg, ${P.primary}08 0%, transparent 100%)`, borderRadius: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid rgba(0,0,0,0.05)`, position: 'relative', overflow: 'hidden', boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)' }}>
       <SlideBackground imageUrl={slide.imageUrl} />
       {!slide.imageUrl && (
         <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '5rem', fontWeight: 900, color: `${P.primary}30`, lineHeight: 1 }}>{String(slide.slideNumber ?? '').padStart(2, '0')}</div>
+          <div style={{ fontSize: '6rem', fontWeight: 900, color: `${P.primary}15`, lineHeight: 1, filter: 'blur(2px)' }}>{String(slide.slideNumber ?? '').padStart(2, '0')}</div>
         </div>
       )}
     </div>
@@ -328,13 +328,14 @@ function renderGridCards(slide: Slide, contentFontSize: string) {
   const cols = items.length <= 2 ? 2 : items.length <= 4 ? 2 : 3;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', width: '100%' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', width: '100%' }}>
       {items.map((item, i) => (
-        <div key={i} style={{ background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.primaryDark})` : P.muted, borderRadius: 16, padding: '1.4rem 1.2rem', border: `1px solid ${i === 0 ? 'transparent' : P.border}`, display: 'flex', flexDirection: 'column', gap: '0.7rem', boxShadow: i === 0 ? `0 8px 24px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)', transition: 'transform 0.2s' }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: i === 0 ? 'rgba(255,255,255,0.25)' : `${P.primary}15`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800 }}>
+        <div key={i} style={{ background: i === 0 ? `linear-gradient(135deg, ${P.primary}, ${P.primaryDark})` : '#fff', borderRadius: 20, padding: '1.6rem 1.4rem', border: `1px solid ${i === 0 ? 'transparent' : 'rgba(0,0,0,0.04)'}`, display: 'flex', flexDirection: 'column', gap: '0.8rem', boxShadow: i === 0 ? `0 16px 32px -8px ${P.primary}60` : '0 8px 24px -8px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
+          {i === 0 && <div style={{ position: 'absolute', top: 0, right: 0, width: '60%', height: '60%', background: '#fff', borderRadius: '50%', filter: 'blur(40px)', opacity: 0.15, zIndex: 0 }} />}
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
             {String(i + 1).padStart(2, '0')}
           </div>
-          <p style={{ fontSize: contentFontSize, lineHeight: 1.55, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 400 }}>
+          <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1 }}>
             {safeString(item)}
           </p>
         </div>
@@ -359,9 +360,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ── 1. 타이틀 슬라이드
   if (slide.type === 'title') {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.dark, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif" }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: `radial-gradient(110% 110% at 80% 0%, #1e293b 0%, #0f172a 100%)`, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif" }}>
+        {/* Ambient Glow Orbs */}
+        <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '60%', height: '60%', background: P.primary, borderRadius: '50%', filter: 'blur(140px)', opacity: 0.15, zIndex: 0 }} />
+        <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: '50%', height: '50%', background: P.primaryDark, borderRadius: '50%', filter: 'blur(120px)', opacity: 0.2, zIndex: 0 }} />
+
         <SlideBackground imageUrl={slide.imageUrl} />
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: `linear-gradient(to bottom, ${P.primary}, ${P.primaryDark})`, zIndex: 1 }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '6px', background: `linear-gradient(to bottom, ${P.primary}, #fff)`, zIndex: 1, boxShadow: `0 0 20px ${P.primary}80` }} />
         <SlideWatermark text={watermark} />
         <SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.2rem' }}>
@@ -379,9 +384,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ── 2. 섹션 구분 슬라이드
   if (slide.type === 'section') {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.primary, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center' }}>
-        <div style={{ position: 'absolute', right: '-8%', top: '50%', transform: 'translateY(-50%)', width: '45%', paddingBottom: '45%', borderRadius: '50%', background: 'rgba(255,255,255,0.08)', zIndex: 0 }} />
-        <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', width: '28%', paddingBottom: '28%', borderRadius: '50%', background: 'rgba(255,255,255,0.06)', zIndex: 0 }} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${P.primaryDark} 0%, ${P.primary} 100%)`, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center' }}>
+        {/* Modern Glass Rings */}
+        <div style={{ position: 'absolute', right: '-15%', top: '50%', transform: 'translateY(-50%)', width: '55%', paddingBottom: '55%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01))', backdropFilter: 'blur(8px)', zIndex: 0, boxShadow: 'inset 0 0 40px rgba(255,255,255,0.05)' }} />
+        <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', width: '30%', paddingBottom: '30%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02))', backdropFilter: 'blur(12px)', zIndex: 0 }} />
         <SlideWatermark text={watermark} />
         <SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
@@ -400,15 +406,19 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
     const cols = metrics.length <= 2 ? 2 : metrics.length <= 4 ? 4 : 3;
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+        {/* Subtle Ambient Background for KPI */}
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: P.primary, borderRadius: '50%', filter: 'blur(150px)', opacity: 0.05, pointerEvents: 'none' }} />
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1rem', flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', flex: 1 }}>
             {metrics.map((m, i) => {
               const isFirst = i === 0;
               return (
-                <div key={i} style={{ borderRadius: 18, padding: '1.5rem', background: isFirst ? P.kpiGradients[0] : P.muted, border: `1px solid ${isFirst ? 'transparent' : P.border}`, boxShadow: isFirst ? `0 12px 32px ${P.primary}30` : '0 2px 8px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.6)' : P.subtext }}>{m.label}</div>
+                <div key={i} style={{ borderRadius: 24, padding: '1.8rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
+                  {/* Glass Shimmer */}
+                  {isFirst && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)', pointerEvents: 'none' }} />}
+                  <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.label}</div>
                   <BigNumber value={m.value} light={isFirst} />
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -471,7 +481,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── 6. 비교 슬라이드
   if (slide.type === 'compare') {
-    const leftItems  = slide.leftItems  ?? [];
+    const leftItems = slide.leftItems ?? [];
     const rightItems = slide.rightItems ?? [];
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
@@ -479,8 +489,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <div><SectionLabel>COMPARISON</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', flex: 1 }}>
-            <div style={{ background: `linear-gradient(145deg,${P.primary}12,${P.primary}05)`, borderRadius: 18, padding: '1.4rem', border: `1px solid ${P.primary}22` }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.primary, marginBottom: '0.8rem' }}>{(slide.leftTitle ?? 'BEFORE').toUpperCase()}</div>
+
+            {/* Left Glass Panel */}
+            <div style={{ background: `linear-gradient(145deg, rgba(78,131,249,0.06), rgba(78,131,249,0.02))`, borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(78,131,249,0.15)`, boxShadow: '0 8px 24px rgba(78,131,249,0.05)', backdropFilter: 'blur(10px)' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.15em', color: P.primary, marginBottom: '1.2rem' }}>{(slide.leftTitle ?? 'BEFORE').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {leftItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
@@ -491,10 +503,12 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: P.dark, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800 }}>VS</div>
+              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>VS</div>
             </div>
-            <div style={{ background: P.muted, borderRadius: 18, padding: '1.4rem', border: `1px solid ${P.border}` }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: P.subtext, marginBottom: '0.8rem' }}>{(slide.rightTitle ?? 'AFTER').toUpperCase()}</div>
+
+            {/* Right Glass Panel */}
+            <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(226,232,240,0.8)`, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', backdropFilter: 'blur(10px)' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.15em', color: P.text, marginBottom: '1.2rem' }}>{(slide.rightTitle ?? 'AFTER').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {rightItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
@@ -527,7 +541,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── 8. 표 슬라이드
   const tableHeaders = slide.tableData?.headers ?? slide.headers ?? [];
-  const tableRows    = slide.tableData?.rows    ?? slide.rows    ?? [];
+  const tableRows = slide.tableData?.rows ?? slide.rows ?? [];
   if (slide.type === 'table' || (tableHeaders.length > 0 && tableRows.length > 0)) {
     const density = slide.tableDensity ?? 'normal';
     const cellPad = density === 'compact' ? '0.45rem 0.75rem' : density === 'relaxed' ? '0.9rem 1.2rem' : '0.65rem 1rem';
