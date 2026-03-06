@@ -12,6 +12,7 @@ export interface MeetingInfo {
 export interface PresentationSettings {
   difficulty: 'easy' | 'medium' | 'hard' | 'executive';
   volume: 'brief' | 'standard' | 'detailed' | 'comprehensive';
+  audience?: 'general' | 'executive' | 'investor' | 'marketing' | 'tech' | 'newbie';
   useWebSearch?: boolean;
 }
 

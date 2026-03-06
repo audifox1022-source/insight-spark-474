@@ -53,7 +53,7 @@ interface SlideEditorProps {
 
   onSave?: () => void;
   isSaving?: boolean;
-  onOpenExport?: () => void;
+  onOpenExport?: (format: string) => void;
   onOpenPlay?: () => void;
 
   onRegenerateSlide?: (slideIndex: number, userInstruction?: string) => void;
@@ -66,6 +66,12 @@ interface SlideEditorProps {
   updatePresentationMaster?: (updatedPresentation: Partial<Presentation>) => void;
   isGeneratingImage?: boolean;
   generateSlideImage?: (slideIndex: number) => void;
+
+  // New properties for interactive editing
+  selectedText?: string;
+  onSelectText?: (text: string) => void;
+  onClearSelectedText?: () => void;
+  onFactCheck?: (text: string, slideContext: any) => void;
 }
 
 export function SlideEditor({
@@ -83,6 +89,10 @@ export function SlideEditor({
   isSaving,
   onOpenExport,
   onOpenPlay,
+  selectedText,
+  onSelectText,
+  onClearSelectedText,
+  onFactCheck,
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
 
@@ -213,6 +223,14 @@ export function SlideEditor({
             <ScaledSlide
               slide={slide}
               containerClassName="w-full h-full"
+              interactive={true}
+              onElementClick={(text) => {
+                if (onSelectText) {
+                  onSelectText(text);
+                  if (onOpenChat) onOpenChat();
+                }
+              }}
+              onFactCheck={onFactCheck}
             />
           </div>
         </div>

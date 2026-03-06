@@ -39,7 +39,21 @@ export function getMeetingInfoContext(info: any): string {
   return [
     info?.week ? `보고 주차: ${info.week}` : '',
     info?.department ? `부서: ${info.department}` : '',
-    info?.reporter ? `보고자: ${info.reporter}` : '',
     info?.notes ? `추가 지시사항: ${info.notes}` : '',
   ].filter(Boolean).join('\n');
+}
+
+export const AUDIENCE_MAP: Record<string, string> = {
+  general: "표준적인 어조로 누구나 이해하기 쉽게 작성하세요.",
+  executive: "경영진/임원 대상입니다. 핵심만 찌르는 결론 위주의 매우 간결한 어조를 사용하세요. 숫자를 강조하세요.",
+  investor: "투자자 대상입니다. 사업의 비전, 성장성, 확실한 수익 모델과 ROI를 강조하는 화법을 사용하세요.",
+  marketing: "마케팅팀 대상입니다. 트렌디하고 시각적인 요소를 상상할 수 있는 감각적인 키워드를 사용하세요.",
+  tech: "개발/기술팀 대상입니다. 논리적이고 기술적인 상세 구현 방법을 구체적으로 명시하는 어조를 사용하세요.",
+  newbie: "신입사원 대상입니다. 배경 지식이 없어도 이해할 수 있도록 친절하고 아주 쉬운 용어만 사용하세요. 전문 용어는 피하세요."
+};
+
+export function getAudiencePrompt(audienceKey?: string): string {
+  if (!audienceKey) return '';
+  const tone = AUDIENCE_MAP[audienceKey] || AUDIENCE_MAP.general;
+  return `\n[👥 타깃 청중 정보]: ${tone}\n`;
 }

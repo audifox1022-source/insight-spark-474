@@ -78,8 +78,8 @@ function normalizeSlideForApp(raw: any, index: number): Slide {
 }
 
 function normalizePresentationSlides(presentation: any): Presentation {
-  const defaultSlide: Slide = { slideNumber: 1, type: 'title', layout: 'default', title: '슬라이드 생성 오류', content: ['데이터를 불러오지 못했습니다.'], keyMetrics: [], persona: 'standard' };
-  if (!presentation || typeof presentation !== 'object') return { title: '새 발표 자료', theme: 'blue', slides: [defaultSlide] };
+  const defaultSlide: Slide = { slideNumber: 1, type: 'title', layout: 'default', title: '슬라이드 생성 오류', content: ['데이터를 불러오지 못했습니다.'], keyMetrics: [], persona: 'standard' as any };
+  if (!presentation || typeof presentation !== 'object') return { title: '새 발표 자료', slides: [defaultSlide] } as any;
   let slides = Array.isArray(presentation.slides) ? presentation.slides : [];
   if (slides.length === 0) slides = [defaultSlide];
   return {
@@ -128,6 +128,9 @@ export function usePresentation() {
 
   const [appTheme, setAppTheme] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('apptheme') || 'blue' : 'blue'));
   const [isDark, setIsDark] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false));
+
+  // New state for interactive elements
+  const [selectedText, setSelectedText] = useState<string | undefined>();
 
   const changeTheme = useCallback((theme: string) => {
     document.documentElement.classList.remove('theme-navy', 'theme-purple', 'theme-green', 'theme-orange');
@@ -200,7 +203,7 @@ export function usePresentation() {
 
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
-    const dummyFile: ParsedFileData = { fileName: '직접입력.txt', fileType: 'text/plain', content: prompt, summary: prompt.slice(0, 30) };
+    const dummyFile: ParsedFileData = { fileName: '직접입력.txt', fileType: 'text/plain' as any, content: prompt, summary: prompt.slice(0, 30) };
     setParsedFiles([dummyFile]);
     setFileNames([dummyFile.fileName]);
     setMeetingInfo((prev) => ({ ...prev, week: prompt.slice(0, 40) }));
@@ -281,7 +284,7 @@ export function usePresentation() {
 
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide) => {
     try {
-      const resData = await retryWithBackoff(() => aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation }), { maxRetries: 1 });
+      const resData = await retryWithBackoff(() => aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation, selectedText }), { maxRetries: 1 });
       if (resData.result?.slide) resData.result.slide = normalizeSlideForApp(resData.result.slide, slideIndex);
       return resData.result;
     } catch (err: any) {
@@ -470,6 +473,22 @@ export function usePresentation() {
     }
   }, [presentation, settings]);
 
+  const handleFactCheck = useCallback(async (text: string, slideContext: any) => {
+    toast.loading('사실 관계를 검증하는 중입니다...', { id: 'fact-check' });
+    try {
+      const result = await aiService.verifyFact(text, slideContext);
+      if (result.isFact === true) {
+        toast.success(`팩트체크 완료: 신뢰할 수 있는 정보입니다. (${result.confidence})\n이유: ${result.reasoning}`, { id: 'fact-check', duration: 8000 });
+      } else if (result.isFact === false) {
+        toast.error(`⚠️ 팩트체크 주의: 환각이나 오류일 수 있습니다. (${result.confidence})\n이유: ${result.reasoning}`, { id: 'fact-check', duration: 10000 });
+      } else {
+        toast.info(`🤔 확인 불가: ${result.reasoning}`, { id: 'fact-check', duration: 8000 });
+      }
+    } catch (err: any) {
+      toast.error(getKoreanErrorMessage(err), { id: 'fact-check' });
+    }
+  }, []);
+
   // ✅ 누락되었던 return 블록의 완벽한 복구
   return {
     step, setStep,
@@ -497,6 +516,9 @@ export function usePresentation() {
     reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide,
     updatePresentationTitle: (title: string) => setPresentation(p => p ? ({ ...p, title }) : null),
     
+    // Interactive editing and fact check
+    selectedText, setSelectedText, handleFactCheck,
+
     // ✅ 이것이 없어서 Index.tsx가 undefined를 넘기고 화면이 터졌습니다!
     currentSlideIndex, setCurrentSlideIndex, 
   };

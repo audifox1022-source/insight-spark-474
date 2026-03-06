@@ -69,9 +69,11 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
       .join('\n');
 
     const systemInstruction = prompts.getSystemPromptCore(difficulty);
+    const audiencePrompt = prompts.getAudiencePrompt(body.settings?.audience);
     const userPrompt = `${prompts.SLIDE_SCHEMA}
 
 당신은 최고 수준의 프레젠테이션 디자이너입니다. 구성안에 맞춰 실제 내용을 채워 넣으세요.
+${audiencePrompt}
 
 [📄 원본 데이터]
 ${utils.truncateFileData(body.fileData)}
@@ -121,10 +123,18 @@ ${typeGuide}
 
   async chatEdit(body: any) {
     const systemInstruction = prompts.getSystemPromptCore();
+    let targetedElementInfo = "";
+    if (body.selectedText) {
+      targetedElementInfo = `\n[⚠️ 주목]: 사용자가 특정 텍스트를 선택했습니다: "${body.selectedText}"\n이 부분에 집중해서 수정 요청을 반영하세요.\n`;
+    }
+
     const userPrompt = `${prompts.SLIDE_SCHEMA}
 [미션] 요청 반영하여 슬라이드 수정. (항목 최대 4개 제한 유지)
-요청: ${body.userMessage}
-현재: ${JSON.stringify(body.currentSlide)}
+요청: ${body.userMessage}${targetedElementInfo}
+현재 슬라이드 상태: ${JSON.stringify(body.currentSlide)}
+
+당신은 프레젠테이션의 수정자입니다. 위 요청에 맞춰 슬라이드의 내용, 레이아웃, 또는 스타일을 적절히 변경하세요. 
+선택된 텍스트가 전달되었다면 반드시 해당 부분을 중점적으로 고려하여 부분적으로 수정하세요. 변경되지 않아야 하는 부분은 그대로 유지하세요.
 JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
@@ -205,6 +215,23 @@ JSON 반환: {"type":"grid","reason":"이유"}`;
 JSON 반환: {"primaryColor":"#1B3A5C","accentColor":"#0D8ECF","description":"설명"}`;
     const text = await callGeminiAPI('디자인 전문가.', userPrompt, 512);
     return utils.extractJSON(text) || { primaryColor: '#1B3A5C', accentColor: '#0D8ECF', description: '' };
+  },
+
+  async verifyFact(text: string, slideContext: any) {
+    const userPrompt = `당신은 엄격한 팩트체커(Fact Checker) 비서입니다. 다음 주장이나 수치 통계가 사실인지, 환각(Hallucination)은 아닌지 교차 검증하세요.
+
+[검증할 텍스트]: "${text}"
+[슬라이드 컨텍스트]: ${JSON.stringify(slideContext)}
+
+이 수치나 주장이 일반적으로 알려진 사실에 부합하는지, 논리적 모순이 없는지 평가하세요. 가상의 데이터라면 가상 데이터일 가능성이 높다고 명시하세요.
+JSON 반환: {
+  "isFact": true/false (또는 확인불가일 경우 null),
+  "confidence": "high" | "medium" | "low",
+  "reasoning": "검증 이유 및 가능한 출처에 대한 설명 (다소 짧게)"
+}`;
+    const responseText = await callGeminiAPI("팩트체커입니다.", userPrompt, 1024);
+    const json = utils.extractJSON(responseText);
+    return json || { isFact: null, confidence: "low", reasoning: "검증에 실패했습니다." };
   },
 
   async exportToExternal(_presentation: any, _platform: 'notion' | 'google'): Promise<void> {

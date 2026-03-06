@@ -71,6 +71,9 @@ interface ScaledSlideProps {
   containerClassName?: string;
   logoUrl?: string;
   watermark?: string;
+  onElementClick?: (text: string) => void;
+  onFactCheck?: (text: string, context: any) => void;
+  interactive?: boolean;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -140,6 +143,22 @@ const SlideBackground: React.FC<{ imageUrl?: string; bgGradient?: string }> = ({
     <div style={{ position: 'absolute', inset: 0, zIndex: 0, overflow: 'hidden' }}>
       <img src={imageUrl} alt="" onError={() => setImgError(true)} crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.82) 0%, rgba(255,255,255,0.68) 100%)' }} />
+    </div>
+  );
+};
+
+const InteractiveElement: React.FC<{ children: React.ReactNode; text: string; onClick?: (text: string) => void; interactive?: boolean }> = ({ children, text, onClick, interactive }) => {
+  if (!interactive) return <>{children}</>;
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(text);
+      }}
+      className="group/element relative cursor-pointer outline-none hover:ring-2 hover:ring-primary/50 hover:bg-primary/5 transition-all rounded-md -m-1 p-1"
+      title="클릭하여 AI로 편집하기"
+    >
+      {children}
     </div>
   );
 };
@@ -344,25 +363,27 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
     </div>
   );
 
-  return <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>{isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}</div>;
+   return <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>{isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}</div>;
 }
 
-function renderGridCards(slide: Slide, contentFontSize: string) {
+function renderGridCards(slide: Slide, contentFontSize: string, interactive?: boolean, onElementClick?: (text: string) => void) {
   const items = slide.content ?? slide.points ?? slide.items ?? [];
   const cols = items.length <= 2 ? 2 : items.length <= 4 ? 2 : 3;
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', width: '100%' }}>
       {items.map((item, i) => (
-        <div key={i} style={{ background: i === 0 ? `linear-gradient(135deg, ${P.primary}, ${P.primaryDark})` : '#fff', borderRadius: 20, padding: '1.6rem 1.4rem', border: `1px solid ${i === 0 ? 'transparent' : 'rgba(0,0,0,0.04)'}`, display: 'flex', flexDirection: 'column', gap: '0.8rem', boxShadow: i === 0 ? `0 16px 32px -8px ${P.primary}60` : '0 8px 24px -8px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden' }}>
-          {i === 0 && <div style={{ position: 'absolute', top: 0, right: 0, width: '60%', height: '60%', background: '#fff', borderRadius: '50%', filter: 'blur(40px)', opacity: 0.15, zIndex: 0 }} />}
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
-            {String(i + 1).padStart(2, '0')}
+        <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
+          <div style={{ background: i === 0 ? `linear-gradient(135deg, ${P.primary}, ${P.primaryDark})` : '#fff', borderRadius: 20, padding: '1.6rem 1.4rem', border: `1px solid ${i === 0 ? 'transparent' : 'rgba(0,0,0,0.04)'}`, display: 'flex', flexDirection: 'column', gap: '0.8rem', boxShadow: i === 0 ? `0 16px 32px -8px ${P.primary}60` : '0 8px 24px -8px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden', height: '100%' }}>
+            {i === 0 && <div style={{ position: 'absolute', top: 0, right: 0, width: '60%', height: '60%', background: '#fff', borderRadius: '50%', filter: 'blur(40px)', opacity: 0.15, zIndex: 0 }} />}
+            <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
+              {String(i + 1).padStart(2, '0')}
+            </div>
+            <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1 }}>
+              {safeString(item)}
+            </p>
           </div>
-          <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1 }}>
-            {safeString(item)}
-          </p>
-        </div>
+        </InteractiveElement>
       ))}
     </div>
   );
@@ -372,7 +393,7 @@ function renderGridCards(slide: Slide, contentFontSize: string) {
 // ScaledSlide — 메인 컴포넌트
 // ══════════════════════════════════════════════════════════════
 export const ScaledSlide: React.FC<ScaledSlideProps> = ({
-  slide, containerClassName = '', logoUrl, watermark,
+  slide, containerClassName = '', logoUrl, watermark, onElementClick, onFactCheck, interactive
 }) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content = Array.isArray(rawContent) ? rawContent : [];
@@ -412,7 +433,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>PRESENTATION</span>
           </div>
-          <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h1>
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+            <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h1>
+          </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}>{slide.subhead}</p>}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
@@ -436,8 +459,14 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
-          {content[0] && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>{safeString(content[0])}</p>}
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
+          </InteractiveElement>
+          {content[0] && (
+            <InteractiveElement text={safeString(content[0])} onClick={onElementClick} interactive={interactive}>
+              <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>{safeString(content[0])}</p>
+            </InteractiveElement>
+          )}
         </div>
         <SlideNumber number={slide.slideNumber} light />
       </div>
@@ -462,8 +491,21 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 <div key={i} style={{ borderRadius: 24, padding: '1.8rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
                   {/* Glass Shimmer */}
                   {isFirst && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)', pointerEvents: 'none' }} />}
-                  <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.label}</div>
-                  <BigNumber value={m.value} light={isFirst} />
+                   <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.label}</div>
+                  
+                  <div className="relative group/fact">
+                    <BigNumber value={m.value} light={isFirst} />
+                    {interactive && onFactCheck && (
+                       <button
+                         onClick={(e) => { e.stopPropagation(); onFactCheck(String(m.value) + ' ' + m.label, slide); }}
+                         className="absolute -right-2 -top-2 opacity-0 group-hover/fact:opacity-100 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full p-1 shadow-md transition-all z-10"
+                         title="이 수치의 팩트(사실) 확인하기"
+                       >
+                         <CheckCircle2 className="w-3.5 h-3.5" />
+                       </button>
+                    )}
+                  </div>
+
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
@@ -662,7 +704,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   // ── 10. Split / Grid 레이아웃
   if (layout === 'split-left') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, false)}</div><SlideNumber number={slide.slideNumber} /></div>;
   if (layout === 'split-right') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, true)}</div><SlideNumber number={slide.slideNumber} /></div>;
-  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize, interactive, onElementClick)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
 
   // ── 11. 기본 콘텐츠 슬라이드 (전면 리디자인)
   return (
@@ -676,17 +718,21 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem', paddingLeft: '0.8rem' }}>
         <div style={{ flexShrink: 0, borderLeft: `3px solid ${P.accent}`, paddingLeft: '1rem' }}>
           <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2em', color: P.primary, textTransform: 'uppercase', marginBottom: '0.3rem' }}>{slide.type ?? 'CONTENT'}</div>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}>{slide.title}</h2>
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}>{slide.title}</h2>
+          </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.7)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}>{slide.subhead}</p>}
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'flex-start' }}>
           {content.map((item, i) => (
-            <div key={i} style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start', padding: '0.55rem 0.9rem', borderRadius: 12, background: i === 0 ? `${P.primary}0D` : 'rgba(255,255,255,0.5)', border: `1px solid ${i === 0 ? `${P.primary}20` : 'rgba(0,0,0,0.03)'}`, backdropFilter: 'blur(4px)' }}>
-              <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                {String(i + 1).padStart(2, '0')}
+            <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
+              <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start', padding: '0.55rem 0.9rem', borderRadius: 12, background: i === 0 ? `${P.primary}0D` : 'rgba(255,255,255,0.5)', border: `1px solid ${i === 0 ? `${P.primary}20` : 'rgba(0,0,0,0.03)'}`, backdropFilter: 'blur(4px)' }}>
+                <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
+                  {String(i + 1).padStart(2, '0')}
+                </div>
+                <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
               </div>
-              <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
-            </div>
+            </InteractiveElement>
           ))}
         </div>
       </div>

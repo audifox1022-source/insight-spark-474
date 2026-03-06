@@ -97,6 +97,7 @@ export function PresentationTab(props: PresentationTabProps) {
     handleReferenceFileUpload,
     clearReferenceFile,
     currentSlideIndex, setCurrentSlideIndex,
+    selectedText, setSelectedText, handleFactCheck,
   } = props;
 
   return (
@@ -342,6 +343,11 @@ export function PresentationTab(props: PresentationTabProps) {
             isGeneratingImage={isGeneratingImage}
             generateSlideImage={generateSlideImage}
 
+            selectedText={selectedText}
+            onSelectText={setSelectedText}
+            onClearSelectedText={() => setSelectedText(undefined)}
+            onFactCheck={handleFactCheck}
+
             onAddContent={(idx) => {
               const newContent = [...(presentation.slides[idx].content || []), '새 항목'];
               updateSlide(idx, { content: newContent });
@@ -392,6 +398,8 @@ export function PresentationTab(props: PresentationTabProps) {
             slideIndex={currentChatSlideIndex || 0}
             onApply={(updatedSlide) => updateSlide(currentChatSlideIndex || 0, updatedSlide)}
             onRequestEdit={requestChatEdit}
+            selectedText={selectedText}
+            onClearSelectedText={() => setSelectedText(undefined)}
           />
           <ReviewPanel
             open={reviewOpen}

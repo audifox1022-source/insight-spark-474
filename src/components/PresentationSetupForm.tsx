@@ -60,6 +60,15 @@ const VOLUME_OPTIONS = [
   { value: 'comprehensive', label: '완전 (16장+)' },
 ];
 
+const AUDIENCE_OPTIONS = [
+  { value: 'general',   label: '일반 대상', desc: '표준적인 어조' },
+  { value: 'executive', label: '경영진/임원', desc: '결론 위주, 핵심 요약' },
+  { value: 'investor',  label: '투자자',   desc: '비전, 성장성 강조' },
+  { value: 'marketing', label: '마케팅팀', desc: '트렌디, 시각적 강조' },
+  { value: 'tech',      label: '개발/기술팀', desc: '논리적, 기술적 상세' },
+  { value: 'newbie',    label: '신입사원', desc: '친절하고 쉬운 설명' },
+];
+
 export function PresentationSetupForm({
   info, onChange, settings, onSettingsChange,
   onGenerate, onBack, isGenerating,
@@ -341,6 +350,23 @@ export function PresentationSetupForm({
               <SelectContent>
                 {VOLUME_OPTIONS.map((opt) => (
                   <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 col-span-2 sm:col-span-1">
+            <Label htmlFor="audience">보고 대상 (타깃 청중)</Label>
+            <Select
+              value={settings.audience || 'general'}
+              onValueChange={(v) => updateSetting('audience', v as PresentationSettings['audience'])}
+            >
+              <SelectTrigger id="audience"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {AUDIENCE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="font-medium">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground ml-2">{opt.desc}</span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

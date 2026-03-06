@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Send, Loader2, Sparkles, Bot, User, Minimize2 } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Bot, User, Minimize2, Target } from 'lucide-react';
 import { Slide } from '@/types/presentation';
 
 interface ChatMessage {
@@ -17,7 +17,9 @@ interface ChatEditPanelProps {
   currentSlide: Slide;
   slideIndex: number;
   onApply: (updatedSlide: Slide) => void;
-  onRequestEdit: (message: string, slideIndex: number, currentSlide: Slide) => Promise<{ slide: Slide; summary: string } | null>;
+  onRequestEdit: (message: string, slideIndex: number, currentSlide: Slide, selectedText?: string) => Promise<{ slide: Slide; summary: string } | null>;
+  selectedText?: string;
+  onClearSelectedText?: () => void;
 }
 
 const QUICK_COMMANDS = [
@@ -29,7 +31,7 @@ const QUICK_COMMANDS = [
 ];
 
 export function ChatEditPanel({
-  open, onClose, currentSlide, slideIndex, onApply, onRequestEdit,
+  open, onClose, currentSlide, slideIndex, onApply, onRequestEdit, selectedText, onClearSelectedText
 }: ChatEditPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -58,7 +60,7 @@ export function ChatEditPanel({
     setIsLoading(true);
 
     try {
-      const result = await onRequestEdit(userMsg, slideIndex, currentSlide);
+      const result = await onRequestEdit(userMsg, slideIndex, currentSlide, selectedText);
       if (result) {
         setPendingSlide(result.slide);
         setMessages((prev) => [
@@ -152,6 +154,20 @@ export function ChatEditPanel({
               {currentSlide.title || '제목 없음'}
             </p>
           </div>
+
+          {selectedText && (
+            <div className="px-4 py-2 bg-primary/5 border-b border-primary/10 flex items-center justify-between">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <Target className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="text-xs text-primary font-medium truncate">선택됨: "{selectedText}"</span>
+              </div>
+              {onClearSelectedText && (
+                <Button size="icon" variant="ghost" onClick={onClearSelectedText} className="w-5 h-5 h-auto hover:bg-black/5">
+                  <X className="w-3 h-3 text-primary" />
+                </Button>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/10">
             {messages.length === 0 && (
