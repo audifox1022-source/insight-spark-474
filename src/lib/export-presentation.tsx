@@ -227,7 +227,7 @@ export async function exportToPptx(
             const y = contentY + Math.floor(i / cols) * 1.8;
 
             // 카드 박스 (그림자 및 모서리 둥글게)
-            s.addShape(pptx.ShapeType.roundRect, {
+            s.addShape(pptx.ShapeType.rect, {
               x, y, w: cardW, h: 1.6, fill: { color: WHITE }, line: { color: BORDER, width: 1 }, rectRadius: 0.08,
               shadow: { type: 'outer', blur: 5, offset: 2, color: '000000', opacity: 0.05 }
             });
@@ -273,7 +273,7 @@ export async function exportToPptx(
         const halfW = (mainW / 2) - 0.2;
 
         // 왼쪽 (AS-IS 박스)
-        s.addShape(pptx.ShapeType.roundRect, { x: contentX, y: contentY, w: halfW, h: contentH, fill: { color: WHITE }, line: { color: BORDER, width: 1 }, rectRadius: 0.1, shadow: { type: 'outer', blur: 5, offset: 2, opacity: 0.05 } });
+        s.addShape(pptx.ShapeType.rect, { x: contentX, y: contentY, w: halfW, h: contentH, fill: { color: WHITE }, line: { color: BORDER, width: 1 }, rectRadius: 0.1, shadow: { type: 'outer', blur: 5, offset: 2, opacity: 0.05 } });
         s.addShape(pptx.ShapeType.rect, { x: contentX, y: contentY, w: halfW, h: 0.6, fill: { color: 'F1F5F9' } }); // 헤더 배경
         s.addText(safeString(slide.leftTitle || 'AS-IS'), { x: contentX, y: contentY + 0.1, w: halfW, h: 0.4, fontSize: CONTENT_PT + 2, bold: true, color: GRAY, align: 'center', fontFace: SAFE_FONT });
         if (slide.leftItems && slide.leftItems.length > 0) {
@@ -283,7 +283,7 @@ export async function exportToPptx(
 
         // 오른쪽 (TO-BE 박스)
         const rightX = contentX + halfW + 0.4;
-        s.addShape(pptx.ShapeType.roundRect, { x: rightX, y: contentY, w: halfW, h: contentH, fill: { color: WHITE }, line: { color: PRIMARY, width: 2 }, rectRadius: 0.1, shadow: { type: 'outer', blur: 10, offset: 4, color: PRIMARY, opacity: 0.15 } });
+        s.addShape(pptx.ShapeType.rect, { x: rightX, y: contentY, w: halfW, h: contentH, fill: { color: WHITE }, line: { color: PRIMARY, width: 2 }, rectRadius: 0.1, shadow: { type: 'outer', blur: 10, offset: 4, color: PRIMARY, opacity: 0.15 } });
         s.addShape(pptx.ShapeType.rect, { x: rightX, y: contentY, w: halfW, h: 0.6, fill: { color: 'EFF6FF' } }); // 헤더 배경
         s.addText(safeString(slide.rightTitle || 'TO-BE'), { x: rightX, y: contentY + 0.1, w: halfW, h: 0.4, fontSize: CONTENT_PT + 2, bold: true, color: PRIMARY, align: 'center', fontFace: SAFE_FONT });
         if (slide.rightItems && slide.rightItems.length > 0) {
@@ -330,7 +330,7 @@ export async function exportToPptx(
 
           if (slide.layout === 'highlight') {
             // 중앙의 커다란 강조 박스
-            s.addShape(pptx.ShapeType.roundRect, {
+            s.addShape(pptx.ShapeType.rect, {
               x: PAD_X + 1, y: contentY, w: SW - (PAD_X * 2) - 2, h: contentH, fill: { color: PRIMARY }, rectRadius: 0.2, shadow: { type: 'outer', blur: 15, offset: 5, opacity: 0.3 }
             });
             s.addText(safeString(items[0]), {
@@ -346,7 +346,7 @@ export async function exportToPptx(
             items.forEach((item, i) => {
               const cx = contentX + (i % gridCols) * (gridCardW + gridGap);
               const cy = contentY + Math.floor(i / gridCols) * (gridCardH + gridGap);
-              s.addShape(pptx.ShapeType.roundRect, { x: cx, y: cy, w: gridCardW, h: gridCardH, fill: { color: WHITE }, line: { color: BORDER, width: 1 }, rectRadius: 0.1 });
+              s.addShape(pptx.ShapeType.rect, { x: cx, y: cy, w: gridCardW, h: gridCardH, fill: { color: WHITE }, line: { color: BORDER, width: 1 }, rectRadius: 0.1 });
               s.addText(safeString(item), { x: cx + 0.2, y: cy + 0.2, w: gridCardW - 0.4, h: gridCardH - 0.4, color: DARK, fontSize: CONTENT_PT - 2, valign: 'middle', align: 'center', fontFace: SAFE_FONT });
             });
           } else {
