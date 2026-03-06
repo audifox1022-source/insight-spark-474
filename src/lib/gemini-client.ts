@@ -26,7 +26,7 @@ export interface GeminiPayload {
  */
 export async function callGemini(
   payload: GeminiPayload,
-  model = 'gemini-2.5-flash'
+  model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
 ): Promise<string> {
 
   let lastError: Error = new Error('알 수 없는 오류')

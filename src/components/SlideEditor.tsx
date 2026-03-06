@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
 import { SlideImageEditor } from './SlideImageEditor';
+import { TextFormatToolbar, TextStyle } from './TextFormatToolbar';
+import { SortableContentList } from './SortableContentList';
 
 interface SlideEditorProps {
   slides?: Slide[];
@@ -417,6 +419,50 @@ export function SlideEditor({
               </div>
             )}
           </div>
+          {/* ── 텍스트 서식 섹션 ── */}
+          <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
+            <button
+              onClick={() => toggleSection('format')}
+              className="w-full flex items-center justify-between mb-1 pb-3 border-b border-border/40 group">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-violet-500/10 rounded-md text-violet-600 group-hover:bg-violet-500 group-hover:text-white transition-colors">
+                  <Type className="w-4 h-4" />
+                </div>
+                <span className="text-[15px] font-bold text-foreground">텍스트 서식</span>
+              </div>
+              {expandedSection === 'format'
+                ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+            </button>
+
+            {expandedSection === 'format' && (
+              <div className="pt-4 space-y-5 animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* 제목 서식 */}
+                <TextFormatToolbar
+                  label="제목 서식"
+                  style={slide.titleStyle || {}}
+                  fontPt={slide.titleFontPt ?? 36}
+                  onStyleChange={s => onUpdateSlide(currentSlide, { titleStyle: s as any })}
+                  onFontPtChange={pt => onUpdateSlide(currentSlide, { titleFontPt: pt })}
+                />
+
+                <div className="h-px bg-border/60" />
+
+                {/* 본문 서식 */}
+                <TextFormatToolbar
+                  label="본문 서식"
+                  style={slide.contentStyle || {}}
+                  fontPt={slide.contentFontPt ?? 20}
+                  onStyleChange={s => onUpdateSlide(currentSlide, { contentStyle: s as any })}
+                  onFontPtChange={pt => onUpdateSlide(currentSlide, { contentFontPt: pt })}
+                />
+
+                <p className="text-[10px] text-muted-foreground bg-muted/50 rounded-lg p-2 text-center">
+                  서식은 슬라이드 미리보기에 즉시 반영됩니다
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* 콘텐츠 편집 */}
           <div className="bg-white rounded-2xl p-5 border border-border/60 shadow-sm transition-all hover:shadow-md">
@@ -448,29 +494,11 @@ export function SlideEditor({
                         </Button>
                       )}
                     </div>
-                    <div className="space-y-2.5">
-                      {slide.content.map((item, idx) => (
-                        <div key={idx} className="flex items-start gap-2 group relative">
-                          <Textarea
-                            value={item}
-                            onChange={e => {
-                              const newContent = [...slide.content!];
-                              newContent[idx] = e.target.value;
-                              onUpdateSlide(currentSlide, { content: newContent });
-                            }}
-                            className="flex-1 min-h-[60px] text-[13px] leading-relaxed resize-y"
-                            placeholder={`항목 ${idx + 1}`}
-                          />
-                          {onRemoveContent && slide.content!.length > 1 && (
-                            <Button size="icon" variant="ghost"
-                              className="h-7 w-7 absolute -right-2 -top-2 bg-background border border-border rounded-full opacity-0 group-hover:opacity-100 shadow-sm text-destructive hover:text-destructive hover:bg-destructive/10 transition-all"
-                              onClick={() => onRemoveContent(currentSlide, idx)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <SortableContentList 
+                      items={slide.content}
+                      onChange={(newContent) => onUpdateSlide(currentSlide, { content: newContent })}
+                      onRemoveItem={onRemoveContent ? (idx) => onRemoveContent(currentSlide, idx) : undefined}
+                    />
                   </div>
                 )}
 

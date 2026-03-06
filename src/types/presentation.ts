@@ -139,6 +139,25 @@ export interface Slide {
   };
 
   imageUrl?: string;
+
+  // ✅ 배경 그라디언트
+  bgGradient?: string;
+
+  // ✅ 텍스트 서식 (앱 내 편집 → ScaledSlide 렌더링에 반영)
+  titleStyle?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    color?: string;
+    align?: 'left' | 'center' | 'right';
+  };
+  contentStyle?: {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    color?: string;
+    align?: 'left' | 'center' | 'right';
+  };
 }
 
 export interface Presentation {
