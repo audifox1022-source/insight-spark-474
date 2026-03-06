@@ -276,7 +276,6 @@ function renderChart(cd?: SlideChartData) {
     </ResponsiveContainer>
   );
 }
-}
 
 function renderTimeline(slide: Slide, contentFontSize: string) {
   const milestones = slide.milestones ?? [];
