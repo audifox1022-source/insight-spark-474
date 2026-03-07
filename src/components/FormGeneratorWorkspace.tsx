@@ -145,31 +145,31 @@ export function FormGeneratorWorkspace() {
             <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-gradient-to-br from-primary/10 to-accent/5 blur-2xl" />
             <div className="absolute -bottom-4 left-12 w-32 h-32 rounded-full bg-gradient-to-br from-accent/10 to-primary/5 blur-xl" />
           </div>
-          <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6">
-            <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3">
-                <Wand2 className="w-3.5 h-3.5" /> AI 문서 생성 마스터
+          <div className="relative flex items-center justify-between gap-4 px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
+                <Wand2 className="w-3 h-3" /> AI 문서 생성 마스터
               </div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+              <h2 className="text-lg font-extrabold tracking-tight text-foreground">
                 WorkAI{' '}
                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
                   고품격 문서 생성기
                 </span>
               </h2>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="text-muted-foreground text-xs hidden md:block">
                 양식 종류를 선택하고 요청사항을 입력하면 AI가 즉시 완성된 HTML 문서를 만들어냅니다.
               </p>
             </div>
-            {/* 통계 배지 */}
-            <div className="flex gap-3 flex-shrink-0">
+            {/* 통계 배지 — 우측 */}
+            <div className="hidden lg:flex gap-2 flex-shrink-0">
               {[
-                { label: '생성 가능 양식', value: `${FORM_PRESETS.length - 1}종+` },
-                { label: '평균 생성 시간', value: '~10초' },
-                { label: 'PDF 변환', value: '즉시 가능' },
+                { label: '생성 가능', value: `${FORM_PRESETS.length - 1}종+` },
+                { label: '생성 시간', value: '~10초' },
+                { label: 'PDF 변환', value: '즉시' },
               ].map(stat => (
-                <div key={stat.label} className="text-center px-4 py-2 rounded-xl bg-muted/40 border border-border/50">
-                  <p className="text-base font-extrabold text-primary">{stat.value}</p>
-                  <p className="text-[10px] text-muted-foreground font-medium">{stat.label}</p>
+                <div key={stat.label} className="text-center px-3 py-1.5 rounded-lg bg-muted/40 border border-border/50">
+                  <p className="text-sm font-extrabold text-primary">{stat.value}</p>
+                  <p className="text-[9px] text-muted-foreground font-medium">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -482,7 +482,7 @@ export function FormGeneratorWorkspace() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="flex-1 flex flex-col items-center justify-center p-8"
+                className="flex-1 flex flex-col items-center justify-start p-6 overflow-y-auto"
               >
                 <div className="w-full max-w-2xl">
                   <div className="text-center mb-8">
