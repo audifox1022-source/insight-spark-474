@@ -1,0 +1,18 @@
+# Work AI 프로젝트 .cursorrules (React + Vite + Shadcn UI 기반)
+
+## 0. 언어 및 태도
+- 모든 문서 주석, 커밋 메시지, 사용자와의 대화 응답, 앱 내 노출되는 문구는 반드시 "한국어"로 작성할 것.
+
+## 1. 프론트엔드 컨벤션
+- React 컴포넌트는 일반 함수 `export default function Name() {}` 또는 화살표 함수 구문을 일관성 있게 사용할 것.
+- Tailwind CSS 클래스를 길게 늘어쓰는 대신, 일관성 관리를 위해 `clsx`와 `tailwind-merge`를 래핑한 `cn()` 유틸리티(`src/lib/utils.ts`)를 적극 활용.
+- 아이콘은 반드시 `lucide-react`를 사용할 것.
+- 컴포넌트 분리 시 '의도 라우터(Intent Router)'가 JSON의 `SlideType`을 보고 동적으로 분기하는 방식을 엄격하게 유지.
+
+## 2. AI 연동 원칙
+- 생성형 AI(Gemini)로부터의 반환값은 무조건 `JSON` 객체인지 유효성을 검사하고(`extractJSON` 유틸 활용), `Slide` 인터페이스 스키마에 맞는지 점검할 것.
+- 텍스트 생성 중 AI가 JSON 구조를 깨뜨리지 않도록 프록시 프롬프트 엔지니어링 규칙을 엄수.
+
+## 3. 디자인/UX 가이드라인 (에셋 강제화)
+- 애니메이션은 `framer-motion`을 주로 사용하며, 전환은 부드럽고 가볍게 설계.
+- Brand Kit 요소(커스텀 로고, Primary Color)는 슬라이드 렌더링 영역(`ScaledSlide.tsx` 등)과 PptxGenJS Export(`export-presentation.tsx`) 단계에서 기존 스타일을 덮어쓰도록 우선순위를 높게 설계할 것.

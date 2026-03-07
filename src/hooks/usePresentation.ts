@@ -4,7 +4,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
-import { MeetingInfo, PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
+import { PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
 import { OutlineData } from '@/components/OutlinePreview';
 import { ReviewResult } from '@/components/ReviewPanel';
@@ -12,6 +12,12 @@ import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 import { aiService } from '@/lib/ai-service';
 import { validateAndFixPresentation } from '@/lib/layout-validator';
+
+export interface BrandKit {
+  logoUrl: string | null;
+  primaryColor: string | null;
+  fontFamily: string | null;
+}
 
 export type ExtendedStep = AppStep | 'outline';
 
@@ -99,7 +105,7 @@ export function usePresentation() {
   const [parsedFiles, setParsedFiles] = useState<ParsedFileData[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [template, setTemplate] = useState<string>('auto');
-  const [meetingInfo, setMeetingInfo] = useState<MeetingInfo>({ week: '', department: '', reporter: '', notes: '' });
+  const [meetingInfo, setMeetingInfo] = useState<any>({ week: '', department: '', reporter: '', notes: '' });
   const [settings, setSettings] = useState<PresentationSettings>({ difficulty: 'medium', volume: 'standard' });
   const [presentation, setPresentation] = useState<Presentation | null>(null);
   
@@ -128,6 +134,30 @@ export function usePresentation() {
 
   const [appTheme, setAppTheme] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('apptheme') || 'blue' : 'blue'));
   const [isDark, setIsDark] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false));
+
+  const [brandKit, setBrandKitState] = useState<BrandKit>(() => {
+    if (typeof window === 'undefined') return { logoUrl: null, primaryColor: null, fontFamily: null };
+    const saved = localStorage.getItem('brandKit');
+    return saved ? JSON.parse(saved) : { logoUrl: null, primaryColor: null, fontFamily: null };
+  });
+
+  const [geminiApiKey, setGeminiApiKeyState] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem('geminiApiKey') || '';
+  });
+
+  const setBrandKit = useCallback((kit: Partial<BrandKit>) => {
+    setBrandKitState((prev) => {
+      const next = { ...prev, ...kit };
+      localStorage.setItem('brandKit', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const setGeminiApiKey = useCallback((key: string) => {
+    setGeminiApiKeyState(key);
+    localStorage.setItem('geminiApiKey', key);
+  }, []);
 
   // New state for interactive elements
   const [selectedText, setSelectedText] = useState<string | undefined>();
@@ -539,11 +569,15 @@ export function usePresentation() {
     regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
     isGeneratingImage, generateSlideImage,
+    geminiApiKey, setGeminiApiKey,
     reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide, splitSlide,
     updatePresentationTitle: (title: string) => setPresentation(p => p ? ({ ...p, title }) : null),
     
     // Interactive editing and fact check
     selectedText, setSelectedText, handleFactCheck,
+
+    // Brand Kit
+    brandKit, setBrandKit,
 
     // ✅ 이것이 없어서 Index.tsx가 undefined를 넘기고 화면이 터졌습니다!
     currentSlideIndex, setCurrentSlideIndex, 

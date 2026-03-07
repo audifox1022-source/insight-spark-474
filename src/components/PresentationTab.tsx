@@ -98,6 +98,7 @@ export function PresentationTab(props: PresentationTabProps) {
     clearReferenceFile,
     currentSlideIndex, setCurrentSlideIndex,
     selectedText, setSelectedText, handleFactCheck,
+    brandKit,
   } = props;
 
   return (
@@ -368,7 +369,7 @@ export function PresentationTab(props: PresentationTabProps) {
                 } else if (format === 'pptx-image') {
                   await exportToPptxAsImage(presentation);
                 } else {
-                  await exportToPptx(presentation);
+                  await exportToPptx(presentation, brandKit); // brandKit 전달
                 }
 
                 toast.success('다운로드가 완료되었습니다!', { id: 'export' });

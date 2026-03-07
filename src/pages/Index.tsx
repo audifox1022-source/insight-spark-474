@@ -12,8 +12,10 @@ import {
   Sparkles, Moon, Sun, FolderOpen, 
   HelpCircle, LogOut, Palette, MessageSquare, 
   X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
-  Users, Eye, Globe, CheckCircle2, ChevronRight
+  Users, Eye, Globe, CheckCircle2, ChevronRight, ArrowLeft, Settings, KeyRound
 } from 'lucide-react'
+import { BrandKitSettings } from '@/components/BrandKitSettings'
+import { ApiKeySettings } from '@/components/ApiKeySettings'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
@@ -28,6 +30,8 @@ const Index = () => {
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [brandKitOpen, setBrandKitOpen] = useState(false)
+  const [apiKeySettingsOpen, setApiKeySettingsOpen] = useState(false)
 
   const { stats: visitorStats } = useVisitorCount()
 
@@ -38,7 +42,7 @@ const Index = () => {
   }
 
   const presentationHooks = usePresentation()
-  const { step, isDark, toggleDark, appTheme, changeTheme, openHistory } = presentationHooks
+  const { step, isDark, toggleDark, appTheme, changeTheme, openHistory, brandKit, setBrandKit } = presentationHooks
 
   const guide = getStepGuide(step)
 
@@ -53,23 +57,35 @@ const Index = () => {
       
       {/* ── TOP HEADER (Navigation) ──────────────────────────── */}
       <header className="h-16 w-full border-b border-border/40 bg-card/80 backdrop-blur-xl flex items-center justify-between px-6 z-20 shadow-[0_4px_24px_-12px_rgba(0,0,0,0.1)] shrink-0 transition-colors">
-        {/* 로고 영역 */}
-        <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
-          <motion.div
-            className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
-            whileHover={{ scale: 1.05, rotate: 6 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+        {/* 뒤로가기 및 로고 영역 */}
+        <div className="flex items-center cursor-pointer">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="w-9 h-9 mr-3 rounded-lg text-muted-foreground hover:bg-muted"
+            title="뒤로 가기"
           >
-            <Sparkles className="w-5 h-5 text-primary-foreground" />
-          </motion.div>
-          <div className="ml-3 flex items-center gap-3">
-            <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
-              WorkAI
-            </h1>
-            <div className="w-px h-4 bg-border/80 hidden sm:block" />
-            <span className="text-xs text-muted-foreground font-bold tracking-wider hidden sm:block">
-              올인원 생산성 도구
-            </span>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          
+          <div className="flex items-center hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
+            <motion.div
+              className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
+              whileHover={{ scale: 1.05, rotate: 6 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            >
+              <Sparkles className="w-5 h-5 text-primary-foreground" />
+            </motion.div>
+            <div className="ml-3 flex items-center gap-3">
+              <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
+                WorkAI
+              </h1>
+              <div className="w-px h-4 bg-border/80 hidden sm:block" />
+              <span className="text-xs text-muted-foreground font-bold tracking-wider hidden sm:block">
+                올인원 생산성 도구
+              </span>
+            </div>
           </div>
         </div>
 
@@ -181,6 +197,24 @@ const Index = () => {
               title="사용 가이드"
             >
               <HelpCircle className="w-4 h-4" />
+            </Button>
+            
+            <Button
+              variant="ghost" size="icon"
+              onClick={() => setApiKeySettingsOpen(true)}
+              className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="API 키 설정"
+            >
+              <KeyRound className="w-4 h-4" />
+            </Button>
+
+            <Button
+              variant="ghost" size="icon"
+              onClick={() => setBrandKitOpen(true)}
+              className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="Brand Kit 설정"
+            >
+              <Settings className="w-4 h-4" />
             </Button>
             
             <div className="w-px h-5 bg-border/80 mx-1" />
@@ -325,6 +359,12 @@ const Index = () => {
         )}
       </AnimatePresence>
 
+      <BrandKitSettings 
+        open={brandKitOpen}
+        onOpenChange={setBrandKitOpen}
+        brandKit={brandKit}
+        onSave={setBrandKit}
+      />
     </div>
   )
 }

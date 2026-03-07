@@ -6,7 +6,7 @@ import { Input }    from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   FileText, Download, RefreshCw,
-  Loader2, PencilLine, Wand2, Send, Sparkles,
+  Loader2, PencilLine, Wand2, Send, Sparkles, CheckCircle2
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -85,29 +85,36 @@ export function FormGeneratorWorkspace() {
   const activePresetData = FORM_PRESETS.find(p => p.id === activePreset)
 
   return (
-    <div className="flex flex-col h-full gap-0 overflow-hidden">
+    <div className="flex flex-col h-full gap-4 p-2 md:p-4 overflow-hidden max-w-[1400px] mx-auto w-full">
 
-      {/* ── 상단 타이틀 바 ── */}
-      <div className="flex-shrink-0 text-center py-6 border-b border-border bg-card/50">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3 border border-primary/20">
-          <FileText className="w-3.5 h-3.5" /> AI 문서 생성기
+      {/* ── 상단 타이틀 바 (간결하고 현대적인 디자인) ── */}
+      <div className="flex-shrink-0 flex flex-col md:flex-row items-center justify-between gap-4 p-6 rounded-2xl bg-card border border-border/60 shadow-sm relative overflow-hidden">
+        {/* 장식용 배경 */}
+        <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+          <Wand2 className="w-48 h-48 rotate-12" />
         </div>
-        <h2 className="text-3xl font-black tracking-tight text-foreground">
-          WorkAI로{' '}
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
-            업무 양식 자동 생성
-          </span>
-        </h2>
-        <p className="text-muted-foreground mt-2 text-sm">
-          양식을 선택하고 요청사항을 입력하면 AI가 완성된 HTML 양식을 즉시 생성합니다.
-        </p>
+        
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3">
+            <Sparkles className="w-3.5 h-3.5" /> 만능 문서 생성 마스터
+          </div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+            WorkAI{' '}
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+              고품격 웹 문서 제너레이터
+            </span>
+          </h2>
+          <p className="text-muted-foreground mt-1 text-sm font-medium">
+            아이디어만 입력하세요. 완벽한 레이아웃과 서식을 갖춘 HTML 양식을 즉시 만들어냅니다.
+          </p>
+        </div>
       </div>
 
-      {/* ── 2-column 메인 ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* ── 메인 워크스페이스 (Bento Grid) ── */}
+      <div className="flex flex-col lg:flex-row flex-1 min-h-0 gap-4 overflow-hidden">
 
-        {/* ══ 왼쪽 패널 — 양식 선택 & 입력 ══ */}
-        <div className="w-72 flex-shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
+        {/* ══ 왼쪽 패널 — 시크한 컨트롤 패널 ══ */}
+        <div className="w-full lg:w-80 flex-shrink-0 rounded-2xl border border-border/60 bg-card shadow-sm flex flex-col overflow-y-auto">
 
           {/* 양식 종류 선택 */}
           <div className="p-4 border-b border-border">
@@ -284,44 +291,58 @@ export function FormGeneratorWorkspace() {
           </div>
         </div>
 
-        {/* ══ 오른쪽 패널 — 미리보기 ══ */}
-        <div className="flex-1 flex flex-col min-w-0 bg-muted/20">
+        {/* ══ 오른쪽 패널 — 라이브 뷰어 (Preview) ══ */}
+        <div className="flex-1 flex flex-col min-w-0 rounded-2xl border border-border/60 shadow-sm overflow-hidden bg-muted/10 relative">
           {!generatedHtml ? (
-            /* 생성 전 안내 화면 */
-            <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <FileText className="w-10 h-10 text-primary/60" />
-              </div>
-              <div className="text-center max-w-sm">
-                <p className="text-base font-bold text-foreground mb-2">
-                  왼쪽에서 양식을 선택하세요
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  양식 종류를 선택하고 요청사항을 입력한 후<br />
-                  <span className="text-primary font-semibold">AI 양식 생성</span> 버튼을 클릭하면<br />
-                  여기에 완성된 양식이 표시됩니다.
-                </p>
-              </div>
+            /* 생성 전 Empty State (Bento Style) */
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card border-none">
+              
+              <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* 메인 타이틀 & 가이드 */}
+                <div className="col-span-full text-center mb-6">
+                  <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center mb-4 shadow-sm">
+                    <FileText className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground">새로운 캔버스가 준비되었습니다</h3>
+                  <p className="text-muted-foreground mt-2 text-sm leading-relaxed max-w-md mx-auto">
+                    왼쪽 패널에서 양식 종류를 선택하고 필요한 정보나 조건을 요청사항에 적어주세요. AI가 <strong className="text-primary font-semibold">단 10초 만에 분석 가능한 스마트 문서</strong>를 생성합니다.
+                  </p>
+                </div>
 
-              {/* 빠른 시작 카드 */}
-              <div className="grid grid-cols-3 gap-3 max-w-md w-full">
-                {FORM_PRESETS.filter(p => p.id !== 'manual').slice(0, 3).map(preset => (
-                  <button
+                {/* 제안 카드 그리드 */}
+                {FORM_PRESETS.filter(p => p.id !== 'manual').slice(0, 4).map((preset, idx) => (
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.1 }}
                     key={preset.id}
                     onClick={() => {
                       setActivePreset(preset.id)
                       setFormName(preset.label)
                     }}
                     className={[
-                      'p-4 rounded-xl border-2 text-center transition-all hover:shadow-md hover:-translate-y-0.5',
+                      'group p-5 rounded-2xl text-left transition-all border shadow-sm relative overflow-hidden flex flex-col justify-between h-32 hover:-translate-y-1',
                       activePreset === preset.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border bg-card hover:border-primary/40',
+                        ? 'bg-primary/5 border-primary shadow-primary/10'
+                        : 'bg-background hover:bg-muted/50 border-border/60 hover:border-border hover:shadow-md',
                     ].join(' ')}
                   >
-                    <div className="text-2xl mb-1">{preset.icon}</div>
-                    <p className="text-xs font-bold text-foreground">{preset.label}</p>
-                  </button>
+                    <div className="flex justify-between items-start z-10 relative">
+                      <span className="text-3xl filter drop-shadow-sm">{preset.icon}</span>
+                      {activePreset === preset.id && (
+                        <div className="w-2 h-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                    <div className="z-10 relative mt-auto">
+                      <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{preset.label} 작성하기</h4>
+                      <p className="text-xs text-muted-foreground mt-1">{preset.desc}</p>
+                    </div>
+                    {/* 호버 백그라운드 효과 */}
+                    <div className="absolute right-0 bottom-0 opacity-[0.03] text-8xl -mr-6 -mb-6 pointer-events-none group-hover:scale-110 transition-transform duration-500">
+                      {preset.icon}
+                    </div>
+                  </motion.button>
                 ))}
               </div>
             </div>
@@ -333,28 +354,36 @@ export function FormGeneratorWorkspace() {
               className="flex-1 flex flex-col min-h-0"
             >
               {/* 미리보기 헤더 */}
-              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-card/80">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-bold text-foreground">미리보기</span>
-                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                    {activePresetData?.icon} {activePresetData?.label}
-                  </span>
+              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-border/60 bg-card/80 backdrop-blur-sm z-10 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                     <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-foreground flex items-center gap-2">
+                      실시간 라이브 뷰어
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted px-1.5 py-0.5 rounded-md border border-border/50">
+                        {activePresetData?.icon} {activePresetData?.label}
+                      </span>
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/5 border border-primary/10">
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  AI 생성 완료
+                  <span className="text-xs font-semibold text-primary">스마트 생성 완료</span>
                 </div>
               </div>
 
               {/* HTML 런타임 렌더링 영역 (iframe) */}
-              <div className="flex-1 min-h-0 bg-white relative">
-                <iframe
-                  srcDoc={generatedHtml}
-                  className="w-full h-full border-none pointer-events-auto"
-                  title="Form Preview"
-                  sandbox="allow-scripts allow-downloads allow-same-origin allow-popups"
-                />
+              <div className="flex-1 min-h-0 bg-[#eef2f5] dark:bg-[#0f1115] relative p-0 md:p-4 overflow-hidden">
+                <div className="w-full h-full bg-white rounded-xl shadow-sm border border-border overflow-hidden ring-1 ring-black/5">
+                  <iframe
+                    srcDoc={generatedHtml}
+                    className="w-full h-full border-none pointer-events-auto bg-white"
+                    title="Form Preview"
+                    sandbox="allow-scripts allow-downloads allow-same-origin allow-popups"
+                  />
+                </div>
               </div>
             </motion.div>
           )}

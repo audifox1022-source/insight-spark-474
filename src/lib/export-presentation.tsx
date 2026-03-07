@@ -12,17 +12,19 @@ import { Presentation, Slide } from '@/types/presentation';
 import { ScaledSlide } from '@/components/ScaledSlide';
 
 export interface BrandSettings {
-  primaryColor: string;
-  accentColor: string;
-  companyName: string;
-  logoDataUrl: string | null;
+  primaryColor: string | null;
+  accentColor?: string | null;
+  companyName?: string;
+  logoDataUrl?: string | null;
+  logoUrl?: string | null;
+  fontFamily?: string | null;
 }
 
 export const DEFAULT_BRAND: BrandSettings = {
   primaryColor: '1B3A5C',
   accentColor: '0D8ECF',
   companyName: 'WorkAI',
-  logoDataUrl: null,
+  logoUrl: null,
 };
 
 // 시스템 폰트 폴백: 해당 폰트가 없는 PC에서 열었을 때 레이아웃이 붕괴되는 것을 방지
@@ -85,7 +87,7 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
     try {
       root.render(
         <div id="export-root" style={{ width: W, height: H, background: '#ffffff', overflow: 'hidden' }}>
-          <ScaledSlide slide={slide} logoUrl={brand.logoDataUrl ?? undefined} watermark={brand.companyName} />
+          <ScaledSlide slide={slide} logoUrl={brand.logoUrl ?? brand.logoDataUrl ?? undefined} watermark={brand.companyName} />
         </div>
       );
 
@@ -141,8 +143,9 @@ export async function exportToPptx(
   pptx.title = presentation.title || 'Untitled';
 
   // 사용자가 테마색을 크게 바꾸지 않았다면 기본 팔레트 사용
-  const isBrandCustom = !!brand.primaryColor && brand.primaryColor !== '1B3A5C';
-  const PRIMARY = hex(isBrandCustom ? brand.primaryColor : '#4E83F9', '4E83F9');
+  const brandCol = brand.primaryColor?.replace('#', '') || '1B3A5C';
+  const isBrandCustom = !!brand.primaryColor && brandCol !== '1B3A5C';
+  const PRIMARY = hex(isBrandCustom ? brandCol : '#4E83F9', '4E83F9');
   const ACCENT = hex(isBrandCustom ? brand.accentColor : '#10b981', '10b981');
   const PRIMARY_DARK = hex('#2563EB');
   const WHITE = 'FFFFFF';

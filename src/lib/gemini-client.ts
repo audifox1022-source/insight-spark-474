@@ -30,14 +30,27 @@ export async function callGemini(
 ): Promise<string> {
 
   let lastError: Error = new Error('알 수 없는 오류')
+  
+  // BYOK: Load custom key from local storage
+  let customApiKey = '';
+  if (typeof window !== 'undefined') {
+    customApiKey = localStorage.getItem('geminiApiKey') || '';
+  }
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      // If user provided a custom key, send it in headers
+      if (customApiKey) {
+        headers['x-custom-api-key'] = customApiKey;
+      }
+
       const res = await fetch(PROXY_URL, {
         method:  'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({ ...payload, model }),
       })
 

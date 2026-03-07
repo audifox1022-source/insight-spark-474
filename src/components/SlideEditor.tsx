@@ -81,6 +81,7 @@ interface SlideEditorProps {
   onSelectText?: (text: string) => void;
   onClearSelectedText?: () => void;
   onFactCheck?: (text: string, slideContext: any) => void;
+  brandKit?: any;
 }
 
 export function SlideEditor({
@@ -104,6 +105,7 @@ export function SlideEditor({
   onSelectText,
   onClearSelectedText,
   onFactCheck,
+  brandKit,
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
@@ -270,6 +272,7 @@ export function SlideEditor({
                 }
               }}
               onFactCheck={onFactCheck}
+              brandKit={brandKit}
             />
           </div>
         </div>

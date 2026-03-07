@@ -79,6 +79,7 @@ interface ScaledSlideProps {
   interactive?: boolean;
   directEditMode?: boolean;
   onUpdateSlide?: (updates: Partial<Slide>) => void;
+  brandKit?: any; // 추가됨: BrandKit 설정
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -490,7 +491,7 @@ function renderGridCards(slide: Slide, contentFontSize: string, interactive?: bo
 // ScaledSlide — 메인 컴포넌트
 // ══════════════════════════════════════════════════════════════
 export const BaseScaledSlide = ({
-  slide, containerClassName = '', logoUrl, watermark, onElementClick, onFactCheck, interactive, directEditMode, onUpdateSlide
+  slide, containerClassName = '', logoUrl, watermark, onElementClick, onFactCheck, interactive, directEditMode, onUpdateSlide, brandKit
 }: ScaledSlideProps) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content = Array.isArray(rawContent) ? rawContent : [];
@@ -499,14 +500,19 @@ export const BaseScaledSlide = ({
   const contentFontSize = slide.contentFontPt ? ptToPx(slide.contentFontPt) : ptToPx((slide.contentSizeScale ?? 1) * 20);
   const layout = slide.layout ?? 'default';
 
+  // 브랜드 킷 적용 강제화
+  const finalLogoUrl = brandKit?.logoUrl || logoUrl;
+  const brandPrimary = brandKit?.primaryColor || P.primary;
+  const brandFont = brandKit?.fontFamily ? `'${brandKit.fontFamily}', 'Pretendard Variable', 'Pretendard', sans-serif` : "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif";
+
   // ── 1. 표지 슬라이드
   if (slide.type === 'title') {
     // bgGradient가 있으면 사용자 정의 배경, 없으면 틸 그라디언트
     const titleBg = slide.bgGradient
       ? slide.bgGradient
-      : `linear-gradient(135deg, ${P.dark} 0%, ${P.primary} 60%, ${P.accent} 100%)`;
+      : `linear-gradient(135deg, ${P.dark} 0%, ${brandPrimary} 60%, ${P.accent} 100%)`;
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: titleBg, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif" }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: titleBg, color: '#fff', fontFamily: brandFont }}>
         {/* 수직 색인 라인 안내선 */}
         <div style={{ position: 'absolute', top: 0, right: '28%', width: '1px', height: '100%', background: 'rgba(255,255,255,0.07)', zIndex: 0 }} />
         <div style={{ position: 'absolute', top: 0, right: '14%', width: '1px', height: '100%', background: 'rgba(255,255,255,0.04)', zIndex: 0 }} />
@@ -524,7 +530,7 @@ export const BaseScaledSlide = ({
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '5px', background: P.accent, zIndex: 2, boxShadow: `0 0 24px ${P.accent}80` }} />
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '3px', background: 'rgba(255,255,255,0.12)', zIndex: 2 }} />
         <SlideWatermark text={watermark} />
-        <SlideLogo logoUrl={logoUrl} invert />
+        <SlideLogo logoUrl={finalLogoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.4rem' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 14px', width: 'fit-content' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
@@ -548,12 +554,12 @@ export const BaseScaledSlide = ({
   // ── 2. 섹션 구분 슬라이드
   if (slide.type === 'section') {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${P.primaryDark} 0%, ${P.primary} 100%)`, color: '#fff', fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center' }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: `linear-gradient(135deg, ${P.primaryDark} 0%, ${brandPrimary} 100%)`, color: '#fff', fontFamily: brandFont, display: 'flex', alignItems: 'center' }}>
         {/* Modern Glass Rings */}
         <div style={{ position: 'absolute', right: '-15%', top: '50%', transform: 'translateY(-50%)', width: '55%', paddingBottom: '55%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.15)', background: 'linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.01))', backdropFilter: 'blur(8px)', zIndex: 0, boxShadow: 'inset 0 0 40px rgba(255,255,255,0.05)' }} />
         <div style={{ position: 'absolute', right: '5%', top: '50%', transform: 'translateY(-50%)', width: '30%', paddingBottom: '30%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.2)', background: 'linear-gradient(145deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02))', backdropFilter: 'blur(12px)', zIndex: 0 }} />
         <SlideWatermark text={watermark} />
-        <SlideLogo logoUrl={logoUrl} invert />
+        <SlideLogo logoUrl={finalLogoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
           <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
@@ -575,10 +581,10 @@ export const BaseScaledSlide = ({
     const metrics = slide.keyMetrics;
     const cols = metrics.length <= 2 ? 2 : metrics.length === 4 ? 4 : 3;
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: brandFont, padding: '5% 7%' }}>
         {/* Subtle Ambient Background for KPI */}
-        <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: P.primary, borderRadius: '50%', filter: 'blur(150px)', opacity: 0.05, pointerEvents: 'none' }} />
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
+        <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: brandPrimary, borderRadius: '50%', filter: 'blur(150px)', opacity: 0.05, pointerEvents: 'none' }} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.8rem', flex: 1 }}>
@@ -624,8 +630,8 @@ export const BaseScaledSlide = ({
   // ── 4. 타임라인 슬라이드
   if (slide.type === 'timeline' && slide.milestones?.length) {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: brandFont, padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', gap: '3rem' }}>
           <div style={{ width: '28%', flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
             <SectionLabel>TIMELINE</SectionLabel>
@@ -643,11 +649,11 @@ export const BaseScaledSlide = ({
   // ── 5. 인용 슬라이드
   if (slide.type === 'quote') {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.dark, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '50%', paddingBottom: '50%', borderRadius: '50%', background: `${P.primary}12`, zIndex: 0 }} />
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} invert />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.dark, fontFamily: brandFont, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '50%', paddingBottom: '50%', borderRadius: '50%', background: `${brandPrimary}12`, zIndex: 0 }} />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 10%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div style={{ fontSize: '5rem', lineHeight: 1, color: P.primary, fontWeight: 900, opacity: 0.4 }}>"</div>
+          <div style={{ fontSize: '5rem', lineHeight: 1, color: brandPrimary, fontWeight: 900, opacity: 0.4 }}>"</div>
           <p style={{ fontSize: titleFontSize, fontWeight: 700, color: '#fff', lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em' }}>{slide.text ?? slide.title}</p>
           {slide.author && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
@@ -667,8 +673,8 @@ export const BaseScaledSlide = ({
     const leftItems = slide.leftItems ?? [];
     const rightItems = slide.rightItems ?? [];
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: brandFont, padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
           <div><SectionLabel>COMPARISON</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', flex: 1 }}>
@@ -711,8 +717,8 @@ export const BaseScaledSlide = ({
   // ── 7. 차트 슬라이드
   if (slide.type === 'chart' || slide.chartData) {
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: brandFont, padding: '5% 7%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div><SectionLabel>DATA VISUALIZATION</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           <div style={{ minHeight: 240 }}>{renderChart(slide.chartData)}</div>
@@ -732,8 +738,8 @@ export const BaseScaledSlide = ({
     const autoTableFontSize = `calc(${contentFontSize} * ${autoFontScale})`;
     const cellPad = rowCount <= 5 ? '0.6rem 1rem' : rowCount <= 8 ? '0.42rem 0.85rem' : '0.3rem 0.7rem';
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '4.5% 6%' }}>
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: brandFont, padding: '4.5% 6%' }}>
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           <div><SectionLabel>DATA TABLE</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
           {/* overflowY 제거 — 스크롤 없이 슬라이드 안에 딱 맞게 표시 */}
@@ -763,15 +769,15 @@ export const BaseScaledSlide = ({
   if (slide.type === 'closing' || slide.type === 'action' || slide.type === 'summary') {
     const closingBg = slide.bgGradient
       ? slide.bgGradient
-      : `linear-gradient(135deg, ${P.primary} 0%, ${P.dark} 50%, ${P.primaryDark} 100%)`;
+      : `linear-gradient(135deg, ${brandPrimary} 0%, ${P.dark} 50%, ${P.primaryDark} 100%)`;
     return (
-      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: closingBg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif" }}>
+      <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: closingBg, fontFamily: brandFont }}>
         {/* 닷 (마스키로 사용) */}
         <div style={{ position: 'absolute', right: '-8%', bottom: '-10%', width: '55%', paddingBottom: '55%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.1)', zIndex: 0 }} />
         <div style={{ position: 'absolute', right: '8%', bottom: '8%', width: '30%', paddingBottom: '30%', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', zIndex: 0 }} />
         <div style={{ position: 'absolute', top: '-5%', left: '-5%', width: '35%', paddingBottom: '35%', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', filter: 'blur(60px)', zIndex: 0 }} />
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '5px', background: P.accent, zIndex: 2, boxShadow: `0 0 20px ${P.accent}80` }} />
-        <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} invert />
+        <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.6rem' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 14px', width: 'fit-content' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />

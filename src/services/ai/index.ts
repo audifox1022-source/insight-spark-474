@@ -122,33 +122,35 @@ ${typeGuide}
   },
 
   async chatEdit(body: any) {
-    const systemInstruction = prompts.getSystemPromptCore();
+    const systemInstruction = prompts.getInAppEditorPrompt(body.settings?.difficulty);
     let targetedElementInfo = "";
     if (body.selectedText) {
-      targetedElementInfo = `\n[⚠️ 주목]: 사용자가 특정 텍스트를 선택했습니다: "${body.selectedText}"\n이 부분에 집중해서 부분 수정을 진행하세요.\n`;
+      targetedElementInfo = `\n[🎯 Target Node]: 사용자가 다음 특정 텍스트 요소를 선택했습니다 => "${body.selectedText}"\n여기에 집중해서 부분 수정을 진행하세요.\n`;
     }
 
     const userPrompt = `${prompts.SLIDE_SCHEMA}
-[🔥 의도 라우팅 및 부분 업데이트 (Intent Routing & JSON Patching)]
-당신은 최고 수준의 프레젠테이션 에디터입니다. 아래 사용자의 요청을 분석하고, 어떠한 의도(문맥 수정, 레이아웃 변경, 색상/디자인 변경 등)인지 파악하세요.
-전체 슬라이드를 처음부터 끝까지 새로 만들지 마세요! '변경이 필요한 필드'만 포함하여 부분 객체(Partial Object) 단위로 JSON을 반환해야 합니다.
-
+[사용자 자연어 수정 요청 (Prompt)]
 요청 내용: ${body.userMessage}${targetedElementInfo}
-현재 슬라이드 최상위 상태: 
+
+[현재 슬라이드 최상위 상태 (Current State)]
 ${JSON.stringify(body.currentSlide, null, 2)}
 
-[응답 규칙]
-1. 변경이 전혀 필요 없는 필드(예: id, slideNumber, 기타 건들지 않은 텍스트 배열들)는 반환 JSON에 아예 포함하지 마세요. (생략)
-2. 만약 "표지 배경을 파랗게 해줘"라면 \`{"bgGradient": "linear-gradient(to right, #1e3a8a, #3b82f6)"}\` 이런 식의 부분 속성만 반환하세요.
-3. 텍스트 수정이라면 수정된 \`content\`나 \`title\` 배열만 반환하세요.
-4. 반드시 {"slide": { ...수정할_부분만... }, "summary": "어떤 의도를 파악해서 어떻게 고쳤는지 요약"} 형태여야 합니다.`;
+[응답 규칙 (Output Format)]
+1. 변경이 전혀 필요 없는 필드(예: id, slideNumber)는 반환 JSON에 아예 포함하지 마세요. (생략)
+2. 텍스트 수정이라면 수정된 최상위 속성(\`content\`, \`title\`, \`subhead\` 등)만 반환하세요.
+3. 레이아웃 변경이라면 \`layout\`, \`visualRatio\` 등의 속성을 수정해서 반환하세요.
+4. 디자인(색상) 변경이라면 \`bgGradient\`, \`imageUrl\` 등을 수정해서 반환하세요.
+5. 반드시 아래 JSON 형태여야 합니다:
+{
+  "slide": { /* 수정할 부분의 키-값 쌍만 포함 (Diff) */ },
+  "summary": "어떤 의도를 파악해서 어떻게 고쳤는지 1~2줄 요약 (예: 요청하신 대로 2번 슬라이드의 좌우 비율을 조정하고 이미지를 교체했습니다.)"
+}`;
 
-    // 더 적은 토큰과 더 명확한 지시로 스피드업
     const text = await callGeminiAPI(systemInstruction, userPrompt, 2048);
     const json = utils.extractJSON(text);
     
-    // 부분 업데이트이므로 normalizeSlide시 원본이 유실되지 않도록 여기서 병합하지 않고 원본 그대로 반환.
-    // hook의 updateSlide에서 `{...currentSlide, ...updates}`로 병합하므로 원본이 보존됨.
+    // 부분 업데이트이므로 normalizeSlide시 원본이 유실되지 않도록 여기서 병합하지 않고 파셜(Partial) 원본 그대로 반환.
+    // UI 단의 updateSlide에서 `{...currentSlide, ...updates}` 형식으로 Object.assign 병합 처리.
     return { result: json || {} };
   },
 
