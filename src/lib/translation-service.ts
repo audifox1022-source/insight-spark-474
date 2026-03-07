@@ -1,6 +1,6 @@
 // 경로: src/lib/translation-service.ts
-
 import type { TranslationAndAnalysisResponse } from '@/types/translation';
+import { extractJSON } from '@/services/ai/utils';
 
 // JSON Schema Definition for REST API
 const analysisSchema = {
@@ -90,6 +90,7 @@ CRITICAL RULE FOR TRANSLATION:
 - STRICTLY PRESERVE all Markdown formatting syntax from the source text.
 - Do NOT translate, modify, or remove characters like \`**\`, \`*\`, \`#\`, \`-\`, \`>\`, \`[\`, \`]\`, \`(\`, \`)\` or code blocks (\`\`\`).
 - If the source is \`**Hello**\`, the output must be \`**안녕하세요**\` (if target is Korean), NOT \`안녕하세요\`.
+- All string values must be properly escaped for JSON. Do NOT include unescaped newlines or control characters.
 
 Text to analyze:
 ---
@@ -97,7 +98,7 @@ ${text}
 ---`;
 
     const jsonString = await callGemini(prompt, true);
-    return JSON.parse(jsonString);
+    return extractJSON(jsonString);
   } catch (error) {
     console.error("Error in analyzeAndTranslate:", error);
     throw new Error("분석 및 번역에 실패했습니다.");

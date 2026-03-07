@@ -151,8 +151,76 @@ const SlideBackground: React.FC<{ imageUrl?: string; bgGradient?: string }> = ({
   );
 };
 
-const InteractiveElement: React.FC<{ children: React.ReactNode; text: string; onClick?: (text: string) => void; interactive?: boolean }> = ({ children, text, onClick, interactive }) => {
-  if (!interactive) return <>{children}</>;
+const InteractiveElement: React.FC<{ 
+  children: React.ReactNode; 
+  text: string; 
+  onClick?: (text: string) => void; 
+  interactive?: boolean;
+  directEditMode?: boolean;
+  onUpdateSlide?: (updates: any) => void;
+  onFactCheck?: (text: string, context: any) => void;
+  slideContext?: any;
+}> = ({ children, text, onClick, interactive, directEditMode, onUpdateSlide, onFactCheck, slideContext }) => {
+  if (!interactive && !directEditMode) return <>{children}</>;
+
+  if (directEditMode && onUpdateSlide && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement, {
+      contentEditable: true,
+      suppressContentEditableWarning: true,
+      onBlur: (e: any) => {
+        const newText = e.target.innerText.replace(/\n\n/g, '\n').trim();
+        const oldText = text.trim();
+        if (newText !== oldText && newText.length > 0) {
+          const s = slideContext;
+          if (!s) return;
+          if (s.title === oldText || s.title === text) onUpdateSlide({ title: newText });
+          else if (s.subhead === oldText || s.subhead === text) onUpdateSlide({ subhead: newText });
+          else if (s.text === oldText || s.text === text) onUpdateSlide({ text: newText });
+          else if (s.author === oldText || s.author === text) onUpdateSlide({ author: newText });
+          else if (s.leftTitle === oldText || s.leftTitle === text) onUpdateSlide({ leftTitle: newText });
+          else if (s.rightTitle === oldText || s.rightTitle === text) onUpdateSlide({ rightTitle: newText });
+          else if (Array.isArray(s.content)) {
+            const idx = s.content.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
+            if (idx >= 0) {
+              const newContent = [...s.content];
+              newContent[idx] = newText;
+              onUpdateSlide({ content: newContent });
+              return;
+            }
+          }
+          if (Array.isArray(s.leftItems)) {
+            const idx = s.leftItems.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
+            if (idx >= 0) {
+              const newContent = [...s.leftItems];
+              newContent[idx] = newText;
+              onUpdateSlide({ leftItems: newContent });
+              return;
+            }
+          }
+          if (Array.isArray(s.rightItems)) {
+            const idx = s.rightItems.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
+            if (idx >= 0) {
+              const newContent = [...s.rightItems];
+              newContent[idx] = newText;
+              onUpdateSlide({ rightItems: newContent });
+              return;
+            }
+          }
+        }
+      },
+      onPointerDown: (e: any) => e.stopPropagation(),
+      style: {
+        ...(children.props.style || {}),
+        outline: '1px dashed rgba(79, 70, 229, 0.5)',
+        outlineOffset: '4px',
+        cursor: 'text',
+        minHeight: '1em',
+        borderRadius: '2px',
+        transition: 'all 0.2s',
+      }
+    } as any);
+  }
+
   return (
     <div
       onClick={(e) => {
@@ -160,9 +228,18 @@ const InteractiveElement: React.FC<{ children: React.ReactNode; text: string; on
         onClick?.(text);
       }}
       className="group/element relative cursor-pointer outline-none hover:ring-2 hover:ring-primary/50 hover:bg-primary/5 transition-all rounded-md -m-1 p-1"
-      title="클릭하여 AI로 편집하기"
+      title={onFactCheck ? "클릭하여 AI 편집 / 우측의 아이콘으로 팩트 확인" : "클릭하여 AI로 편집하기"}
     >
       {children}
+      {onFactCheck && text && text.length >= 2 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onFactCheck(text, slideContext); }}
+          className="absolute -right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover/element:opacity-100 bg-white/90 text-blue-600 border border-blue-200 hover:bg-blue-600 hover:text-white rounded-full p-1.5 shadow-md transition-all z-20 flex items-center justify-center transform scale-90 hover:scale-100"
+          title="이 텍스트의 팩트(사실 관계) 확인하기"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   );
 };
@@ -379,7 +456,7 @@ function renderGridCards(slide: Slide, contentFontSize: string, interactive?: bo
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', width: '100%' }}>
       {items.map((item, i) => (
-        <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
+        <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
           <div style={{ background: i === 0 ? `linear-gradient(135deg, ${P.primary}, ${P.primaryDark})` : '#fff', borderRadius: 20, padding: '1.6rem 1.4rem', border: `1px solid ${i === 0 ? 'transparent' : 'rgba(0,0,0,0.04)'}`, display: 'flex', flexDirection: 'column', gap: '0.8rem', boxShadow: i === 0 ? `0 16px 32px -8px ${P.primary}60` : '0 8px 24px -8px rgba(0,0,0,0.06)', position: 'relative', overflow: 'hidden', height: '100%' }}>
             {i === 0 && <div style={{ position: 'absolute', top: 0, right: 0, width: '60%', height: '60%', background: '#fff', borderRadius: '50%', filter: 'blur(40px)', opacity: 0.15, zIndex: 0 }} />}
             <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
@@ -439,7 +516,7 @@ export const BaseScaledSlide = ({
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>PRESENTATION</span>
           </div>
-          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
             <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h1>
           </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}>{slide.subhead}</p>}
@@ -465,11 +542,11 @@ export const BaseScaledSlide = ({
         <SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
-          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
             <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
           </InteractiveElement>
           {content[0] && (
-            <InteractiveElement text={safeString(content[0])} onClick={onElementClick} interactive={interactive}>
+            <InteractiveElement text={safeString(content[0])} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
               <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>{safeString(content[0])}</p>
             </InteractiveElement>
           )}
@@ -490,14 +567,14 @@ export const BaseScaledSlide = ({
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', flex: 1 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '0.8rem', flex: 1 }}>
             {metrics.map((m, i) => {
               const isFirst = i === 0;
               return (
-                <div key={i} style={{ borderRadius: 24, padding: '1.8rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
+                <div key={i} style={{ borderRadius: 24, padding: '1.4rem 1.2rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
                   {/* Glass Shimmer */}
                   {isFirst && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)', pointerEvents: 'none' }} />}
-                   <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.label}</div>
+                   <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: '1 1 auto', wordBreak: 'keep-all' }}>{m.label}</div>
                   
                   <div className="relative group/fact">
                     <BigNumber value={m.value} light={isFirst} />
@@ -514,9 +591,9 @@ export const BaseScaledSlide = ({
 
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
-                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, flexShrink: 0, color: '#ef4444' }} />}
-                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
+                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
+                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: '#ef4444' }} />}
+                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
                       {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: '1 1 auto', wordBreak: 'keep-all' }}>{m.description}</span>}
                     </div>
                   )}
@@ -583,7 +660,7 @@ export const BaseScaledSlide = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', flex: 1 }}>
 
             {/* Left Glass Panel */}
-            <div style={{ background: `linear-gradient(145deg, rgba(78,131,249,0.06), rgba(78,131,249,0.02))`, borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(78,131,249,0.15)`, boxShadow: '0 8px 24px rgba(78,131,249,0.05)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ background: `linear-gradient(145deg, rgba(78,131,249,0.06), rgba(78,131,249,0.02))`, borderRadius: 24, padding: '1.4rem 1.2rem', border: `1px solid rgba(78,131,249,0.15)`, boxShadow: '0 8px 24px rgba(78,131,249,0.05)', backdropFilter: 'blur(10px)' }}>
               <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.15em', color: P.primary, marginBottom: '1.2rem' }}>{(slide.leftTitle ?? 'BEFORE').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {leftItems.map((item, i) => (
@@ -599,7 +676,7 @@ export const BaseScaledSlide = ({
             </div>
 
             {/* Right Glass Panel */}
-            <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(226,232,240,0.8)`, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 24, padding: '1.4rem 1.2rem', border: `1px solid rgba(226,232,240,0.8)`, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', backdropFilter: 'blur(10px)' }}>
               <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.15em', color: P.text, marginBottom: '1.2rem' }}>{(slide.rightTitle ?? 'AFTER').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {rightItems.map((item, i) => (
@@ -726,7 +803,7 @@ export const BaseScaledSlide = ({
       <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem', paddingLeft: '0.8rem' }}>
         <div style={{ flexShrink: 0, borderLeft: `3px solid ${P.accent}`, paddingLeft: '1rem' }}>
           <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2em', color: P.primary, textTransform: 'uppercase', marginBottom: '0.3rem' }}>{slide.type ?? 'CONTENT'}</div>
-          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive}>
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
             <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}>{slide.title}</h2>
           </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.7)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}>{slide.subhead}</p>}
@@ -734,7 +811,7 @@ export const BaseScaledSlide = ({
         <AutoFitContainer style={{ flex: 1, minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'flex-start' }}>
             {content.map((item, i) => (
-              <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
+              <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
                 <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start', padding: '0.55rem 0.9rem', borderRadius: 12, background: i === 0 ? `${P.primary}0D` : 'rgba(255,255,255,0.5)', border: `1px solid ${i === 0 ? `${P.primary}20` : 'rgba(0,0,0,0.03)'}`, backdropFilter: 'blur(4px)' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
                     {String(i + 1).padStart(2, '0')}
