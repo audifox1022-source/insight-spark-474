@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { BrandKitSettings } from '@/components/BrandKitSettings'
 import { ApiKeySettings } from '@/components/ApiKeySettings'
+import { AudienceToggle } from '@/components/AudienceToggle'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
@@ -131,12 +132,20 @@ const Index = () => {
 
         {/* 유틸리티 영역 */}
         <div className="flex items-center gap-2">
-          {/* 하단 접속 통계 대체 */}
+          {/* 방문 통계 */}
           <div className="hidden lg:flex items-center gap-4 mr-2 text-[11px] font-medium text-muted-foreground">
             <span className="flex items-center gap-1" title="총 방문수"><Eye className="w-3.5 h-3.5"/> {(visitorStats?.total_visits ?? 0).toLocaleString()}</span>
             <span className="flex items-center gap-1" title="순방문자"><Users className="w-3.5 h-3.5"/> {(visitorStats?.unique_users ?? 0).toLocaleString()}</span>
           </div>
           <div className="w-px h-5 bg-border/80 hidden lg:block mr-1" />
+
+          {/* ✅ Feature 3: 청중 적응형 토글 — 발표자료 탭일 때만 표시 */}
+          {activeApp === 'presentation' && (
+            <>
+              <AudienceToggle />
+              <div className="w-px h-5 bg-border/80 mx-1" />
+            </>
+          )}
 
           {/* 테마, 다크모드, 등 */}
           <div className="flex items-center gap-1">

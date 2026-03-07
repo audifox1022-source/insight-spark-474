@@ -5,7 +5,7 @@
 import * as constants from './constants';
 import * as utils from './utils';
 import * as prompts from './prompts';
-import { callGeminiAPI, generateSlideImage } from './api-client';
+import { callGeminiAPI, callGeminiAPIWithGrounding, generateSlideImage } from './api-client';
 
 export const aiService = {
 
@@ -258,5 +258,55 @@ JSON 반환: {
 
   async exportToExternal(_presentation: any, _platform: 'notion' | 'google'): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 1500));
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // ✅ Feature 1: 딥 리서치 & 팩트체크 — Grounding 기반 출처 자동 생성
+  // 특정 슬라이드의 핵심 주장을 Google Search로 교차 검증하고
+  // Citation URL 배열을 슬라이드에 첨부합니다.
+  // ─────────────────────────────────────────────────────────
+  async deepResearchAndCite(slide: any) {
+    const claimText = [
+      slide.title ?? '',
+      ...(Array.isArray(slide.content) ? slide.content : []),
+      ...(Array.isArray(slide.keyMetrics) ? slide.keyMetrics.map((m: any) => `${m.label}: ${m.value}`) : []),
+    ].filter(Boolean).join(' | ');
+
+    if (!claimText.trim()) return { citations: [] };
+
+    const systemInstruction = '당신은 팩트체커입니다. 아래 발표 슬라이드의 핵심 주장과 수치를 웹 검색으로 교차 검증하고, 신뢰할 수 있는 출처를 찾아 간략한 팩트체크 결과를 요약해주세요. 반드시 한국어로 답변하세요.';
+    const userPrompt = `슬라이드 주제: "${slide.title}"
+핵심 주장 및 수치: ${claimText}
+
+위 내용을 웹에서 검색해 사실 여부를 확인하고, 관련 정보를 요약해주세요. (1~3문장)`;
+
+    try {
+      const result = await callGeminiAPIWithGrounding(systemInstruction, userPrompt, 1024);
+      return { text: result.text, citations: result.citations };
+    } catch (err) {
+      console.warn('딥 리서치 실패:', err);
+      return { citations: [] };
+    }
+  },
+
+  // ─────────────────────────────────────────────────────────
+  // ✅ Feature 5: 파이프라인 Step 2 — 원시 텍스트 핵심 요약
+  // ─────────────────────────────────────────────────────────
+  async summarizeForPresentation(rawText: string) {
+    const systemInstruction = '당신은 비즈니스 문서 요약 전문가입니다.';
+    const userPrompt = `아래 원시 텍스트를 발표 자료 제작에 적합하도록 핵심 내용만 추출해 요약하세요.
+
+[원시 데이터]
+${rawText.slice(0, 6000)}
+
+[규칙]
+- 핵심 주제 1~2줄 요약
+- 중요 수치/데이터 불릿 5개 이내
+- 결론/시사점 1~2줄
+
+JSON 반환: {"summary": "핵심 요약", "keyPoints": ["포인트1", "포인트2"], "conclusion": "결론"}`;
+
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 2048);
+    return utils.extractJSON(text) || { summary: rawText.slice(0, 200), keyPoints: [], conclusion: '' };
   },
 };

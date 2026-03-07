@@ -65,6 +65,7 @@ interface Slide {
   notes?: string;
   titleStyle?: any;
   contentStyle?: any;
+  citations?: { index: number; url: string; title: string }[]; // ✅ Feature 1: 딥 리서치 출처
   text?: string;
   author?: string;
   milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo'; description?: string }[];
@@ -333,6 +334,28 @@ const SlideWatermark = ({ text }: { text?: string }) => {
   return (
     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', opacity: 0.03, transform: 'rotate(-30deg)', fontSize: '9rem', fontWeight: 900, color: '#000', userSelect: 'none', zIndex: 2 }}>
       {text}
+    </div>
+  );
+};
+
+// ✅ Feature 1: 딥 리서치 Citation 각주 컴포넌트
+const CitationFooter = ({ citations }: { citations?: { index: number; url: string; title: string }[] }) => {
+  if (!citations || citations.length === 0) return null;
+  return (
+    <div style={{ position: 'absolute', bottom: '0.5rem', left: '2rem', right: '4rem', zIndex: 10, display: 'flex', flexWrap: 'wrap', gap: '0.4rem 1rem' }}>
+      {citations.map((c) => (
+        <a
+          key={c.index}
+          href={c.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: '9px', color: 'rgba(100,120,140,0.7)', textDecoration: 'underline', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px', lineHeight: 1.4 }}
+          title={c.url}
+        >
+          [{c.index}] {c.title}
+        </a>
+      ))}
     </div>
   );
 };

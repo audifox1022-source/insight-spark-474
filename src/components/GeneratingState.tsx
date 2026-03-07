@@ -1,23 +1,57 @@
+// ============================================================
+// GeneratingState.tsx — 3단계 파이프라인 시각화 UI (Feature 5)
+// ============================================================
 import { motion } from 'framer-motion';
-import { FileSearch, Brain, LayoutDashboard, Sparkles } from 'lucide-react';
+import { FileSearch, Brain, LayoutDashboard, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { PIPELINE_STAGES } from '@/lib/pipeline';
 
+// 파이프라인 단계와 내부 기존 단계를 매핑
 const STEPS = [
-  { icon: FileSearch, label: '파일 데이터 분석 중', desc: '업로드된 파일의 구조와 핵심 데이터를 파악합니다' },
-  { icon: Brain, label: 'AI가 콘텐츠를 구성 중', desc: '데이터 기반으로 슬라이드 내용을 생성합니다' },
-  { icon: LayoutDashboard, label: '차트 및 레이아웃 설계 중', desc: '시각적 요소와 발표 흐름을 최적화합니다' },
-  { icon: Sparkles, label: '최종 검수 및 완성', desc: '발표 자료의 완성도를 높이고 있습니다' },
+  {
+    icon: FileSearch,
+    label: PIPELINE_STAGES[0].label,
+    desc: '업로드된 파일의 구조와 핵심 데이터를 파악합니다',
+    emoji: PIPELINE_STAGES[0].emoji,
+  },
+  {
+    icon: Brain,
+    label: PIPELINE_STAGES[1].label,
+    desc: 'Gemini AI가 원시 데이터에서 핵심 내용을 추출·요약합니다',
+    emoji: PIPELINE_STAGES[1].emoji,
+  },
+  {
+    icon: LayoutDashboard,
+    label: PIPELINE_STAGES[2].label,
+    desc: '슬라이드 JSON 구조로 매핑하고 시각 요소를 최적화합니다',
+    emoji: PIPELINE_STAGES[2].emoji,
+  },
+  {
+    icon: Sparkles,
+    label: PIPELINE_STAGES[3].label,
+    desc: 'PPTX 다운로드 준비 및 최종 검수를 완료합니다',
+    emoji: PIPELINE_STAGES[3].emoji,
+  },
 ];
 
-export function GeneratingState() {
-  const [activeStep, setActiveStep] = useState(0);
+interface GeneratingStateProps {
+  currentStage?: number; // 0~3 외부에서 주입 가능
+}
+
+export function GeneratingState({ currentStage }: GeneratingStateProps) {
+  const [activeStep, setActiveStep] = useState(currentStage ?? 0);
 
   useEffect(() => {
+    if (currentStage !== undefined) {
+      setActiveStep(currentStage);
+      return;
+    }
+    // 외부 주입이 없으면 자동 타이머
     const interval = setInterval(() => {
       setActiveStep((s) => (s < STEPS.length - 1 ? s + 1 : s));
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentStage]);
 
   return (
     <motion.div
@@ -41,7 +75,6 @@ export function GeneratingState() {
             );
           })()}
         </motion.div>
-        {/* 펄스 링 */}
         {[1, 2, 3].map((ring) => (
           <motion.div
             key={ring}
@@ -52,7 +85,7 @@ export function GeneratingState() {
         ))}
       </div>
 
-      {/* 제목 */}
+      {/* 현재 단계 텍스트 */}
       <div className="text-center">
         <motion.p
           key={activeStep}
@@ -60,7 +93,7 @@ export function GeneratingState() {
           animate={{ opacity: 1, y: 0 }}
           className="text-xl font-bold"
         >
-          {STEPS[activeStep].label}
+          {STEPS[activeStep].emoji} {STEPS[activeStep].label}
         </motion.p>
         <motion.p
           key={`desc-${activeStep}`}
@@ -71,6 +104,18 @@ export function GeneratingState() {
         >
           {STEPS[activeStep].desc}
         </motion.p>
+
+        {/* 파이프라인 진행률 바 */}
+        <div className="mt-4 w-64 h-1.5 bg-muted rounded-full overflow-hidden mx-auto">
+          <motion.div
+            className="h-full gradient-primary rounded-full"
+            animate={{ width: `${((activeStep + 1) / STEPS.length) * 100}%` }}
+            transition={{ duration: 0.5 }}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground mt-1.5 font-medium">
+          {activeStep + 1} / {STEPS.length} 단계
+        </p>
       </div>
 
       {/* 스텝 인디케이터 */}
@@ -97,15 +142,13 @@ export function GeneratingState() {
                 <Icon className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isActive ? 'text-foreground' : ''}`}>{step.label}</p>
+                <p className={`text-sm font-medium truncate ${isActive ? 'text-foreground' : ''}`}>
+                  {step.emoji} {step.label}
+                </p>
               </div>
               {isDone && (
                 <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                  <div className="w-5 h-5 rounded-full bg-accent/20 text-accent flex items-center justify-center">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-accent" />
                 </motion.div>
               )}
               {isActive && (

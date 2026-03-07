@@ -71,6 +71,13 @@ export interface StatItem {
   unit?: string;
 }
 
+// ✅ 딥 리서치 & 팩트체크 출처 타입
+export interface Citation {
+  index: number;
+  url: string;
+  title: string;
+}
+
 export interface Slide {
   id?: string;
   slideNumber: number;
@@ -82,6 +89,7 @@ export interface Slide {
   date?: string;
   sectionNo?: string;
   twoColumn?: boolean;
+  citations?: Citation[];  // ✅ 딥 리서치 출처 각주
   columns?: number;
   content?: string[];    // ✅ 추가: AI가 content 필드로 반환
   points?: string[];

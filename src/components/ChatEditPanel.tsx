@@ -3,8 +3,9 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { X, Send, Loader2, Sparkles, Bot, User, Minimize2, Target } from 'lucide-react';
+import { X, Send, Loader2, Sparkles, Bot, User, Minimize2, Target, Zap } from 'lucide-react';
 import { Slide } from '@/types/presentation';
+import { classifyIntent, getIntentLabel, getIntentIcon, IntentType } from '@/lib/intent-router';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -39,6 +40,8 @@ export function ChatEditPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [pendingSlide, setPendingSlide] = useState<Slide | null>(null);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [currentIntent, setCurrentIntent] = useState<IntentType | null>(null);
+  const [isClassifying, setIsClassifying] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +62,17 @@ export function ChatEditPanel({
     setInput('');
     setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setIsLoading(true);
+    setCurrentIntent(null);
+
+    // ✅ Feature 4: Intent 작업 전 직독 분류
+    setIsClassifying(true);
+    let detectedIntent: IntentType = 'general_edit';
+    try {
+      const intentResult = await classifyIntent(userMsg);
+      detectedIntent = intentResult.intent;
+      setCurrentIntent(detectedIntent);
+    } catch { /* 분류 실패 시 무시 */ }
+    setIsClassifying(false);
 
     try {
       const result = await onRequestEdit(userMsg, slideIndex, currentSlide, selectedText);
@@ -139,7 +153,22 @@ export function ChatEditPanel({
                 <p className="text-[11px] text-muted-foreground">{slideIndex + 1}번 슬라이드</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {/* ✅ Feature 4: Intent 배지 */}
+              {isClassifying && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-bold flex items-center gap-1">
+                  <Zap className="w-2.5 h-2.5" /> 분류 중...
+                </span>
+              )}
+              {currentIntent && !isClassifying && (
+                <motion.span
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold"
+                >
+                  {getIntentIcon(currentIntent)} {getIntentLabel(currentIntent)}
+                </motion.span>
+              )}
               <Button size="icon" variant="ghost" onClick={() => setIsMinimized(true)} className="w-7 h-7 hover:bg-black/5 dark:hover:bg-white/10">
                 <Minimize2 className="w-3.5 h-3.5" />
               </Button>
