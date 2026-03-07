@@ -121,13 +121,14 @@ const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = (
   </div>
 );
 
-// BigNumber: 값 길이에 따라 폰트 자동 충소
+// BigNumber: 값 길이에 따라 폰트 자동 축소 및 랩핑 허용
 const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => {
   const len = (value || '').replace(/\s/g, '').length;
-  const fs = len <= 4 ? '2.8rem' : len <= 6 ? '2.2rem' : '1.8rem';
+  // 글자 수가 길어질수록 폰트를 더 공격적으로 줄임
+  const fs = len <= 4 ? '2.8rem' : len <= 6 ? '2.2rem' : len <= 8 ? '1.6rem' : '1.2rem';
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'nowrap', overflow: 'hidden' }}>
-      <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em', wordBreak: 'keep-all' }}>{value}</span>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', wordBreak: 'break-word' }}>
+      <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</span>
       {unit && <span style={{ fontSize: '1rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext }}>{unit}</span>}
     </div>
   );
@@ -512,11 +513,11 @@ export const BaseScaledSlide = ({
                   </div>
 
                   {m.trend && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
-                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, color: '#ef4444' }} />}
-                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
-                      {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.description}</span>}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
+                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, flexShrink: 0, color: '#ef4444' }} />}
+                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
+                      {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: '1 1 auto', wordBreak: 'keep-all' }}>{m.description}</span>}
                     </div>
                   )}
                 </div>
