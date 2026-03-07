@@ -188,39 +188,68 @@ const InteractiveElement: React.FC<{
         if (newText !== oldText && newText.length > 0) {
           const s = slideContext;
           if (!s) return;
-          if (s.title === oldText || s.title === text) onUpdateSlide({ title: newText });
-          else if (s.subhead === oldText || s.subhead === text) onUpdateSlide({ subhead: newText });
-          else if (s.text === oldText || s.text === text) onUpdateSlide({ text: newText });
-          else if (s.author === oldText || s.author === text) onUpdateSlide({ author: newText });
-          else if (s.leftTitle === oldText || s.leftTitle === text) onUpdateSlide({ leftTitle: newText });
-          else if (s.rightTitle === oldText || s.rightTitle === text) onUpdateSlide({ rightTitle: newText });
-          else if (Array.isArray(s.content)) {
-            const idx = s.content.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
+          if (s.title === oldText || s.title === text) { onUpdateSlide({ title: newText }); return; }
+          if (s.subhead === oldText || s.subhead === text) { onUpdateSlide({ subhead: newText }); return; }
+          if (s.text === oldText || s.text === text) { onUpdateSlide({ text: newText }); return; }
+          if (s.author === oldText || s.author === text) { onUpdateSlide({ author: newText }); return; }
+          if (s.leftTitle === oldText || s.leftTitle === text) { onUpdateSlide({ leftTitle: newText }); return; }
+          if (s.rightTitle === oldText || s.rightTitle === text) { onUpdateSlide({ rightTitle: newText }); return; }
+          // content / points / items / steps / leftItems / rightItems (배열 항목)
+          for (const field of ['content', 'points', 'items', 'steps', 'leftItems', 'rightItems'] as const) {
+            if (Array.isArray((s as any)[field])) {
+              const idx = ((s as any)[field] as any[]).findIndex((c: any) =>
+                typeof c === 'string' ? c.trim() === oldText : false
+              );
+              if (idx >= 0) {
+                const arr = [...((s as any)[field] as any[])];
+                arr[idx] = newText;
+                onUpdateSlide({ [field]: arr });
+                return;
+              }
+            }
+          }
+          // keyMetrics 라벨/값 수정
+          if (Array.isArray(s.keyMetrics)) {
+            const idx = s.keyMetrics.findIndex((m: any) => m.label?.trim() === oldText || m.value?.trim() === oldText);
             if (idx >= 0) {
-              const newContent = [...s.content];
-              newContent[idx] = newText;
-              onUpdateSlide({ content: newContent });
+              const arr = [...s.keyMetrics];
+              const m = { ...arr[idx] };
+              if (m.label?.trim() === oldText) m.label = newText;
+              else m.value = newText;
+              arr[idx] = m;
+              onUpdateSlide({ keyMetrics: arr });
               return;
             }
           }
-          if (Array.isArray(s.leftItems)) {
-            const idx = s.leftItems.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
-            if (idx >= 0) {
-              const newContent = [...s.leftItems];
-              newContent[idx] = newText;
-              onUpdateSlide({ leftItems: newContent });
-              return;
-            }
+          // 표(table) 셀: rows
+          if (Array.isArray(s.rows)) {
+            const newRows = s.rows.map((row: any[]) =>
+              row.map((cell: any) => (typeof cell === 'string' && cell.trim() === oldText ? newText : cell))
+            );
+            onUpdateSlide({ rows: newRows });
+            return;
           }
-          if (Array.isArray(s.rightItems)) {
-            const idx = s.rightItems.findIndex((c:any) => (typeof c === 'string' ? c.trim() : c) === oldText || c === text);
-            if (idx >= 0) {
-              const newContent = [...s.rightItems];
-              newContent[idx] = newText;
-              onUpdateSlide({ rightItems: newContent });
-              return;
-            }
+          if (s.tableData && Array.isArray(s.tableData.rows)) {
+            const newRows = s.tableData.rows.map((row: any[]) =>
+              row.map((cell: any) => (typeof cell === 'string' && cell.trim() === oldText ? newText : cell))
+            );
+            onUpdateSlide({ tableData: { ...s.tableData, rows: newRows } });
+            return;
           }
+        }
+        // blur 후 DOM을 text prop으로 재동기화
+        e.target.innerText = newText || text;
+      },
+      onFocus: (e: any) => {
+        // ✅ 숫자 중복 버그 방지: focus 시 DOM 내용이 prop과 다르면 초기화
+        if (e.target.innerText !== text) {
+          e.target.innerText = text;
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(e.target);
+          range.collapse(false);
+          sel?.removeAllRanges();
+          sel?.addRange(range);
         }
       },
       onPointerDown: (e: any) => e.stopPropagation(),

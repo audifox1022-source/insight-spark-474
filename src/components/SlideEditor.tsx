@@ -35,7 +35,9 @@ import {
   Download,
   ClipboardCheck,
   MousePointer2,
-  Users
+  Users,
+  Eye,
+  X as XIcon,
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
 import { SlideImageEditor } from './SlideImageEditor';
@@ -109,6 +111,7 @@ export function SlideEditor({
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
   const [isDirectEditMode, setIsDirectEditMode] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const activeSlides = presentation?.slides || slides || [];
   const slide = activeSlides[currentSlide];
@@ -134,6 +137,7 @@ export function SlideEditor({
   }
 
   return (
+    <>
     <div className="flex h-full min-h-[calc(100vh-100px)] w-full rounded-2xl border border-border overflow-hidden bg-background shadow-sm">
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -188,6 +192,15 @@ export function SlideEditor({
                 <Save className="w-4 h-4" /> {isSaving ? '저장 중...' : '저장'}
               </Button>
             )}
+            {/* 미리보기 버튼 */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPreviewOpen(true)}
+              className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold text-teal-600 hover:text-teal-700 hover:bg-teal-50 border-teal-200 transition-colors shadow-sm"
+            >
+              <Eye className="w-4 h-4" /> 미리보기
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold border-primary/20 text-primary hover:bg-primary/5 transition-colors shadow-sm">
@@ -195,11 +208,11 @@ export function SlideEditor({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다." className="py-2 cursor-pointer">
-                  PPT 파워포인트
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} title="일반 PPTX 파일로 다운로드합니다. 텍스트 수정이 가능합니다." className="py-2 cursor-pointer">
+                  PPTX 파일
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenExport?.('pptx-image')} className="text-emerald-600 font-medium py-2 cursor-pointer" title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다.">
-                  PPT (이미지 고정본)
+                  PPTX (이미지 고정본)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onOpenExport?.('pdf')} className="text-blue-600 font-medium py-2 cursor-pointer" title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다.">
                   PDF 문서
@@ -820,5 +833,68 @@ export function SlideEditor({
         </div>
       </div>
     </div>
+
+      {/* ── 전체 슬라이드 미리보기 모달 ── */}
+      {previewOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex flex-col items-center overflow-y-auto p-8 gap-6"
+          onClick={() => setPreviewOpen(false)}
+        >
+          <div className="flex items-center justify-between w-full max-w-4xl flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <div>
+              <h2 className="text-xl font-black text-white">전체 슬라이드 미리보기</h2>
+              <p className="text-white/60 text-sm">내보내기 전에 모든 슬라이드를 확인하세요</p>
+            </div>
+            <button
+              onClick={() => setPreviewOpen(false)}
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            >
+              <XIcon className="w-5 h-5" />
+            </button>
+          </div>
+          {activeSlides.map((sl, idx) => (
+            <div
+              key={idx}
+              className="w-full max-w-4xl flex-shrink-0"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-white/60 text-xs font-bold bg-white/10 px-2 py-0.5 rounded-full">{idx + 1} / {activeSlides.length}</span>
+                <span className="text-white/80 text-sm font-semibold truncate">{sl.title || '(제목 없음)'}</span>
+              </div>
+              <div className="w-full aspect-[16/9] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 bg-white">
+                <ScaledSlide
+                  slide={sl}
+                  containerClassName="w-full h-full"
+                  interactive={false}
+                />
+              </div>
+            </div>
+          ))}
+          <div className="flex gap-3 pt-2" onClick={e => e.stopPropagation()}>
+            <Button
+              onClick={() => { setPreviewOpen(false); onOpenExport?.('pptx'); }}
+              className="gap-2 bg-white text-foreground hover:bg-white/90 font-bold"
+            >
+              <Download className="w-4 h-4" /> PPTX 내보내기
+            </Button>
+            <Button
+              onClick={() => { setPreviewOpen(false); onOpenExport?.('pdf'); }}
+              variant="outline"
+              className="gap-2 border-white/30 text-white hover:bg-white/10 font-bold"
+            >
+              PDF 내보내기
+            </Button>
+            <Button
+              onClick={() => setPreviewOpen(false)}
+              variant="ghost"
+              className="text-white/60 hover:text-white hover:bg-white/10"
+            >
+              닫기
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
