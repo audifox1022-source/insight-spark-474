@@ -89,7 +89,7 @@ export function PresentationTab(props: PresentationTabProps) {
     isGeneratingImage, generateSlideImage,
     reset, updateSlide, updateAllSlides, addSlide,
     deleteSlide, duplicateSlide,
-    moveSlide, updatePresentationTitle,
+    moveSlide, splitSlide, updatePresentationTitle,
 
     referenceFileName,
     isAnalyzingReference,
@@ -103,8 +103,8 @@ export function PresentationTab(props: PresentationTabProps) {
   return (
     <>
       <main className={[
-        'mx-auto px-6 py-8 transition-all duration-300 w-full overflow-y-auto',
-        step === 'preview' ? 'max-w-[1700px]' : 'max-w-6xl',
+        'mx-auto transition-all duration-300 w-full overflow-y-auto',
+        step === 'preview' ? 'max-w-full h-full p-2 sm:p-4' : 'max-w-6xl px-6 py-8',
       ].join(' ')}>
         
         {/* STEP: upload */}
@@ -329,6 +329,7 @@ export function PresentationTab(props: PresentationTabProps) {
             onDeleteSlide={deleteSlide}
             onDuplicateSlide={duplicateSlide}
             onMoveSlide={moveSlide}
+            onSplitSlide={splitSlide}
             onUpdateTitle={updatePresentationTitle}
             onSave={handleSave}
             isSaving={isSaving}
@@ -400,6 +401,7 @@ export function PresentationTab(props: PresentationTabProps) {
             onRequestEdit={requestChatEdit}
             selectedText={selectedText}
             onClearSelectedText={() => setSelectedText(undefined)}
+            onFactCheck={handleFactCheck}
           />
           <ReviewPanel
             open={reviewOpen}

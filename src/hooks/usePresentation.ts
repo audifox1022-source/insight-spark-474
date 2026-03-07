@@ -285,7 +285,7 @@ export function usePresentation() {
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide) => {
     try {
       const resData = await retryWithBackoff(() => aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation, selectedText }), { maxRetries: 1 });
-      if (resData.result?.slide) resData.result.slide = normalizeSlideForApp(resData.result.slide, slideIndex);
+      // 부분 Patch JSON이므로 여기서 normalize를 수행하면 원본 필드가 소실될 수 있음. 바로 반환.
       return resData.result;
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err));
@@ -416,6 +416,32 @@ export function usePresentation() {
     });
   }, []);
 
+  const splitSlide = useCallback((index: number) => {
+    setPresentation((prev) => {
+      if (!prev || !prev.slides[index]) return prev;
+      const target = prev.slides[index];
+      const rawContent = target.content || [];
+      if (rawContent.length <= 1) {
+        toast.info("분할할 항목이 부족합니다.");
+        return prev;
+      }
+
+      const mid = Math.ceil(rawContent.length / 2);
+      const part1 = rawContent.slice(0, mid);
+      const part2 = rawContent.slice(mid);
+
+      const slide1 = { ...target, content: part1, title: `${target.title} (1/2)` };
+      // Omit id for the new clone
+      const slide2 = { ...target, id: undefined, content: part2, title: `${target.title} (2/2)` };
+
+      const slides = [...prev.slides];
+      slides.splice(index, 1, slide1, slide2);
+
+      toast.success("슬라이드가 성공적으로 분할되었습니다.");
+      return { ...prev, slides: slides.map((s, i) => normalizeSlideForApp({ ...s }, i)) };
+    });
+  }, []);
+
   const reset = useCallback(() => {
     setStep('upload');
     setParsedFiles([]);
@@ -513,7 +539,7 @@ export function usePresentation() {
     regenerateSlide, requestChatEdit,
     changeSlidePersona, cycleLayout, updatePresentationMaster,
     isGeneratingImage, generateSlideImage,
-    reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide,
+    reset, updateSlide, updateAllSlides, addSlide, deleteSlide, duplicateSlide, moveSlide, splitSlide,
     updatePresentationTitle: (title: string) => setPresentation(p => p ? ({ ...p, title }) : null),
     
     // Interactive editing and fact check

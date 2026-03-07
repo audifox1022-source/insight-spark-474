@@ -125,29 +125,49 @@ ${typeGuide}
     const systemInstruction = prompts.getSystemPromptCore();
     let targetedElementInfo = "";
     if (body.selectedText) {
-      targetedElementInfo = `\n[⚠️ 주목]: 사용자가 특정 텍스트를 선택했습니다: "${body.selectedText}"\n이 부분에 집중해서 수정 요청을 반영하세요.\n`;
+      targetedElementInfo = `\n[⚠️ 주목]: 사용자가 특정 텍스트를 선택했습니다: "${body.selectedText}"\n이 부분에 집중해서 부분 수정을 진행하세요.\n`;
     }
 
     const userPrompt = `${prompts.SLIDE_SCHEMA}
-[미션] 요청 반영하여 슬라이드 수정. (항목 최대 4개 제한 유지)
-요청: ${body.userMessage}${targetedElementInfo}
-현재 슬라이드 상태: ${JSON.stringify(body.currentSlide)}
+[🔥 의도 라우팅 및 부분 업데이트 (Intent Routing & JSON Patching)]
+당신은 최고 수준의 프레젠테이션 에디터입니다. 아래 사용자의 요청을 분석하고, 어떠한 의도(문맥 수정, 레이아웃 변경, 색상/디자인 변경 등)인지 파악하세요.
+전체 슬라이드를 처음부터 끝까지 새로 만들지 마세요! '변경이 필요한 필드'만 포함하여 부분 객체(Partial Object) 단위로 JSON을 반환해야 합니다.
 
-당신은 프레젠테이션의 수정자입니다. 위 요청에 맞춰 슬라이드의 내용, 레이아웃, 또는 스타일을 적절히 변경하세요. 
-선택된 텍스트가 전달되었다면 반드시 해당 부분을 중점적으로 고려하여 부분적으로 수정하세요. 변경되지 않아야 하는 부분은 그대로 유지하세요.
-JSON 반환: {"slide":{...},"summary":"변경 요약"}`;
+요청 내용: ${body.userMessage}${targetedElementInfo}
+현재 슬라이드 최상위 상태: 
+${JSON.stringify(body.currentSlide, null, 2)}
 
-    const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);
+[응답 규칙]
+1. 변경이 전혀 필요 없는 필드(예: id, slideNumber, 기타 건들지 않은 텍스트 배열들)는 반환 JSON에 아예 포함하지 마세요. (생략)
+2. 만약 "표지 배경을 파랗게 해줘"라면 \`{"bgGradient": "linear-gradient(to right, #1e3a8a, #3b82f6)"}\` 이런 식의 부분 속성만 반환하세요.
+3. 텍스트 수정이라면 수정된 \`content\`나 \`title\` 배열만 반환하세요.
+4. 반드시 {"slide": { ...수정할_부분만... }, "summary": "어떤 의도를 파악해서 어떻게 고쳤는지 요약"} 형태여야 합니다.`;
+
+    // 더 적은 토큰과 더 명확한 지시로 스피드업
+    const text = await callGeminiAPI(systemInstruction, userPrompt, 2048);
     const json = utils.extractJSON(text);
-    if (json?.slide) json.slide = utils.normalizeSlide(json.slide, 1, 3);
+    
+    // 부분 업데이트이므로 normalizeSlide시 원본이 유실되지 않도록 여기서 병합하지 않고 원본 그대로 반환.
+    // hook의 updateSlide에서 `{...currentSlide, ...updates}`로 병합하므로 원본이 보존됨.
     return { result: json || {} };
   },
 
   async changePersona(body: any) {
-    const systemInstruction = prompts.getSystemPromptCore(body.persona);
+    const systemInstruction = prompts.getSystemPromptCore();
     const userPrompt = `${prompts.SLIDE_SCHEMA}
-[미션] "${body.persona}" 스타일로 변환.
-현재: ${JSON.stringify(body.currentSlide)}
+[🔥 청중 적응형(Adaptive) 다이내믹 변환 미션]
+현재 슬라이드의 내용을 대상 청중("${body.persona}")의 눈높이와 선호도에 맞게 완전히 재구성하세요.
+
+[청중별 변환 가이드]
+- "investor" (투자자): 숫자, 성과, 비전, ROI 위주로 극도의 간결함과 임팩트 있는 레이아웃(kpi, chart 등)으로 변경.
+- "executive" (임원진): 핵심 결론(결과) 먼저, 세부 내용은 요약된 비교(compare)나 하이라이트 레이아웃으로 변경.
+- "team" (실무진): 기술적, 실무적 디테일과 프로세스(process, timeline) 위주로 구체적으로 변환.
+- "client" (고객사): 친절한 어조(명사형 개조식은 유지하되 톤 다운), 베네핏(기대효과) 중심의 카드형(cards) 혹은 서술형 레이아웃 채택.
+
+현재 슬라이드: ${JSON.stringify(body.currentSlide)}
+
+※ 기존 데이터의 사실(Fact)은 왜곡하지 마세요.
+※ 필요하다면 type과 layout을 청중에 맞게 변경해도 좋습니다.
 JSON만 반환.`;
 
     const text = await callGeminiAPI(systemInstruction, userPrompt, 4096);

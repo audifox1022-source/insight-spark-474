@@ -12,6 +12,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   SlidersHorizontal,
   Type,
   AlignLeft,
@@ -27,7 +33,9 @@ import {
   Play,
   Save,
   Download,
-  ClipboardCheck
+  ClipboardCheck,
+  MousePointer2,
+  Users
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
 import { SlideImageEditor } from './SlideImageEditor';
@@ -49,6 +57,7 @@ interface SlideEditorProps {
   onDeleteSlide?: (index: number) => void;
   onDuplicateSlide?: (index: number) => void;
   onMoveSlide?: (from: number, to: number) => void;
+  onSplitSlide?: (index: number) => void;
   onUpdateTitle?: (title: string) => void;
 
   onSave?: () => void;
@@ -82,9 +91,11 @@ export function SlideEditor({
   onUpdateSlide,
   onAddContent,
   onRemoveContent,
+  onSplitSlide,
   onOpenChat,
   onOpenReview,
   onRegenerateSlide,
+  onChangePersona,
   onSave,
   isSaving,
   onOpenExport,
@@ -95,6 +106,7 @@ export function SlideEditor({
   onFactCheck,
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
+  const [isDirectEditMode, setIsDirectEditMode] = useState(false);
 
   const activeSlides = presentation?.slides || slides || [];
   const slide = activeSlides[currentSlide];
@@ -120,7 +132,7 @@ export function SlideEditor({
   }
 
   return (
-    <div className="flex h-[calc(100vh-140px)] w-full rounded-2xl border border-border overflow-hidden bg-background shadow-sm">
+    <div className="flex h-full min-h-[calc(100vh-100px)] w-full rounded-2xl border border-border overflow-hidden bg-background shadow-sm">
 
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* 1. 좌측/중앙: 슬라이드 미리보기 (Preview) 영역 */}
@@ -154,6 +166,16 @@ export function SlideEditor({
 
           {/* 우측: 저장, 내보내기, AI 등 핵심 기능 */}
           <div className="flex items-center gap-2">
+            <Button
+              variant={isDirectEditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsDirectEditMode(!isDirectEditMode)}
+              className={`gap-1.5 h-8 ${isDirectEditMode ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-0 shadow-md' : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}>
+              <MousePointer2 className="w-3.5 h-3.5" /> 
+              {isDirectEditMode ? '자유 편집 완료' : '자유 편집 모드'}
+            </Button>
+            <div className="w-px h-4 bg-border mx-1" />
+            
             {onOpenPlay && (
               <Button variant="outline" size="sm" onClick={onOpenPlay} className="gap-1.5 h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200">
                 <Play className="w-3.5 h-3.5" /> 발표
@@ -164,34 +186,49 @@ export function SlideEditor({
                 <Save className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '저장'}
               </Button>
             )}
-            <div className="relative group">
-              <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
-                <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
-              </Button>
-              <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border shadow-elevated rounded-xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
-                <button
-                  onClick={() => onOpenExport?.('pptx')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50"
-                  title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다."
-                >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
+                  <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다.">
                   PPT 파워포인트
-                </button>
-                <button
-                  onClick={() => onOpenExport?.('pptx-image')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50 text-emerald-600"
-                  title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다."
-                >
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx-image')} className="text-emerald-600" title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다.">
                   PPT (이미지 고정본)
-                </button>
-                <button
-                  onClick={() => onOpenExport?.('pdf')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium text-blue-600"
-                  title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다."
-                >
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenExport?.('pdf')} className="text-blue-600" title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다.">
                   PDF 문서
-                </button>
-              </div>
-            </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {onChangePersona && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 h-8 border-violet-200 text-violet-700 hover:bg-violet-50 shadow-sm">
+                    <Users className="w-3.5 h-3.5" /> 청중 눈높이 <ChevronDown className="w-3 h-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'investor')} className="font-medium text-[13px]">
+                    💰 투자자용 (지표/비전 강조)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'executive')} className="font-medium text-[13px]">
+                    👔 임원진용 (결론/요약 위주)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'team')} className="font-medium text-[13px]">
+                    👥 실무진용 (세부/기술 강조)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'client')} className="font-medium text-[13px]">
+                    🤝 고객사용 (친절/기대효과)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             <div className="w-px h-4 bg-border mx-1" />
             <Button
               variant="secondary"
@@ -219,11 +256,13 @@ export function SlideEditor({
 
         {/* 중앙: 실제 슬라이드 렌더링 캔버스 */}
         <div className="flex-1 w-full flex flex-col items-center justify-center overflow-auto custom-scrollbar pb-6 bg-slate-50/50">
-          <div className="w-full max-w-[1024px] aspect-[16/9] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] ring-1 ring-border/20 rounded-xl overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300 transform sm:scale-95 md:scale-100">
+          <div className="w-full max-w-[1024px] aspect-[16/9] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] ring-1 ring-border/20 rounded-xl overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300 transform">
             <ScaledSlide
               slide={slide}
               containerClassName="w-full h-full"
               interactive={true}
+              directEditMode={isDirectEditMode}
+              onUpdateSlide={(updates) => onUpdateSlide(currentSlide, updates as Partial<Slide>)}
               onElementClick={(text) => {
                 if (onSelectText) {
                   onSelectText(text);
@@ -239,7 +278,7 @@ export function SlideEditor({
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       {/* 2. 우측: 슬라이드 속성 편집 패널 */}
       {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="w-[420px] h-full border-l border-border bg-white/40 backdrop-blur-xl shrink-0 flex flex-col relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.03)]">
+      <div className="w-[320px] lg:w-[360px] xl:w-[400px] h-full border-l border-border bg-white/40 backdrop-blur-xl shrink-0 flex flex-col relative z-10 shadow-[-10px_0_30px_rgba(0,0,0,0.03)]">
         <div className="h-full overflow-y-auto px-6 py-8 space-y-6 custom-scrollbar">
 
           <div className="flex items-center justify-between mb-2">
@@ -505,12 +544,20 @@ export function SlideEditor({
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-semibold text-muted-foreground">본문 항목 (리스트)</label>
-                      {onAddContent && (
-                        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs hover:bg-muted"
-                          onClick={() => onAddContent(currentSlide)}>
-                          <Plus className="w-3 h-3 mr-1" />추가
-                        </Button>
-                      )}
+                      <div className="flex items-center gap-1.5">
+                        {slide.content.length > 4 && onSplitSlide && (
+                          <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] font-bold text-amber-600 border-amber-200 hover:bg-amber-50 shadow-sm"
+                            onClick={() => onSplitSlide(currentSlide)}>
+                            ✂️ 스마트 분할 (오버플로우 방지)
+                          </Button>
+                        )}
+                        {onAddContent && (
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs hover:bg-muted"
+                            onClick={() => onAddContent(currentSlide)}>
+                            <Plus className="w-3 h-3 mr-1" />추가
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <SortableContentList 
                       items={slide.content}

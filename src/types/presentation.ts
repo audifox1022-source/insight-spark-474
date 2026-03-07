@@ -159,6 +159,18 @@ export interface Slide {
     color?: string;
     align?: 'left' | 'center' | 'right';
   };
+
+  // ✅ 자유 편집(Interactive Drag & Drop) 상태
+  customTextBoxes?: {
+    id: string;
+    text: string;
+    x: number;
+    y: number;
+    fontSize: number;
+    color: string;
+    fontWeight: string;
+  }[];
+  elementOffsets?: Record<string, { x: number; y: number }>;
 }
 
 export interface Presentation {

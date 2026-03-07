@@ -75,6 +75,8 @@ interface ScaledSlideProps {
   onElementClick?: (text: string) => void;
   onFactCheck?: (text: string, context: any) => void;
   interactive?: boolean;
+  directEditMode?: boolean;
+  onUpdateSlide?: (updates: Partial<Slide>) => void;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -395,9 +397,9 @@ function renderGridCards(slide: Slide, contentFontSize: string, interactive?: bo
 // ══════════════════════════════════════════════════════════════
 // ScaledSlide — 메인 컴포넌트
 // ══════════════════════════════════════════════════════════════
-export const ScaledSlide: React.FC<ScaledSlideProps> = ({
-  slide, containerClassName = '', logoUrl, watermark, onElementClick, onFactCheck, interactive
-}) => {
+export const BaseScaledSlide = ({
+  slide, containerClassName = '', logoUrl, watermark, onElementClick, onFactCheck, interactive, directEditMode, onUpdateSlide
+}: ScaledSlideProps) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content = Array.isArray(rawContent) ? rawContent : [];
 
@@ -745,6 +747,102 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       </div>
       <SlideNumber number={slide.slideNumber} />
     </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// 자유 편집(Custom Text) 레이어 & HOC Wrapper
+// ══════════════════════════════════════════════════════════════
+import { motion } from 'framer-motion';
+
+const SlideCustomLayer = ({ slide, directEditMode, onUpdateSlide }: any) => {
+  if (!slide.customTextBoxes?.length && !directEditMode) return null;
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 100 }}>
+      {slide.customTextBoxes?.map((box: any) => (
+         <motion.div 
+           key={box.id} 
+           drag={directEditMode}
+           dragMomentum={false}
+           onDragEnd={(e, info) => {
+              if (directEditMode && onUpdateSlide) {
+                const newBoxes = slide.customTextBoxes.map((b: any) => 
+                  b.id === box.id ? { ...b, x: b.x + info.offset.x, y: b.y + info.offset.y } : b
+                );
+                onUpdateSlide({ customTextBoxes: newBoxes });
+              }
+           }}
+           initial={{ x: box.x, y: box.y }}
+           animate={{ x: box.x, y: box.y }}
+           style={{ 
+             position: 'absolute', left: 0, top: 0, pointerEvents: directEditMode ? 'auto' : 'none',
+             padding: '4px', border: directEditMode ? '1px dashed #4f46e5' : '1px solid transparent',
+             background: directEditMode ? 'rgba(79,70,229,0.05)' : 'transparent',
+             cursor: directEditMode ? 'move' : 'default', minWidth: 60, minHeight: 30
+           }}
+           onClick={(e: any) => { if(directEditMode) e.stopPropagation(); }}
+         >
+           {directEditMode ? (
+             <textarea 
+               value={box.text}
+               onChange={e => {
+                  const newBoxes = slide.customTextBoxes.map((b: any) => 
+                    b.id === box.id ? { ...b, text: e.target.value } : b
+                  );
+                  onUpdateSlide?.({ customTextBoxes: newBoxes });
+               }}
+               style={{ 
+                 background: 'transparent', border: 'none', outline: 'none', color: box.color,
+                 fontSize: box.fontSize, fontWeight: box.fontWeight,
+                 width: '100%', minHeight: '100%', resize: 'none', whiteSpace: 'pre-wrap', overflow: 'hidden'
+               }}
+               onPointerDown={(e) => e.stopPropagation()} // textarea 스크롤/선택용
+             />
+           ) : (
+             <div style={{ fontSize: box.fontSize, color: box.color, fontWeight: box.fontWeight, whiteSpace: 'pre-wrap' }}>
+               {box.text}
+             </div>
+           )}
+           {directEditMode && (
+             <button 
+               onPointerDown={(e) => {
+                 e.stopPropagation();
+                 onUpdateSlide?.({ customTextBoxes: slide.customTextBoxes.filter((b: any) => b.id !== box.id) });
+               }} 
+               style={{ position: 'absolute', top: -10, right: -10, background: '#ef4444', color: '#fff', borderRadius: '50%', width: 20, height: 20, fontSize: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+               title="삭제"
+             >
+               ×
+             </button>
+           )}
+         </motion.div>
+      ))}
+      {directEditMode && (
+        <button 
+          onClick={(e) => {
+             e.stopPropagation();
+             const newBox = { id: 'box_'+Date.now(), text: '텍스트 입력', x: 50, y: 50, fontSize: 24, color: slide.bgGradient ? '#fff' : '#1e293b', fontWeight: 'bold' };
+             onUpdateSlide?.({ customTextBoxes: [...(slide.customTextBoxes || []), newBox] });
+          }}
+          style={{ position: 'absolute', bottom: 20, right: 20, background: '#4f46e5', color: '#fff', padding: '10px 20px', borderRadius: 24, border: 'none', cursor: 'pointer', pointerEvents: 'auto', fontWeight: 'bold', boxShadow: '0 8px 16px rgba(79,70,229,0.3)', zIndex: 110 }}
+        >
+          + 새 글상자 추가
+        </button>
+      )}
+    </div>
+  );
+};
+
+export const ScaledSlide: React.FC<ScaledSlideProps> = (props) => {
+  const element = BaseScaledSlide(props);
+  if (!element || !React.isValidElement(element)) return element as any;
+
+  return React.cloneElement(
+    element as React.ReactElement,
+    {},
+    ...React.Children.toArray((element.props as any).children),
+    <SlideCustomLayer key="custom-layer" slide={props.slide} directEditMode={props.directEditMode} onUpdateSlide={props.onUpdateSlide} />
   );
 };
 

@@ -20,6 +20,7 @@ interface ChatEditPanelProps {
   onRequestEdit: (message: string, slideIndex: number, currentSlide: Slide, selectedText?: string) => Promise<{ slide: Slide; summary: string } | null>;
   selectedText?: string;
   onClearSelectedText?: () => void;
+  onFactCheck?: (text: string, currentSlide: Slide) => void;
 }
 
 const QUICK_COMMANDS = [
@@ -31,7 +32,7 @@ const QUICK_COMMANDS = [
 ];
 
 export function ChatEditPanel({
-  open, onClose, currentSlide, slideIndex, onApply, onRequestEdit, selectedText, onClearSelectedText
+  open, onClose, currentSlide, slideIndex, onApply, onRequestEdit, selectedText, onClearSelectedText, onFactCheck
 }: ChatEditPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -161,11 +162,19 @@ export function ChatEditPanel({
                 <Target className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                 <span className="text-xs text-primary font-medium truncate">선택됨: "{selectedText}"</span>
               </div>
-              {onClearSelectedText && (
-                <Button size="icon" variant="ghost" onClick={onClearSelectedText} className="w-5 h-5 h-auto hover:bg-black/5">
-                  <X className="w-3 h-3 text-primary" />
-                </Button>
-              )}
+              <div className="flex items-center gap-1">
+                {onFactCheck && (
+                  <Button size="sm" variant="outline" onClick={() => onFactCheck(selectedText, currentSlide)}
+                    className="h-6 px-2 text-[11px] font-bold text-blue-600 border-blue-200 hover:bg-blue-50 shadow-sm mr-1">
+                    🔍 팩트/출처 체크
+                  </Button>
+                )}
+                {onClearSelectedText && (
+                  <Button size="icon" variant="ghost" onClick={onClearSelectedText} className="w-5 h-5 h-auto hover:bg-black/5">
+                    <X className="w-3 h-3 text-primary" />
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
