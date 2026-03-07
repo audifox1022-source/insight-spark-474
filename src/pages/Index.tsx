@@ -1,5 +1,5 @@
 // ============================================================
-// src/pages/Index.tsx (또는 메인 화면 컴포넌트)
+// src/pages/Index.tsx - Bento Box Dashboard Style (Work AI)
 // ============================================================
 import { useState } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
@@ -9,14 +9,12 @@ import { PresentationTab } from '@/components/PresentationTab'
 import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
 import { FormGeneratorWorkspace } from '@/components/FormGeneratorWorkspace'
 import {
-  Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
-  HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
+  Sparkles, Moon, Sun, FolderOpen, 
+  HelpCircle, LogOut, Palette, MessageSquare, 
   X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
-  Users, Eye, Globe, CheckCircle2,
+  Users, Eye, Globe, CheckCircle2, ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
@@ -44,144 +42,139 @@ const Index = () => {
 
   const guide = getStepGuide(step)
 
-  const headerIcon = () => {
-    if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
-    if (activeApp === 'form') return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
-    return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
+  const getAppTitle = () => {
+    if (activeApp === 'translator') return 'AI 번역기'
+    if (activeApp === 'form') return '문서 생성기'
+    return '발표자료 생성기'
   }
 
   return (
-    <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
+    <div className="h-screen w-full bg-background transition-colors duration-300 flex overflow-hidden font-sans">
+      
+      {/* ── LEFT SIDEBAR (Navigation) ──────────────────────────── */}
+      <aside className="w-64 border-r border-border/40 bg-card/80 backdrop-blur-xl flex flex-col z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] shrink-0 transition-colors hidden md:flex">
+        {/* 로고 영역 */}
+        <div className="h-20 flex items-center px-6 border-b border-border/40 cursor-pointer hover:bg-muted/50 transition-colors">
+          <motion.div
+            className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
+            whileHover={{ scale: 1.08, rotate: 6 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+          >
+            <Sparkles className="w-5 h-5 text-primary-foreground" />
+          </motion.div>
+          <div className="ml-3 min-w-0">
+            <h1 className="text-lg font-extrabold leading-tight tracking-tight text-foreground truncate">
+              WorkAI
+            </h1>
+            <p className="text-[11px] text-muted-foreground font-semibold leading-none mt-1 tracking-wider uppercase">
+              올인원 생산성 도구
+            </p>
+          </div>
+        </div>
 
-      {/* ── HEADER ───────────────────────────────────────────── */}
-      <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
-        <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
-
-          {/* 로고 + 앱 이름 */}
-          <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-            <motion.div
-              className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
-              whileHover={{ scale: 1.08, rotate: 6 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-            >
-              {headerIcon()}
-            </motion.div>
-            <div className="min-w-0">
-              <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
-                WorkAI
-              </h1>
-              <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
-                AI 업무 자동화 플랫폼
-              </p>
+        {/* 메뉴 리스트 */}
+        <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
+          <div className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-[0.2em] mb-4 px-2">
+            MAIN APPS
+          </div>
+          
+          <button
+            onClick={() => setActiveApp('presentation')}
+            className={[
+              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              activeApp === 'presentation'
+                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
+                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+            ].join(' ')}
+          >
+            <div className={[
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+              activeApp === 'presentation' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
+            ].join(' ')}>
+              <Sparkles className="w-4 h-4" />
             </div>
-          </div>
+            <span>발표자료</span>
+            {activeApp === 'presentation' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
+          </button>
 
-          {/* 탭 메뉴 — 3개 */}
-          <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
-            <button
-              onClick={() => setActiveApp('presentation')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'presentation'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              발표자료
-            </button>
+          <button
+            onClick={() => setActiveApp('form')}
+            className={[
+              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              activeApp === 'form'
+                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
+                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+            ].join(' ')}
+          >
+            <div className={[
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+              activeApp === 'form' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
+            ].join(' ')}>
+              <FileText className="w-4 h-4" />
+            </div>
+            <span>문서 생성기</span>
+            {activeApp === 'form' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
+          </button>
 
-            <button
-              onClick={() => setActiveApp('form')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'form'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              문서 생성기
-            </button>
+          <button
+            onClick={() => setActiveApp('translator')}
+            className={[
+              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              activeApp === 'translator'
+                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
+                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+            ].join(' ')}
+          >
+            <div className={[
+              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+              activeApp === 'translator' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
+            ].join(' ')}>
+              <Globe className="w-4 h-4" />
+            </div>
+            <span>AI 번역기</span>
+            {activeApp === 'translator' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
+          </button>
+        </nav>
 
-            <button
-              onClick={() => setActiveApp('translator')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'translator'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              AI 번역
-            </button>
-          </div>
-
-          {/* 우측 버튼 */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {activeApp === 'presentation' && (
-              <StepIndicator currentStep={step} />
-            )}
-
-            <div className="w-px h-6 bg-border/60 mx-1.5 hidden sm:block" />
-
-            <Button
-              variant="ghost" size="sm"
-              onClick={openHistory}
-              className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">저장 목록</span>
-            </Button>
-
-            <Button
-              variant="ghost" size="icon"
-              onClick={() => setHelpOpen(true)}
-              className="w-8 h-8 text-muted-foreground hover:text-foreground"
-              title="도움말"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </Button>
-
-            <div className="w-px h-5 bg-border/60 mx-0.5" />
-
+        {/* 하단 유틸리티 (테마, 다크모드, 도움말, 로그아웃) */}
+        <div className="p-4 border-t border-border/40 bg-muted/10">
+          <div className="flex items-center justify-between gap-1 bg-background p-1 rounded-xl border border-border/50 shadow-sm relative">
             <div className="relative">
               <Button
                 variant="ghost" size="icon"
                 onClick={() => setThemeMenuOpen(!themeMenuOpen)}
-                className="w-8 h-8 text-muted-foreground hover:text-foreground"
-                title="테마 변경"
+                className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="테마 색상 변경"
               >
                 <Palette className="w-4 h-4" />
               </Button>
               <AnimatePresence>
                 {themeMenuOpen && (
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                    className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1 overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.9, x: -10, y: -40 }}
+                    animate={{ opacity: 1, scale: 1, x: 0, y: -40 }}
+                    exit={{ opacity: 0, scale: 0.9, x: -10, y: -40 }}
+                    className="absolute left-10 bottom-full mb-2 w-44 bg-card border border-border shadow-elevated rounded-xl z-50 py-1 overflow-hidden"
                   >
                     {(['blue', 'navy', 'purple', 'green', 'orange'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => { changeTheme(t); setThemeMenuOpen(false) }}
-                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3"
-                      >
-                        <div className={[
-                          'w-3.5 h-3.5 rounded-full border border-border/50 flex-shrink-0',
-                          t === 'blue' ? 'bg-blue-500' :
-                            t === 'navy' ? 'bg-slate-700' :
-                              t === 'purple' ? 'bg-purple-500' :
-                                t === 'green' ? 'bg-emerald-500' : 'bg-orange-500',
-                        ].join(' ')} />
-                        <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>
-                          {t.charAt(0).toUpperCase() + t.slice(1)}
-                        </span>
-                        {appTheme === t && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />}
-                      </button>
-                    ))}
+                        <button
+                          key={t}
+                          onClick={() => { changeTheme(t); setThemeMenuOpen(false) }}
+                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors flex items-center gap-3"
+                        >
+                          <div className={[
+                            'w-3.5 h-3.5 rounded-full border border-border/50 flex-shrink-0',
+                            t === 'blue' ? 'bg-blue-500' :
+                              t === 'navy' ? 'bg-slate-700' :
+                                t === 'purple' ? 'bg-purple-500' :
+                                  t === 'green' ? 'bg-emerald-500' : 'bg-orange-500',
+                          ].join(' ')} />
+                          <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>
+                            {t.charAt(0).toUpperCase() + t.slice(1)}
+                          </span>
+                          {appTheme === t && <CheckCircle2 className="w-3.5 h-3.5 text-primary ml-auto" />}
+                        </button>
+                      ))}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -190,30 +183,131 @@ const Index = () => {
             <Button
               variant="ghost" size="icon"
               onClick={toggleDark}
-              className="w-8 h-8 text-muted-foreground hover:text-foreground"
+              className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
               title={isDark ? '라이트 모드' : '다크 모드'}
             >
               {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
 
-            <div className="w-px h-5 bg-border/60 mx-0.5" />
+            <Button
+              variant="ghost" size="icon"
+              onClick={() => setHelpOpen(true)}
+              className="w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+              title="사용 가이드"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </Button>
+            
+            <div className="w-px h-5 bg-border/80 mx-1" />
 
             <Button
               variant="ghost" size="icon"
               onClick={handleLogout}
-              className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors"
+              className="w-9 h-9 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
               title="로그아웃"
             >
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
-
+          
+          {/* 하단 접속 통계 */}
+          {visitorStats && (
+            <div className="mt-4 px-2 flex flex-col gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
+               <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
+                 <span className="flex items-center gap-1"><Eye className="w-3 h-3"/> 총 방문</span>
+                 <span>{(visitorStats.total_visits ?? 0).toLocaleString()}</span>
+               </div>
+               <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
+                 <span className="flex items-center gap-1"><Users className="w-3 h-3"/> 순방문자</span>
+                 <span>{(visitorStats.unique_users ?? 0).toLocaleString()}</span>
+               </div>
+            </div>
+          )}
         </div>
-      </header>
+      </aside>
 
-      {/* ── 도움말 팝업 ──────────────────────────────────────── */}
+      {/* ── BENTO MAIN CANVAS ───────────────────────────────── */}
+      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 overflow-hidden h-screen bg-muted/20 relative">
+         
+         {/* 모바일용 헤더 (화면이 작을 때만 표시) */}
+         <div className="md:hidden flex items-center justify-between bg-card rounded-2xl p-4 shadow-sm border border-border mb-4 shrink-0">
+             <div className="flex items-center gap-2">
+                 <Sparkles className="w-5 h-5 text-primary" />
+                 <h1 className="font-extrabold text-foreground">WorkAI</h1>
+             </div>
+             <div className="flex items-center gap-2">
+                 <Button variant="outline" size="sm" onClick={() => setActiveApp('presentation')}>PPT</Button>
+                 <Button variant="outline" size="sm" onClick={() => setActiveApp('form')}>문서</Button>
+             </div>
+         </div>
+
+         {/* Bento Container */}
+         <div className="flex-1 w-full bg-card rounded-[2rem] border border-border shadow-elevated overflow-hidden flex flex-col relative group transition-all duration-500 animate-in fade-in slide-in-from-bottom-4">
+            
+            {/* 상단 툴바 영역 (해당 앱의 상태나 메뉴 제공) */}
+            <header className="h-16 px-6 border-b border-border/50 bg-muted/10 flex items-center justify-between shrink-0">
+               <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <h2 className="text-base font-bold text-foreground">{getAppTitle()}</h2>
+                  
+                  {activeApp === 'presentation' && step !== 'preview' && (
+                     <>
+                        <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
+                        <span className="text-sm font-medium text-muted-foreground">{guide.title}</span>
+                     </>
+                  )}
+               </div>
+
+               <div className="flex items-center gap-3">
+                  {activeApp === 'presentation' && (
+                     <>
+                        <StepIndicator currentStep={step} />
+                        <div className="w-px h-5 bg-border mx-1" />
+                        <Button
+                          variant="secondary" size="sm"
+                          onClick={openHistory}
+                          className="gap-2 font-bold shadow-sm"
+                        >
+                          <FolderOpen className="w-4 h-4" />
+                          저장 목록
+                        </Button>
+                     </>
+                  )}
+               </div>
+            </header>
+
+            {/* 실제 앱 워크스페이스 렌더링 영역 */}
+            <div className="flex-1 overflow-auto custom-scrollbar relative bg-background/50">
+               {activeApp === 'presentation' && (
+                 <div className="h-full w-full">
+                    <PresentationTab {...presentationHooks} />
+                 </div>
+               )}
+               {activeApp === 'form' && (
+                 <div className="h-full w-full max-w-[1700px] mx-auto p-4 md:p-6">
+                   <FormGeneratorWorkspace />
+                 </div>
+               )}
+               {activeApp === 'translator' && (
+                 <div className="h-full w-full p-4 md:p-6">
+                   <TranslatorWorkspace />
+                 </div>
+               )}
+            </div>
+         </div>
+
+         {/* 메인 캔버스 풋터 */}
+         <div className="mt-4 flex items-center justify-center shrink-0">
+           <p className="text-[11px] text-muted-foreground/60 font-medium">
+              Made with ❤️ by Hyeon · <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors">audifox1022@gmail.com</a>
+           </p>
+         </div>
+
+      </main>
+
+      {/* ── 도움말 팝업 (모달) ──────────────────────────────────────── */}
       <AnimatePresence>
-        {helpOpen && activeApp === 'presentation' && (
+        {helpOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setHelpOpen(false)}
@@ -264,87 +358,6 @@ const Index = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── 단계 가이드 바 ───────────────────────────────────── */}
-      {activeApp === 'presentation' && step !== 'preview' && (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={step}
-            initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }}
-            className="border-b border-border bg-accent/5"
-          >
-            <div className="max-w-[1700px] mx-auto px-6 py-3 flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center flex-shrink-0">
-                <HelpCircle className="w-4 h-4 text-accent" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-foreground">{guide.title}</p>
-                <p className="text-xs text-muted-foreground">{guide.desc}</p>
-              </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      )}
-
-      {/* ── MAIN CONTENT ─────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col relative overflow-hidden">
-
-        {/* 문서 생성기 탭 */}
-        {activeApp === 'form' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <FormGeneratorWorkspace />
-          </main>
-        )}
-
-        {/* 번역 탭 */}
-        {activeApp === 'translator' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <TranslatorWorkspace />
-          </main>
-        )}
-
-        {/* 발표자료 탭 */}
-        {activeApp === 'presentation' && (
-          <PresentationTab {...presentationHooks} />
-        )}
-      </div>
-
-      {/* ── FOOTER ───────────────────────────────────────────── */}
-      <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
-        <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span>{' '}
-            <a href="mailto:audifox1022@gmail.com" className="hover:text-primary transition-colors underline underline-offset-2">
-              audifox1022@gmail.com
-            </a>
-          </p>
-
-          {visitorStats && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4"
-            >
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Eye className="w-3.5 h-3.5 text-primary/60" />
-                <span>누적 방문</span>
-                <span className="font-bold text-foreground">{(visitorStats.total_visits ?? 0).toLocaleString()}</span>
-              </div>
-              <div className="w-px h-3 bg-border" />
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Users className="w-3.5 h-3.5 text-primary/60" />
-                <span>순방문자</span>
-                <span className="font-bold text-foreground">{(visitorStats.unique_users ?? 0).toLocaleString()}</span>
-              </div>
-              <div className="w-px h-3 bg-border" />
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>오늘</span>
-                <span className="font-bold text-foreground">{(visitorStats.today_visits ?? 0).toLocaleString()}</span>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </footer>
 
     </div>
   )

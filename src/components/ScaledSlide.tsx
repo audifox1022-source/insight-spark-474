@@ -13,6 +13,7 @@ import {
   PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
+import { AutoFitContainer } from './AutoFitContainer';
 
 // ══════════════════════════════════════════════════════════════
 // 타입
@@ -339,16 +340,18 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
       <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}>{slide.title}</h2>
       {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
       <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-        {rawContent.map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', padding: '0.4rem 0' }}>
-            <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${P.primary}15, ${P.primary}05)`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, marginTop: '2px', border: `1px solid ${P.primary}30`, boxShadow: `0 2px 8px ${P.primary}20` }}>
-              {String(i + 1).padStart(2, '0')}
+      <AutoFitContainer style={{ flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+          {rawContent.map((item, i) => (
+            <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', padding: '0.4rem 0' }}>
+              <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${P.primary}15, ${P.primary}05)`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, marginTop: '2px', border: `1px solid ${P.primary}30`, boxShadow: `0 2px 8px ${P.primary}20` }}>
+                {String(i + 1).padStart(2, '0')}
+              </div>
+              <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500 }}>{safeString(item)}</span>
             </div>
-            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500 }}>{safeString(item)}</span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </AutoFitContainer>
     </div>
   );
 
@@ -686,14 +689,16 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
           </div>
           {content.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {content.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>{i + 1}</div>
-                  <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.88)', lineHeight: 1.55 }}>{safeString(item)}</span>
-                </div>
-              ))}
-            </div>
+            <AutoFitContainer style={{ flex: 1, minHeight: 0 }} maxScaleDown={0.75}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {content.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+                    <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>{i + 1}</div>
+                    <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.88)', lineHeight: 1.55 }}>{safeString(item)}</span>
+                  </div>
+                ))}
+              </div>
+            </AutoFitContainer>
           )}
         </div>
         <SlideNumber number={slide.slideNumber} light />
@@ -723,18 +728,20 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
           </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.7)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}>{slide.subhead}</p>}
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'flex-start' }}>
-          {content.map((item, i) => (
-            <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
-              <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start', padding: '0.55rem 0.9rem', borderRadius: 12, background: i === 0 ? `${P.primary}0D` : 'rgba(255,255,255,0.5)', border: `1px solid ${i === 0 ? `${P.primary}20` : 'rgba(0,0,0,0.03)'}`, backdropFilter: 'blur(4px)' }}>
-                <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
-                  {String(i + 1).padStart(2, '0')}
+        <AutoFitContainer style={{ flex: 1, minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'flex-start' }}>
+            {content.map((item, i) => (
+              <InteractiveElement key={i} text={safeString(item)} onClick={onElementClick} interactive={interactive}>
+                <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'flex-start', padding: '0.55rem 0.9rem', borderRadius: 12, background: i === 0 ? `${P.primary}0D` : 'rgba(255,255,255,0.5)', border: `1px solid ${i === 0 ? `${P.primary}20` : 'rgba(0,0,0,0.03)'}`, backdropFilter: 'blur(4px)' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </div>
+                  <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
                 </div>
-                <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
-              </div>
-            </InteractiveElement>
-          ))}
-        </div>
+              </InteractiveElement>
+            ))}
+          </div>
+        </AutoFitContainer>
       </div>
       <SlideNumber number={slide.slideNumber} />
     </div>

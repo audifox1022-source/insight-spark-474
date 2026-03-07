@@ -67,12 +67,13 @@ export function FormGeneratorWorkspace() {
     const name = activePreset !== 'manual'
       ? FORM_PRESETS.find(p => p.id === activePreset)?.label
       : formName
-    const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' })
+    // HTML 대신 Markdown 확장자로 저장
+    const blob = new Blob([generatedHtml], { type: 'text/markdown;charset=utf-8' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href = url; a.download = `${name ?? '양식'}.html`; a.click()
+    a.href = url; a.download = `${name ?? '문서'}.md`; a.click()
     URL.revokeObjectURL(url)
-    toast.success('HTML 파일이 다운로드되었습니다!')
+    toast.success('Markdown (.md) 파일이 다운로드되었습니다!')
   }
 
   const handleReset = () => {
@@ -346,14 +347,11 @@ export function FormGeneratorWorkspace() {
                 </div>
               </div>
 
-              {/* iframe 미리보기 */}
-              <div className="flex-1 min-h-0">
-                <iframe
-                  srcDoc={generatedHtml}
-                  className="w-full h-full"
-                  title="양식 미리보기"
-                  sandbox="allow-scripts allow-same-origin"
-                />
+              {/* 텍스트 렌더링 영역 (Markdown 원문 표시) */}
+              <div className="flex-1 min-h-0 bg-background/50 p-6 overflow-y-auto custom-scrollbar">
+                <pre className="text-sm font-sans text-foreground whitespace-pre-wrap font-medium">
+                  {generatedHtml}
+                </pre>
               </div>
             </motion.div>
           )}

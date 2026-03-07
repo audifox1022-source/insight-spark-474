@@ -82,9 +82,14 @@ export const analyzeAndTranslate = async (text: string, targetLanguage: string):
 Analyze the text below and provide a response in a single JSON object adhering to the schema.
 Your tasks are:
 1. Detect Domain & Language
-2. Translate with Markdown into ${targetLanguage}
+2. Translate accurately into ${targetLanguage}
 3. Comprehensive Terminology Analysis
 4. Analyze Context & Style
+
+CRITICAL RULE FOR TRANSLATION:
+- STRICTLY PRESERVE all Markdown formatting syntax from the source text.
+- Do NOT translate, modify, or remove characters like \`**\`, \`*\`, \`#\`, \`-\`, \`>\`, \`[\`, \`]\`, \`(\`, \`)\` or code blocks (\`\`\`).
+- If the source is \`**Hello**\`, the output must be \`**안녕하세요**\` (if target is Korean), NOT \`안녕하세요\`.
 
 Text to analyze:
 ---

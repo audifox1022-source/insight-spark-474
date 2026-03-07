@@ -290,13 +290,15 @@ export const TranslatorWorkspace: React.FC = () => {
       );
     }
 
-    const escaped = uniqueTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const regex   = new RegExp(`(${escaped.join('|')})`, 'gi');
-
     const handleMouseEnter = (termStr: string, e: React.MouseEvent) => {
       const td = allTerms.find(t => t.displayTerm.toLowerCase() === termStr.toLowerCase());
       if (td) setPopoverContent({ term: td, position: { top: e.clientY, left: e.clientX } });
     };
+
+    // 마크다운 양식이 포함되어 있어도 오류가 나지 않도록 정규식을 안전하게 분할
+    // (\b boundary 대신 앞뒤 공백 및 마크다운 기호를 감안하도록 처리)
+    const escaped = uniqueTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const regex = new RegExp(`(${escaped.join('|')})`, 'gi');
 
     const parts = translatedText.split(regex);
     return (

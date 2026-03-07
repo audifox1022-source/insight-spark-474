@@ -201,7 +201,7 @@ export async function exportToPptx(
       }
       s.addShape('rect', { x: 1, y: SH * 0.35 + TITLE_H + 1.4, w: 1, h: 0.05, fill: { color: PRIMARY } });
 
-      if (slide.content && slide.content[0]) {
+      if (slide.content && slide.content.length > 0 && slide.content[0]) {
         s.addText(safeString(slide.content[0]), {
           x: 1, y: SH * 0.35 + TITLE_H + 1.8, w: SW * 0.6, h: 1, fontSize: CONTENT_PT - 2, color: WHITE, transparency: 45, fontFace: SAFE_FONT, lineSpacing: 24, valign: 'top'
         });
@@ -222,7 +222,7 @@ export async function exportToPptx(
       s.addText(safeString(slide.title), {
         x: 1, y: SH * 0.3 + 1, w: SW - 2, h: TITLE_H + 0.5, fontSize: TITLE_PT + 12, bold: true, color: WHITE, fontFace: SAFE_FONT, valign: 'top'
       });
-      if (slide.content && slide.content[0]) {
+      if (slide.content && slide.content.length > 0 && slide.content[0]) {
         s.addText(safeString(slide.content[0]), {
           x: 1, y: SH * 0.3 + 1 + TITLE_H + 0.5, w: SW * 0.6, h: 1, fontSize: CONTENT_PT + 2, color: WHITE, transparency: 25, fontFace: SAFE_FONT
         });
@@ -316,7 +316,7 @@ export async function exportToPptx(
     }
 
     // ── 본문 콘텐츠 ──
-    const contentItems = slide.content ?? slide.points ?? slide.items ?? [];
+    const contentItems = Array.isArray(slide.content) ? slide.content : Array.isArray(slide.points) ? slide.points : Array.isArray(slide.items) ? slide.items : [];
 
     switch (slide.type) {
 
@@ -418,13 +418,17 @@ export async function exportToPptx(
             options: { fill: { color: PRIMARY }, color: WHITE, bold: true, fontSize: CONTENT_PT - 2, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.1 }
           })));
 
-          slide.tableData.rows.forEach((row, rIdx) => {
-            const rowColor = rIdx % 2 === 0 ? WHITE : MUTED;
-            tableRows.push(row.map((cell, ci) => ({
-              text: safeString(cell),
-              options: { fill: { color: rowColor }, color: ci === 0 ? TEXT : SUBTEXT, bold: ci === 0, fontSize: CONTENT_PT - 2, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.1 }
-            })));
-          });
+          if (Array.isArray(slide.tableData.rows)) {
+            slide.tableData.rows.forEach((row, rIdx) => {
+              if (Array.isArray(row)) {
+                const rowColor = rIdx % 2 === 0 ? WHITE : MUTED;
+                tableRows.push(row.map((cell, ci) => ({
+                  text: safeString(cell),
+                  options: { fill: { color: rowColor }, color: ci === 0 ? TEXT : SUBTEXT, bold: ci === 0, fontSize: CONTENT_PT - 2, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.1 }
+                })));
+              }
+            });
+          }
 
           s.addTable(tableRows, {
             x: contentX, y: contentY, w: mainW,
@@ -437,6 +441,7 @@ export async function exportToPptx(
       case 'chart':
         if (slide.chartData?.data) {
           const cd = slide.chartData;
+          if (!Array.isArray(cd.data) || cd.data.length === 0) break; // 안전장치
           const chartTypes: any = { bar: 'bar', line: 'line', pie: 'pie', area: 'area' };
           const chartTypeToUse = chartTypes[cd.chartType || 'bar'] || 'bar';
           try {
@@ -449,8 +454,8 @@ export async function exportToPptx(
                 },
                 ...(cd.data[0]?.value2 !== undefined ? [{
                   name: cd.series2Label || 'Data 2',
-                  labels: cd.data.map(d => safeString(d.name)),
-                  values: cd.data.map(d => Number(d.value2) || 0)
+                  labels: cd.data.map(d => safeString(d?.name)),
+                  values: cd.data.map(d => Number(d?.value2) || 0)
                 }] : [])
               ],
               {
