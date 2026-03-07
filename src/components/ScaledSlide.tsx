@@ -63,6 +63,8 @@ interface Slide {
   bgGradient?: string;           // ← 그라디언트 배경 (NEW)
   layout?: string;
   notes?: string;
+  titleStyle?: any;
+  contentStyle?: any;
   text?: string;
   author?: string;
   milestones?: { label: string; date: string; state: 'done' | 'next' | 'todo'; description?: string }[];
@@ -115,6 +117,18 @@ function safeString(item: any): string {
   return JSON.stringify(item);
 }
 
+function getTextStyle(style: any, baseWeight: any = 500) {
+  if (!style) return { fontWeight: baseWeight };
+  const s: any = {
+    fontWeight: style.bold ? (baseWeight === 900 ? 900 : 700) : baseWeight,
+    fontStyle: style.italic ? 'italic' : 'normal',
+    textDecoration: style.underline ? 'underline' : 'none',
+  };
+  if (style.color) s.color = style.color;
+  if (style.align) s.textAlign = style.align;
+  return s;
+}
+
 const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = ({ children, light = false }) => (
   <div style={{ color: light ? 'rgba(255,255,255,0.6)' : P.primary, fontSize: '11px', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
     {children}
@@ -124,12 +138,12 @@ const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = (
 // BigNumber: 값 길이에 따라 폰트 자동 축소 및 랩핑 허용
 const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => {
   const len = (value || '').replace(/\s/g, '').length;
-  // 글자 수가 길어질수록 폰트를 더 공격적으로 줄임
-  const fs = len <= 4 ? '2.8rem' : len <= 6 ? '2.2rem' : len <= 8 ? '1.6rem' : '1.2rem';
+  // 글자 수가 길어질수록 폰트를 더 공격적으로 줄임 ("5만", "200억" 등을 개행 없이 표시하기 위함)
+  const fs = len <= 3 ? '2.8rem' : len <= 5 ? '2.2rem' : len <= 8 ? '1.7rem' : '1.3rem';
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', wordBreak: 'break-word' }}>
-      <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</span>
-      {unit && <span style={{ fontSize: '1rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext }}>{unit}</span>}
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', wordBreak: 'keep-all' }}>
+      <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{value}</span>
+      {unit && <span style={{ fontSize: '1rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext, whiteSpace: 'nowrap' }}>{unit}</span>}
     </div>
   );
 };
@@ -417,7 +431,7 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
   const textPanel = (
     <div style={{ flex: textRatio, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
       <SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel>
-      <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}>{slide.title}</h2>
+      <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0, ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h2>
       {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
       <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
       <AutoFitContainer style={{ flex: 1, minHeight: 0 }}>
@@ -427,7 +441,7 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
               <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${P.primary}15, ${P.primary}05)`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, marginTop: '2px', border: `1px solid ${P.primary}30`, boxShadow: `0 2px 8px ${P.primary}20` }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
-              <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500 }}>{safeString(item)}</span>
+              <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500, ...getTextStyle(slide.contentStyle, 500) }}>{safeString(item)}</span>
             </div>
           ))}
         </div>
@@ -449,7 +463,7 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
    return <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>{isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}</div>;
 }
 
-function renderGridCards(slide: Slide, contentFontSize: string, interactive?: boolean, onElementClick?: (text: string) => void) {
+function renderGridCards(slide: Slide, contentFontSize: string, interactive?: boolean, onElementClick?: (text: string) => void, directEditMode?: boolean, onUpdateSlide?: (updates: Partial<Slide>) => void, onFactCheck?: (text: string, context: any) => void) {
   const items = slide.content ?? slide.points ?? slide.items ?? [];
   const cols = items.length <= 2 ? 2 : items.length <= 4 ? 2 : 3;
 
@@ -462,7 +476,7 @@ function renderGridCards(slide: Slide, contentFontSize: string, interactive?: bo
             <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
               {String(i + 1).padStart(2, '0')}
             </div>
-            <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1 }}>
+            <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1, ...getTextStyle(slide.contentStyle, i === 0 ? 600 : 500) }}>
               {safeString(item)}
             </p>
           </div>
@@ -517,7 +531,7 @@ export const BaseScaledSlide = ({
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>PRESENTATION</span>
           </div>
           <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
-            <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h1>
+            <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)', ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h1>
           </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}>{slide.subhead}</p>}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
@@ -543,7 +557,7 @@ export const BaseScaledSlide = ({
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
           <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0, ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h2>
           </InteractiveElement>
           {content[0] && (
             <InteractiveElement text={safeString(content[0])} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
@@ -559,7 +573,7 @@ export const BaseScaledSlide = ({
   // ── 3. KPI 슬라이드
   if (slide.type === 'kpi' && slide.keyMetrics?.length) {
     const metrics = slide.keyMetrics;
-    const cols = metrics.length <= 2 ? 2 : metrics.length <= 4 ? 4 : 3;
+    const cols = metrics.length <= 2 ? 2 : metrics.length === 4 ? 4 : 3;
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
         {/* Subtle Ambient Background for KPI */}
@@ -591,9 +605,9 @@ export const BaseScaledSlide = ({
 
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
-                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: '#ef4444' }} />}
-                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, flexShrink: 0, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
+                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
+                      {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, flexShrink: 0, color: '#ef4444' }} />}
+                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, flexShrink: 0, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
                       {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: '1 1 auto', wordBreak: 'keep-all' }}>{m.description}</span>}
                     </div>
                   )}
@@ -789,7 +803,7 @@ export const BaseScaledSlide = ({
   // ── 10. Split / Grid 레이아웃
   if (layout === 'split-left') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, false)}</div><SlideNumber number={slide.slideNumber} /></div>;
   if (layout === 'split-right') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, true)}</div><SlideNumber number={slide.slideNumber} /></div>;
-  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize, interactive, onElementClick)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize, interactive, onElementClick, directEditMode, onUpdateSlide, onFactCheck)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
 
   // ── 11. 기본 콘텐츠 슬라이드 (전면 리디자인)
   return (
@@ -804,7 +818,7 @@ export const BaseScaledSlide = ({
         <div style={{ flexShrink: 0, borderLeft: `3px solid ${P.accent}`, paddingLeft: '1rem' }}>
           <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2em', color: P.primary, textTransform: 'uppercase', marginBottom: '0.3rem' }}>{slide.type ?? 'CONTENT'}</div>
           <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}>{slide.title}</h2>
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : '#000', lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em', ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h2>
           </InteractiveElement>
           {slide.subhead && <p style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.7)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}>{slide.subhead}</p>}
         </div>
@@ -816,7 +830,7 @@ export const BaseScaledSlide = ({
                   <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
                     {String(i + 1).padStart(2, '0')}
                   </div>
-                  <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
+                  <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : '#000', lineHeight: 1.58, margin: 0, flex: 1, ...getTextStyle(slide.contentStyle, i === 0 ? 600 : 400) }}>{safeString(item)}</p>
                 </div>
               </InteractiveElement>
             ))}

@@ -163,43 +163,16 @@ export function TextFormatToolbar({
         <div className="w-px h-4 bg-border/60" />
 
         {/* 텍스트 색상 */}
-        <div className="relative">
-          <button
-            type="button"
-            title="텍스트 색상"
-            onClick={() => setShowColorPicker(v => !v)}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
-          >
-            <Palette className="w-3.5 h-3.5" />
-          </button>
-          {showColorPicker && (
-            <div className="absolute left-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-lg p-2 animate-in fade-in slide-in-from-top-1">
-              <div className="text-[9px] font-bold text-muted-foreground mb-1.5 uppercase tracking-wider">색상 선택</div>
-              <div className="grid grid-cols-4 gap-1">
-                {COLOR_SWATCHES.map(c => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    title={c}
-                    className={[
-                      'w-6 h-6 rounded-md border-2 transition-all hover:scale-110',
-                      style.color === c ? 'border-primary ring-1 ring-primary' : 'border-transparent hover:border-border',
-                    ].join(' ')}
-                    style={{ background: c }}
-                  />
-                ))}
-              </div>
-              {/* 기본값으로 초기화 */}
-              <button
-                type="button"
-                onClick={() => { onStyleChange({ ...style, color: undefined }); setShowColorPicker(false); }}
-                className="w-full mt-1.5 text-[9px] text-muted-foreground hover:text-foreground text-center transition-colors"
-              >
-                기본 색상으로 초기화
-              </button>
-            </div>
-          )}
+        <div className="relative flex items-center justify-center w-7 h-7 rounded-lg overflow-hidden border border-border/80 hover:border-primary transition-all cursor-pointer shadow-sm group" title="텍스트 색상 변경">
+          <input
+            type="color"
+            value={style.color || '#000000'}
+            onChange={(e) => onStyleChange({ ...style, color: e.target.value })}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] cursor-pointer bg-transparent border-0 p-0"
+          />
+          <div className="pointer-events-none z-10 w-full h-full flex items-center justify-center bg-white/20 backdrop-blur-[1px] group-hover:bg-transparent transition-colors">
+            <Palette className="w-3.5 h-3.5 mix-blend-difference text-white" />
+          </div>
         </div>
 
         {/* 구분선 */}

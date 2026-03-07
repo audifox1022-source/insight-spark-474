@@ -67,13 +67,13 @@ export function FormGeneratorWorkspace() {
     const name = activePreset !== 'manual'
       ? FORM_PRESETS.find(p => p.id === activePreset)?.label
       : formName
-    // HTML 대신 Markdown 확장자로 저장
-    const blob = new Blob([generatedHtml], { type: 'text/markdown;charset=utf-8' })
+    // .html 확장자로 저장
+    const blob = new Blob([generatedHtml], { type: 'text/html;charset=utf-8' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    a.href = url; a.download = `${name ?? '문서'}.md`; a.click()
+    a.href = url; a.download = `${name ?? '문서'}.html`; a.click()
     URL.revokeObjectURL(url)
-    toast.success('Markdown (.md) 파일이 다운로드되었습니다!')
+    toast.success('HTML 파일이 다운로드되었습니다!')
   }
 
   const handleReset = () => {
@@ -347,11 +347,14 @@ export function FormGeneratorWorkspace() {
                 </div>
               </div>
 
-              {/* 텍스트 렌더링 영역 (Markdown 원문 표시) */}
-              <div className="flex-1 min-h-0 bg-background/50 p-6 overflow-y-auto custom-scrollbar">
-                <pre className="text-sm font-sans text-foreground whitespace-pre-wrap font-medium">
-                  {generatedHtml}
-                </pre>
+              {/* HTML 런타임 렌더링 영역 (iframe) */}
+              <div className="flex-1 min-h-0 bg-white relative">
+                <iframe
+                  srcDoc={generatedHtml}
+                  className="w-full h-full border-none pointer-events-auto"
+                  title="Form Preview"
+                  sandbox="allow-scripts allow-downloads allow-same-origin allow-popups"
+                />
               </div>
             </motion.div>
           )}

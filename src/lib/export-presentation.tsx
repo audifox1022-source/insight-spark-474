@@ -64,8 +64,8 @@ async function waitForImagesToLoad(container: HTMLElement): Promise<void> {
 // 1. PDF 내보내기 
 // ─────────────────────────────────────────────────────────────
 async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<string> {
-  const W = 1920;
-  const H = 1080;
+  const W = 1024;
+  const H = 576;
   const container = document.createElement('div');
   container.style.cssText = `position: fixed; top: 0; left: 0; width: ${W}px; height: ${H}px; z-index: -9999; pointer-events: none; overflow: hidden; background: #ffffff; transform: scale(1); transform-origin: top left;`;
   document.body.appendChild(container);
@@ -93,7 +93,7 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
       await waitForImagesToLoad(reactRoot);
 
       const canvas = await html2canvas(reactRoot, {
-        scale: 1, // Let 1920x1080 act as default scale without blowing up memory
+        scale: 2, // Scale up 2x for high-res output (2048x1152) while maintaining 1024 base layout proportions
         width: W,
         height: H,
         useCORS: true,
@@ -118,11 +118,12 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
 }
 
 export async function exportToPdf(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND): Promise<void> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  // Use a strictly 16:9 format for the PDF to prevent image stretching (e.g. 297 x 167.0625)
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [297, 167.0625] });
   for (let idx = 0; idx < presentation.slides.length; idx++) {
     if (idx > 0) doc.addPage();
     const imgData = await captureSlideAsImage(presentation.slides[idx], brand);
-    doc.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+    doc.addImage(imgData, 'JPEG', 0, 0, 297, 167.0625);
   }
   doc.save(`${presentation.title || 'Presentation'}.pdf`);
 }

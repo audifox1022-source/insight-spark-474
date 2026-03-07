@@ -49,96 +49,81 @@ const Index = () => {
   }
 
   return (
-    <div className="h-screen w-full bg-background transition-colors duration-300 flex overflow-hidden font-sans">
+    <div className="h-screen w-full bg-background transition-colors duration-300 flex flex-col overflow-hidden font-sans">
       
-      {/* ── LEFT SIDEBAR (Navigation) ──────────────────────────── */}
-      <aside className="w-64 border-r border-border/40 bg-card/80 backdrop-blur-xl flex flex-col z-20 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)] shrink-0 transition-colors hidden md:flex">
+      {/* ── TOP HEADER (Navigation) ──────────────────────────── */}
+      <header className="h-16 w-full border-b border-border/40 bg-card/80 backdrop-blur-xl flex items-center justify-between px-6 z-20 shadow-[0_4px_24px_-12px_rgba(0,0,0,0.1)] shrink-0 transition-colors">
         {/* 로고 영역 */}
-        <div className="h-20 flex items-center px-6 border-b border-border/40 cursor-pointer hover:bg-muted/50 transition-colors">
+        <div className="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
           <motion.div
             className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
-            whileHover={{ scale: 1.08, rotate: 6 }}
+            whileHover={{ scale: 1.05, rotate: 6 }}
             transition={{ type: 'spring', stiffness: 400, damping: 15 }}
           >
             <Sparkles className="w-5 h-5 text-primary-foreground" />
           </motion.div>
-          <div className="ml-3 min-w-0">
-            <h1 className="text-lg font-extrabold leading-tight tracking-tight text-foreground truncate">
+          <div className="ml-3 flex items-center gap-3">
+            <h1 className="text-xl font-extrabold leading-none tracking-tight text-foreground">
               WorkAI
             </h1>
-            <p className="text-[11px] text-muted-foreground font-semibold leading-none mt-1 tracking-wider uppercase">
+            <div className="w-px h-4 bg-border/80 hidden sm:block" />
+            <span className="text-xs text-muted-foreground font-bold tracking-wider hidden sm:block">
               올인원 생산성 도구
-            </p>
+            </span>
           </div>
         </div>
 
-        {/* 메뉴 리스트 */}
-        <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
-          <div className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-[0.2em] mb-4 px-2">
-            MAIN APPS
-          </div>
-          
+        {/* 탭 네비게이션 */}
+        <nav className="hidden md:flex items-center gap-1 bg-muted/30 p-1 rounded-xl border border-border/50">
           <button
             onClick={() => setActiveApp('presentation')}
             className={[
-              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              'flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all duration-200 text-sm font-bold',
               activeApp === 'presentation'
-                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
-                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+                ? 'bg-background text-primary shadow-sm ring-1 ring-border/50'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             ].join(' ')}
           >
-            <div className={[
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-              activeApp === 'presentation' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
-            ].join(' ')}>
-              <Sparkles className="w-4 h-4" />
-            </div>
+            <Sparkles className="w-4 h-4" />
             <span>발표자료</span>
-            {activeApp === 'presentation' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
           </button>
-
           <button
             onClick={() => setActiveApp('form')}
             className={[
-              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              'flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all duration-200 text-sm font-bold',
               activeApp === 'form'
-                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
-                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+                ? 'bg-background text-primary shadow-sm ring-1 ring-border/50'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             ].join(' ')}
           >
-            <div className={[
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-              activeApp === 'form' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
-            ].join(' ')}>
-              <FileText className="w-4 h-4" />
-            </div>
+            <FileText className="w-4 h-4" />
             <span>문서 생성기</span>
-            {activeApp === 'form' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
           </button>
-
           <button
             onClick={() => setActiveApp('translator')}
             className={[
-              'w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-sm font-bold group',
+              'flex items-center gap-2 px-4 py-1.5 rounded-lg transition-all duration-200 text-sm font-bold',
               activeApp === 'translator'
-                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20'
-                : 'text-muted-foreground hover:bg-muted/80 hover:text-foreground',
+                ? 'bg-background text-primary shadow-sm ring-1 ring-border/50'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
             ].join(' ')}
           >
-            <div className={[
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-              activeApp === 'translator' ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted-foreground/10 text-muted-foreground group-hover:bg-muted-foreground/20'
-            ].join(' ')}>
-              <Globe className="w-4 h-4" />
-            </div>
+            <Globe className="w-4 h-4" />
             <span>AI 번역기</span>
-            {activeApp === 'translator' && <ChevronRight className="w-4 h-4 ml-auto opacity-70" />}
           </button>
         </nav>
 
-        {/* 하단 유틸리티 (테마, 다크모드, 도움말, 로그아웃) */}
-        <div className="p-4 border-t border-border/40 bg-muted/10">
-          <div className="flex items-center justify-between gap-1 bg-background p-1 rounded-xl border border-border/50 shadow-sm relative">
+        {/* 유틸리티 영역 */}
+        <div className="flex items-center gap-2">
+          {/* 하단 접속 통계 대체 */}
+          <div className="hidden lg:flex items-center gap-4 mr-2 text-[11px] font-medium text-muted-foreground">
+            <span className="flex items-center gap-1" title="총 방문수"><Eye className="w-3.5 h-3.5"/> {(visitorStats?.total_visits ?? 0).toLocaleString()}</span>
+            <span className="flex items-center gap-1" title="순방문자"><Users className="w-3.5 h-3.5"/> {(visitorStats?.unique_users ?? 0).toLocaleString()}</span>
+          </div>
+          <div className="w-px h-5 bg-border/80 hidden lg:block mr-1" />
+
+          {/* 테마, 다크모드, 등 */}
+          <div className="flex items-center gap-1">
             <div className="relative">
               <Button
                 variant="ghost" size="icon"
@@ -151,10 +136,10 @@ const Index = () => {
               <AnimatePresence>
                 {themeMenuOpen && (
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.9, x: -10, y: -40 }}
-                    animate={{ opacity: 1, scale: 1, x: 0, y: -40 }}
-                    exit={{ opacity: 0, scale: 0.9, x: -10, y: -40 }}
-                    className="absolute left-10 bottom-full mb-2 w-44 bg-card border border-border shadow-elevated rounded-xl z-50 py-1 overflow-hidden"
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                    className="absolute right-0 top-full mt-2 w-44 bg-card border border-border shadow-elevated rounded-xl z-50 py-1 overflow-hidden"
                   >
                     {(['blue', 'navy', 'purple', 'green', 'orange'] as const).map(t => (
                         <button
@@ -209,36 +194,17 @@ const Index = () => {
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
-          
-          {/* 하단 접속 통계 */}
-          {visitorStats && (
-            <div className="mt-4 px-2 flex flex-col gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-               <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
-                 <span className="flex items-center gap-1"><Eye className="w-3 h-3"/> 총 방문</span>
-                 <span>{(visitorStats.total_visits ?? 0).toLocaleString()}</span>
-               </div>
-               <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
-                 <span className="flex items-center gap-1"><Users className="w-3 h-3"/> 순방문자</span>
-                 <span>{(visitorStats.unique_users ?? 0).toLocaleString()}</span>
-               </div>
-            </div>
-          )}
         </div>
-      </aside>
+      </header>
 
       {/* ── BENTO MAIN CANVAS ───────────────────────────────── */}
-      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 overflow-hidden h-screen bg-muted/20 relative">
+      <main className="flex-1 flex flex-col p-4 md:p-6 lg:p-8 overflow-hidden bg-muted/20 relative">
          
-         {/* 모바일용 헤더 (화면이 작을 때만 표시) */}
-         <div className="md:hidden flex items-center justify-between bg-card rounded-2xl p-4 shadow-sm border border-border mb-4 shrink-0">
-             <div className="flex items-center gap-2">
-                 <Sparkles className="w-5 h-5 text-primary" />
-                 <h1 className="font-extrabold text-foreground">WorkAI</h1>
-             </div>
-             <div className="flex items-center gap-2">
-                 <Button variant="outline" size="sm" onClick={() => setActiveApp('presentation')}>PPT</Button>
-                 <Button variant="outline" size="sm" onClick={() => setActiveApp('form')}>문서</Button>
-             </div>
+         {/* 모바일 탭 네비게이션 (화면이 작을 때만 표시) */}
+         <div className="md:hidden flex items-center justify-between bg-card rounded-xl p-2 shadow-sm border border-border mb-4 shrink-0 overflow-x-auto gap-2 hide-scrollbar">
+            <Button variant={activeApp === 'presentation' ? 'default' : 'outline'} size="sm" onClick={() => setActiveApp('presentation')} className="whitespace-nowrap"><Sparkles className="w-3.5 h-3.5 mr-1" /> PPT</Button>
+            <Button variant={activeApp === 'form' ? 'default' : 'outline'} size="sm" onClick={() => setActiveApp('form')} className="whitespace-nowrap"><FileText className="w-3.5 h-3.5 mr-1" /> 문서</Button>
+            <Button variant={activeApp === 'translator' ? 'default' : 'outline'} size="sm" onClick={() => setActiveApp('translator')} className="whitespace-nowrap"><Globe className="w-3.5 h-3.5 mr-1" /> 번역</Button>
          </div>
 
          {/* Bento Container */}

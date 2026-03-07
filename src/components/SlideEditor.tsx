@@ -140,66 +140,66 @@ export function SlideEditor({
       <div className="flex-1 bg-muted/30 p-6 flex flex-col relative overflow-hidden">
 
         {/* 상단: 슬라이드 네비게이션 및 액션 버튼들 */}
-        <div className="flex items-center justify-between mb-6 bg-card px-4 py-3 rounded-xl border border-border shadow-sm flex-shrink-0">
+        <div className="flex items-center justify-between mb-6 bg-card px-4 py-3 rounded-2xl border border-border/80 shadow-sm flex-shrink-0">
           {/* 좌측: 이동 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="sm"
               onClick={handlePrevSlide}
               disabled={currentSlide === 0}
-              className="gap-1 h-8">
+              className="gap-1 h-9 rounded-xl px-3 text-[13px] font-semibold shadow-sm">
               <ChevronLeft className="w-4 h-4" /> 이전
             </Button>
-            <div className="font-bold text-sm text-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
-              {currentSlide + 1} <span className="text-muted-foreground font-normal mx-1">/</span> {activeSlides.length}
+            <div className="flex flex-col items-center justify-center font-bold text-[13px] text-foreground bg-muted/50 px-3.5 h-9 rounded-xl border border-border/50 min-w-[4rem]">
+              <span>{currentSlide + 1} <span className="text-muted-foreground/60 font-normal mx-0.5">/</span> {activeSlides.length}</span>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={handleNextSlide}
               disabled={currentSlide === activeSlides.length - 1}
-              className="gap-1 h-8">
+              className="gap-1 h-9 rounded-xl px-3 text-[13px] font-semibold shadow-sm">
               다음 <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
 
           {/* 우측: 저장, 내보내기, AI 등 핵심 기능 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <Button
               variant={isDirectEditMode ? "default" : "outline"}
               size="sm"
               onClick={() => setIsDirectEditMode(!isDirectEditMode)}
-              className={`gap-1.5 h-8 ${isDirectEditMode ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-0 shadow-md' : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}>
-              <MousePointer2 className="w-3.5 h-3.5" /> 
+              className={`gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold transition-all ${isDirectEditMode ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-0 shadow-md ring-2 ring-indigo-200' : 'text-indigo-600 border-indigo-200 hover:bg-indigo-50 shadow-sm'}`}>
+              <MousePointer2 className="w-4 h-4" /> 
               {isDirectEditMode ? '자유 편집 완료' : '자유 편집 모드'}
             </Button>
-            <div className="w-px h-4 bg-border mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
             
             {onOpenPlay && (
-              <Button variant="outline" size="sm" onClick={onOpenPlay} className="gap-1.5 h-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200">
-                <Play className="w-3.5 h-3.5" /> 발표
+              <Button variant="outline" size="sm" onClick={onOpenPlay} className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border-emerald-200 transition-colors shadow-sm">
+                <Play className="w-4 h-4" /> 발표
               </Button>
             )}
             {onSave && (
-              <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-1.5 h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200">
-                <Save className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '저장'}
+              <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 transition-colors shadow-sm">
+                <Save className="w-4 h-4" /> {isSaving ? '저장 중...' : '저장'}
               </Button>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
-                  <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
+                <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold border-primary/20 text-primary hover:bg-primary/5 transition-colors shadow-sm">
+                  <Download className="w-4 h-4" /> 다운로드 <ChevronDown className="w-3.5 h-3.5 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다.">
+              <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다." className="py-2 cursor-pointer">
                   PPT 파워포인트
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenExport?.('pptx-image')} className="text-emerald-600" title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다.">
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx-image')} className="text-emerald-600 font-medium py-2 cursor-pointer" title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다.">
                   PPT (이미지 고정본)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onOpenExport?.('pdf')} className="text-blue-600" title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다.">
+                <DropdownMenuItem onClick={() => onOpenExport?.('pdf')} className="text-blue-600 font-medium py-2 cursor-pointer" title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다.">
                   PDF 문서
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -208,47 +208,47 @@ export function SlideEditor({
             {onChangePersona && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 h-8 border-violet-200 text-violet-700 hover:bg-violet-50 shadow-sm">
-                    <Users className="w-3.5 h-3.5" /> 청중 눈높이 <ChevronDown className="w-3 h-3 opacity-50" />
+                  <Button variant="outline" size="sm" className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold border-violet-200 text-violet-700 hover:bg-violet-50 transition-colors shadow-sm">
+                    <Users className="w-4 h-4" /> 청중 눈높이 <ChevronDown className="w-3.5 h-3.5 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'investor')} className="font-medium text-[13px]">
+                <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'investor')} className="font-medium text-[13px] py-2 cursor-pointer">
                     💰 투자자용 (지표/비전 강조)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'executive')} className="font-medium text-[13px]">
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'executive')} className="font-medium text-[13px] py-2 cursor-pointer">
                     👔 임원진용 (결론/요약 위주)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'team')} className="font-medium text-[13px]">
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'team')} className="font-medium text-[13px] py-2 cursor-pointer">
                     👥 실무진용 (세부/기술 강조)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'client')} className="font-medium text-[13px]">
+                  <DropdownMenuItem onClick={() => onChangePersona(currentSlide, 'client')} className="font-medium text-[13px] py-2 cursor-pointer">
                     🤝 고객사용 (친절/기대효과)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
 
-            <div className="w-px h-4 bg-border mx-1" />
+            <div className="w-px h-5 bg-border mx-1" />
             <Button
               variant="secondary"
               size="sm"
               onClick={() => onRegenerateSlide?.(currentSlide)}
-              className="gap-1.5 h-8 text-xs font-semibold">
-              <Wand2 className="w-3.5 h-3.5" /> 다시 쓰기
+              className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold transition-colors shadow-sm">
+              <Wand2 className="w-4 h-4" /> 다시 쓰기
             </Button>
             <Button
               onClick={onOpenChat}
               size="sm"
-              className="gap-1.5 h-8 text-xs font-semibold gradient-primary border-0">
-              <MessageSquare className="w-3.5 h-3.5" /> AI 채팅 수정
+              className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold gradient-primary border-0 shadow-sm hover:opacity-90 text-white">
+              <MessageSquare className="w-4 h-4" /> AI 채팅 수정
             </Button>
             {onOpenReview && (
               <Button
                 onClick={onOpenReview}
                 size="sm"
-                className="gap-1.5 h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white border-0 shadow-sm">
-                <ClipboardCheck className="w-3.5 h-3.5" /> AI 리뷰
+                className="gap-1.5 h-9 rounded-xl px-3.5 text-[13px] font-semibold bg-violet-600 hover:bg-violet-700 text-white border-0 shadow-sm transition-colors">
+                <ClipboardCheck className="w-4 h-4" /> AI 리뷰
               </Button>
             )}
           </div>
