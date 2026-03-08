@@ -17,7 +17,14 @@ import {
 import { saveFavoriteTemplate, loadFavoriteTemplates, deleteFavoriteTemplate, FavoriteTemplate } from '@/lib/favorite-templates';
 import { toast } from 'sonner';
 import { aiService } from '@/lib/ai-service';
-import { ReferenceStructure } from '@/hooks/usePresentation';
+import { DeepResearchToggle } from '@/components/DeepResearchToggle';
+
+// 참고 양식 구조 타입 (usePresentation 훅과 동일한 구조)
+interface ReferenceStructure {
+  slideCount: number;
+  structure: { type: string; title: string }[];
+  keyPatterns: string[];
+}
 
 interface PresentationSetupFormProps {
   info: MeetingInfo;
@@ -36,6 +43,8 @@ interface PresentationSetupFormProps {
   referenceStructure: ReferenceStructure | null;
   onReferenceFileUpload: (files: File[]) => void;
   onClearReferenceFile: () => void;
+  deepResearchMode: boolean;
+  onDeepResearchToggle: (v: boolean) => void;
 }
 
 const TEMPLATES = [
@@ -75,6 +84,7 @@ export function PresentationSetupForm({
   fileNames, dataSummary, template, setTemplate,
   referenceFileName, isAnalyzingReference, referenceStructure,
   onReferenceFileUpload, onClearReferenceFile,
+  deepResearchMode, onDeepResearchToggle,
 }: PresentationSetupFormProps) {
   const [favorites, setFavorites] = useState<FavoriteTemplate[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
@@ -594,6 +604,12 @@ export function PresentationSetupForm({
         </div>
       </details>
 
+      {/* 딥 리서치 토글 */}
+      <DeepResearchToggle
+        enabled={deepResearchMode}
+        onToggle={onDeepResearchToggle}
+      />
+
       {/* 하단 버튼 */}
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onBack} className="gap-2">
@@ -603,10 +619,16 @@ export function PresentationSetupForm({
         <Button
           onClick={onGenerate}
           disabled={isGenerating}
-          className="flex-1 gap-2 gradient-primary text-primary-foreground border-0 hover:opacity-90 py-5 text-base"
+          className={`flex-1 gap-2 border-0 hover:opacity-90 py-5 text-base ${
+            deepResearchMode
+              ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/25'
+              : 'gradient-primary text-primary-foreground'
+          }`}
         >
-          <Sparkles className="w-5 h-5" />
-          {isGenerating ? '생성 중...' : 'AI 발표자료 생성'}
+          {deepResearchMode
+            ? <><span>🔬</span> {isGenerating ? '딥 리서치 진행 중...' : '딥 리서치로 생성'}</>
+            : <><Sparkles className="w-5 h-5" /> {isGenerating ? '생성 중...' : 'AI 발표자료 생성'}</>
+          }
         </Button>
       </div>
     </motion.div>

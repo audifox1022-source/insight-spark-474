@@ -13,6 +13,7 @@ import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backof
 import { aiService } from '@/lib/ai-service';
 import { validateAndFixPresentation } from '@/lib/layout-validator';
 import { useAudienceStore } from '@/store/audienceStore';
+import { runDeepResearchPipeline, DeepResearchStage, DeepResearchProgress } from '@/lib/deep-research-pipeline';
 
 export interface BrandKit {
   logoUrl: string | null;
@@ -126,6 +127,14 @@ export function usePresentation() {
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+
+  // ── 딥 리서치 모드 상태 ──────────────────────────────────────
+  const [deepResearchMode, setDeepResearchMode] = useState(false);
+  const [deepResearchStage, setDeepResearchStage] = useState<DeepResearchStage>('notebook_create');
+  const [deepResearchStageIndex, setDeepResearchStageIndex] = useState(0);
+  const [deepResearchMessage, setDeepResearchMessage] = useState('');
+  const [deepResearchSourceCount, setDeepResearchSourceCount] = useState(0);
+  const [deepResearchElapsed, setDeepResearchElapsed] = useState(0);
   const [isFixing, setIsFixing] = useState(false);
 
   const [referenceFile, setReferenceFile] = useState<ParsedFileData | null>(null);
@@ -281,6 +290,60 @@ export function usePresentation() {
       setIsGenerating(false);
     }
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
+
+  // ── 딥 리서치 파이프라인 생성 ───────────────────────────────
+  const generatePresentationWithDeepResearch = useCallback(async () => {
+    if (parsedFiles.length === 0) { setStep('upload'); return; }
+    setStep('generating');
+    setIsGenerating(true);
+    setDeepResearchStageIndex(0);
+    setDeepResearchSourceCount(0);
+    setDeepResearchElapsed(0);
+
+    // 주제 텍스트 추출
+    const topic = meetingInfo?.week ||
+      parsedFiles[0]?.content?.toString().slice(0, 100) ||
+      '발표 주제';
+
+    try {
+      const gen = runDeepResearchPipeline(
+        topic,
+        meetingInfo,
+        { ...settings, audience: useAudienceStore.getState().audienceMode as any },
+        template,
+      );
+
+      for await (const progress of gen) {
+        setDeepResearchStage(progress.stage);
+        setDeepResearchStageIndex(progress.stageIndex);
+        setDeepResearchMessage(progress.message);
+        if (progress.sourceCount !== undefined) setDeepResearchSourceCount(progress.sourceCount);
+        if (progress.elapsedSeconds !== undefined) setDeepResearchElapsed(progress.elapsedSeconds);
+
+        if (progress.stage === 'error') {
+          toast.error(progress.message);
+          setStep('info');
+          return;
+        }
+
+        if (progress.stage === 'complete' && progress.payload) {
+          const rawPresentation = progress.payload.presentation;
+          const { presentation: fixedPresentation } = validateAndFixPresentation(rawPresentation);
+          setPresentation(normalizePresentationSlides(fixedPresentation));
+          setCurrentSlideIndex(0);
+          setStep('preview');
+          toast.success(`🔬 딥 리서치 완료! ${progress.payload.sourceCount}개 출처 기반 발표자료 생성됨`);
+        }
+      }
+    } catch (err: any) {
+      toast.error(`딥 리서치 오류: ${err.message}`);
+      setStep('info');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [parsedFiles, meetingInfo, settings, template]);
+
+  const toggleDeepResearch = useCallback((v: boolean) => setDeepResearchMode(v), []);
 
   const updateSlide = useCallback((index: number, updated: Partial<Slide>) => {
     setPresentation((prev) => {
@@ -587,6 +650,12 @@ export function usePresentation() {
     brandKit, setBrandKit,
 
     // ✅ 이것이 없어서 Index.tsx가 undefined를 넘기고 화면이 터졌습니다!
-    currentSlideIndex, setCurrentSlideIndex, 
+    currentSlideIndex, setCurrentSlideIndex,
+
+    // ── 딥 리서치 모드 ──
+    deepResearchMode, toggleDeepResearch,
+    deepResearchStage, deepResearchStageIndex,
+    deepResearchMessage, deepResearchSourceCount, deepResearchElapsed,
+    generatePresentationWithDeepResearch,
   };
 }

@@ -10,6 +10,7 @@ import { usePresentation } from '@/hooks/usePresentation';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { PresentationSetupForm } from '@/components/PresentationSetupForm';
 import { GeneratingState } from '@/components/GeneratingState';
+import { DeepResearchProgress } from '@/components/DeepResearchProgress';
 import { SlideEditor } from '@/components/SlideEditor';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
@@ -99,6 +100,11 @@ export function PresentationTab(props: PresentationTabProps) {
     currentSlideIndex, setCurrentSlideIndex,
     selectedText, setSelectedText, handleFactCheck,
     brandKit,
+    // 딥 리서치 모드
+    deepResearchMode, toggleDeepResearch,
+    deepResearchStage, deepResearchStageIndex,
+    deepResearchMessage, deepResearchSourceCount, deepResearchElapsed,
+    generatePresentationWithDeepResearch,
   } = props;
 
   return (
@@ -277,9 +283,9 @@ export function PresentationTab(props: PresentationTabProps) {
               onChange={setMeetingInfo}
               settings={settings}
               onSettingsChange={setSettings}
-              onGenerate={requestOutline}
+              onGenerate={deepResearchMode ? generatePresentationWithDeepResearch : requestOutline}
               onBack={() => setStep('upload')}
-              isGenerating={isLoadingOutline}
+              isGenerating={isLoadingOutline || isGenerating}
               fileNames={fileNames}
               dataSummary={dataSummary}
               template={template}
@@ -289,6 +295,8 @@ export function PresentationTab(props: PresentationTabProps) {
               referenceStructure={referenceStructure}
               onReferenceFileUpload={handleReferenceFileUpload}
               onClearReferenceFile={clearReferenceFile}
+              deepResearchMode={deepResearchMode}
+              onDeepResearchToggle={toggleDeepResearch}
             />
           </div>
         )}
@@ -315,7 +323,17 @@ export function PresentationTab(props: PresentationTabProps) {
         )}
 
         {/* STEP: generating */}
-        {step === 'generating' && <GeneratingState />}
+        {step === 'generating' && (
+          deepResearchMode
+            ? <DeepResearchProgress
+                currentStage={deepResearchStage}
+                stageIndex={deepResearchStageIndex}
+                message={deepResearchMessage}
+                sourceCount={deepResearchSourceCount}
+                elapsedSeconds={deepResearchElapsed}
+              />
+            : <GeneratingState />
+        )}
 
         {/* STEP: preview (슬라이드 에디터) */}
         {step === 'preview' && presentation && (
