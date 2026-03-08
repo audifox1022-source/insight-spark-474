@@ -33,21 +33,16 @@ export const formAiService = {
   /**
    * 양식명 + 요청사항을 받아 완전한 HTML 양식 파일을 생성합니다.
    */
-  async generateForm(formName: string, requirements: string): Promise<string> {
+  async generateForm(formName: string, requirements: string, autoFill: boolean = true): Promise<string> {
     const systemInstruction = `[양식명]: ${formName}
+[내용 자동 채우기]: ${autoFill ? '활성화 (더미 데이터 포함)' : '비활성화 (빈 양식 템플릿만 생성)'}
 
 [Role & Identity]
-당신은 방대하고 파편화된 데이터나 단순한 아이디어를 이력서, 사업계획서, 마케팅 보고서, 엑셀 시트 등 **가장 전문적이고 구조화된 형태의 비즈니스 문서로 즉각 변환하는 '만능 문서 생성 마스터 에이전트'**입니다. 사용자가 복잡한 오피스 프로그램(Word, Excel 등)의 사용법을 몰라도, 자연어 지시만으로 완벽한 서식과 내용을 갖춘 문서를 얻게 하는 것이 당신의 목표입니다.
+당신은 방대하고 파편화된 데이터나 단순한 아이디어를 이력서, 사업계획서, 마케팅 보고서, 엑셀 시트 등 **가장 전문적이고 구조화된 형태의 비즈니스 문서로 즉각 변환하는 '만능 문서 생성 마스터 에이전트'**입니다.
 
-[Core Capabilities: 핵심 역량]
-1. 템플릿 매핑 엔진 (Template Mapper): 파일이나 데이터가 제공되면 레이아웃 구조를 분석하여 칸이나 줄을 흩트리지 않고 데이터를 정확히 자동 매핑합니다.
-2. 비즈니스 구조화 엔진 (Business Structurer): 빈 캔버스에서 시작할 경우 문서 목적(예: 사업계획서, 마케팅 기획안 등)을 파악하여 업계 표준 목차를 자동 생성하고 내용을 논리적으로 전개합니다.
-3. 스마트 시트 분석기 (Smart Sheet Analyzer): 데이터가 표나 엑셀 형태로 요구될 경우 단순 칸 나누기를 넘어 상황에 맞는 적절한 JS/수식 시뮬레이션을 제공하거나, 시각화를 위한 테이블 색상/차트 구조를 함께 제안합니다.
-
-[Workflow & Action Guidelines: 작업 지침]
-- Step 1. 문서 유형 파악: 텍스트 문서, 스프레드시트 스타일 등 출력 형태를 결정하고 타깃 독자에 맞게 어조를 프로페셔널하게 조정합니다.
-- Step 2. 정보 추출 및 추론: 주어진 데이터에서 핵심 정보를 추출하고, 필요시 가상의 더미 데이터를 생성하여 완성된 템플릿 모습을 띠게 합니다.
-- Step 3. 맞춤형 서식 & 시각화: 기업 개요, 재무 분석 등 섹션을 나누어 가독성을 극대화합니다. 표 작성 시 열과 행 색상을 구분하여 전문성을 높입니다.
+[Core Guidelines]
+1. ${autoFill ? '문서의 목적에 맞는 전문적인 가이드 내용과 예시 데이터(더미 데이터)를 채워 넣어 완성된 문서의 모습을 보여주세요.' : '문서의 구조와 표, 항목명은 완벽히 구성하되, 실제 데이터가 들어갈 자리는 모두 빈 칸(Empty)으로 비워두거나 "________________" 와 같은 기입란으로 구성하세요. 예시 데이터는 절대 넣지 마세요.'}
+2. 테이블(표) 작성 시, 행과 열의 구조가 명확해야 하며 Tailwind CSS를 사용하여 전문적인 디자인을 적용합니다.
 
 ## 주요 HTML/기능 요구사항:
 1. 오직 하나의 완전하고 동작 가능한 HTML 코드만을 반환해야 하며, 부가 설명이나 Markdown (\`\`\`html 등)은 절대 출력하지 마세요.
@@ -62,14 +57,14 @@ export const formAiService = {
    - PDF로 내보내기(\`window.print()\`) 시 찌그러지지 않도록 대응하세요 (\`-webkit-print-color-adjust: exact !important;\`).
    - \`no-print\` 클래스로 앱다운로드 버튼, 툴바 등은 인쇄되지 않게 숨기세요.
 5. **동적 JavaScript**: 하단 스크립트에 localStorage 자동 저장/불러오기 기능, 파일 입출력 로직을 탑재하세요.
-
-아래의 요청사항을 반영하여, 완벽히 작동하는 HTML(CSS+JS 포함) 문서를 만들어 반환하세요.`
+`
 
     const userPrompt = `양식명: ${formName}
 추가 요청사항: ${requirements || '표준 비즈니스 양식으로 만들어주세요.'}
+${autoFill ? '내용을 적절히 채워주세요.' : '내용은 비워두고 양식(서식)만 구성해주세요.'}
 
 위 정보를 바탕으로 완벽히 디자인되고 기능(JS)이 포함된 완전한 index.html 코드를 작성하세요.
-절대 설명을 덧붙이지 말고 <html> 태그로 시작하여 </html>로 끝나는 코드만 응답해야 합니다.`
+</html>로 끝나는 코드만 응답해야 합니다.`
 
     const html = await callGeminiAPI(systemInstruction, userPrompt, 65536)
 

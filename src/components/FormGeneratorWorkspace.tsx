@@ -47,6 +47,8 @@ export function FormGeneratorWorkspace() {
   const [loadingStep,    setLoadingStep]    = useState(0)
   const [isFullscreen,   setIsFullscreen]   = useState(false)
   const [isSidebarOpen,  setIsSidebarOpen]  = useState(true)
+  const [autoFill,       setAutoFill]       = useState(true)
+  const [editMode,       setEditMode]       = useState(false)
   const loadingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const activePresetData = FORM_PRESETS.find(p => p.id === activePreset)
@@ -71,7 +73,7 @@ export function FormGeneratorWorkspace() {
     setGeneratedHtml(null)
     startLoadingTimer()
     try {
-      const html = await formAiService.generateForm(resolvedName, requirements)
+      const html = await formAiService.generateForm(resolvedName, requirements, autoFill)
       setGeneratedHtml(html)
       toast.success(`✅ "${resolvedName}" 양식 생성 완료!`)
     } catch (err: any) {
@@ -143,10 +145,9 @@ export function FormGeneratorWorkspace() {
         <div className="flex-shrink-0 relative overflow-hidden rounded-2xl bg-card border border-border/60 shadow-sm">
           {/* 배경 장식 */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-8 -right-8 w-48 h-48 rounded-full bg-gradient-to-br from-primary/10 to-accent/5 blur-2xl" />
-            <div className="absolute -bottom-4 left-12 w-32 h-32 rounded-full bg-gradient-to-br from-accent/10 to-primary/5 blur-xl" />
+            <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-gradient-to-br from-primary/10 to-accent/5 blur-xl" />
           </div>
-          <div className="relative flex items-center justify-between gap-4 px-5 py-3">
+          <div className="relative flex items-center justify-between gap-4 px-5 py-2.5">
             <div className="flex items-center gap-3">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold">
                 <Wand2 className="w-3 h-3" /> AI 문서 생성 마스터
@@ -259,8 +260,24 @@ export function FormGeneratorWorkspace() {
                     '예) 특별히 포함할 항목이나 형식을 입력하세요...'
                   }
                   className="bg-background resize-none text-sm"
-                  rows={4}
+                  rows={3}
                 />
+              </div>
+
+              {/* 내용 자동 채우기 옵션 */}
+              <div className="flex items-center justify-between px-1 py-1">
+                <label className="text-xs font-bold text-foreground cursor-pointer flex items-center gap-2" onClick={() => setAutoFill(!autoFill)}>
+                   내용 자동 채우기
+                </label>
+                <button 
+                  onClick={() => setAutoFill(!autoFill)}
+                  className={`w-9 h-5 rounded-full transition-colors relative ${autoFill ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <motion.div 
+                    className="absolute top-1 left-1 w-3 h-3 bg-white rounded-full"
+                    animate={{ x: autoFill ? 16 : 0 }}
+                  />
+                </button>
               </div>
 
               {/* AI 생성 버튼 */}
@@ -580,6 +597,15 @@ export function FormGeneratorWorkspace() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <Button 
+                      size="sm" 
+                      variant={editMode ? "default" : "ghost"} 
+                      onClick={() => setEditMode(!editMode)} 
+                      className={`h-7 px-2 text-xs gap-1 ${editMode ? 'bg-orange-500 hover:bg-orange-600' : ''}`}
+                    >
+                      <PencilLine className="w-3 h-3" /> 직접 편집 {editMode ? 'ON' : 'OFF'}
+                    </Button>
+                    <div className="w-px h-4 bg-border mx-1" />
                     <Button size="sm" variant="ghost" onClick={handleCopyHtml} className="h-7 px-2 text-xs gap-1">
                       <Copy className="w-3 h-3" /> 복사
                     </Button>
@@ -631,7 +657,7 @@ export function FormGeneratorWorkspace() {
                 <div className={`flex-1 min-h-0 bg-[#f1f5f9] dark:bg-[#0d1117] p-3 overflow-hidden`}>
                   <div className="w-full h-full bg-white rounded-xl shadow-sm border border-border/40 overflow-hidden ring-1 ring-black/5">
                     <iframe
-                      srcDoc={generatedHtml}
+                      srcDoc={editMode ? injectEditorScript(generatedHtml) : generatedHtml}
                       className="w-full h-full border-none pointer-events-auto bg-white"
                       title="문서 미리보기"
                       sandbox="allow-scripts allow-downloads allow-same-origin allow-popups allow-modals"
@@ -645,4 +671,124 @@ export function FormGeneratorWorkspace() {
       </div>
     </div>
   )
+}
+
+/**
+ * 생성된 HTML에 실시간 테이블 편집 및 텍스트 편집 스크립트를 주입합니다.
+ */
+function injectEditorScript(html: string | null) {
+  if (!html) return ''
+  
+  const editorScript = `
+    <style>
+      .edit-marker { position: relative; }
+      .edit-marker:hover { outline: 2px solid #3b82f6; }
+      .table-tool-btn {
+        position: absolute;
+        z-index: 9999;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+        cursor: pointer;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      }
+      td:hover .table-tool-btn, th:hover .table-tool-btn { display: flex; }
+      .btn-add-row { bottom: -10px; left: 50%; transform: translateX(-50%); }
+      .btn-del-row { top: -10px; left: 50%; transform: translateX(-50%); background: #ef4444; }
+      .btn-add-col { right: -10px; top: 50%; transform: translateY(-50%); }
+      .btn-del-col { left: -10px; top: 50%; transform: translateY(-50%); background: #ef4444; }
+      [contenteditable="true"]:focus { outline: 2px solid #3b82f6; background: rgba(59, 130, 246, 0.05); }
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // 1. 모든 텍스트 요소 편집 가능하게 설정
+        const textElements = document.querySelectorAll('p, span, h1, h2, h3, h4, h5, h6, td, th, li, div:not(:has(*))');
+        textElements.forEach(el => {
+          if (el.children.length === 0 || (el.tagName === 'TD' || el.tagName === 'TH')) {
+            el.setAttribute('contenteditable', 'true');
+          }
+        });
+
+        // 2. 테이블 편집 도구 주입
+        const tables = document.querySelectorAll('table');
+        tables.forEach(table => {
+          table.querySelectorAll('td, th').forEach(cell => {
+            cell.style.position = 'relative';
+            
+            // 행 추가 버튼
+            const addRowBtn = document.createElement('button');
+            addRowBtn.className = 'table-tool-btn btn-add-row no-print';
+            addRowBtn.innerHTML = '+';
+            addRowBtn.title = '아래에 행 추가';
+            addRowBtn.onclick = (e) => {
+              e.stopPropagation();
+              const row = cell.parentElement;
+              const newRow = row.cloneNode(true);
+              newRow.querySelectorAll('td, th').forEach(c => c.innerHTML = '');
+              row.after(newRow);
+            };
+            
+            // 행 삭제 버튼
+            const delRowBtn = document.createElement('button');
+            delRowBtn.className = 'table-tool-btn btn-del-row no-print';
+            delRowBtn.innerHTML = '×';
+            delRowBtn.title = '현재 행 삭제';
+            delRowBtn.onclick = (e) => {
+              e.stopPropagation();
+              const row = cell.parentElement;
+              if (table.querySelectorAll('tr').length > 1) row.remove();
+            };
+
+            // 열 추가 버튼
+            const addColBtn = document.createElement('button');
+            addColBtn.className = 'table-tool-btn btn-add-col no-print';
+            addColBtn.innerHTML = '+';
+            addColBtn.title = '우측에 열 추가';
+            addColBtn.onclick = (e) => {
+              e.stopPropagation();
+              const colIndex = cell.cellIndex;
+              table.querySelectorAll('tr').forEach(tr => {
+                const targetCell = tr.cells[colIndex];
+                const newCell = targetCell.cloneNode(true);
+                newCell.innerHTML = '';
+                targetCell.after(newCell);
+              });
+            };
+
+            // 열 삭제 버튼
+            const delColBtn = document.createElement('button');
+            delColBtn.className = 'table-tool-btn btn-del-col no-print';
+            delColBtn.innerHTML = '×';
+            delColBtn.title = '현재 열 삭제';
+            delColBtn.onclick = (e) => {
+              e.stopPropagation();
+              const colIndex = cell.cellIndex;
+              const rows = table.querySelectorAll('tr');
+              if (rows[0].cells.length > 1) {
+                rows.forEach(tr => tr.cells[colIndex].remove());
+              }
+            };
+
+            cell.appendChild(addRowBtn);
+            cell.appendChild(delRowBtn);
+            cell.appendChild(addColBtn);
+            cell.appendChild(delColBtn);
+          });
+        });
+      });
+    </script>
+  `
+  
+  // body 태그 닫히기 직전에 스크립트 주입
+  if (html.includes('</body>')) {
+    return html.replace('</body>', editorScript + '</body>')
+  }
+  return html + editorScript
 }

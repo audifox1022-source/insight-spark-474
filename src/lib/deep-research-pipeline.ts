@@ -70,34 +70,40 @@ async function simulateDeepResearch(topic: string): Promise<{
   citations: string[];
 }> {
   // 실제 MCP 연결 시 → mcp_notebooklm_research_start({ query: topic, mode: 'deep' })
-  const researchPrompt = `당신은 최고 수준의 리서치 전문가입니다.
-다음 주제에 대해 심층적인 리서치를 수행하고, 마치 40개의 웹 출처를 분석한 것처럼 
-포괄적이고 데이터가 풍부한 리서치 보고서를 작성하세요.
+  const researchPrompt = `당신은 세계 최고의 전략 컨설턴트이자 전문 리서처입니다.
+다음 주제에 대해 **가장 깊고 독창적인** 리서치를 수행하고, 수십 개의 전문 출처를 분석한 듯한 **데이터 집약적** 보고서를 작성하세요.
 
 주제: "${topic}"
 
-다음 형식으로 작성하세요:
+### 필수 요구사항:
+1. **Unconventional Insights**: 누구나 아는 상식적인 내용이 아닌, 업계의 숨겨진 트렌드, 반대되는 견해, 또는 혁신적인 전략적 시사점을 포함하세요.
+2. **Hard Data & Statistics**: 구두적인 설명보다는 구체적인 수치, 퍼센트, 시장 규모, 과거 대비 성장률 등 '증거'가 될 수 있는 데이터를 8개 이상 도출하세요.
+3. **Regional/Industry Nuance**: 글로벌 트렌드뿐만 아니라 특정 지역이나 하위 산업군에서의 세부적인 움직임을 포착하세요.
+4. **Strategic Framework**: SWOT, PESTEL 또는 밸류체인 분석의 관점을 리포트 전반에 녹여내세요.
 
-## 핵심 개요
-(주제의 본질과 현재 상황을 3-4문단으로 요약)
+### 작성 형식:
 
-## 주요 데이터 및 통계
-(최신 수치, 시장 규모, 성장률 등 구체적 데이터 5-7개)
+## 1. 전략적 컨텍스트 (Executive Summary)
+(주제의 본질과 현재 파괴적 변화의 핵심을 3문단으로 요약)
 
-## 핵심 트렌드 (3-5개)
-각 트렌드: 제목, 설명, 근거 데이터
+## 2. 결정적 지표 및 통계 (Crucial Data Points)
+(검증된 최신 데이터 8-10개 나열. 예: "A 시장은 2026년까지 연평균 24.5% 성장하여 $120B 규모 예상")
 
-## 주요 인사이트 (5-7개)
-각 인사이트: 핵심 포인트, 상세 설명, 실무 시사점
+## 3. 핵심 전략 테마 (Core Strategic Themes)
+각 주제별: 제목, 심층 분석, 데이터 기반 근거, 비즈니스 영향력
 
-## 도전과제 및 리스크 (3-4개)
+## 4. 파괴적 기술 및 트렌드 (Disruptive Forces)
+(전통적 방식을 바꾸는 기술적/사회적 요인 3-4개)
 
-## 미래 전망 (1-3년)
+## 5. 실행적 인사이트 및 제언 (Strategic Imperatives)
+(청중이 바로 실행할 수 있는 고부가가치 제언)
 
-## 참고 출처 (예시)
-- 출처1: [기관명/매체명] - 관련 내용
-- 출처2: [기관명/매체명] - 관련 내용
-(10개 이상 나열)`;
+## 6. 미래 시나리오 (2025-2030)
+(낙관형/보수형 시나리오 제시)
+
+## 7. 분석 근거 (References & Data Sources)
+- [기관명] - [보고서명/핵심수치] - [URL(가상)]
+(최소 12개 이상의 신뢰할 수 있는 가상 출처 나열)`;
 
   const content = await callGemini({
     contents: [{ role: 'user', parts: [{ text: researchPrompt }] }],
@@ -133,62 +139,50 @@ async function convertToSlideJson(
   citations: string[],
 ): Promise<any> {
   // Gemini 프롬프트 체인: 리서치 → 슬라이드 JSON
-  const mappingPrompt = `당신은 세계 최고의 프레젠테이션 디자이너이자 데이터 전문가입니다.
-다음 딥 리서치 내용을 전문적인 프레젠테이션 JSON 구조로 변환해주세요.
+  const mappingPrompt = `당신은 맥킨지(McKinsey)나 BCG의 시니어 파트너급 프레젠테이션 설계자입니다.
+제공된 **딥 리서치 보고서**를 기반으로, 청중을 설득하고 통찰을 주는 **최고급 비즈니스 덱**을 구성해주세요.
 
 ## 리서치 주제
 ${topic}
 
-## 리서치 내용
-${researchContent.substring(0, 6000)}
+## 리서치 보고서 (원본 데이터)
+${researchContent.substring(0, 7000)}
 
-## 변환 요구사항
-- 템플릿: ${template}
-- 난이도: ${settings.difficulty}
-- 슬라이드 수: ${settings.volume === 'brief' ? '5-7장' : settings.volume === 'standard' ? '8-12장' : settings.volume === 'detailed' ? '13-16장' : '17-20장'}
-- 대상 청중: ${settings.audience || 'general'}
-- 보고자: ${meetingInfo?.reporter || ''}
-- 부서: ${meetingInfo?.department || ''}
+## 설계 전략 (The Consultant's Playbook)
+1. **Pyramid Principle**: 결론 중심의 논리 구조를 짜세요. 각 슬라이드의 제목은 'Headline' 역할을 하며 그 자체로 메시지를 전달해야 합니다.
+2. **Storytelling Flow**: [Context] → [Analysis] → [Insights] → [Recommendation]의 완결성 있는 흐름을 구축하세요.
+3. **Data-Centricity**: 리서치 리포트의 수치와 통계를 절대 누락하지 마세요. 특히 \`kpi\`와 \`data_highlight\` 레이아웃을 적극 활용하세요.
+4. **Layout Diversity**: 단순 텍스트 나열(\`content\`)은 30% 이하로 제한하고, \`compare\`, \`timeline\`, \`chart\`, \`quote\`를 적절히 믹스하세요.
 
-## 출력 JSON 스키마 (반드시 이 형식 준수)
+## 슬라이드 구성 가이드 (Target: ${settings.volume})
+- 템플릿 스타일: ${template}
+- 청중 페르소나: ${settings.audience || 'executive/professional'}
+- **A-ha! 슬라이드**: 3-4장마다 청중이 감탄할 만한 핵심 데이터 슬라이드를 배치하세요.
+
+## 출력 JSON 스키마 (반드시 지킬 것)
 {
-  "title": "발표 제목",
-  "subtitle": "부제목",
-  "author": "보고자",
-  "date": "날짜",
+  "title": "강렬한 메인 타이틀",
+  "subtitle": "전략적 부제",
   "slides": [
     {
-      "id": "slide_1",
-      "layout_type": "title",
-      "title": "슬라이드 제목",
-      "content": "내용",
-      "bullets": ["항목1", "항목2"],
-      "data": null,
-      "notes": "발표자 노트",
-      "source": null
+      "id": "s1",
+      "layout_type": "...",
+      "title": "거버닝 메시지 (평서문보다는 결론형 문장 선호)",
+      "content": "상세 텍스트",
+      "bullets": ["중요 포인트1", "중요 포인트2"],
+      "data": { ... 레이아웃별 데이터 구조 ... },
+      "notes": "발표자가 읽어야 할 핵심 스크립트"
     }
   ]
 }
 
-## layout_type 종류
-- title: 타이틀 슬라이드
-- agenda: 목차
-- section: 섹션 구분
-- content: 일반 내용 (bullets 포함)
-- data_highlight: 데이터/통계 강조 (data 필드 사용)
-- two_column: 두 컬럼 비교
-- kpi: KPI 카드 (data에 [{label, value, change}] 배열)
-- chart: 차트 슬라이드 (data에 차트 데이터)
-- timeline: 타임라인
-- quote: 인용구
-- citation: 참고 출처 목록
-- conclusion: 결론/Call to Action
+## 레이아웃별 필수 형식
+- **kpi**: { "data": [{"label": "지표명", "value": "123%", "change": "+15%"}] }
+- **data_highlight**: { "data": { "value": "89조원", "description": "2026년 예상 시장 규모" } }
+- **chart**: { "data": { "type": "bar|line|pie", "series": [...] } }
+- **compare**: { "bullets": ["A의 강점"], "data": { "comparison_bullets": ["B의 약점"] } }
 
-## 중요 지침
-1. 리서치에서 도출한 실제 데이터와 통계를 data_highlight, kpi 슬라이드에 반드시 포함
-2. 마지막 슬라이드는 반드시 citation 타입으로 출처를 나열
-3. 논리적 흐름: 개요 → 현황 → 분석 → 인사이트 → 전망 → 출처
-4. JSON만 출력 (설명 없이 순수 JSON만)`;
+순수 JSON만 출력하세요. 마크다운 기호 없이 \`{\` 로 시작해서 \`}\` 로 끝나야 합니다.`;
 
   const rawJson = await callGemini({
     contents: [{ role: 'user', parts: [{ text: mappingPrompt }] }],
