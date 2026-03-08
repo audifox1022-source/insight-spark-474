@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   FileText, Download, RefreshCw, Loader2, PencilLine,
   Wand2, Send, Sparkles, CheckCircle2, ExternalLink,
-  RotateCcw, Copy, Maximize2,
+  RotateCcw, Copy, Maximize2, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -46,6 +46,7 @@ export function FormGeneratorWorkspace() {
   const [showModify,     setShowModify]     = useState(false)
   const [loadingStep,    setLoadingStep]    = useState(0)
   const [isFullscreen,   setIsFullscreen]   = useState(false)
+  const [isSidebarOpen,  setIsSidebarOpen]  = useState(true)
   const loadingTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const activePresetData = FORM_PRESETS.find(p => p.id === activePreset)
@@ -181,7 +182,7 @@ export function FormGeneratorWorkspace() {
       <div className={`flex flex-col lg:flex-row gap-4 overflow-hidden ${isFullscreen ? 'flex-1 p-4' : 'flex-1 min-h-0'}`}>
 
         {/* ══ 왼쪽 컨트롤 패널 ══ */}
-        {!isFullscreen && (
+        {!isFullscreen && isSidebarOpen && (
           <div className="w-full lg:w-72 flex-shrink-0 rounded-2xl border border-border/60 bg-card shadow-sm flex flex-col overflow-y-auto">
 
             {/* 양식 종류 선택 */}
@@ -389,16 +390,43 @@ export function FormGeneratorWorkspace() {
 
           <AnimatePresence mode="wait">
 
-            {/* ── 로딩 상태 (파이프라인 UI) ── */}
+            {/* ── 로딩 상태 (파이프라인 UI + 스켈레톤) ── */}
             {(isGenerating || isModifying) && (
               <motion.div
                 key="loading"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 flex flex-col items-center justify-center bg-card z-10 p-8"
+                className="absolute inset-0 flex flex-col p-4 overflow-hidden bg-muted/20 z-10"
               >
-                {/* 메인 스피너 */}
+                {/* 배경 스켈레톤 (문서 생성이 진행중임을 시각적으로 표현) */}
+                <div className="absolute inset-4 bg-white dark:bg-[#0d1117] rounded-xl shadow-sm border border-border/40 overflow-hidden ring-1 ring-black/5 opacity-50 pointer-events-none flex flex-col p-10 gap-8 animate-pulse">
+                  {/* Header Skeleton */}
+                  <div className="flex items-center justify-center border-b border-border/50 pb-8">
+                    <div className="h-10 bg-slate-200 dark:bg-slate-800 rounded-md w-1/3" />
+                  </div>
+                  {/* Body Skeleton */}
+                  <div className="space-y-5">
+                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-full" />
+                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-11/12" />
+                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-4/5" />
+                  </div>
+                  {/* Table Skeleton */}
+                  <div className="mt-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                    <div className="h-12 bg-slate-100 dark:bg-slate-800/50" />
+                    <div className="h-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1117]" />
+                    <div className="h-12 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30" />
+                    <div className="h-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1117]" />
+                  </div>
+                  <div className="mt-10 space-y-4">
+                    <div className="h-5 bg-slate-200 dark:bg-slate-800 rounded w-full" />
+                    <div className="h-24 bg-slate-50 dark:bg-slate-800/30 rounded-xl w-full border border-slate-100 dark:border-slate-800 mt-3" />
+                  </div>
+                </div>
+
+                {/* 중앙 로딩 다이얼로그 */}
+                <div className="relative z-20 m-auto flex flex-col items-center justify-center bg-card/90 backdrop-blur-md px-10 py-10 rounded-3xl border border-border/50 shadow-2xl max-w-md w-full">
+                  {/* 메인 스피너 */}
                 <div className="relative mb-8">
                   <motion.div
                     className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30"
@@ -471,6 +499,7 @@ export function FormGeneratorWorkspace() {
                       <span className="hidden sm:inline">{step.label.split(' ')[0]}</span>
                     </motion.div>
                   ))}
+                </div>
                 </div>
               </motion.div>
             )}
@@ -579,6 +608,17 @@ export function FormGeneratorWorkspace() {
                     >
                       <RefreshCw className={`w-3 h-3 ${isGenerating ? 'animate-spin' : ''}`} /> 재생성
                     </Button>
+                    {!isFullscreen && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="h-7 px-2 text-xs gap-1 hidden lg:flex"
+                        title={isSidebarOpen ? '사이드바 숨기기' : '사이드바 보이기'}
+                      >
+                        {isSidebarOpen ? <PanelLeftClose className="w-3 h-3" /> : <PanelLeftOpen className="w-3 h-3" />}
+                      </Button>
+                    )}
                     {isFullscreen && (
                       <Button size="sm" variant="outline" onClick={() => setIsFullscreen(false)} className="h-7 px-2 text-xs gap-1">
                         <RotateCcw className="w-3 h-3" /> 닫기
