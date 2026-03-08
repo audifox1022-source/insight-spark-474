@@ -143,7 +143,7 @@ const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = (
   // 글자 수가 길어질수록 폰트를 더 공격적으로 줄임 ("5만", "200억" 등을 개행 없이 표시하기 위함)
   const fs = len <= 3 ? '2.8rem' : len <= 5 ? '2.2rem' : len <= 8 ? '1.7rem' : '1.3rem';
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', wordBreak: 'keep-all' }}>
+    <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '4px', flexWrap: 'wrap', wordBreak: 'keep-all', justifyContent: 'inherit' }}>
       <span style={{ fontSize: fs, fontWeight: 900, color: light ? '#fff' : P.primary, lineHeight: 1.1, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>{value}</span>
       {unit && <span style={{ fontSize: '1rem', fontWeight: 600, color: light ? 'rgba(255,255,255,0.7)' : P.subtext, whiteSpace: 'nowrap' }}>{unit}</span>}
     </div>
@@ -219,6 +219,25 @@ const InteractiveElement: React.FC<{
               else m.value = newText;
               arr[idx] = m;
               onUpdateSlide({ keyMetrics: arr });
+              return;
+            }
+          }
+          // 표(table) Header
+          if (s.tableData && Array.isArray(s.tableData.headers)) {
+            const idx = s.tableData.headers.findIndex((h: any) => typeof h === 'string' && h.trim() === oldText);
+            if (idx >= 0) {
+              const newHeaders = [...s.tableData.headers];
+              newHeaders[idx] = newText;
+              onUpdateSlide({ tableData: { ...s.tableData, headers: newHeaders } });
+              return;
+            }
+          }
+          if (Array.isArray(s.headers)) {
+            const idx = s.headers.findIndex((h: any) => typeof h === 'string' && h.trim() === oldText);
+            if (idx >= 0) {
+              const newHeaders = [...s.headers];
+              newHeaders[idx] = newText;
+              onUpdateSlide({ headers: newHeaders });
               return;
             }
           }
@@ -583,20 +602,24 @@ export const BaseScaledSlide = ({
         <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '3px', background: 'rgba(255,255,255,0.12)', zIndex: 2 }} />
         <SlideWatermark text={watermark} />
         <SlideLogo logoUrl={finalLogoUrl} invert />
-        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.4rem' }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.4rem', alignItems: slide.titleStyle?.align === 'center' ? 'center' : slide.titleStyle?.align === 'right' ? 'flex-end' : 'flex-start', textAlign: slide.titleStyle?.align || 'left' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 14px', width: 'fit-content' }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>PRESENTATION</span>
           </div>
           <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
-            <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)', ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h1>
+            <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)', ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h1>
           </InteractiveElement>
-          {slide.subhead && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}>{slide.subhead}</p>}
+          {slide.subhead && (
+            <InteractiveElement text={slide.subhead || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+              <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, lineHeight: 1.5, ...getTextStyle(slide.contentStyle, 500) }}>{slide.subhead}</p>
+            </InteractiveElement>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
           </div>
-          {content.length > 0 && <p style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.5)', maxWidth: '60%', lineHeight: 1.6, margin: 0 }}>{safeString(content[0])}</p>}
+          {content.length > 0 && <p style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.5)', lineHeight: 1.6, margin: 0, ...getTextStyle(slide.contentStyle, 400) }}>{safeString(content[0])}</p>}
         </div>
         <SlideNumber number={slide.slideNumber} light />
       </div>
@@ -643,12 +666,17 @@ export const BaseScaledSlide = ({
             {metrics.map((m, i) => {
               const isFirst = i === 0;
               return (
-                <div key={i} style={{ borderRadius: 24, padding: '1.4rem 1.2rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
+                <div key={i} style={{ borderRadius: 24, padding: '1.4rem 1.2rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: '0.8rem', position: 'relative', overflow: 'hidden', textAlign: slide.contentStyle?.align || 'left' }}>
                   {/* Glass Shimmer */}
                   {isFirst && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)', pointerEvents: 'none' }} />}
-                   <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: '1 1 auto', wordBreak: 'keep-all' }}>{m.label}</div>
+                  <InteractiveElement text={safeString(m.label)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: slide.contentStyle?.align === 'center' ? 'center' : slide.contentStyle?.align === 'right' ? 'flex-end' : 'flex-start', gap: '0.4rem', fontSize: '0.85em', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext, flex: 'none', wordBreak: 'keep-all' }}>
+                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: isFirst ? '#fff' : P.accent }} />
+                     {m.label}
+                   </div>
+                  </InteractiveElement>
                   
-                  <div className="relative group/fact">
+                  <div className="relative group/fact" style={{ display: 'flex', justifyContent: slide.contentStyle?.align === 'center' ? 'center' : slide.contentStyle?.align === 'right' ? 'flex-end' : 'flex-start' }}>
                     <BigNumber value={m.value} light={isFirst} />
                     {interactive && onFactCheck && (
                        <button
@@ -799,13 +827,21 @@ export const BaseScaledSlide = ({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: autoTableFontSize, tableLayout: 'fixed' }}>
               <thead>
                 <tr style={{ background: `linear-gradient(135deg,${P.primary},${P.primaryDark})` }}>
-                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', wordBreak: 'keep-all' }}>{safeString(h)}</th>)}
+                  {tableHeaders.map((h, i) => <th key={i} style={{ padding: cellPad, color: '#fff', fontWeight: 700, textAlign: 'left', letterSpacing: '0.04em', wordBreak: 'keep-all' }}>
+                    <InteractiveElement text={safeString(h)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+                      {safeString(h)}
+                    </InteractiveElement>
+                  </th>)}
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((row, ri) => (
                   <tr key={ri} style={{ background: ri % 2 === 0 ? '#fff' : P.muted, borderBottom: `1px solid ${P.border}` }}>
-                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400, wordBreak: 'keep-all', lineHeight: 1.4 }}>{safeString(cell)}</td>)}
+                    {row.map((cell, ci) => <td key={ci} style={{ padding: cellPad, color: ci === 0 ? P.text : P.subtext, fontWeight: ci === 0 ? 600 : 400, wordBreak: 'keep-all', lineHeight: 1.4 }}>
+                      <InteractiveElement text={safeString(cell)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+                        {safeString(cell)}
+                      </InteractiveElement>
+                    </td>)}
                   </tr>
                 ))}
               </tbody>
@@ -830,23 +866,24 @@ export const BaseScaledSlide = ({
         <div style={{ position: 'absolute', top: '-5%', left: '-5%', width: '35%', paddingBottom: '35%', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', filter: 'blur(60px)', zIndex: 0 }} />
         <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '5px', background: P.accent, zIndex: 2, boxShadow: `0 0 20px ${P.accent}80` }} />
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={finalLogoUrl} invert />
-        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.6rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '4px 14px', width: 'fit-content' }}>
-            <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
-            <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>NEXT STEPS</span>
-          </div>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h2>
+        <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 8%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1.6rem', alignItems: slide.titleStyle?.align === 'center' ? 'center' : slide.titleStyle?.align === 'right' ? 'flex-end' : 'flex-start', textAlign: slide.titleStyle?.align || 'left' }}>
+
+          <InteractiveElement text={slide.title || ''} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)', ...getTextStyle(slide.titleStyle, 900) }}>{slide.title}</h2>
+          </InteractiveElement>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
           </div>
           {content.length > 0 && (
             <AutoFitContainer style={{ flex: 1, minHeight: 0 }} maxScaleDown={0.75}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: slide.titleStyle?.align === 'center' ? 'center' : slide.titleStyle?.align === 'right' ? 'flex-end' : 'flex-start' }}>
                 {content.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
                     <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>{i + 1}</div>
-                    <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.88)', lineHeight: 1.55 }}>{safeString(item)}</span>
+                    <InteractiveElement text={safeString(item)} onClick={onElementClick} interactive={interactive} directEditMode={directEditMode} onUpdateSlide={onUpdateSlide} onFactCheck={onFactCheck} slideContext={slide}>
+                      <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.88)', lineHeight: 1.55, ...getTextStyle(slide.contentStyle, 400), textAlign: slide.titleStyle?.align || 'left' }}>{safeString(item)}</span>
+                    </InteractiveElement>
                   </div>
                 ))}
               </div>
@@ -934,21 +971,25 @@ const SlideCustomLayer = ({ slide, directEditMode, onUpdateSlide }: any) => {
            onClick={(e: any) => { if(directEditMode) e.stopPropagation(); }}
          >
            {directEditMode ? (
-             <textarea 
-               value={box.text}
-               onChange={e => {
+             <div 
+               contentEditable={true}
+               suppressContentEditableWarning={true}
+               onBlur={e => {
+                  const newText = e.currentTarget.innerText;
                   const newBoxes = slide.customTextBoxes.map((b: any) => 
-                    b.id === box.id ? { ...b, text: e.target.value } : b
+                    b.id === box.id ? { ...b, text: newText } : b
                   );
                   onUpdateSlide?.({ customTextBoxes: newBoxes });
                }}
                style={{ 
                  background: 'transparent', border: 'none', outline: 'none', color: box.color,
                  fontSize: box.fontSize, fontWeight: box.fontWeight,
-                 width: '100%', minHeight: '100%', resize: 'none', whiteSpace: 'pre-wrap', overflow: 'hidden'
+                 width: '100%', minHeight: '100%', whiteSpace: 'pre-wrap', overflow: 'hidden', cursor: 'text'
                }}
-               onPointerDown={(e) => e.stopPropagation()} // textarea 스크롤/선택용
-             />
+               onPointerDown={(e) => e.stopPropagation()}
+             >
+               {box.text}
+             </div>
            ) : (
              <div style={{ fontSize: box.fontSize, color: box.color, fontWeight: box.fontWeight, whiteSpace: 'pre-wrap' }}>
                {box.text}

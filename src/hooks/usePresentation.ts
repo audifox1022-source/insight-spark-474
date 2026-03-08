@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { retryWithBackoff, getKoreanErrorMessage } from '@/lib/retry-with-backoff';
 import { aiService } from '@/lib/ai-service';
 import { validateAndFixPresentation } from '@/lib/layout-validator';
+import { useAudienceStore } from '@/store/audienceStore';
 
 export interface BrandKit {
   logoUrl: string | null;
@@ -247,7 +248,9 @@ export function usePresentation() {
     setStep('outline');
     try {
       const payload = buildAIPayload(parsedFiles);
-      const resData = await retryWithBackoff(() => aiService.getOutline({ fileData: payload, meetingInfo, settings, template, referenceStructure }), { maxRetries: 1 });
+      const resData = await retryWithBackoff(() => aiService.getOutline({ 
+        fileData: payload, meetingInfo, settings: { ...settings, audience: useAudienceStore.getState().audienceMode }, template, referenceStructure 
+      }), { maxRetries: 1 });
       setOutline({ title: resData.title ?? '새 발표 자료', outline: resData.outline || [] });
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err));
@@ -263,7 +266,9 @@ export function usePresentation() {
     setIsGenerating(true);
     try {
       const payload = buildAIPayload(parsedFiles);
-      const resData = await retryWithBackoff(() => aiService.generatePresentation({ fileData: payload, meetingInfo, settings, template, approvedOutline, referenceStructure }), { maxRetries: 1 });
+      const resData = await retryWithBackoff(() => aiService.generatePresentation({ 
+        fileData: payload, meetingInfo, settings: { ...settings, audience: useAudienceStore.getState().audienceMode }, template, approvedOutline, referenceStructure 
+      }), { maxRetries: 1 });
       const { presentation: fixedPresentation } = validateAndFixPresentation(resData.presentation);
       setPresentation(normalizePresentationSlides(fixedPresentation));
       setCurrentSlideIndex(0); // ✅ 화면 전환 시 슬라이드 0번으로 초기화
@@ -304,7 +309,9 @@ export function usePresentation() {
     toast.loading('슬라이드 재생성 중...', { id: 'regen' });
     try {
       const payload = buildAIPayload(parsedFiles);
-      const resData = await retryWithBackoff(() => aiService.regenerateSlide({ slideIndex, currentSlide, presentation, fileData: payload, userInstruction }), { maxRetries: 1 });
+      const resData = await retryWithBackoff(() => aiService.regenerateSlide({ 
+        slideIndex, currentSlide, presentation, fileData: payload, userInstruction, settings: { ...settings, audience: useAudienceStore.getState().audienceMode } 
+      }), { maxRetries: 1 });
       updateSlide(slideIndex, { ...resData.slide, slideNumber: slideIndex + 1 });
       toast.success('재생성 완료!', { id: 'regen' });
     } catch (err: any) {

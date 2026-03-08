@@ -121,7 +121,7 @@ export function ChatEditPanel({
             className="rounded-full shadow-xl gradient-primary h-12 px-5 text-primary-foreground gap-2 border-0"
           >
             <Bot className="w-5 h-5" />
-            <span className="font-semibold text-sm">AI 슬라이드 수정</span>
+            <span className="font-semibold text-sm whitespace-nowrap">AI 슬라이드 수정</span>
             {messages.length > 0 && (
               <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">{messages.length}</span>
             )}

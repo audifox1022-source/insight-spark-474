@@ -4,10 +4,17 @@
 // ============================================================
 import { useAudienceStore } from '@/store/audienceStore';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 export function AudienceToggle() {
   const { audienceMode, toggleAudienceMode } = useAudienceStore();
   const isInvestor = audienceMode === 'investor';
+
+  const handleToggle = () => {
+    toggleAudienceMode();
+    const newModeIsInvestor = audienceMode !== 'investor';
+    toast.success(`청중 모드가 [${newModeIsInvestor ? '투자자' : '실무진'}]용으로 변경되었습니다. 이후 AI 생성 시 반영됩니다.`);
+  };
 
   return (
     <div className="flex items-center gap-2 bg-muted/40 border border-border rounded-xl px-3 py-1.5 select-none">
@@ -22,7 +29,7 @@ export function AudienceToggle() {
 
       {/* 토글 버튼 */}
       <button
-        onClick={toggleAudienceMode}
+        onClick={handleToggle}
         title={`현재: ${isInvestor ? '투자자용' : '실무진용'} — 클릭해서 전환`}
         className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
           isInvestor ? 'bg-amber-400' : 'bg-blue-500'

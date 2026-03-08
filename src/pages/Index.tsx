@@ -135,6 +135,7 @@ const Index = () => {
           {/* 방문 통계 */}
           <div className="hidden lg:flex items-center gap-4 mr-2 text-[11px] font-medium text-muted-foreground">
             <span className="flex items-center gap-1" title="총 방문수"><Eye className="w-3.5 h-3.5"/> {(visitorStats?.total_visits ?? 0).toLocaleString()}</span>
+            <span className="flex items-center gap-1" title="오늘 방문자"><Users className="w-3.5 h-3.5"/> {(visitorStats?.today_visits ?? 0).toLocaleString()}</span>
             <span className="flex items-center gap-1" title="순방문자"><Users className="w-3.5 h-3.5"/> {(visitorStats?.unique_users ?? 0).toLocaleString()}</span>
           </div>
           <div className="w-px h-5 bg-border/80 hidden lg:block mr-1" />
@@ -373,6 +374,12 @@ const Index = () => {
         onOpenChange={setBrandKitOpen}
         brandKit={brandKit}
         onSave={setBrandKit}
+      />
+      
+      {/* API 키 설정 모달 */}
+      <ApiKeySettings 
+        isOpen={apiKeySettingsOpen}
+        onClose={() => setApiKeySettingsOpen(false)}
       />
     </div>
   )
