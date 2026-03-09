@@ -437,6 +437,7 @@ export const FormGeneratorWorkspace = forwardRef(({ onBack }: { onBack?: () => v
             </motion.div>
           )}
         </div>
+      </div>
 
       <FormHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
