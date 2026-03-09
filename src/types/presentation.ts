@@ -150,6 +150,7 @@ export interface Slide {
     underline?: boolean;
     color?: string;
     align?: 'left' | 'center' | 'right';
+    fontFamily?: string;
   };
   contentStyle?: {
     bold?: boolean;
@@ -157,13 +158,17 @@ export interface Slide {
     underline?: boolean;
     color?: string;
     align?: 'left' | 'center' | 'right';
+    fontFamily?: string;
   };
-  
-  // Real fields used in SlideCanvas.tsx
-  theme?: SlideTheme;
-  content?: SlideContent;
-  layout_type?: SlideLayout;
 }
+
+export type SlideLayout = 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid';
+export type SlideTheme = {
+  bg_color: string;
+  accent_color: string;
+  text_color: string;
+  font_family: string;
+};
 
 export interface Presentation {
   id?: string;
@@ -201,13 +206,6 @@ export interface Column {
   id: string;
   title: string;
   items: string[];
-}
-
-export interface SlideTheme {
-  bg_color: string;
-  accent_color: string;
-  text_color: string;
-  font_family: string;
 }
 
 export interface SlideContent {

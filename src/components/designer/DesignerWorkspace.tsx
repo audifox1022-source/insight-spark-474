@@ -1,6 +1,4 @@
-'use client';
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FabricCanvas } from './FabricCanvas';
 import { DesignerSidebar } from './DesignerSidebar';
 import { DesignerToolbar } from './DesignerToolbar';
@@ -13,9 +11,27 @@ import {
 import { toast } from 'sonner';
 
 import { exportDesignerToPptx } from '@/lib/export-designer-pptx';
+import { populateCanvasFromSlide } from '@/lib/slide-to-canvas';
 
 export const DesignerWorkspace: React.FC = () => {
   const { slides, activeSlideId, addSlide, canvas } = useDesignerStore();
+
+  // Watch for pending slide from Presentation tab
+  useEffect(() => {
+    if (!canvas) return;
+
+    const pendingSlideStr = localStorage.getItem('pending_designer_slide');
+    if (pendingSlideStr) {
+      try {
+        const slide = JSON.parse(pendingSlideStr);
+        populateCanvasFromSlide(canvas, slide);
+        localStorage.removeItem('pending_designer_slide');
+        toast.success('슬라이드 데이터를 성공적으로 불러왔습니다!');
+      } catch (e) {
+        console.error('Failed to parse pending slide:', e);
+      }
+    }
+  }, [canvas]);
 
   const handleExport = async () => {
     if (!canvas) return;

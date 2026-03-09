@@ -82,7 +82,9 @@ const PROMPT_PRESETS: Preset[] = [
 
 type PresentationHooks = ReturnType<typeof usePresentation>;
 
-interface PresentationTabProps extends PresentationHooks {}
+interface PresentationTabProps extends PresentationHooks {
+  switchToDesigner?: () => void;
+}
 
 export function PresentationTab(props: PresentationTabProps) {
   const [activePresetId, setActivePresetId] = useState<string>('manual');
@@ -125,6 +127,8 @@ export function PresentationTab(props: PresentationTabProps) {
     clearReferenceFile,
     currentSlideIndex, setCurrentSlideIndex,
   } = props;
+
+  const { switchToDesigner } = props;
 
   return (
     <>
@@ -368,6 +372,7 @@ export function PresentationTab(props: PresentationTabProps) {
             updatePresentationMaster={updatePresentationMaster}
             isGeneratingImage={isGeneratingImage}
             generateSlideImage={generateSlideImage}
+            onEditInDesigner={switchToDesigner}
 
             onAddContent={(idx) => {
               const newContent = [...(presentation.slides[idx].content || []), '새 항목'];

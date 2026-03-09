@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { fabric } from 'fabric';
+import { Slide } from '@/types/presentation';
 
 export interface DesignerElement {
   id: string;
@@ -34,6 +35,7 @@ interface DesignerState {
   setSelectedObject: (id: string | null) => void;
   addSlide: () => void;
   deleteSlide: (id: string) => void;
+  importSlide: (slide: Slide) => void;
   
   // Canvas bridge
   canvas: fabric.Canvas | null;
@@ -71,6 +73,54 @@ export const useDesignerStore = create<DesignerState>((set) => ({
       activeSlideId: state.activeSlideId === id ? (newSlides[0]?.id || null) : state.activeSlideId,
     };
   }),
+
+  importSlide: (slide) => {
+    const { canvas } = useDesignerStore.getState();
+    if (!canvas) return;
+
+    canvas.clear();
+    canvas.setBackgroundColor('#ffffff', canvas.renderAll.bind(canvas));
+
+    // Title
+    if (slide.title) {
+      const title = new fabric.IText(slide.title, {
+        left: 50,
+        top: 50,
+        fontSize: 32,
+        fontFamily: 'Pretendard',
+        fontWeight: 'bold',
+        fill: '#333333',
+        id: 'imported-title'
+      } as any);
+      canvas.add(title);
+    }
+
+    // Content
+    if (slide.content && slide.content.length > 0) {
+      const bodyText = slide.content.join('\n');
+      const body = new fabric.IText(bodyText, {
+        left: 50,
+        top: 120,
+        fontSize: 18,
+        fontFamily: 'Pretendard',
+        fill: '#666666',
+        id: 'imported-content'
+      } as any);
+      canvas.add(body);
+    }
+
+    // Image
+    if (slide.imageUrl) {
+      fabric.Image.fromURL(slide.imageUrl, (img) => {
+        img.scaleToWidth(300);
+        img.set({ left: 400, top: 100, id: 'imported-image' } as any);
+        canvas.add(img);
+        canvas.renderAll();
+      });
+    }
+
+    canvas.renderAll();
+  },
 
   setCanvas: (canvas) => set({ canvas }),
 }));

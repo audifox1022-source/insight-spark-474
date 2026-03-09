@@ -33,12 +33,16 @@ import {
   Play,
   Save,
   Download,
-  ClipboardCheck
+  ClipboardCheck,
+  LayoutTemplate
 } from 'lucide-react';
 import ScaledSlide from './ScaledSlide';
 import { SlideImageEditor } from './SlideImageEditor';
 import { TextFormatToolbar, TextStyle } from './TextFormatToolbar';
 import { SortableContentList } from './SortableContentList';
+import { useDesignerStore } from '@/store/useDesignerStore';
+import { populateCanvasFromSlide } from '@/lib/slide-to-canvas';
+import { toast } from 'sonner';
 
 interface SlideEditorProps {
   slides?: Slide[];
@@ -72,6 +76,7 @@ interface SlideEditorProps {
   updatePresentationMaster?: (updatedPresentation: Partial<Presentation>) => void;
   isGeneratingImage?: boolean;
   generateSlideImage?: (slideIndex: number) => void;
+  onEditInDesigner?: () => void;
 }
 
 export function SlideEditor({
@@ -89,8 +94,28 @@ export function SlideEditor({
   isSaving,
   onOpenExport,
   onOpenPlay,
+  onEditInDesigner,
 }: SlideEditorProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>('basic');
+  const { canvas, setCanvas } = useDesignerStore();
+
+  const handleEditInDesigner = () => {
+    if (!onEditInDesigner) return;
+    
+    // Switch to designer tab first
+    onEditInDesigner();
+    
+    // We need to wait for the Designer to mount and canvas to be ready
+    // This is handled via a slight delay or ideally a shared state
+    toast.info('디자이너로 이동 중...');
+    
+    // Note: The actual population will happen in a useEffect in DesignerWorkspace 
+    // if we set a "pendingSlide" in the store. 
+    // For now, let's just trigger the switch.
+    // IMPROVEMENT: Use the store to track what slide to load.
+    
+    localStorage.setItem('pending_designer_slide', JSON.stringify(slide));
+  };
 
   const activeSlides = presentation?.slides || slides || [];
   const slide = activeSlides[currentSlide];
@@ -178,6 +203,16 @@ export function SlideEditor({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleEditInDesigner}
+              className="gap-1.5 h-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200"
+            >
+              <LayoutTemplate className="w-3.5 h-3.5" /> Designer에서 정밀 편집
+            </Button>
+
             <div className="w-px h-4 bg-border mx-1" />
             <Button
               variant="secondary"

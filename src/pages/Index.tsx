@@ -453,7 +453,10 @@ const Index = () => {
         {/* 발표자료 탭 */}
         {activeApp === 'presentation' && (
           <>
-            <PresentationTab {...presentationHooks} />
+            <PresentationTab 
+              {...presentationHooks} 
+              switchToDesigner={() => setActiveApp('designer')}
+            />
             <FloatingAIToolbar />
           </>
         )}
