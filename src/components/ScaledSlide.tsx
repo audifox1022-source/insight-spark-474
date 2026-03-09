@@ -138,7 +138,11 @@ const EditableText: React.FC<EditableTextProps> = ({ value, onSave, tagName = 'd
   const Tag = tagName as any;
 
   // value prop이 바뀌면 로컬 값도 업데이트 (외부 변경 감지)
-  React.useEffect(() => { setLocalValue(value); }, [value]);
+  React.useEffect(() => {
+    if (!isEditing) {
+      setLocalValue(value);
+    }
+  }, [value, isEditing]);
 
   const handleBlur = () => {
     setIsEditing(false);
@@ -167,19 +171,24 @@ const EditableText: React.FC<EditableTextProps> = ({ value, onSave, tagName = 'd
       onInput={(e: any) => setLocalValue(e.currentTarget.innerText)}
       onKeyDown={handleKeyDown}
       style={{
+        display: tagName === 'span' ? 'inline-block' : 'block',
+        boxSizing: 'border-box',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+        verticalAlign: 'top',
         ...style,
-        outline: isEditing ? `2px dashed ${P.accent}` : 'none',
-        outlineOffset: '4px',
+        boxShadow: isEditing ? `0 0 0 2px ${P.accent}` : 'none',
+        outline: 'none',
         cursor: onSave ? 'text' : 'default',
         minWidth: '20px',
         minHeight: '1em',
         borderRadius: '4px',
-        transition: 'outline 0.1s',
+        transition: 'box-shadow 0.1s',
       }}
       className={className}
       {...props}
     >
-      {value}
+      {isEditing ? localValue : value}
     </Tag>
   );
 };

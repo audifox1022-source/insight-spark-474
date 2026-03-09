@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // ============================================================
 // src/types/presentation.ts
 // ============================================================
@@ -112,7 +111,7 @@ export interface Slide {
   imageCaption?: string;
   imagePosition?: 'left' | 'right';
   layout?: 'default' | 'split-left' | 'split-right' | 'highlight' | 'grid';
-  persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client';
+  persona?: 'default' | 'jobs' | 'mckinsey' | 'ceo' | 'team' | 'client' | 'standard';
 
   titleSizeScale?: number;
   contentSizeScale?: number;
@@ -159,6 +158,11 @@ export interface Slide {
     color?: string;
     align?: 'left' | 'center' | 'right';
   };
+  
+  // Real fields used in SlideCanvas.tsx
+  theme?: SlideTheme;
+  content?: SlideContent;
+  layout_type?: SlideLayout;
 }
 
 export interface Presentation {
@@ -167,6 +171,7 @@ export interface Presentation {
   slides: Slide[];
   logoUrl?: string;
   watermark?: string;
+  theme?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -182,7 +187,9 @@ export interface OutlineData {
     type: string;
     description: string;
   }[];
-=======
+}
+
+// ✅ Added types from remote origin/main to fix store and hooks
 export type SlideLayout = 'title' | 'content' | 'two_column' | 'kpi' | 'conclusion';
 
 export interface KPI {
@@ -223,15 +230,6 @@ export interface SlideStyle {
   lineHeight?: string;
 }
 
-export interface Slide {
-  id: string;
-  layout_type: SlideLayout;
-  theme: SlideTheme;
-  content: SlideContent;
-  titleStyle: SlideStyle;
-  contentStyle: SlideStyle;
-}
-
 export interface PresentationState {
   apiKey: string;
   slides: Slide[];
@@ -240,5 +238,4 @@ export interface PresentationState {
   isGenerating: boolean;
   isEditing: boolean;
   deepResearch: boolean;
->>>>>>> origin/main
 }

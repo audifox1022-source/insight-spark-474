@@ -75,7 +75,7 @@ async function parseExcel(file: File): Promise<ParsedFileData> {
     return {
       fileName: file.name,
       fileType: 'excel',
-      excelData: { sheetNames, sheets },
+      excelData: { sheetNames, sheets, summary: `Excel 문서 - ${sheetNames.length}개 시트, 총 ${totalRows}행` },
       summary: `Excel 문서 - ${sheetNames.length}개 시트, 총 ${totalRows}행`,
     };
   } catch (err) {

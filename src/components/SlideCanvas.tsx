@@ -29,13 +29,21 @@ export const SlideCanvas: React.FC = () => {
 
   const { theme, content, layout_type } = slide;
 
+  if (!theme || !content) {
+    return (
+      <div className="w-full aspect-video bg-zinc-900 rounded-3xl border border-zinc-800 flex items-center justify-center text-zinc-500 italic">
+        슬라이드 데이터가 불완전합니다.
+      </div>
+    );
+  }
+
   return (
     <div 
       className="w-full aspect-video rounded-3xl overflow-hidden shadow-2xl relative transition-all duration-700"
       style={{ 
-        background: theme.bg_color,
-        color: theme.text_color,
-        fontFamily: theme.font_family
+        background: theme.bg_color || '#000',
+        color: theme.text_color || '#fff',
+        fontFamily: theme.font_family || 'sans-serif'
       }}
       onClick={() => setElementSelection(null)}
     >

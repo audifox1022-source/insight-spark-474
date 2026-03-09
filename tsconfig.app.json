@@ -32,5 +32,12 @@
   },
   "include": [
     "src"
+  ],
+  "exclude": [
+    "src/app",
+    "src/store",
+    "src/components/SlideCanvas.tsx",
+    "src/components/FloatingAIToolbar.tsx",
+    "src/components/EditableText.tsx"
   ]
 }

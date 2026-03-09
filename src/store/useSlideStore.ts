@@ -8,26 +8,28 @@ interface SlideStore extends PresentationState {
   setElementSelection: (id: string | null) => void;
   
   // Manual Edit Action
-  updateElement: (slideId: string, path: string, value: any) => void;
+  // Manual Edit Action
+  updateElement: (slideId: string, path: string, value: unknown) => void;
   
   // AI Edit Action
   mergeSlideFragment: (slideId: string, fragment: Partial<Slide>) => void;
 }
 
-const deepMerge = (target: any, patch: any): any => {
+const deepMerge = (target: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> => {
   const result = { ...target };
   for (const key in patch) {
-    if (patch[key] !== null && typeof patch[key] === 'object' && !Array.isArray(patch[key])) {
-      result[key] = deepMerge(result[key] || {}, patch[key]);
+    const patchValue = patch[key];
+    if (patchValue !== null && typeof patchValue === 'object' && !Array.isArray(patchValue)) {
+      result[key] = deepMerge((result[key] as Record<string, unknown>) || {}, patchValue as Record<string, unknown>);
     } else {
-      result[key] = patch[key];
+      result[key] = patchValue;
     }
   }
   return result;
 };
 
 // Helper to set nested value by path (e.g., "content.title")
-const setNestedValue = (obj: any, path: string, value: any) => {
+const setNestedValue = (obj: Record<string, any>, path: string, value: unknown) => {
   const parts = path.split('.');
   let current = obj;
   for (let i = 0; i < parts.length - 1; i++) {

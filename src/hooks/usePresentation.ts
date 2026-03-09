@@ -90,6 +90,8 @@ function normalizePresentationSlides(presentation: any): Presentation {
   };
 }
 
+export type ReferenceStructure = any;
+
 // ─────────────────────────────────────────────────────────
 // 메인 훅: usePresentation
 // ─────────────────────────────────────────────────────────
@@ -124,7 +126,7 @@ export function usePresentation() {
   const [referenceFile, setReferenceFile] = useState<ParsedFileData | null>(null);
   const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
   const [isAnalyzingReference, setIsAnalyzingReference] = useState(false);
-  const [referenceStructure, setReferenceStructure] = useState<any | null>(null);
+  const [referenceStructure, setReferenceStructure] = useState<ReferenceStructure | null>(null);
 
   const [appTheme, setAppTheme] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('apptheme') || 'blue' : 'blue'));
   const [isDark, setIsDark] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false));
@@ -200,7 +202,7 @@ export function usePresentation() {
 
   const handlePromptSubmit = useCallback((prompt: string) => {
     if (!prompt.trim()) return;
-    const dummyFile: ParsedFileData = { fileName: '직접입력.txt', fileType: 'text/plain', content: prompt, summary: prompt.slice(0, 30) };
+    const dummyFile: ParsedFileData = { fileName: '직접입력.txt', fileType: 'plain', content: prompt, summary: prompt.slice(0, 30) };
     setParsedFiles([dummyFile]);
     setFileNames([dummyFile.fileName]);
     setMeetingInfo((prev) => ({ ...prev, week: prompt.slice(0, 40) }));

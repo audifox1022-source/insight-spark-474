@@ -9,7 +9,7 @@ interface EditableTextProps {
   path: string;
   value: string;
   className?: string;
-  tagName?: any;
+  tagName?: React.ElementType;
   placeholder?: string;
 }
 
