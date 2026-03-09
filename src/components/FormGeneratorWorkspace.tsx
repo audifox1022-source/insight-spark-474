@@ -6,10 +6,11 @@ import { Input }    from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   FileText, Download, RefreshCw,
-  Loader2, PencilLine, Wand2, Send, Sparkles,
+  Loader2, PencilLine, Wand2, Send, Sparkles, X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { DocumentHtmlEditor } from './form/DocumentHtmlEditor'
 
 const FORM_PRESETS = [
   { id: 'report',   icon: '📊', label: '보고서',   desc: '주간/월간 업무 보고서'   },
@@ -112,7 +113,10 @@ export function FormGeneratorWorkspace() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* ══ 왼쪽 패널 — 양식 선택 & 입력 ══ */}
-        <div className="w-72 flex-shrink-0 border-r border-border bg-card flex flex-col overflow-y-auto">
+        <div className={cn(
+          "flex-shrink-0 border-border bg-card flex flex-col transition-all duration-300 overflow-hidden",
+          generatedHtml ? "w-0 border-r-0" : "w-64 border-r"
+        )}>
 
           {/* 양식 종류 선택 */}
           <div className="p-4 border-b border-border">
@@ -139,7 +143,7 @@ export function FormGeneratorWorkspace() {
                 >
                   <span className="text-xl flex-shrink-0">{preset.icon}</span>
                   <div className="min-w-0">
-                    <p className={['text-sm font-bold leading-tight',
+                    <p className={['text-xs font-bold leading-tight', // Reduced text size slightly
                       activePreset === preset.id ? 'text-primary' : ''
                     ].join(' ')}>
                       {preset.label}
@@ -248,86 +252,12 @@ export function FormGeneratorWorkspace() {
               }
             </button>
 
-            {/* 수정 요청 (생성 후) */}
-            <AnimatePresence>
-              {generatedHtml && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden space-y-2"
-                >
-                  <div className="border-t border-border pt-4">
-                    <button
-                      onClick={() => setShowModify(!showModify)}
-                      className={[
-                        'w-full h-9 rounded-xl flex items-center justify-center gap-2',
-                        'text-sm font-bold transition-all border',
-                        showModify
-                          ? 'bg-primary/10 border-primary/30 text-primary'
-                          : 'bg-muted/50 border-border text-muted-foreground hover:text-foreground hover:bg-muted',
-                      ].join(' ')}
-                    >
-                      <PencilLine className="w-3.5 h-3.5" /> 수정 요청
-                    </button>
-
-                    <AnimatePresence>
-                      {showModify && (
-                        <motion.div
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="overflow-hidden mt-2"
-                        >
-                          <div className="space-y-2">
-                            <Textarea
-                              value={modifyRequest}
-                              onChange={e => setModifyRequest(e.target.value)}
-                              placeholder="수정 요청사항 예) 결재란 추가, 배경색 변경..."
-                              className="bg-background resize-none text-sm min-h-[80px]"
-                              rows={3}
-                            />
-                            <button
-                              onClick={handleModify}
-                              disabled={isModifying || !modifyRequest.trim()}
-                              className={[
-                                'w-full h-9 rounded-xl flex items-center justify-center gap-2',
-                                'text-white font-bold text-sm transition-all',
-                                'bg-gradient-to-r from-primary to-accent',
-                                'hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed',
-                              ].join(' ')}
-                            >
-                              {isModifying
-                                ? <Loader2 className="w-4 h-4 animate-spin" />
-                                : <><Send className="w-3.5 h-3.5" /> 수정 적용</>
-                              }
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    {/* 다운로드 & 초기화 */}
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={handleDownload}
-                        className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold border border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all"
-                      >
-                        <Download className="w-3.5 h-3.5" /> 다운로드
-                      </button>
-                      <button
-                        onClick={handleReset}
-                        className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-bold border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" /> 새 양식
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <AnimatePresence>
+                {/* Modifying section moved to top of right panel */}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
+
 
         {/* ══ 오른쪽 패널 — 미리보기 ══ */}
         <div className="flex-1 flex flex-col min-w-0 bg-muted/20">
@@ -377,28 +307,93 @@ export function FormGeneratorWorkspace() {
               animate={{ opacity: 1 }}
               className="flex-1 flex flex-col min-h-0"
             >
-              {/* 미리보기 헤더 */}
-              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-card/80">
+              {/* 미리보기 헤더 (AI 수정 패널 추가) */}
+              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-border bg-card/80 z-20">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-sm font-bold text-foreground">미리보기</span>
+                  <span className="text-sm font-bold text-foreground">문서 자동 생성 완료</span>
                   <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
                     {activePresetData?.icon} {activePresetData?.label}
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  AI 생성 완료
+                
+                <div className="flex items-center gap-2">
+                  {/* AI Modify Popover Togller */}
+                  <div className="relative">
+                     <Button
+                       onClick={() => setShowModify(!showModify)}
+                       variant={showModify ? 'default' : 'outline'}
+                       size="sm"
+                       className="h-8 gap-1.5 text-xs font-bold"
+                     >
+                       <Wand2 className="w-3.5 h-3.5" /> 
+                       AI 수정 요청
+                     </Button>
+                     
+                     <AnimatePresence>
+                       {showModify && (
+                         <motion.div
+                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                           animate={{ opacity: 1, y: 0, scale: 1 }}
+                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                           className="absolute top-10 right-0 w-[320px] bg-card border border-border/80 rounded-xl shadow-2xl p-4 z-50 flex flex-col gap-3"
+                         >
+                           <div className="flex justify-between items-center mb-1">
+                             <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                               <Sparkles className="w-3.5 h-3.5 text-primary" /> AI에게 문서 수정 맡기기
+                             </h4>
+                             <Button variant="ghost" size="icon" className="w-5 h-5" onClick={() => setShowModify(false)}>
+                               <X className="w-3.5 h-3.5 text-muted-foreground" />
+                             </Button>
+                           </div>
+                           <Textarea
+                             value={modifyRequest}
+                             onChange={e => setModifyRequest(e.target.value)}
+                             placeholder="수정 요청사항 예) 결재란 추가, 배경색을 연한 파란색으로 변경..."
+                             className="bg-background resize-none text-xs min-h-[80px]"
+                             rows={3}
+                           />
+                           <Button
+                             onClick={handleModify}
+                             disabled={isModifying || !modifyRequest.trim()}
+                             size="sm"
+                             className="w-full text-xs font-bold gap-1.5"
+                           >
+                             {isModifying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                             수정 적용
+                           </Button>
+                         </motion.div>
+                       )}
+                     </AnimatePresence>
+                  </div>
+                  
+                  <div className="w-px h-5 bg-border mx-1" />
+                  
+                  <Button
+                    onClick={handleDownload}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 text-xs font-bold text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+                  >
+                    <Download className="w-3.5 h-3.5" /> 다운로드
+                  </Button>
+                  <Button
+                    onClick={handleReset}
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground"
+                    title="새 양식 / 설정창 열기"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
 
-              {/* iframe 미리보기 */}
-              <div className="flex-1 min-h-0">
-                <iframe
-                  srcDoc={generatedHtml}
-                  className="w-full h-full"
-                  title="양식 미리보기"
-                  sandbox="allow-scripts allow-same-origin"
+              {/* Rich Text Editor */}
+              <div className="flex-1 min-h-0 bg-muted/10">
+                <DocumentHtmlEditor
+                  initialHtml={generatedHtml}
+                  onChange={setGeneratedHtml}
                 />
               </div>
             </motion.div>

@@ -10,7 +10,7 @@ import { usePresentation } from '@/hooks/usePresentation';
 import { FileUploadZone } from '@/components/FileUploadZone';
 import { PresentationSetupForm } from '@/components/PresentationSetupForm';
 import { GeneratingState } from '@/components/GeneratingState';
-import { SlideEditor } from '@/components/SlideEditor';
+import { DesignerWorkspace } from '@/components/designer/DesignerWorkspace';
 import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
@@ -346,63 +346,30 @@ export function PresentationTab(props: PresentationTabProps) {
         {/* STEP: generating */}
         {step === 'generating' && <GeneratingState />}
 
-        {/* STEP: preview (슬라이드 에디터) */}
+        {/* STEP: preview (통합 디자이너 워크스페이스) */}
         {step === 'preview' && presentation && (
-          <SlideEditor
-            presentation={presentation}
-            currentSlide={currentSlideIndex}
-            onSlideChange={setCurrentSlideIndex}
-            onReset={reset}
-            onUpdateSlide={updateSlide}
-            onUpdateAllSlides={updateAllSlides}
-            onAddSlide={addSlide}
-            onDeleteSlide={deleteSlide}
-            onDuplicateSlide={duplicateSlide}
-            onMoveSlide={moveSlide}
-            onUpdateTitle={updatePresentationTitle}
-            onSave={handleSave}
-            isSaving={isSaving}
-            onRegenerateSlide={regenerateSlide}
-            onOpenChat={() => setChatOpen(true)}
-            onOpenReview={() => setReviewOpen(true)}
-            onReviewAndFix={reviewAndFixPresentation}
-            isFixing={isFixing}
-            onChangePersona={changeSlidePersona}
-            onCycleLayout={cycleLayout}
-            updatePresentationMaster={updatePresentationMaster}
-            isGeneratingImage={isGeneratingImage}
-            generateSlideImage={generateSlideImage}
-            onEditInDesigner={switchToDesigner}
-
-            onAddContent={(idx) => {
-              const newContent = [...(presentation.slides[idx].content || []), '새 항목'];
-              updateSlide(idx, { content: newContent });
-            }}
-            onRemoveContent={(sIdx, cIdx) => {
-              const newContent = presentation.slides[sIdx].content?.filter((_, i) => i !== cIdx);
-              updateSlide(sIdx, { content: newContent });
-            }}
-
-            onOpenExport={async (format?: string) => {
-              toast.loading('문서를 생성 중입니다...', { id: 'export' });
-              try {
-                const { exportToPdf, exportToPptxAsImage, exportToPptx } = await import('@/lib/export-presentation');
-
-                if (format === 'pdf') {
-                  await exportToPdf(presentation);
-                } else if (format === 'pptx-image') {
-                  await exportToPptxAsImage(presentation);
-                } else {
-                  await exportToPptx(presentation);
-                }
-
-                toast.success('다운로드가 완료되었습니다!', { id: 'export' });
-              } catch (error) {
-                console.error(error);
-                toast.error('내보내기 중 오류가 발생했습니다.', { id: 'export' });
-              }
-            }}
-          />
+          <div className="h-[calc(100vh-140px)] w-full rounded-2xl border border-border overflow-hidden bg-background shadow-sm flex flex-col">
+            <DesignerWorkspace
+              presentation={presentation}
+              currentSlide={currentSlideIndex}
+              onSlideChange={setCurrentSlideIndex}
+              onUpdateSlide={updateSlide}
+              onAddContent={(idx) => {
+                const newContent = [...(presentation.slides[idx].content || []), '새 항목'];
+                updateSlide(idx, { content: newContent });
+              }}
+              onRemoveContent={(sIdx, cIdx) => {
+                const newContent = presentation.slides[sIdx].content?.filter((_, i) => i !== cIdx);
+                updateSlide(sIdx, { content: newContent });
+              }}
+              onSave={handleSave}
+              isSaving={isSaving}
+              onRegenerateSlide={regenerateSlide}
+              onOpenChat={() => setChatOpen(true)}
+              onOpenReview={() => setReviewOpen(true)}
+              onOpenPlay={() => toast.info('발표 모드는 준비 중입니다.')}
+            />
+          </div>
         )}
       </main>
 

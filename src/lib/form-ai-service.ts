@@ -49,18 +49,14 @@ export const formAiService = {
     const systemInstruction = `당신은 한국 업무환경에 최적화된 HTML 양식 생성 전문가입니다.
 아래 규칙을 반드시 준수하세요:
 1. 완전한 단일 HTML 파일을 생성합니다 (<!DOCTYPE html> 부터 </html> 까지).
-2. Tailwind CSS CDN을 사용합니다.
+2. Tailwind CSS CDN을 사용합니다. (최소한의 커스텀 CSS만 사용하세요)
 3. Font Awesome CDN으로 아이콘을 사용합니다.
 4. 한국어 업무환경 최적화 (존댓말, 비즈니스 용어, 한국 법규 반영).
-5. localStorage 자동 저장/불러오기 기능 포함.
-6. JSON 데이터 파일 다운로드/업로드 기능 포함.
-7. window.print() 기반 PDF 저장 버튼 포함.
-8. Tab 키로 placeholder 예시 내용 적용 기능 포함.
-9. 양식명에 따른 동적 테마 색상 및 헤더 배경 적용.
-10. @media print 스타일로 인쇄/PDF 품질 보장.
-11. 반드시 HTML 코드만 반환하세요. 설명 텍스트나 마크다운 코드블록 없이 순수 HTML만.
-${compactInstruction}
-${autoFillInstruction}`.trim();
+5. 출력 속도 최적화를 위해 복잡한 Javascript(저장, 다운로드 기능 등)는 절대 포함하지 마세요. (UI 레이아웃에 집중)
+6. 반드시 HTML 코드만 반환하세요. 설명 텍스트나 마크다운 코드블록 없이 순수 HTML만.
+7. 인쇄에 최적화된 화이트 배경의 깔끔한 디자인을 구성하세요.
+8. ${compactInstruction}
+9. ${autoFillInstruction}`.trim();
 
     const themeGuide = getThemeGuide(formName)
 
@@ -72,31 +68,14 @@ ${autoFillInstruction}`.trim();
 ${themeGuide}
 
 [필수 포함 섹션]
-1. 상단 헤더: 양식명, 문서번호, 날짜, 작성자 (그라디언트 배경)
-2. 양식 입력 영역: 양식명에 맞는 세부 입력 필드들 (카드형 섹션)
-3. 하단 제어 버튼:
-   - "양식 생성/미리보기" 버튼
-   - "PDF 저장" 버튼
-   - "데이터 파일로 저장" 버튼
-   - "데이터 파일 불러오기" 버튼
-   - "양식 초기화" 버튼
-4. 생성된 문서 미리보기 영역 (인쇄 최적화)
+1. 상단 헤더: 양식명, 문서번호, 날짜, 작성자 (그라디언트 텍스트 등 가벼운 스타일)
+2. 양식 입력 영역: 양식명에 맞는 세부 입력 필드들 (테이블 또는 그리드 형태)
 
 [기술 스택]
 - Tailwind CSS: <script src="https://cdn.tailwindcss.com"></script>
 - Font Awesome: <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-- Google Fonts (Noto Sans KR, Playfair Display)
 
-[JavaScript 필수 함수]
-- saveFormDataToLocalStorage()
-- loadFormDataFromLocalStorage()
-- clearForm()
-- downloadDataFile()
-- uploadDataFile(event)
-- generateDocument()
-- setupInputPlaceholders()
-
-완전한 HTML 파일을 생성해주세요.`
+가장 빠르고 간결하게, UI 구조 위주의 완전한 HTML 파일을 생성해주세요.`
 
     const html = await callGeminiAPI(systemInstruction, userPrompt, 32768)
 

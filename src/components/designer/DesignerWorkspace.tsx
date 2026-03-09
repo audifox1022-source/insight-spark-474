@@ -12,17 +12,56 @@ import { toast } from 'sonner';
 
 import { exportDesignerToPptx } from '@/lib/export-designer-pptx';
 import { populateCanvasFromSlide } from '@/lib/slide-to-canvas';
+import { DesignerPropertiesPanel } from './DesignerPropertiesPanel';
+import { Presentation, Slide } from '@/types/presentation';
 
 export interface DesignerWorkspaceProps {
   onBack?: () => void;
+  presentation?: Presentation;
+  currentSlide?: number;
+  onSlideChange?: (index: number) => void;
+  onUpdateSlide?: (index: number, updates: Partial<Slide>) => void;
+  onAddContent?: (slideIndex: number) => void;
+  onRemoveContent?: (slideIndex: number, contentIndex: number) => void;
+  onSave?: () => void;
+  isSaving?: boolean;
+  onOpenPlay?: () => void;
+  onRegenerateSlide?: (slideIndex: number) => void;
+  onOpenChat?: () => void;
+  onOpenReview?: () => void;
 }
 
-export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ onBack }) => {
-  const { slides, activeSlideId, addSlide, canvas } = useDesignerStore();
+export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ 
+  onBack,
+  presentation,
+  currentSlide = 0,
+  onSlideChange,
+  onUpdateSlide,
+  onAddContent,
+  onRemoveContent,
+  onSave,
+  isSaving,
+  onOpenPlay,
+  onRegenerateSlide,
+  onOpenChat,
+  onOpenReview
+}) => {
+  const { slides: storeSlides, activeSlideId, addSlide, canvas } = useDesignerStore();
 
-  // Watch for pending slide from Presentation tab
+  const isIntegrated = !!presentation;
+  const navSlides = isIntegrated ? presentation.slides : storeSlides;
+  const activeIndex = isIntegrated ? currentSlide : storeSlides.findIndex(s => s.id === activeSlideId);
+
+  // Sync canvas with presentation slide
   useEffect(() => {
-    if (!canvas) return;
+    if (!canvas || !isIntegrated || !presentation.slides[currentSlide]) return;
+    // Debounce or directly populate
+    populateCanvasFromSlide(canvas, presentation.slides[currentSlide]);
+  }, [canvas, currentSlide, isIntegrated]); // only watch slide change, not every edit to prevent overwriting manual canvas edits (wait, we need to apply form edits, so we watch the whole slide object, but that wipes manual edits... for now it's okay)
+
+  // Watch for pending slide from Presentation tab (legacy fallback)
+  useEffect(() => {
+    if (!canvas || isIntegrated) return;
 
     const pendingSlideStr = localStorage.getItem('pending_designer_slide');
     if (pendingSlideStr) {
@@ -39,7 +78,7 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ onBack }) 
       };
       loadPendingSlide();
     }
-  }, [canvas]);
+  }, [canvas, isIntegrated]);
 
   const handleExport = async () => {
     if (!canvas) return;
@@ -78,8 +117,38 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ onBack }) 
         </div>
         
         <div className="flex items-center gap-2">
+          {isIntegrated && (
+            <div className="flex bg-muted/50 rounded-lg p-0.5 border border-border/60 mr-2 items-center">
+              {onRegenerateSlide && (
+                 <Button variant="ghost" size="sm" onClick={() => onRegenerateSlide(currentSlide)} className="h-7 px-2.5 text-xs">
+                    다시 쓰기
+                 </Button>
+              )}
+              {onOpenChat && (
+                 <Button variant="ghost" size="sm" onClick={onOpenChat} className="h-7 px-2.5 text-xs text-primary font-bold">
+                    AI 채팅 수정
+                 </Button>
+              )}
+              {onOpenReview && (
+                 <Button variant="ghost" size="sm" onClick={onOpenReview} className="h-7 px-2.5 text-xs text-violet-600 font-bold">
+                    AI 리뷰
+                 </Button>
+              )}
+              <div className="w-px h-4 bg-border mx-1" />
+            </div>
+          )}
+          {onOpenPlay && (
+            <Button variant="outline" size="sm" onClick={onOpenPlay} className="h-8 gap-2 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+              <Play className="w-3.5 h-3.5" /> 발표
+            </Button>
+          )}
+          {onSave && (
+            <Button variant="outline" size="sm" onClick={onSave} disabled={isSaving} className="h-8 gap-2 text-blue-600 border-blue-200 hover:bg-blue-50">
+              <Save className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '저장'}
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-8 gap-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50">
-            <Wand2 className="w-3.5 h-3.5" /> AI 스마트 정렬
+            <Wand2 className="w-3.5 h-3.5" /> AI 자동 디자인
           </Button>
           <Button onClick={handleExport} size="sm" className="h-8 gap-2 gradient-primary border-0 shadow-glow">
             <Download className="w-3.5 h-3.5" /> PPT 다운로드
@@ -100,22 +169,50 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ onBack }) 
             
             {/* Bottom Slide Nav */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 bg-card/80 backdrop-blur-md border border-white/20 rounded-2xl shadow-elevated">
-              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-xl"><ChevronLeft className="w-4 h-4" /></Button>
+              <Button 
+                variant="ghost" size="icon" className="w-8 h-8 rounded-xl"
+                onClick={() => onSlideChange?.(Math.max(0, currentSlide - 1))}
+                disabled={isIntegrated && currentSlide === 0}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
               <div className="flex items-center gap-1.5 px-3">
-                {slides.map((s, idx) => (
+                {navSlides.map((s: any, idx) => (
                   <button 
-                    key={s.id}
-                    className={`w-2 h-2 rounded-full transition-all ${s.id === activeSlideId ? 'bg-primary w-4' : 'bg-muted-foreground/30'}`}
+                    key={s.id || idx}
+                    onClick={() => onSlideChange ? onSlideChange(idx) : null}
+                    className={`w-2 h-2 rounded-full transition-all ${idx === activeIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}`}
                   />
                 ))}
               </div>
-              <Button onClick={addSlide} variant="ghost" size="icon" className="w-8 h-8 rounded-xl"><Plus className="w-4 h-4" /></Button>
-              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-xl"><ChevronRight className="w-4 h-4" /></Button>
+              {!isIntegrated && (
+                <Button onClick={addSlide} variant="ghost" size="icon" className="w-8 h-8 rounded-xl"><Plus className="w-4 h-4" /></Button>
+              )}
+              <Button 
+                variant="ghost" size="icon" className="w-8 h-8 rounded-xl"
+                onClick={() => onSlideChange?.(Math.min(navSlides.length - 1, currentSlide + 1))}
+                disabled={isIntegrated && currentSlide === navSlides.length - 1}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* Floating AI Helper (Optional right sidebar could go here) */}
+        {/* Right Sidebar (Properties Panel) */}
+        {isIntegrated && presentation && (
+          <DesignerPropertiesPanel 
+            presentation={presentation}
+            currentSlide={currentSlide}
+            onUpdateSlide={(idx, updates) => {
+              if (onUpdateSlide) onUpdateSlide(idx, updates);
+              // Also immediately refresh canvas on property change
+              if (canvas) populateCanvasFromSlide(canvas, { ...presentation.slides[idx], ...updates });
+            }}
+            onAddContent={onAddContent}
+            onRemoveContent={onRemoveContent}
+          />
+        )}
       </div>
     </div>
   );
