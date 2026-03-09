@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useImperativeHandle, forwardRef } from 'react'
 import { formAiService } from '@/lib/form-ai-service'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button }   from '@/components/ui/button'
@@ -22,7 +22,7 @@ const FORM_PRESETS = [
   { id: 'manual',   icon: '✏️', label: '직접 입력', desc: '양식명을 직접 입력'      },
 ]
 
-export function FormGeneratorWorkspace() {
+export const FormGeneratorWorkspace = forwardRef(({ onBack }: { onBack?: () => void }, ref) => {
   const [activePreset,  setActivePreset]  = useState('report')
   const [formName,      setFormName]      = useState('보고서')
   const [requirements,  setRequirements]  = useState('')
@@ -34,6 +34,16 @@ export function FormGeneratorWorkspace() {
   const [isCompact,     setIsCompact]     = useState(false)
   const [isAutoFill,    setIsAutoFill]    = useState(false)
   const [isHelpOpen,    setIsHelpOpen]    = useState(false)
+
+  useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      if (generatedHtml) {
+        handleReset()
+        return true
+      }
+      return false
+    }
+  }))
 
   const handleGenerate = async () => {
     const name = activePreset !== 'manual'
@@ -96,19 +106,37 @@ export function FormGeneratorWorkspace() {
     <div className="flex flex-col h-full gap-0 overflow-hidden">
 
       {/* ── 상단 타이틀 바 ── */}
-      <div className="flex-shrink-0 text-center py-6 border-b border-border bg-card/50">
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3 border border-primary/20">
-          <FileText className="w-3.5 h-3.5" /> AI 문서 생성기
-        </div>
-        <h2 className="text-3xl font-black tracking-tight text-foreground">
+      <div className={cn(
+        "flex-shrink-0 text-center border-b border-border bg-card/50 transition-all duration-500",
+        generatedHtml ? "py-2" : "py-6"
+      )}>
+        <AnimatePresence>
+          {!generatedHtml && (
+            <motion.div 
+              initial={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-bold mb-3 border border-primary/20"
+            >
+              <FileText className="w-3.5 h-3.5" /> AI 문서 생성기
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <h2 className={cn(
+          "font-black tracking-tight text-foreground transition-all duration-500",
+          generatedHtml ? "text-lg" : "text-3xl"
+        )}>
           WorkAI로{' '}
           <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
             업무 양식 자동 생성
           </span>
         </h2>
-        <p className="text-muted-foreground mt-2 text-sm">
-          양식을 선택하고 요청사항을 입력하면 AI가 완성된 HTML 양식을 즉시 생성합니다.
-        </p>
+        
+        {!generatedHtml && (
+          <p className="text-muted-foreground mt-2 text-sm transition-all duration-500">
+            양식을 선택하고 요청사항을 입력하면 AI가 완성된 HTML 양식을 즉시 생성합니다.
+          </p>
+        )}
       </div>
 
       {/* ── 2-column 메인 ── */}
@@ -410,9 +438,7 @@ export function FormGeneratorWorkspace() {
           )}
         </div>
 
-      </div>
-
       <FormHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
-  )
-}
+  );
+});

@@ -1,19 +1,32 @@
 import pptxgen from 'pptxgenjs';
 import { fabric } from 'fabric';
 
+import { Presentation, Slide } from '@/types/presentation';
+import { populateCanvasFromSlide } from './slide-to-canvas';
+
 /**
- * Converts a Fabric.js canvas to a PPTX file using pptxgenjs.
+ * Converts a whole Presentation to a PPTX file.
  */
-export const exportDesignerToPptx = async (canvas: fabric.Canvas) => {
+export const exportDesignerToPptx = async (presentation: Presentation) => {
   const pres = new pptxgen();
   pres.layout = 'LAYOUT_16x9';
 
-  const slide = pres.addSlide();
-  const objects = canvas.getObjects();
+  // Create a headless/temporary canvas for processing
+  const tempCanvasEl = document.createElement('canvas');
+  tempCanvasEl.width = 800;
+  tempCanvasEl.height = 450;
+  const tempCanvas = new fabric.Canvas(tempCanvasEl);
 
-  // Fabric canvas dimensions
-  const cW = canvas.getWidth();
-  const cH = canvas.getHeight();
+  for (let i = 0; i < presentation.slides.length; i++) {
+    const slideData = presentation.slides[i];
+    await populateCanvasFromSlide(tempCanvas, slideData);
+    
+    const pptSlide = pres.addSlide();
+    const objects = tempCanvas.getObjects();
+
+    // Fabric canvas dimensions (fixed 800x450 as per new scaling logic)
+    const cW = 800;
+    const cH = 450;
 
   // PPTX 16:9 dimensions in inches
   const pW = 10;
@@ -34,9 +47,9 @@ export const exportDesignerToPptx = async (canvas: fabric.Canvas) => {
 
     if (obj.type === 'i-text' || obj.type === 'text') {
       const textObj = obj as fabric.IText;
-      slide.addText(textObj.text || '', {
+      pptSlide.addText(textObj.text || '', {
         ...commonOpts,
-        fontSize: textObj.fontSize ? (textObj.fontSize * (pH / cH) * 72) : 18, // Rough conversion to pt
+        fontSize: textObj.fontSize ? (textObj.fontSize * (pH / cH) * 72) : 18, 
         fontFace: textObj.fontFamily || 'Pretendard',
         color: (textObj.fill as string)?.replace('#', '') || '000000',
         bold: textObj.fontWeight === 'bold',
@@ -45,28 +58,30 @@ export const exportDesignerToPptx = async (canvas: fabric.Canvas) => {
         valign: 'middle',
       });
     } else if (obj.type === 'rect') {
-      slide.addShape(pres.ShapeType.rect, {
+      pptSlide.addShape(pres.ShapeType.rect, {
         ...commonOpts,
-        fill: { color: (obj.fill as string)?.replace('#', '') || 'FF0000' },
+        fill: { color: (obj.fill as string)?.replace('#', '') || '3b82f6' },
       });
     } else if (obj.type === 'circle') {
-      slide.addShape(pres.ShapeType.ellipse, {
+      pptSlide.addShape(pres.ShapeType.ellipse, {
         ...commonOpts,
-        fill: { color: (obj.fill as string)?.replace('#', '') || '0000FF' },
+        fill: { color: (obj.fill as string)?.replace('#', '') || 'ef4444' },
       });
     } else if (obj.type === 'triangle') {
-      slide.addShape(pres.ShapeType.triangle, {
+      pptSlide.addShape(pres.ShapeType.triangle, {
         ...commonOpts,
-        fill: { color: (obj.fill as string)?.replace('#', '') || '00FF00' },
+        fill: { color: (obj.fill as string)?.replace('#', '') || '10b981' },
       });
     } else if (obj.type === 'image') {
       const imgObj = obj as fabric.Image;
-      slide.addImage({
+      pptSlide.addImage({
         data: imgObj.getSrc(),
         ...commonOpts,
       });
     }
+    }
   }
 
-  return pres.writeFile({ fileName: `WorkAI_Designer_${new Date().getTime()}.pptx` });
+  tempCanvas.dispose();
+  return pres.writeFile({ fileName: `${presentation.title || 'WorkAI'}_${new Date().getTime()}.pptx` });
 };

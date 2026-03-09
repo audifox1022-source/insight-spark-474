@@ -40,6 +40,13 @@ interface DesignerState {
   // Canvas bridge
   canvas: fabric.Canvas | null;
   setCanvas: (canvas: fabric.Canvas | null) => void;
+
+  // History for Undo/Redo
+  history: string[];
+  historyIndex: number;
+  saveHistory: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 export const useDesignerStore = create<DesignerState>((set) => ({
@@ -123,4 +130,55 @@ export const useDesignerStore = create<DesignerState>((set) => ({
   },
 
   setCanvas: (canvas) => set({ canvas }),
+
+  // History implementation
+  history: [],
+  historyIndex: -1,
+  
+  saveHistory: () => {
+    const { canvas, history, historyIndex } = useDesignerStore.getState();
+    if (!canvas) return;
+
+    const json = JSON.stringify(canvas.toJSON());
+    
+    // If no change, don't save
+    if (history[historyIndex] === json) return;
+
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(json);
+
+    // Limit history to 50 steps
+    if (newHistory.length > 50) newHistory.shift();
+
+    set({ 
+      history: newHistory, 
+      historyIndex: newHistory.length - 1 
+    });
+  },
+
+  undo: () => {
+    const { canvas, history, historyIndex } = useDesignerStore.getState();
+    if (!canvas || historyIndex <= 0) return;
+
+    const prevIndex = historyIndex - 1;
+    const prevData = history[prevIndex];
+    
+    canvas.loadFromJSON(JSON.parse(prevData), () => {
+      canvas.renderAll();
+      set({ historyIndex: prevIndex });
+    });
+  },
+
+  redo: () => {
+    const { canvas, history, historyIndex } = useDesignerStore.getState();
+    if (!canvas || historyIndex >= history.length - 1) return;
+
+    const nextIndex = historyIndex + 1;
+    const nextData = history[nextIndex];
+    
+    canvas.loadFromJSON(JSON.parse(nextData), () => {
+      canvas.renderAll();
+      set({ historyIndex: nextIndex });
+    });
+  },
 }));

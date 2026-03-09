@@ -53,9 +53,21 @@ const getLanguageDisplay = (languageValue: string): string => {
   return `${lang ? lang.label.split(' ')[0] : languageValue} 감지`;
 };
 
-export const TranslatorWorkspace: React.FC = () => {
+export const TranslatorWorkspace = React.forwardRef((props, ref) => {
   const [sourceText,      setSourceText]      = useState('');
   const [translatedText,  setTranslatedText]  = useState('');
+  
+  React.useImperativeHandle(ref, () => ({
+    handleBack: () => {
+      if (translatedText) {
+        setTranslatedText('');
+        setAnalysisResults(null);
+        setTranslationEditing(true);
+        return true;
+      }
+      return false;
+    }
+  }));
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null);
   const [targetLanguage,  setTargetLanguage]  = useState('English');
   const [sourceLanguage,  setSourceLanguage]  = useState<string | null>(null);
@@ -712,4 +724,6 @@ export const TranslatorWorkspace: React.FC = () => {
       <HelpModal isOpen={isHelpModalOpen} onClose={() => setHelpModalOpen(false)} />
     </div>
   );
-};
+});
+
+export default TranslatorWorkspace;

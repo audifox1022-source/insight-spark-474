@@ -29,6 +29,7 @@ export interface DesignerWorkspaceProps {
   onRegenerateSlide?: (slideIndex: number) => void;
   onOpenChat?: () => void;
   onOpenReview?: () => void;
+  onAutoDesign?: () => void;
 }
 
 export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ 
@@ -44,7 +45,8 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   onOpenPlay,
   onRegenerateSlide,
   onOpenChat,
-  onOpenReview
+  onOpenReview,
+  onAutoDesign
 }) => {
   const { slides: storeSlides, activeSlideId, addSlide, canvas } = useDesignerStore();
 
@@ -81,11 +83,11 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   }, [canvas, isIntegrated]);
 
   const handleExport = async () => {
-    if (!canvas) return;
+    if (!presentation) return;
     
     try {
-      toast.info('PPTX 내보내기를 생성 중입니다...');
-      await exportDesignerToPptx(canvas);
+      toast.info('전체 슬라이드 PPTX 내보내기를 생성 중입니다...');
+      await exportDesignerToPptx(presentation);
       toast.success('PPTX 다운로드가 완료되었습니다!');
     } catch (error) {
       console.error('PPTX Export failed:', error);

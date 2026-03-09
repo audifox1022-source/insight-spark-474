@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DocumentEditorToolbar } from './DocumentEditorToolbar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface DocumentHtmlEditorProps {
   initialHtml: string;
@@ -75,6 +78,16 @@ export const DocumentHtmlEditor: React.FC<DocumentHtmlEditorProps> = ({
       doc.body.contentEditable = isEditMode ? 'true' : 'false';
       doc.body.style.cursor = isEditMode ? 'text' : 'default';
     }
+
+    // Hande ESC key to exit preview
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isEditMode) {
+        setIsEditMode(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isEditMode]);
 
   const handleCommand = (command: string, value?: string) => {
@@ -108,6 +121,42 @@ export const DocumentHtmlEditor: React.FC<DocumentHtmlEditorProps> = ({
            />
         </div>
       </div>
+
+      {/* Fullscreen Preview Overlay */}
+      <AnimatePresence>
+        {!isEditMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center p-4 backdrop-blur-md"
+          >
+            <div className="w-full max-w-5xl flex justify-between items-center mb-4 text-white">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-sm font-bold">완성 미리보기</span>
+                <span className="text-xs text-white/50">(ESC를 누르면 편집기로 돌아갑니다)</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsEditMode(true)}
+                className="text-white hover:bg-white/10"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+            
+            <div className="w-full max-w-5xl flex-1 bg-white rounded-xl shadow-2xl overflow-hidden border border-white/10">
+              <iframe
+                srcDoc={`<!DOCTYPE html><html><head><script src="https://cdn.tailwindcss.com"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></head><body>${extractBodyContent(initialHtml)}</body></html>`}
+                className="w-full h-full"
+                title="Document Preview Fullscreen"
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

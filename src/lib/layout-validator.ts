@@ -16,8 +16,7 @@ export function validateSlideLayout(slide: any): ValidationResult {
   const suggestions: string[] = [];
 
   // 1. content 타입 검증
-  if (slide.type === 'content' || slide.type === 'process' ||
-      slide.type === 'cards' || slide.type === 'agenda' || slide.type === 'summary') {
+  if (['content', 'process', 'processList', 'cards', 'agenda', 'summary', 'bulletCards', 'headerCards', 'triangle', 'pyramid', 'stepUp', 'imageText'].includes(slide.type)) {
     if (Array.isArray(slide.content)) {
       if (slide.content.length > 6) {
         warnings.push(`불릿 포인트가 ${slide.content.length}개 (권장: 3~5개, 최대 6개)`);
@@ -140,9 +139,12 @@ export function autoFixLayout(slide: any): any {
 
   // content / process / cards / agenda / summary 타입 자동 수정
   if (
-    ['content', 'process', 'cards', 'agenda', 'summary'].includes(fixed.type) &&
-    Array.isArray(fixed.content)
+    ['content', 'process', 'processList', 'cards', 'agenda', 'summary', 'bulletCards', 'headerCards', 'triangle', 'pyramid', 'stepUp', 'imageText'].includes(fixed.type) &&
+    (Array.isArray(fixed.content) || Array.isArray(fixed.items))
   ) {
+    // Ensure content exists
+    if (!fixed.content && fixed.items) fixed.content = fixed.items;
+    if (fixed.content && !fixed.items) fixed.items = fixed.content;
     // 불릿 6개 초과 시 상위 6개만 유지
     if (fixed.content.length > 6) {
       const originalLength = fixed.content.length;

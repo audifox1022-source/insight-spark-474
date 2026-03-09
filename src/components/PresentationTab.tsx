@@ -15,6 +15,7 @@ import { HistoryPanel } from '@/components/HistoryPanel';
 import { OutlinePreview } from '@/components/OutlinePreview';
 import { ChatEditPanel } from '@/components/ChatEditPanel';
 import { ReviewPanel } from '@/components/ReviewPanel';
+import { PresentationMode } from '@/components/PresentationMode';
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
 type Preset = {
@@ -90,6 +91,7 @@ export function PresentationTab(props: PresentationTabProps) {
   const [activePresetId, setActivePresetId] = useState<string>('manual');
   const [presetData, setPresetData] = useState<Record<string, string>>({});
   const [manualPrompt, setManualPrompt] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const activePreset = PROMPT_PRESETS.find(p => p.id === activePresetId);
 
@@ -363,15 +365,25 @@ export function PresentationTab(props: PresentationTabProps) {
                 updateSlide(sIdx, { content: newContent });
               }}
               onSave={handleSave}
-              isSaving={isSaving}
+               isSaving={isSaving}
               onRegenerateSlide={regenerateSlide}
               onOpenChat={() => setChatOpen(true)}
               onOpenReview={() => setReviewOpen(true)}
-              onOpenPlay={() => toast.info('발표 모드는 준비 중입니다.')}
+              onOpenPlay={() => setIsPlaying(true)}
+              onAutoDesign={reviewAndFixPresentation}
             />
           </div>
         )}
       </main>
+
+      {/* 발표 모드 오버레이 */}
+      {isPlaying && presentation && (
+        <PresentationMode 
+          presentation={presentation}
+          startSlide={currentSlideIndex}
+          onExit={() => setIsPlaying(false)}
+        />
+      )}
 
       {/* 히스토리 / 채팅 / 리뷰 패널 */}
       <HistoryPanel

@@ -99,6 +99,8 @@ export function normalizeSlide(s: any, index = 0, total = 1): any {
   const rawContent = s.content || s.points || s.bullets || s.items || s.list || [];
   const contentArray = Array.isArray(rawContent) ? rawContent : typeof rawContent === "string" ? [rawContent] : [];
   s.content = contentArray.flatMap((item: any) => extractTextFromItem(item));
+  s.items = s.content; // Mirror for components expecting 'items'
+  s.points = s.content; // Mirror for components expecting 'points'
 
   if (s.type === 'chart') {
     const raw = s.chartData || {};

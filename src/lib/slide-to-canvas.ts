@@ -34,14 +34,29 @@ export async function populateCanvasFromSlide(canvas: fabric.Canvas, slide: Slid
 
   // 3. Dynamic Content based on Type
   switch (slide.type) {
+    case 'title':
+      renderTitleSlide(canvas, slide);
+      break;
+    case 'agenda':
+      renderAgenda(canvas, slide);
+      break;
     case 'kpi':
       renderKPIs(canvas, slide);
       break;
     case 'timeline':
+    case 'process':
       renderTimeline(canvas, slide);
       break;
     case 'table':
       renderTable(canvas, slide);
+      break;
+    case 'compare':
+    case 'barCompare':
+    case 'statsCompare':
+      renderCompare(canvas, slide);
+      break;
+    case 'chart':
+      renderChart(canvas, slide);
       break;
     default:
       renderStandardContent(canvas, slide);
@@ -99,19 +114,87 @@ async function applyBackground(canvas: fabric.Canvas, slide: Slide) {
   }
 }
 
+function renderTitleSlide(canvas: fabric.Canvas, slide: Slide) {
+  // Center Title
+  if (slide.title) {
+    const titleText = new fabric.IText(slide.title, {
+      left: CANVAS_WIDTH / 2,
+      top: CANVAS_HEIGHT / 2 - 40,
+      fontSize: 54,
+      fontFamily: slide.titleStyle?.fontFamily || 'Pretendard',
+      fontWeight: 'bold',
+      fill: slide.titleStyle?.color || (isDarkBg(slide) ? '#ffffff' : '#111827'),
+      originX: 'center',
+      originY: 'center',
+      textAlign: 'center',
+      width: CANVAS_WIDTH - 100,
+      id: 'slide-title'
+    } as any);
+    canvas.add(titleText);
+  }
+
+  // Subhead or Date
+  const subText = slide.subhead || slide.date || '';
+  if (subText) {
+    const subhead = new fabric.IText(subText, {
+      left: CANVAS_WIDTH / 2,
+      top: CANVAS_HEIGHT / 2 + 30,
+      fontSize: 24,
+      fontFamily: slide.contentStyle?.fontFamily || 'Pretendard',
+      fill: slide.contentStyle?.color || (isDarkBg(slide) ? '#cbd5e1' : '#64748b'),
+      originX: 'center',
+      originY: 'center',
+      textAlign: 'center',
+      width: CANVAS_WIDTH - 120,
+    });
+    canvas.add(subhead);
+  }
+}
+
+function renderAgenda(canvas: fabric.Canvas, slide: Slide) {
+  const items = slide.items || slide.content || [];
+  const startY = 140;
+  const spacing = 50;
+
+  items.forEach((item, i) => {
+    const text = typeof item === 'string' ? item : item.title || '';
+    const group = new fabric.Group([
+      new fabric.Rect({
+        width: 30, height: 30, rx: 6, ry: 6, fill: '#0D5C63'
+      }),
+      new fabric.Text(String(i + 1), {
+        fontSize: 14, fontWeight: 'bold', fill: '#ffffff',
+        left: 10, top: 7
+      })
+    ], { left: PADDING, top: startY + i * spacing });
+
+    const contentText = new fabric.Text(text, {
+      left: PADDING + 50,
+      top: startY + i * spacing + 5,
+      fontSize: 20,
+      fontWeight: '500',
+      fill: isDarkBg(slide) ? '#ffffff' : '#334155'
+    });
+
+    canvas.add(group, contentText);
+  });
+}
+
 function renderStandardContent(canvas: fabric.Canvas, slide: Slide) {
   const content = slide.content ?? slide.points ?? slide.items ?? [];
+  const startY = 140;
+
   if (content.length > 0) {
-    const bodyStr = content.join('\n\n');
+    const bodyStr = content.map(c => `• ${typeof c === 'string' ? c : c.title || ''}`).join('\n\n');
     const contentText = new fabric.IText(bodyStr, {
       left: PADDING,
-      top: 150,
+      top: startY,
       fontSize: slide.contentFontPt || 20,
       fontFamily: slide.contentStyle?.fontFamily || 'Pretendard',
       fill: slide.contentStyle?.color || (isDarkBg(slide) ? '#e2e8f0' : '#374151'),
-      width: 500,
+      width: CANVAS_WIDTH - (PADDING * 2),
       selectable: true,
-      lineHeight: 1.5
+      lineHeight: 1.4
     });
     canvas.add(contentText);
   }
@@ -196,9 +279,11 @@ function renderTimeline(canvas: fabric.Canvas, slide: Slide) {
 function renderTable(canvas: fabric.Canvas, slide: Slide) {
   const headers = slide.tableData?.headers || slide.headers || [];
   const rows = slide.tableData?.rows || slide.rows || [];
-  const cellWidth = 150;
+  if (headers.length === 0 && rows.length === 0) return;
+
+  const cellWidth = (CANVAS_WIDTH - PADDING * 2) / (headers.length || 1);
   const cellHeight = 35;
-  const startTop = 160;
+  const startTop = 140;
 
   // Header
   headers.forEach((h, i) => {
@@ -209,13 +294,13 @@ function renderTable(canvas: fabric.Canvas, slide: Slide) {
     });
     const text = new fabric.Text(h, {
       left: PADDING + i * cellWidth + 10, top: startTop + 8,
-      fontSize: 12, fill: '#ffffff', fontWeight: 'bold'
+      fontSize: 13, fill: '#ffffff', fontWeight: 'bold'
     });
     canvas.add(rect, text);
   });
 
   // Rows
-  rows.slice(0, 5).forEach((row, ri) => {
+  rows.slice(0, 6).forEach((row, ri) => {
     row.forEach((cell, ci) => {
       const top = startTop + (ri + 1) * cellHeight;
       const rect = new fabric.Rect({
@@ -231,6 +316,88 @@ function renderTable(canvas: fabric.Canvas, slide: Slide) {
       canvas.add(rect, text);
     });
   });
+}
+
+function renderCompare(canvas: fabric.Canvas, slide: Slide) {
+  const leftItems = slide.leftItems || [];
+  const rightItems = slide.rightItems || [];
+  const startY = 160;
+  const colWidth = (CANVAS_WIDTH - PADDING * 3) / 2;
+
+  // Titles
+  canvas.add(new fabric.Text(slide.leftTitle || 'AS-IS', {
+    left: PADDING, top: startY - 40, fontSize: 20, fontWeight: 'bold', fill: '#ef4444'
+  }));
+  canvas.add(new fabric.Text(slide.rightTitle || 'TO-BE', {
+    left: PADDING * 2 + colWidth, top: startY - 40, fontSize: 20, fontWeight: 'bold', fill: '#10b981'
+  }));
+
+  // Separator
+  canvas.add(new fabric.Line([CANVAS_WIDTH / 2, startY - 20, CANVAS_WIDTH / 2, CANVAS_HEIGHT - PADDING], {
+    stroke: '#e2e8f0', strokeWidth: 1
+  }));
+
+  // Left Content
+  const leftText = leftItems.map(t => `• ${t}`).join('\n\n');
+  canvas.add(new fabric.IText(leftText, {
+    left: PADDING, top: startY, fontSize: 16, width: colWidth, fill: '#334155', lineHeight: 1.4
+  }));
+
+  // Right Content
+  const rightText = rightItems.map(t => `• ${t}`).join('\n\n');
+  canvas.add(new fabric.IText(rightText, {
+    left: PADDING * 2 + colWidth, top: startY, fontSize: 16, width: colWidth, fill: '#334155', lineHeight: 1.4
+  }));
+}
+
+function renderChart(canvas: fabric.Canvas, slide: Slide) {
+  const data = slide.chartData?.data || [];
+  if (data.length === 0) return;
+
+  const chartWidth = CANVAS_WIDTH - PADDING * 2;
+  const chartHeight = 220;
+  const barWidth = (chartWidth / data.length) * 0.7;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const startX = PADDING;
+  const startY = 380;
+
+  data.forEach((d, i) => {
+    const h = (d.value / maxVal) * chartHeight;
+    const x = startX + (i * (chartWidth / data.length)) + (chartWidth / data.length - barWidth) / 2;
+    
+    const rect = new fabric.Rect({
+      left: x,
+      top: startY - h,
+      width: barWidth,
+      height: h,
+      fill: d.color || '#0D5C63',
+      rx: 4, ry: 4
+    });
+    
+    const label = new fabric.Text(d.name, {
+      left: x + barWidth / 2,
+      top: startY + 10,
+      fontSize: 11,
+      originX: 'center',
+      fill: '#64748b'
+    });
+
+    const val = new fabric.Text(String(d.value), {
+      left: x + barWidth / 2,
+      top: startY - h - 20,
+      fontSize: 12,
+      fontWeight: 'bold',
+      originX: 'center',
+      fill: '#1e293b'
+    });
+
+    canvas.add(rect, label, val);
+  });
+
+  // Base line
+  canvas.add(new fabric.Line([startX, startY, startX + chartWidth, startY], {
+    stroke: '#cbd5e1', strokeWidth: 1
+  }));
 }
 
 function isDarkBg(slide: Slide) {

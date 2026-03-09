@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useRef } from 'react'
 import { FloatingAIToolbar } from '@/components/FloatingAIToolbar'
 
 
@@ -30,6 +31,8 @@ const Index = () => {
 
   type AppMode = 'presentation' | 'designer' | 'form' | 'translator'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
+  const formRef = useRef<{ handleBack: () => boolean }>(null)
+  const translatorRef = useRef<{ handleBack: () => boolean }>(null)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -45,6 +48,30 @@ const Index = () => {
   const { step, isDark, toggleDark, appTheme, changeTheme, openHistory } = presentationHooks
 
   const guide = getStepGuide(step)
+
+  const handleBack = () => {
+    // 1. Contextual Back Logic
+    if (activeApp === 'designer') {
+      setActiveApp('presentation');
+      return;
+    }
+
+    if (activeApp === 'form' && formRef.current?.handleBack()) {
+      return; // Sub-app handled it (e.g. reset generated form)
+    }
+
+    if (activeApp === 'translator' && translatorRef.current?.handleBack()) {
+      return; // Sub-app handled it (e.g. reset translation)
+    }
+
+    if (activeApp === 'presentation' && step !== 'upload') {
+      presentationHooks.reset();
+      return;
+    }
+
+    // 2. Fallback to Browser Back (only if at the very start of a tool)
+    navigate(-1);
+  };
 
   const headerIcon = () => {
     if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
@@ -133,7 +160,7 @@ const Index = () => {
             <div className="w-px h-6 bg-border/60 mx-1.5" />
 
             <button
-              onClick={() => navigate(-1)}
+              onClick={handleBack}
               className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/50 transition-all"
               title="이전 페이지로"
             >
@@ -439,12 +466,12 @@ const Index = () => {
 
         {/* 문서 생성기 탭 */}
         <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'form' ? 'hidden' : ''}`}>
-          <FormGeneratorWorkspace />
+          <FormGeneratorWorkspace ref={formRef} />
         </main>
 
         {/* 번역 탭 */}
         <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
-          <TranslatorWorkspace />
+          <TranslatorWorkspace ref={translatorRef} />
         </main>
 
         {/* 디자이너 탭 */}
