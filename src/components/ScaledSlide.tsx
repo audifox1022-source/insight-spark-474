@@ -401,14 +401,9 @@ function renderGridCards(slide: Slide, contentFontSize: string, onUpdateSlide?: 
             {String(i + 1).padStart(2, '0')}
           </div>
           <EditableText 
-            tagName="p"
+            tagName="p" slideId={slide.id || ''} path={`content.body[${i}]`}
             value={safeString(item)}
-            onSave={val => {
-              const newArr = [...items];
-              newArr[i] = val;
-              onUpdateSlide?.({ content: newArr });
-            }}
-            style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 500), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', zIndex: 1 }}
+            style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 500), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: (cStyle.align as any) ?? 'left', zIndex: 1 }}
           />
         </div>
       ))}
@@ -800,7 +795,6 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <EditableText 
               tagName="p" slideId={slide.id || ''} path="content.subhead"
               value={slide.subhead}
-              onSave={v => onUpdateSlide?.({ subhead: v })}
               style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.9)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}
             />
           )}
@@ -812,14 +806,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 {String(i + 1).padStart(2, '0')}
               </div>
               <EditableText 
-                tagName="p"
+                tagName="p" slideId={slide.id || ''} path={`content.body[${i}]`}
                 value={safeString(item)}
-                onSave={v => {
-                  const newC = [...content];
-                  newC[i] = v;
-                  onUpdateSlide?.({ content: newC });
-                }}
-                style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 400), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.58, margin: 0, flex: 1 }}
+                style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 400), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: (cStyle.align as any) ?? 'left', lineHeight: 1.58, margin: 0, flex: 1 }}
               />
             </div>
           ))}
