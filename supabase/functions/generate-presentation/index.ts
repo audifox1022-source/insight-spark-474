@@ -317,7 +317,10 @@ ${JSON.stringify(currentSlide, null, 2)}
   return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
-async function handleOutline(body: any, apiKey: string) {
+// ─────────────────────────────────────────────────────────────
+// 공통: Outline 생성 유틸리티 (단독 호출 + 내부 단계적 생성에서 재사용)
+// ─────────────────────────────────────────────────────────────
+async function generateOutlineFromAI(body: any, apiKey: string) {
   const { fileData, meetingInfo, settings, template } = body;
   const difficulty = settings?.difficulty || "medium";
   const volume = settings?.volume || "standard";
@@ -373,6 +376,11 @@ ${CHART_AND_TABLE_INSTRUCTION}
     throw new Error("AI가 올바른 구성안 구조를 생성하지 못했습니다. 다시 시도해주세요.");
   }
 
+  return outline;
+}
+
+async function handleOutline(body: any, apiKey: string) {
+  const outline = await generateOutlineFromAI(body, apiKey);
   return new Response(JSON.stringify({ outline }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 }
 
@@ -382,7 +390,19 @@ async function handleGenerate(body: any, apiKey: string) {
   const volume = settings?.volume || "standard";
   const fileDataStr = truncateFileData(fileData);
 
-  const outlineHint = approvedOutline ? `\n\n사용자가 승인한 목차 구성:\n${JSON.stringify(approvedOutline, null, 2)}\n위 목차 구성을 반드시 따르세요.` : "";
+  // 1단계: 승인된 outline 이 없으면 먼저 outline을 AI로부터 생성
+  const effectiveOutline =
+    approvedOutline && approvedOutline.title && Array.isArray(approvedOutline.outline)
+      ? approvedOutline
+      : await generateOutlineFromAI({ fileData, meetingInfo, settings, template }, apiKey);
+
+  const outlineHint = effectiveOutline
+    ? `\n\n사용자가 승인했거나 AI가 생성한 최종 목차 구성(JSON):\n${JSON.stringify(
+        effectiveOutline,
+        null,
+        2,
+      )}\n위 목차 구성을 반드시 따르세요.`
+    : "";
 
   const prompt = `${STORYTELLING_PERSONA}
 

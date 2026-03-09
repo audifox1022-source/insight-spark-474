@@ -45,6 +45,149 @@ function safeString(item: any): string {
   return JSON.stringify(item);
 }
 
+// ─────────────────────────────────────────────────────────────
+// 발표 데이터 유효성 검사 & 정규화
+// ─────────────────────────────────────────────────────────────
+function sanitizeSlide(raw: any, index: number): Slide | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const slideNumber =
+    typeof raw.slideNumber === 'number' && Number.isFinite(raw.slideNumber)
+      ? raw.slideNumber
+      : index + 1;
+
+  const typeFallback = 'content' as Slide['type'];
+  const type: Slide['type'] =
+    typeof raw.type === 'string' ? (raw.type as Slide['type']) : typeFallback;
+
+  const titleRaw = typeof raw.title === 'string' ? raw.title : '';
+  const title = titleRaw.trim() || `슬라이드 ${slideNumber}`;
+
+  const base: Slide = {
+    slideNumber,
+    type,
+    title,
+  } as Slide;
+
+  // content / points / items 정규화
+  const contentArr: string[] = Array.isArray(raw.content)
+    ? raw.content.map(safeString).filter((v: string) => v && v.trim())
+    : Array.isArray(raw.points)
+    ? raw.points.map(safeString).filter((v: string) => v && v.trim())
+    : [];
+
+  if (contentArr.length) {
+    (base as any).content = contentArr;
+  }
+
+  if (typeof raw.subhead === 'string') (base as any).subhead = raw.subhead;
+  if (typeof raw.notes === 'string') (base as any).notes = raw.notes;
+
+  // chartData 정규화
+  const cd = raw.chartData;
+  if (cd && typeof cd === 'object' && Array.isArray(cd.data)) {
+    const safeData = cd.data
+      .map((d: any) => ({
+        name: safeString(d?.name ?? ''),
+        value: Number(d?.value) || 0,
+        value2:
+          d?.value2 !== undefined && d?.value2 !== null
+            ? Number(d.value2) || 0
+            : undefined,
+        color: typeof d?.color === 'string' ? d.color : undefined,
+      }))
+      .filter((d: any) => d.name && d.name.trim());
+
+    if (safeData.length) {
+      (base as any).chartData = {
+        chartType:
+          cd.chartType === 'line' ||
+          cd.chartType === 'area' ||
+          cd.chartType === 'pie'
+            ? cd.chartType
+            : 'bar',
+        title: typeof cd.title === 'string' ? cd.title : undefined,
+        data: safeData,
+        xAxisLabel: typeof cd.xAxisLabel === 'string' ? cd.xAxisLabel : undefined,
+        yAxisLabel: typeof cd.yAxisLabel === 'string' ? cd.yAxisLabel : undefined,
+        series1Label:
+          typeof cd.series1Label === 'string' ? cd.series1Label : undefined,
+        series2Label:
+          typeof cd.series2Label === 'string' ? cd.series2Label : undefined,
+        showLegend:
+          typeof cd.showLegend === 'boolean' ? cd.showLegend : undefined,
+      };
+    }
+  }
+
+  // tableData 정규화
+  const td = raw.tableData;
+  if (
+    td &&
+    typeof td === 'object' &&
+    Array.isArray(td.headers) &&
+    Array.isArray(td.rows)
+  ) {
+    const headers = td.headers.map(safeString);
+    const rows = td.rows
+      .filter((r: any) => Array.isArray(r))
+      .map((r: any) => r.map(safeString));
+
+    if (headers.length && rows.length) {
+      (base as any).tableData = { headers, rows };
+    }
+  }
+
+  // imageUrl 등 단순 필드
+  if (typeof raw.imageUrl === 'string') (base as any).imageUrl = raw.imageUrl;
+  if (typeof raw.bgGradient === 'string')
+    (base as any).bgGradient = raw.bgGradient;
+
+  // keyMetrics 정규화
+  if (Array.isArray(raw.keyMetrics)) {
+    const metrics = raw.keyMetrics
+      .map((m: any) => ({
+        label: safeString(m?.label ?? ''),
+        value: safeString(m?.value ?? ''),
+        unit: typeof m?.unit === 'string' ? m.unit : undefined,
+        trend:
+          m?.trend === 'up' || m?.trend === 'down' || m?.trend === 'flat'
+            ? m.trend
+            : undefined,
+        description:
+          typeof m?.description === 'string' ? m.description : undefined,
+      }))
+      .filter((m: any) => m.label && m.value);
+
+    if (metrics.length) {
+      (base as any).keyMetrics = metrics;
+    }
+  }
+
+  return base;
+}
+
+function sanitizePresentation(presentation: Presentation): Presentation {
+  const slidesSource = Array.isArray(presentation?.slides)
+    ? presentation.slides
+    : [];
+
+  const sanitizedSlides: Slide[] = [];
+  slidesSource.forEach((s, idx) => {
+    const safe = sanitizeSlide(s, idx);
+    if (safe) sanitizedSlides.push(safe);
+  });
+
+  return {
+    ...presentation,
+    title:
+      typeof presentation.title === 'string' && presentation.title.trim()
+        ? presentation.title
+        : 'Untitled',
+    slides: sanitizedSlides,
+  };
+}
+
 async function waitForImagesToLoad(container: HTMLElement): Promise<void> {
   const images = Array.from(container.querySelectorAll('img'));
   const promises = images.map((img) => {
@@ -118,10 +261,15 @@ async function captureSlideAsImage(slide: Slide, brand: BrandSettings): Promise<
 }
 
 export async function exportToPdf(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND): Promise<void> {
+  const safePresentation = sanitizePresentation(presentation);
+  if (!safePresentation.slides.length) {
+    throw new Error('유효한 슬라이드가 없어 PDF를 생성할 수 없습니다.');
+  }
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  for (let idx = 0; idx < presentation.slides.length; idx++) {
+  for (let idx = 0; idx < safePresentation.slides.length; idx++) {
     if (idx > 0) doc.addPage();
-    const imgData = await captureSlideAsImage(presentation.slides[idx], brand);
+    const imgData = await captureSlideAsImage(safePresentation.slides[idx], brand);
     doc.addImage(imgData, 'JPEG', 0, 0, 297, 210);
   }
   doc.save(`${presentation.title || 'Presentation'}.pdf`);
@@ -134,10 +282,15 @@ export async function exportToPptx(
   presentation: Presentation,
   brand: BrandSettings = DEFAULT_BRAND
 ): Promise<void> {
+  const safePresentation = sanitizePresentation(presentation);
+  if (!safePresentation.slides.length) {
+    throw new Error('유효한 슬라이드가 없어 PPTX를 생성할 수 없습니다.');
+  }
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inches
   pptx.author = brand.companyName || 'WorkAI Presentation';
-  pptx.title = presentation.title || 'Untitled';
+  pptx.title = safePresentation.title || 'Untitled';
   
   // ✅ 16:9 비율 최적화 상수 (ScaledSlide.tsx와 일치 유도)
   const SW = 13.33;
@@ -163,7 +316,7 @@ export async function exportToPptx(
   // PPTXGenJS의 텍스트 렌더링은 웹보다 약간 크게 보일 수 있으므로 0.95~1.0 사이 계수 적용
   const FONT_SCALE = 1.0;
 
-  for (const slide of presentation.slides) {
+  for (const slide of safePresentation.slides) {
     const s = pptx.addSlide();
 
     // 1. 전역 배경 처리
@@ -529,19 +682,24 @@ export async function exportToPptx(
     }
   }
 
-  await pptx.writeFile({ fileName: `${presentation.title || 'Presentation'}_Editable.pptx` });
+  await pptx.writeFile({ fileName: `${safePresentation.title || 'Presentation'}_Editable.pptx` });
 }
 
 // ─────────────────────────────────────────────────────────────
 // 3. 완전 이미지형 PPT (디자인 보존 100%, 텍스트 편집 불가)
 // ─────────────────────────────────────────────────────────────
 export async function exportToPptxAsImage(presentation: Presentation, brand: BrandSettings = DEFAULT_BRAND): Promise<void> {
+  const safePresentation = sanitizePresentation(presentation);
+  if (!safePresentation.slides.length) {
+    throw new Error('유효한 슬라이드가 없어 PPTX(이미지)를 생성할 수 없습니다.');
+  }
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
-  for (const slide of presentation.slides) {
+  for (const slide of safePresentation.slides) {
     const s = pptx.addSlide();
     const imgData = await captureSlideAsImage(slide, brand);
     s.addImage({ data: imgData, x: 0, y: 0, w: '100%', h: '100%' });
   }
-  await pptx.writeFile({ fileName: `${presentation.title || 'Presentation'}_Image_Only.pptx` });
+  await pptx.writeFile({ fileName: `${safePresentation.title || 'Presentation'}_Image_Only.pptx` });
 }

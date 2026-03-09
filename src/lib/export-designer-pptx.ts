@@ -8,6 +8,10 @@ import { populateCanvasFromSlide } from './slide-to-canvas';
  * Converts a whole Presentation to a PPTX file.
  */
 export const exportDesignerToPptx = async (presentation: Presentation) => {
+  if (!presentation || !Array.isArray(presentation.slides) || presentation.slides.length === 0) {
+    throw new Error('유효한 슬라이드가 없어 디자이너 PPTX를 생성할 수 없습니다.');
+  }
+
   const pres = new pptxgen();
   pres.layout = 'LAYOUT_16x9';
 
@@ -19,6 +23,8 @@ export const exportDesignerToPptx = async (presentation: Presentation) => {
 
   for (let i = 0; i < presentation.slides.length; i++) {
     const slideData = presentation.slides[i];
+    if (!slideData) continue;
+
     await populateCanvasFromSlide(tempCanvas, slideData);
     
     const pptSlide = pres.addSlide();
