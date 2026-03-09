@@ -216,14 +216,20 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
           <DesignerToolbar />
           
           <div className="flex-1 overflow-hidden relative">
-            <FabricCanvas />
+            <DesignerErrorBoundary>
+              <FabricCanvas />
+            </DesignerErrorBoundary>
             
             {/* Bottom Slide Nav */}
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2 bg-card/80 backdrop-blur-md border border-white/20 rounded-2xl shadow-elevated">
               <Button 
                 variant="ghost" size="icon" className="w-8 h-8 rounded-xl"
-                onClick={() => onSlideChange?.(Math.max(0, currentSlide - 1))}
-                disabled={isIntegrated && currentSlide === 0}
+                onClick={() => {
+                  if (!isIntegrated || !onSlideChange || navSlides.length === 0) return;
+                  const next = Math.max(0, safeCurrentSlide - 1);
+                  onSlideChange(next);
+                }}
+                disabled={isIntegrated && (safeCurrentSlide <= 0 || navSlides.length === 0)}
               >
                 <ChevronLeft className="w-4 h-4" />
               </Button>
@@ -231,7 +237,7 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
                 {navSlides.map((s: any, idx) => (
                   <button 
                     key={s.id || idx}
-                    onClick={() => onSlideChange ? onSlideChange(idx) : null}
+                    onClick={() => (onSlideChange && isIntegrated ? onSlideChange(idx) : null)}
                     className={`w-2 h-2 rounded-full transition-all ${idx === activeIndex ? 'bg-primary w-4' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'}`}
                   />
                 ))}
@@ -241,8 +247,13 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
               )}
               <Button 
                 variant="ghost" size="icon" className="w-8 h-8 rounded-xl"
-                onClick={() => onSlideChange?.(Math.min(navSlides.length - 1, currentSlide + 1))}
-                disabled={isIntegrated && currentSlide === navSlides.length - 1}
+                onClick={() => {
+                  if (!isIntegrated || !onSlideChange || navSlides.length === 0) return;
+                  const maxIdx = Math.max(navSlides.length - 1, 0);
+                  const next = Math.min(maxIdx, safeCurrentSlide + 1);
+                  onSlideChange(next);
+                }}
+                disabled={isIntegrated && (navSlides.length === 0 || safeCurrentSlide >= navSlides.length - 1)}
               >
                 <ChevronRight className="w-4 h-4" />
               </Button>
