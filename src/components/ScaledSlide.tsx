@@ -214,7 +214,7 @@ const SlideWatermark = ({ text }: { text?: string }) => {
 // 렌더러 함수들
 // ══════════════════════════════════════════════════════════════
 // renderChart: 차트 렌더러 (고정 높이로 ResponsiveContainer 사용 — flex:1 문제 해결)
-function renderChart(cd?: SlideChartData) {
+function renderChart(cd?: SlideChartData, height: number = 220) {
   if (!cd?.data?.length) return <EmptyPlaceholder icon={BarIcon} label="차트 데이터 없음" />;
   const colors = P.chartColors;
   // value가 문자열이면 숫자로 변환
@@ -229,7 +229,7 @@ function renderChart(cd?: SlideChartData) {
 
   if (cd.chartType === 'pie') {
     return (
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={height}>
         <PieChart>
           <Pie data={safeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" paddingAngle={3} label={(e) => `${e.name}: ${(e.percent! * 100).toFixed(0)}%`} labelLine={{ stroke: '#94a3b8' }}>
             {safeData.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
@@ -242,7 +242,7 @@ function renderChart(cd?: SlideChartData) {
   }
   if (cd.chartType === 'line') {
     return (
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={height}>
         <LineChart {...common}>
           <CartesianGrid strokeDasharray="3 3" stroke={P.border} />
           <XAxis dataKey="name" tick={{ ...axisTick, ...xTickProps }} axisLine={false} tickLine={false} />
@@ -257,7 +257,7 @@ function renderChart(cd?: SlideChartData) {
   }
   if (cd.chartType === 'area') {
     return (
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={height}>
         <AreaChart {...common}>
           <defs>
             <linearGradient id="ag1" x1="0" y1="0" x2="0" y2="1">
@@ -277,7 +277,7 @@ function renderChart(cd?: SlideChartData) {
   }
   // 기본: 바 차트
   return (
-    <ResponsiveContainer width="100%" height={220}>
+    <ResponsiveContainer width="100%" height={height}>
       <BarChart {...common} barSize={safeData.length > 6 ? 14 : safeData[0]?.value2 !== undefined ? 12 : 24}>
         <CartesianGrid strokeDasharray="3 3" stroke={P.border} />
         <XAxis dataKey="name" tick={{ ...axisTick, ...xTickProps }} axisLine={false} tickLine={false} />
@@ -295,28 +295,35 @@ function renderChart(cd?: SlideChartData) {
 
 function renderTimeline(slide: Slide, contentFontSize: string) {
   const milestones = slide.milestones ?? [];
+  const mCount = milestones.length;
+  // 항목 수에 따라 간격 및 패딩 동적 조절 (스크롤 방지)
+  const gapSize = mCount <= 4 ? '1.4rem' : mCount <= 6 ? '0.8rem' : '0.4rem';
+  const pbSize = mCount <= 4 ? '1.4rem' : mCount <= 6 ? '0.8rem' : '0.4rem';
+  const iconSize = mCount <= 6 ? 40 : 32;
+  const innerIconSize = mCount <= 6 ? 20 : 16;
+
   const stateConfig = {
-    done: { icon: <CheckCircle style={{ width: 20, height: 20 }} />, color: P.primary, bg: P.primary },
-    next: { icon: <Clock style={{ width: 20, height: 20 }} />, color: '#f59e0b', bg: '#f59e0b' },
-    todo: { icon: <Circle style={{ width: 20, height: 20 }} />, color: '#94a3b8', bg: '#e2e8f0' },
+    done: { icon: <CheckCircle style={{ width: innerIconSize, height: innerIconSize }} />, color: P.primary, bg: P.primary },
+    next: { icon: <Clock style={{ width: innerIconSize, height: innerIconSize }} />, color: '#f59e0b', bg: '#f59e0b' },
+    todo: { icon: <Circle style={{ width: innerIconSize, height: innerIconSize }} />, color: '#94a3b8', bg: '#e2e8f0' },
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 0, width: '100%', position: 'relative' }}>
-      <div style={{ position: 'absolute', left: '19px', top: '20px', bottom: '20px', width: '2px', background: `linear-gradient(to bottom, ${P.primary}, #e2e8f0)`, zIndex: 0 }} />
+      <div style={{ position: 'absolute', left: `${iconSize/2 - 1}px`, top: '20px', bottom: '20px', width: '2px', background: `linear-gradient(to bottom, ${P.primary}, #e2e8f0)`, zIndex: 0 }} />
       {milestones.map((m, i) => {
         const cfg = stateConfig[m.state] ?? stateConfig.todo;
         return (
-          <div key={i} style={{ display: 'flex', gap: '1.2rem', alignItems: 'flex-start', position: 'relative', paddingBottom: '1.4rem' }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: m.state === 'done' ? P.primary : m.state === 'next' ? '#fef3c7' : '#f1f5f9', color: m.state === 'done' ? '#fff' : cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${m.state === 'done' ? P.primary : m.state === 'next' ? '#f59e0b' : '#e2e8f0'}`, zIndex: 1, boxShadow: m.state === 'done' ? `0 0 0 4px ${P.primary}22` : undefined }}>
+          <div key={i} style={{ display: 'flex', gap: '1.2rem', alignItems: 'flex-start', position: 'relative', paddingBottom: pbSize }}>
+            <div style={{ width: iconSize, height: iconSize, borderRadius: '50%', flexShrink: 0, background: m.state === 'done' ? P.primary : m.state === 'next' ? '#fef3c7' : '#f1f5f9', color: m.state === 'done' ? '#fff' : cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${m.state === 'done' ? P.primary : m.state === 'next' ? '#f59e0b' : '#e2e8f0'}`, zIndex: 1, boxShadow: m.state === 'done' ? `0 0 0 4px ${P.primary}22` : undefined }}>
               {cfg.icon}
             </div>
-            <div style={{ flex: 1, background: m.state === 'done' ? `${P.primary}08` : P.muted, borderRadius: 12, padding: '0.8rem 1.2rem', border: `1px solid ${m.state === 'done' ? `${P.primary}22` : P.border}` }}>
+            <div style={{ flex: 1, background: m.state === 'done' ? `${P.primary}08` : P.muted, borderRadius: 12, padding: mCount <= 6 ? '0.8rem 1.2rem' : '0.6rem 1rem', border: `1px solid ${m.state === 'done' ? `${P.primary}22` : P.border}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
                 <span style={{ fontSize: contentFontSize, fontWeight: 700, color: P.text }}>{m.label}</span>
                 <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 10px', borderRadius: 20, background: m.state === 'done' ? `${P.primary}18` : m.state === 'next' ? '#fef3c7' : P.border, color: m.state === 'done' ? P.primary : m.state === 'next' ? '#d97706' : '#94a3b8' }}>{m.date}</span>
               </div>
-              {m.description && <p style={{ fontSize: '0.85em', color: P.subtext, margin: 0, lineHeight: 1.5 }}>{m.description}</p>}
+              {m.description && <p style={{ fontSize: '0.85em', color: P.subtext, margin: 0, lineHeight: 1.4 }}>{m.description}</p>}
             </div>
           </div>
         );
@@ -586,7 +593,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             )}
             <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
           </div>
-          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>{renderTimeline(slide, contentFontSize)}</div>
+          <div style={{ flex: 1, overflow: 'hidden', paddingRight: '0.5rem' }}>{renderTimeline(slide, contentFontSize)}</div>
         </div>
         <SlideNumber number={slide.slideNumber} />
       </div>
@@ -666,12 +673,34 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
 
   // ── 7. 차트 슬라이드
   if (slide.type === 'chart' || slide.chartData) {
+    const hasContent = content.length > 0;
     return (
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div><SectionLabel>DATA VISUALIZATION</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
-          <div style={{ minHeight: 240 }}>{renderChart(slide.chartData)}</div>
+          
+          {hasContent ? (
+            <div style={{ flex: 1, display: 'flex', gap: '2rem', alignItems: 'center' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                {content.map((item, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: P.accent, marginTop: '0.6em', flexShrink: 0 }} />
+                    <EditableText tagName="p" slideId={slide.id || ''} path={`content.body[${i}]`} value={safeString(item)} style={{ fontSize: contentFontSize, color: P.subtext, lineHeight: 1.6, margin: 0 }} />
+                  </div>
+                ))}
+              </div>
+              <div style={{ flex: 1.5, minWidth: 0 }}>
+                {renderChart(slide.chartData, 300)}
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: '100%', maxWidth: '85%' }}>
+                {renderChart(slide.chartData, 380)}
+              </div>
+            </div>
+          )}
         </div>
         <SlideNumber number={slide.slideNumber} />
       </div>
@@ -736,7 +765,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>NEXT STEPS</span>
           </div>
-          <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }} />
+          <EditableText tagName="h2" slideId={slide.id || ''} path="content.title" value={slide.title || ''} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
