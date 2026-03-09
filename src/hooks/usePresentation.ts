@@ -268,7 +268,8 @@ export function usePresentation() {
   }, []);
 
   const regenerateSlide = useCallback(async (slideIndex: number, userInstruction?: string) => {
-    if (!presentation) return;
+    if (!presentation || !Array.isArray(presentation.slides)) return;
+    if (slideIndex < 0 || slideIndex >= presentation.slides.length) return;
     const currentSlide = presentation.slides[slideIndex];
     toast.loading('슬라이드 재생성 중...', { id: 'regen' });
     try {
@@ -293,7 +294,8 @@ export function usePresentation() {
   }, [presentation]);
 
   const changeSlidePersona = useCallback(async (slideIndex: number, persona: string) => {
-    if (!presentation) return;
+    if (!presentation || !Array.isArray(presentation.slides)) return;
+    if (slideIndex < 0 || slideIndex >= presentation.slides.length) return;
     const currentSlide = presentation.slides[slideIndex];
     toast.loading('스타일 변환 중...', { id: 'persona' });
     try {
@@ -376,44 +378,114 @@ export function usePresentation() {
     }
   }, []);
 
-  const addSlide = useCallback((afterIndex: number) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      const newSlide = normalizeSlideForApp({ type: 'content', title: '', content: [] }, afterIndex + 1);
-      const slides = [...prev.slides];
-      slides.splice(afterIndex + 1, 0, newSlide);
-      return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
-    });
-  }, []);
+  const addSlide = useCallback(
+    (afterIndex: number) => {
+      setPresentation((prev) => {
+        if (!prev) return prev;
+        const baseSlides = Array.isArray(prev.slides) ? prev.slides : [];
+        const safeAfter = clampIndex(afterIndex, baseSlides.length);
+        const newSlide = normalizeSlideForApp({ type: 'content', title: '', content: [] }, safeAfter + 1);
+        const slides = [...baseSlides];
+        slides.splice(safeAfter + 1, 0, newSlide);
+        const reNumbered = slides.map((s, i) => ({ ...s, slideNumber: i + 1 }));
 
-  const deleteSlide = useCallback((index: number) => {
-    setPresentation((prev) => {
-      if (!prev || prev.slides.length <= 1) return prev;
-      const slides = prev.slides.filter((_, i) => i !== index);
-      return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
-    });
-    if (currentSlideIndex >= index && currentSlideIndex > 0) setCurrentSlideIndex(currentSlideIndex - 1);
-  }, [currentSlideIndex]);
+        // 현재 슬라이드 인덱스 보정
+        setCurrentSlideIndex((prevIdx) => {
+          const len = reNumbered.length;
+          if (len === 0) return 0;
+          if (prevIdx <= safeAfter) return clampIndex(prevIdx, len);
+          return clampIndex(prevIdx + 1, len);
+        });
 
-  const duplicateSlide = useCallback((index: number) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      const slides = [...prev.slides];
-      const clone = JSON.parse(JSON.stringify(slides[index]));
-      slides.splice(index + 1, 0, clone);
-      return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
-    });
-  }, []);
+        return { ...prev, slides: reNumbered };
+      });
+    },
+    [clampIndex],
+  );
 
-  const moveSlide = useCallback((from: number, to: number) => {
-    setPresentation((prev) => {
-      if (!prev) return prev;
-      const slides = [...prev.slides];
-      const [moved] = slides.splice(from, 1);
-      slides.splice(to, 0, moved);
-      return { ...prev, slides: slides.map((s, i) => ({ ...s, slideNumber: i + 1 })) };
-    });
-  }, []);
+  const deleteSlide = useCallback(
+    (index: number) => {
+      setPresentation((prev) => {
+        if (!prev) return prev;
+        const baseSlides = Array.isArray(prev.slides) ? prev.slides : [];
+        if (baseSlides.length <= 1) return prev;
+
+        const safeIndex = clampIndex(index, baseSlides.length);
+        const slides = baseSlides.filter((_, i) => i !== safeIndex);
+        const reNumbered = slides.map((s, i) => ({ ...s, slideNumber: i + 1 }));
+        const newLen = reNumbered.length;
+
+        setCurrentSlideIndex((prevIdx) => {
+          if (newLen === 0) return 0;
+          if (prevIdx > safeIndex) return clampIndex(prevIdx - 1, newLen);
+          if (prevIdx === safeIndex) return clampIndex(safeIndex, newLen);
+          return clampIndex(prevIdx, newLen);
+        });
+
+        return { ...prev, slides: reNumbered };
+      });
+    },
+    [clampIndex],
+  );
+
+  const duplicateSlide = useCallback(
+    (index: number) => {
+      setPresentation((prev) => {
+        if (!prev) return prev;
+        const baseSlides = Array.isArray(prev.slides) ? prev.slides : [];
+        if (baseSlides.length === 0) return prev;
+        const safeIndex = clampIndex(index, baseSlides.length);
+        const slides = [...baseSlides];
+        const clone = JSON.parse(JSON.stringify(slides[safeIndex]));
+        slides.splice(safeIndex + 1, 0, clone);
+        const reNumbered = slides.map((s, i) => ({ ...s, slideNumber: i + 1 }));
+        const len = reNumbered.length;
+
+        setCurrentSlideIndex((prevIdx) => {
+          if (prevIdx <= safeIndex) return clampIndex(prevIdx, len);
+          return clampIndex(prevIdx + 1, len);
+        });
+
+        return { ...prev, slides: reNumbered };
+      });
+    },
+    [clampIndex],
+  );
+
+  const moveSlide = useCallback(
+    (from: number, to: number) => {
+      setPresentation((prev) => {
+        if (!prev) return prev;
+        const baseSlides = Array.isArray(prev.slides) ? prev.slides : [];
+        if (baseSlides.length === 0) return prev;
+
+        const safeFrom = clampIndex(from, baseSlides.length);
+        const safeTo = clampIndex(to, baseSlides.length);
+        if (safeFrom === safeTo) return prev;
+
+        const slides = [...baseSlides];
+        const [moved] = slides.splice(safeFrom, 1);
+        slides.splice(safeTo, 0, moved);
+        const reNumbered = slides.map((s, i) => ({ ...s, slideNumber: i + 1 }));
+        const len = reNumbered.length;
+
+        setCurrentSlideIndex((prevIdx) => {
+          let next = prevIdx;
+          if (prevIdx === safeFrom) {
+            next = safeTo;
+          } else if (prevIdx > safeFrom && prevIdx <= safeTo) {
+            next = prevIdx - 1;
+          } else if (prevIdx < safeFrom && prevIdx >= safeTo) {
+            next = prevIdx + 1;
+          }
+          return clampIndex(next, len);
+        });
+
+        return { ...prev, slides: reNumbered };
+      });
+    },
+    [clampIndex],
+  );
 
   const reset = useCallback(() => {
     setStep('upload');
@@ -471,6 +543,16 @@ export function usePresentation() {
       setIsFixing(false);
     }
   }, [presentation, settings]);
+
+  // ─────────────────────────────────────────────────────────
+  // 슬라이드 인덱스 보정 유틸 (Out-of-Bounds 방지)
+  // ─────────────────────────────────────────────────────────
+  const clampIndex = useCallback((idx: number, length: number) => {
+    if (length <= 0) return 0;
+    if (idx < 0) return 0;
+    if (idx >= length) return length - 1;
+    return idx;
+  }, []);
 
   // ✅ 누락되었던 return 블록의 완벽한 복구
   return {
