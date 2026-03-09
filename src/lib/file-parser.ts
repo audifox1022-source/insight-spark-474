@@ -11,7 +11,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 // ── 타입 정의 ──────────────────────────────────────────────────
 export interface ParsedFileData {
   fileName: string;
-  fileType: 'excel' | 'text' | 'plain' | 'pdf' | 'word' | 'image' | 'unknown';
+  fileType: 'excel' | 'text' | 'plain' | 'pdf' | 'word' | 'image' | 'presentation' | 'unknown';
   textContent?: string;
   content?: string;
   excelData?: ParsedExcelData;
@@ -26,6 +26,7 @@ const EXCEL_EXTENSIONS  = /\.(xlsx|xls)$/i;
 const PDF_EXTENSION     = /\.pdf$/i;
 const WORD_EXTENSION    = /\.docx$/i;
 const IMAGE_EXTENSIONS  = /\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i;
+const PPTX_EXTENSIONS   = /\.(pptx|ppt)$/i;
 
 // ── 파일 읽기 헬퍼 ─────────────────────────────────────────────
 function readAsText(file: File): Promise<string> {
@@ -239,6 +240,13 @@ export async function parseFile(file: File): Promise<ParsedFileData> {
   if (PDF_EXTENSION.test(name))    return parsePDF(file);
   if (WORD_EXTENSION.test(name))   return parseWord(file);
   if (IMAGE_EXTENSIONS.test(name)) return parseImage(file);
+  if (PPTX_EXTENSIONS.test(name)) {
+    return {
+      fileName: file.name,
+      fileType: 'presentation',
+      summary: `프레젠테이션 파일 - ${(file.size / 1024).toFixed(0)}KB`,
+    };
+  }
   if (TEXT_EXTENSIONS.test(name))  return parseTextFile(file);
   if (name.endsWith('.csv'))        return parseTextFile(file);
 

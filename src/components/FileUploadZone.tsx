@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileSpreadsheet, FileText, Image, FileType, X, Zap, Shield, BarChart3, Loader2, Sparkles, BookOpen } from 'lucide-react';
+import { Upload, FileSpreadsheet, FileText, Image, FileType, X, Zap, Shield, BarChart3, Loader2, Sparkles, BookOpen, Presentation } from 'lucide-react';
 
 interface FileUploadZoneProps {
   onFilesSelect: (files: File[]) => void;
@@ -21,6 +21,7 @@ const FILE_ICON_MAP: Record<string, React.ElementType> = {
   word: FileText,
   image: Image,
   text: FileType,
+  presentation: Presentation,
 };
 
 const FILE_COLORS: Record<string, { bg: string; text: string }> = {
@@ -29,12 +30,14 @@ const FILE_COLORS: Record<string, { bg: string; text: string }> = {
   word: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400' },
   image: { bg: 'bg-violet-500/10', text: 'text-violet-600 dark:text-violet-400' },
   text: { bg: 'bg-muted', text: 'text-muted-foreground' },
+  presentation: { bg: 'bg-orange-500/10', text: 'text-orange-600 dark:text-orange-400' },
 };
 
 function getFileCategory(name: string): string {
   if (/\.(xlsx|xls)$/i.test(name)) return 'excel';
   if (/\.pdf$/i.test(name)) return 'pdf';
   if (/\.docx$/i.test(name)) return 'word';
+  if (/\.(pptx|ppt)$/i.test(name)) return 'presentation';
   if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/i.test(name)) return 'image';
   return 'text';
 }
@@ -123,7 +126,7 @@ export const FileUploadZone = React.forwardRef<HTMLDivElement, FileUploadZonePro
         <input
           ref={inputRef}
           type="file"
-          accept=".xlsx,.xls,.csv,.pdf,.docx,.txt,.md,.json,.xml,.html,.png,.jpg,.jpeg,.gif,.webp,.svg,.yaml,.yml,.log"
+          accept=".xlsx,.xls,.csv,.pdf,.docx,.ppt,.pptx,.txt,.md,.json,.xml,.html,.png,.jpg,.jpeg,.gif,.webp,.svg,.yaml,.yml,.log"
           multiple
           onChange={handleInputChange}
           className="hidden"

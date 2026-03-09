@@ -51,6 +51,33 @@ const PROMPT_PRESETS: Preset[] = [
     ],
     generate: d => `${d.client} 대상 ${d.solution} 제안서. 기대효과: ${d.benefit}`,
   },
+  {
+    id: 'market', icon: '🔍', label: '시장 조사',
+    fields: [
+      { id: 'sector', label: '산업 분야', placeholder: '국내 이커머스 시장', suggestions: ['이커머스', '헬스케어', '핀테크', '모빌리티'] },
+      { id: 'competitor', label: '경쟁사 분석', placeholder: '상위 3개 업체 비교', suggestions: ['글로벌 Top 3', '국내 주요 경쟁사', '신흥 강자'] },
+      { id: 'insight', label: '핵심 인사이트', placeholder: '성장 동력 및 리스크', suggestions: ['사용자 트렌드', '기술 장벽', '규제 변화'] },
+    ],
+    generate: d => `${d.sector} 시장 분석 및 ${d.competitor} 비교 자료. 주요 인사이트: ${d.insight}`,
+  },
+  {
+    id: 'project', icon: '📅', label: '프로젝트 계획',
+    fields: [
+      { id: 'name', label: '프로젝트명', placeholder: '2025 신규 앱 런칭', suggestions: ['앱 런칭', '시스템 고도화', '브랜드 리뉴얼'] },
+      { id: 'timeline', label: '일정', placeholder: '6개월 개발 로드맵', suggestions: ['3개월 단기', '1년 중장기', '분기별 마일스톤'] },
+      { id: 'team', label: '조직 구성', placeholder: '기획, 디자인, 개발 총 5명', suggestions: ['TFT 구성', '외주 협업', '전사 공조'] },
+    ],
+    generate: d => `${d.name} 프로젝트 계획서. 일정: ${d.timeline}. 구성: ${d.team}`,
+  },
+  {
+    id: 'event', icon: '🎉', label: '행사 기획',
+    fields: [
+      { id: 'title', label: '행사명', placeholder: '연말 네트워킹 데이', suggestions: ['네트워킹 데이', '기술 컨퍼런스', '사내 세미나'] },
+      { id: 'audience', label: '참석 대상', placeholder: '스타트업 대표 50명', suggestions: ['VIP 고객', '임직원 가족', '업계 전문가'] },
+      { id: 'vibe', label: '분위기/컨셉', placeholder: '따뜻하고 캐주얼한 소통', suggestions: ['격식 있는', '캐주얼한', '열정적인 혁신'] },
+    ],
+    generate: d => `${d.title} 행사 기획안. 대상: ${d.audience}. 컨셉: ${d.vibe}`,
+  },
 ];
 
 type PresentationHooks = ReturnType<typeof usePresentation>;
@@ -213,7 +240,7 @@ export function PresentationTab(props: PresentationTabProps) {
                       <Textarea
                         value={manualPrompt}
                         onChange={e => setManualPrompt(e.target.value)}
-                        placeholder="예) 2026년 상반기 생산 실적 보고서 / 태웅 15000톤 프레스 가동 현황..."
+                        placeholder="예) AI 기술을 활용한 업무 생산성 혁신 전략 보고서 / 2026 글로벌 시장 진출 로드맵..."
                         className="flex-1 min-h-[60px] max-h-[240px] border-0 bg-transparent shadow-none focus-visible:ring-0 text-base font-medium px-2 py-3 resize-none leading-relaxed"
                         rows={manualPrompt.split('\n').length > 1 ? Math.min(manualPrompt.split('\n').length, 8) : 2}
                         onKeyDown={e => {
