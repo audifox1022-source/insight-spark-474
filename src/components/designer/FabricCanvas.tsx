@@ -58,7 +58,7 @@ export const FabricCanvas: React.FC = () => {
 
   return (
     <div ref={containerRef} className="w-full h-full bg-muted/20 flex items-center justify-center p-8 overflow-hidden">
-      <div className="relative shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-lg overflow-hidden bg-white">
+      <div className="relative aspect-video w-full max-w-[1200px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] rounded-lg overflow-hidden bg-white">
         <canvas ref={canvasRef} />
       </div>
     </div>

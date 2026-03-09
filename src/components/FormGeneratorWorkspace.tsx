@@ -6,11 +6,12 @@ import { Input }    from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
   FileText, Download, RefreshCw,
-  Loader2, PencilLine, Wand2, Send, Sparkles, X
+  Loader2, PencilLine, Wand2, Send, Sparkles, X, HelpCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { DocumentHtmlEditor } from './form/DocumentHtmlEditor'
+import { FormHelpModal } from './form/FormHelpModal'
 
 const FORM_PRESETS = [
   { id: 'report',   icon: '📊', label: '보고서',   desc: '주간/월간 업무 보고서'   },
@@ -32,6 +33,7 @@ export function FormGeneratorWorkspace() {
   const [showModify,    setShowModify]    = useState(false)
   const [isCompact,     setIsCompact]     = useState(false)
   const [isAutoFill,    setIsAutoFill]    = useState(false)
+  const [isHelpOpen,    setIsHelpOpen]    = useState(false)
 
   const handleGenerate = async () => {
     const name = activePreset !== 'manual'
@@ -196,9 +198,17 @@ export function FormGeneratorWorkspace() {
 
             {/* 고급 설정 */}
             <div className="pt-2 border-t border-border/50">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
-                고급 설정
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  고급 설정
+                </p>
+                <button 
+                  onClick={() => setIsHelpOpen(true)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-primary bg-primary/10 hover:bg-primary/20 px-2 py-1 rounded-md transition-colors"
+                >
+                  <HelpCircle className="w-3.5 h-3.5" /> 사용 가이드
+                </button>
+              </div>
               <div className="space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <div 
@@ -401,6 +411,8 @@ export function FormGeneratorWorkspace() {
         </div>
 
       </div>
+
+      <FormHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
     </div>
   )
 }

@@ -16,7 +16,17 @@ export const aiService = {
     const volumeGuideline = constants.VOLUME_MAP[volume];
 
     const systemInstruction = prompts.getSystemPromptCore(difficulty);
+    
+    // Add reference structure context if available
+    const referenceContext = body.referenceStructure 
+      ? `\n[📁 참고 양식 구조 (Reference Template)]
+이 발표는 아래 참고 양식의 구조와 디자인 흐름을 100% 반영하여 생성되어야 합니다:
+${JSON.stringify(body.referenceStructure, null, 2)}
+참고 양식의 슬라이드 개수와 각 슬라이드의 레이아웃 스타일을 최대한 정밀하게 모사하세요.`
+      : '';
+
     const userPrompt = `당신은 전문 발표 기획자입니다. 아래 원본 데이터를 분석하여 발표 목차를 설계하세요.
+${referenceContext}
 
 [📄 원본 데이터]
 ${utils.truncateFileData(body.fileData)}
@@ -24,18 +34,18 @@ ${utils.truncateFileData(body.fileData)}
 ${prompts.getMeetingInfoContext(body.meetingInfo)}
 
 [🔥 목차 설계 절대 규칙]
-1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline})
-2. 슬라이드 타입: title, agenda, content, process, compare, chart, table, kpi, cards, quote, timeline, summary 중 하나만 사용
-3. 필수 타입 배분: chart 최소 1개, kpi 최소 1개 포함 (전체 40% 이상 시각화)
-4. 슬라이드 1번 type = "title", 2번 = "agenda", 마지막 = "summary" 고정
-5. ⚠️ 중요: "description" 필드에는 절대 문장을 쓰지 마세요. 무조건 "명사형 핵심 키워드 2~3개"로만 작성하세요. (예: "매출 분석 및 전망")
+1. 슬라이드 수: 반드시 정확히 ${targetCount}장. (${volumeGuideline}) ${body.referenceStructure ? '(참고 양식의 슬라이드 배치를 최우선 고려)' : ''}
+2. 슬라이드 타입: title, agenda, section, content, process, processList, compare, chart, table, kpi, cards, quote, timeline, summary, triangle, pyramid, flowChart, stepUp, cycle, diagram, imageText, faq, progress 중 하나만 사용
+3. 필수 타입 배분: 시각화 요소(chart, kpi, diagram 등)를 전체 50% 이상 포함하여 풍부한 시각적 경험 제공
+4. 슬라이드 1번 type = "title", 2번 = "agenda" (장이 2개 이상일 때), 마지막 = "summary" 고정
+5. ⚠️ 중요: "description" 필드에는 해당 슬라이드에서 다룰 구체적인 핵심 내용 3~4개를 명확히 기술하세요.
 
 반드시 아래 JSON 형식만 반환:
 {
   "title": "발표 제목",
   "outline": [
-    {"slideNumber":1,"title":"표지 제목","type":"title","description":"주제 키워드"},
-    {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 구성"}
+    {"slideNumber":1,"title":"표지 제목","type":"title","description":"주제 및 발표 맥락"},
+    {"slideNumber":2,"title":"목차","type":"agenda","description":"전체 세션 구성"}
   ]
 }`;
 
@@ -69,9 +79,18 @@ ${prompts.getMeetingInfoContext(body.meetingInfo)}
       .join('\n');
 
     const systemInstruction = prompts.getSystemPromptCore(difficulty);
-    const userPrompt = `${prompts.SLIDE_SCHEMA}
+    
+    // Add reference structure context if available
+    const referenceContext = body.referenceStructure 
+      ? `\n[📁 참고 양식 레이아웃 정보 (Reference Layout)]
+아래 참고 양식의 슬라이드별 디자인 의도와 배치를 분석하여 100% 동일한 템플릿 느낌으로 적용하세요:
+${JSON.stringify(body.referenceStructure, null, 2)}`
+      : '';
 
-당신은 최고 수준의 프레젠테이션 디자이너입니다. 구성안에 맞춰 실제 내용을 채워 넣으세요.
+    const userPrompt = `${prompts.SLIDE_SCHEMA}
+${referenceContext}
+
+당신은 최고 수준의 프레젠테이션 디자이너입니다. 구성안에 맞춰 실제 내용을 풍부하고 완성도 높게 채워 넣으세요.
 
 [📄 원본 데이터]
 ${utils.truncateFileData(body.fileData)}
@@ -82,9 +101,10 @@ ${typeGuide}
 [🔥 슬라이드 작성 절대 규칙 - 위반 시 감점]
 1. 배열 길이 = 반드시 정확히 ${slideCount}개.
 2. 각 슬라이드 type은 구성안 그대로 고정.
-3. ⚠️ [레이아웃 제한 규칙]: "content" 배열(불릿 포인트)의 항목 수는 **최대 4개**를 절대 넘지 마세요. 글이 너무 많으면 화면이 깨집니다!
-4. ⚠️ 모든 문장은 불필요한 서술어를 빼고 매우 짧고 간결한 '명사형 개조식'으로 작성하세요. (예: ~했습니다 -> ~함)
-5. 빈 content 배열, 빈 chartData 절대 금지.
+3. ⚠️ [콘텐츠 품질]: 슬라이드 내용이 빈약하지 않도록 각 불릿 포인트나 카드 내용을 풍부하고 상세하게(텍스트가 부족하지 않게) 작성하세요. 1~2개 단어로 끝내지 말고, 핵심을 담은 완성된 문장 형태로 구성하세요.
+4. ⚠️ [레이아웃 제한 규칙]: "content" 배열(불릿 포인트)의 항목 수는 **최대 5개**를 권장합니다.
+5. ⚠️ 모든 문장은 비즈니스 전문 용어를 사용하여 세련되게 작성하고, 명사형 종결을 선호하되 의미 전달이 명확해야 합니다.
+6. 빈 content 배열, 빈 chartData 절대 금지.
 
 반드시 아래 JSON만 반환 (slides 배열 길이 = ${slideCount}):
 {"title":"제목","slides":[]}`;
@@ -185,10 +205,29 @@ JSON 반환: {"presentation":{...},"summary":"요약"}`;
   },
 
   async analyzeReferenceStructure(content: string) {
-    const userPrompt = `다음 문서 구조 분석. 문서: ${content.slice(0, 3000)}
-JSON 반환: {"structure":[{"type":"title","title":"제목"}],"slideCount":5,"keyPatterns":["특징1"]}`;
-    const text = await callGeminiAPI('문서 분석 전문가입니다.', userPrompt, 1024);
-    return utils.extractJSON(text) || { structure: [], slideCount: 0, keyPatterns: [] };
+    const userPrompt = `다음 프레젠테이션 문서(텍스트 추출 버전)의 구조와 디자인 패턴을 정밀 분석하세요.
+문서 데이터: ${content.slice(0, 15000)}
+
+[분석 지시사항]
+1. 전체 슬라이드 개수를 파악하세요.
+2. 각 슬라이드의 레이아웃 타입(title, agenda, content, chart, compare, kpi, table 등)을 추론하세요.
+3. 문서 전반에 사용된 디자인 특징(글머리 기호 스타일, 강조 방식, 색상 언급 등)을 추출하세요.
+4. 분석 결과는 반드시 아래 JSON 형식으로만 반환하세요.
+
+JSON 반환 형식: 
+{
+  "structure": [{"slideNumber": 1, "type": "title", "titleHint": "제목"}, {"slideNumber": 2, "type": "agenda", "titleHint": "목차"}],
+  "slideCount": 5,
+  "designPatterns": {
+    "colors": ["#primary", "#accent"],
+    "bulletStyle": "dot/checkbox/arrow",
+    "tone": "formal/creative/minimal",
+    "notes": "기타 레이아웃 특징"
+  },
+  "keyPatterns": ["각 슬라이드별 특징 3가지"]
+}`;
+    const text = await callGeminiAPI('프레젠테이션 디자인 및 구조 분석 전문가입니다.', userPrompt, 2048);
+    return utils.extractJSON(text) || { structure: [], slideCount: 0, keyPatterns: [], designPatterns: {} };
   },
 
   generateImage: generateSlideImage,

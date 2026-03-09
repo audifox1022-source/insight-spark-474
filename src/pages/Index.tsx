@@ -13,7 +13,7 @@ import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
   HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
   X, BookOpen, UploadCloud, SlidersHorizontal, FileText,
-  Users, Eye, Globe, CheckCircle2,
+  Users, Eye, Globe, CheckCircle2, ChevronLeft
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,21 +62,31 @@ const Index = () => {
 
           {/* 로고 + 앱 이름 */}
           <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
-            <motion.div
-              className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
-              whileHover={{ scale: 1.08, rotate: 6 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            <button 
+              onClick={() => {
+                presentationHooks.reset();
+                setActiveApp('presentation');
+                toast.success('홈 화면으로 돌아왔습니다.');
+              }}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              title="홈으로 이동 (작업 초기화)"
             >
-              {headerIcon()}
-            </motion.div>
-            <div className="min-w-0">
-              <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
-                WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.0.2</span>
-              </h1>
-              <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
-                AI 업무 자동화 플랫폼
-              </p>
-            </div>
+              <motion.div
+                className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
+                whileHover={{ scale: 1.08, rotate: 6 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+              >
+                {headerIcon()}
+              </motion.div>
+              <div className="min-w-0 text-left">
+                <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
+                  WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.0.2</span>
+                </h1>
+                <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
+                  AI 업무 자동화 플랫폼
+                </p>
+              </div>
+            </button>
           </div>
 
           {/* 탭 메뉴 — 4개 */}
@@ -118,6 +128,17 @@ const Index = () => {
             >
               <Globe className="w-3.5 h-3.5" />
               AI 번역
+            </button>
+
+            <div className="w-px h-6 bg-border/60 mx-1.5" />
+
+            <button
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/50 transition-all"
+              title="이전 페이지로"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              뒤로
             </button>
           </div>
 
@@ -417,36 +438,49 @@ const Index = () => {
       <div className="flex-1 flex flex-col relative overflow-hidden">
 
         {/* 문서 생성기 탭 */}
-        {activeApp === 'form' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <FormGeneratorWorkspace />
-          </main>
-        )}
+        <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'form' ? 'hidden' : ''}`}>
+          <FormGeneratorWorkspace />
+        </main>
 
         {/* 번역 탭 */}
-        {activeApp === 'translator' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <TranslatorWorkspace />
-          </main>
-        )}
+        <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
+          <TranslatorWorkspace />
+        </main>
 
         {/* 디자이너 탭 */}
-        {activeApp === 'designer' && (
-          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <DesignerWorkspace onBack={() => setActiveApp('presentation')} />
-          </main>
-        )}
+        <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'designer' ? 'hidden' : ''}`}>
+          <DesignerWorkspace 
+            onBack={() => setActiveApp('presentation')} 
+            presentation={presentationHooks.presentation || undefined}
+            currentSlide={presentationHooks.currentSlideIndex}
+            onSlideChange={presentationHooks.setCurrentSlideIndex}
+            onUpdateSlide={presentationHooks.updateSlide}
+            onAddContent={(idx) => {
+              const newContent = [...(presentationHooks.presentation!.slides[idx].content || []), '새 항목'];
+              presentationHooks.updateSlide(idx, { content: newContent });
+            }}
+            onRemoveContent={(sIdx, cIdx) => {
+              const newContent = presentationHooks.presentation!.slides[sIdx].content?.filter((_, i) => i !== cIdx);
+              presentationHooks.updateSlide(sIdx, { content: newContent });
+            }}
+            onSave={presentationHooks.handleSave}
+            isSaving={presentationHooks.isSaving}
+            onRegenerateSlide={presentationHooks.regenerateSlide}
+            onOpenChat={() => presentationHooks.setChatOpen(true)}
+            onOpenReview={() => presentationHooks.setReviewOpen(true)}
+          />
+        </main>
 
         {/* 발표자료 탭 */}
-        {activeApp === 'presentation' && (
-          <>
+        <div className={`flex-1 flex flex-col overflow-hidden ${activeApp !== 'presentation' ? '' : 'contents'}`}>
+          <div className={activeApp !== 'presentation' ? 'hidden' : 'flex-1 flex flex-col overflow-hidden'}>
             <PresentationTab 
               {...presentationHooks} 
               switchToDesigner={() => setActiveApp('designer')}
             />
             <FloatingAIToolbar />
-          </>
-        )}
+          </div>
+        </div>
       </div>
 
       {/* ── FOOTER ───────────────────────────────────────────── */}
