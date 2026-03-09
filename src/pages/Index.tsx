@@ -8,6 +8,7 @@ import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { PresentationTab } from '@/components/PresentationTab'
 import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
 import { FormGeneratorWorkspace } from '@/components/FormGeneratorWorkspace'
+import { DesignerWorkspace } from '@/components/designer/DesignerWorkspace'
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2, ArrowRight,
   HelpCircle, LogOut, Palette, MessageSquare, Send, PencilLine,
@@ -27,7 +28,7 @@ import { FloatingAIToolbar } from '@/components/FloatingAIToolbar'
 const Index = () => {
   const navigate = useNavigate()
 
-  type AppMode = 'presentation' | 'form' | 'translator'
+  type AppMode = 'presentation' | 'designer' | 'form' | 'translator'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -48,6 +49,7 @@ const Index = () => {
   const headerIcon = () => {
     if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'form') return <FileText className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'designer') return <Palette className="w-[18px] h-[18px] text-primary-foreground" />
     return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
   }
 
@@ -77,7 +79,7 @@ const Index = () => {
             </div>
           </div>
 
-          {/* 탭 메뉴 — 3개 */}
+          {/* 탭 메뉴 — 4개 */}
           <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
             <button
               onClick={() => setActiveApp('presentation')}
@@ -90,6 +92,19 @@ const Index = () => {
             >
               <Sparkles className="w-3.5 h-3.5" />
               발표자료
+            </button>
+
+            <button
+              onClick={() => setActiveApp('designer')}
+              className={[
+                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                activeApp === 'designer'
+                  ? 'bg-background shadow-sm text-primary border border-border/50'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+              ].join(' ')}
+            >
+              <Palette className="w-3.5 h-3.5" />
+              디자이너
             </button>
 
             <button
@@ -425,6 +440,13 @@ const Index = () => {
         {activeApp === 'translator' && (
           <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
             <TranslatorWorkspace />
+          </main>
+        )}
+
+        {/* 디자이너 탭 */}
+        {activeApp === 'designer' && (
+          <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
+            <DesignerWorkspace />
           </main>
         )}
 
