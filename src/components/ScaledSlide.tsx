@@ -32,11 +32,20 @@ interface SlideMetric {
   trend?: 'up' | 'down' | 'flat';
   description?: string;
 }
+interface SlideTextStyle {
+  bold?: boolean;
+  italic?: boolean;
+  underline?: boolean;
+  color?: string;
+  align?: 'left' | 'center' | 'right' | 'justify';
+}
 interface Slide {
   id?: string;
   type?: string;
   title?: string;
   subhead?: string;
+  titleStyle?: SlideTextStyle;    // ← 제목 스타일 (NEW)
+  contentStyle?: SlideTextStyle;  // ← 내용 스타일 (NEW)
   content?: any[];
   points?: any[];
   items?: any[];
@@ -71,6 +80,8 @@ interface ScaledSlideProps {
   containerClassName?: string;
   logoUrl?: string;
   watermark?: string;
+  // NEW: 인라인 편집용 콜백
+  onUpdateSlide?: (updates: Partial<Slide>) => void;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -81,8 +92,8 @@ const P = {
   primaryDark: '#064E55',
   accent: '#2EC4B6',             // 민트 그린
   bg: '#F4F9F9',                 // 아이보리 화이트
-  text: '#1A1A2E',               // 딛 네이비
-  subtext: '#5c7a82',
+  text: '#111827',               // (Contrast Fix) 기존 #1A1A2E 보다 더 진한 블랙
+  subtext: '#374151',            // (Contrast Fix) 기존 #5c7a82 보다 더 어두운 회색 (가독성 향상)
   border: '#C8DEDE',
   muted: '#EEF6F6',
   dark: '#0D2B2E',               // 딛은 틸 다크
@@ -114,6 +125,66 @@ const SectionLabel: React.FC<{ children: React.ReactNode; light?: boolean }> = (
     {children}
   </div>
 );
+
+// --- NEW: 인라인 텍스트 에디터 (EditableText) ---
+interface EditableTextProps extends React.HTMLAttributes<HTMLDivElement> {
+  value: string;
+  onSave?: (newVal: string) => void;
+  tagName?: 'h1' | 'h2' | 'p' | 'span' | 'div';
+}
+const EditableText: React.FC<EditableTextProps> = ({ value, onSave, tagName = 'div', style, className, ...props }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [localValue, setLocalValue] = useState(value);
+  const Tag = tagName as any;
+
+  // value prop이 바뀌면 로컬 값도 업데이트 (외부 변경 감지)
+  React.useEffect(() => { setLocalValue(value); }, [value]);
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (localValue !== value && onSave) {
+      onSave(localValue);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      (e.target as HTMLElement).blur();
+    }
+  };
+
+  return (
+    <Tag
+      contentEditable={!!onSave}
+      suppressContentEditableWarning
+      onFocus={(e: any) => {
+         setIsEditing(true);
+         // 전체 선택 트리거 (사용자 편의)
+         setTimeout(() => document.execCommand('selectAll', false, undefined), 50);
+      }}
+      onBlur={handleBlur}
+      onInput={(e: any) => setLocalValue(e.currentTarget.innerText)}
+      onKeyDown={handleKeyDown}
+      style={{
+        ...style,
+        outline: isEditing ? `2px dashed ${P.accent}` : 'none',
+        outlineOffset: '4px',
+        cursor: onSave ? 'text' : 'default',
+        minWidth: '20px',
+        minHeight: '1em',
+        borderRadius: '4px',
+        transition: 'outline 0.1s',
+      }}
+      className={className}
+      {...props}
+    >
+      {value}
+    </Tag>
+  );
+};
+// ------------------------------------------------
+
 
 // BigNumber: 값 길이에 따라 폰트 자동 충소
 const BigNumber: React.FC<{ value: string; unit?: string; light?: boolean }> = ({ value, unit, light = false }) => {
@@ -309,16 +380,32 @@ function renderTimeline(slide: Slide, contentFontSize: string) {
   );
 }
 
-function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize: string, isRight: boolean) {
+function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize: string, isRight: boolean, onUpdateSlide?: (updates: Partial<Slide>) => void) {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const visualRatio = slide.visualRatio ?? 45;
   const textRatio = 100 - visualRatio;
+  
+  // Custom Styles
+  const tStyle = slide.titleStyle || {};
+  const cStyle = slide.contentStyle || {};
 
   const textPanel = (
     <div style={{ flex: textRatio, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
       <SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel>
-      <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}>{slide.title}</h2>
-      {slide.subhead && <p style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}>{slide.subhead}</p>}
+      <EditableText 
+        tagName="h2"
+        value={slide.title || ''}
+        onSave={val => onUpdateSlide?.({ title: val })}
+        style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, textDecoration: tStyle.underline ? 'underline' : 'none', fontStyle: tStyle.italic ? 'italic' : 'normal', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, letterSpacing: '-0.02em', margin: 0 }}
+      />
+      {slide.subhead && (
+        <EditableText 
+          tagName="p"
+          value={slide.subhead}
+          onSave={val => onUpdateSlide?.({ subhead: val })}
+          style={{ fontSize: contentFontSize, color: P.primary, fontWeight: 600, margin: 0 }}
+        />
+      )}
       <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
         {rawContent.map((item, i) => (
@@ -326,7 +413,16 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
             <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: `linear-gradient(135deg, ${P.primary}15, ${P.primary}05)`, color: P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 900, marginTop: '2px', border: `1px solid ${P.primary}30`, boxShadow: `0 2px 8px ${P.primary}20` }}>
               {String(i + 1).padStart(2, '0')}
             </div>
-            <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.6, fontWeight: 500 }}>{safeString(item)}</span>
+            <EditableText 
+              tagName="span"
+              value={safeString(item)}
+              onSave={val => {
+                const newArr = [...rawContent];
+                newArr[i] = val;
+                onUpdateSlide?.({ content: newArr });
+              }}
+              style={{ fontSize: contentFontSize, color: cStyle.color || P.text, fontWeight: cStyle.bold ? 'bold' : 500, fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.6, flex: 1 }}
+            />
           </div>
         ))}
       </div>
@@ -347,9 +443,10 @@ function renderSplitLayout(slide: Slide, titleFontSize: string, contentFontSize:
   return <div style={{ display: 'flex', gap: '2.5rem', height: '100%', alignItems: 'stretch' }}>{isRight ? <>{textPanel}{visualPanel}</> : <>{visualPanel}{textPanel}</>}</div>;
 }
 
-function renderGridCards(slide: Slide, contentFontSize: string) {
+function renderGridCards(slide: Slide, contentFontSize: string, onUpdateSlide?: (updates: Partial<Slide>) => void) {
   const items = slide.content ?? slide.points ?? slide.items ?? [];
   const cols = items.length <= 2 ? 2 : items.length <= 4 ? 2 : 3;
+  const cStyle = slide.contentStyle || {};
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', width: '100%' }}>
@@ -359,9 +456,16 @@ function renderGridCards(slide: Slide, contentFontSize: string) {
           <div style={{ width: 40, height: 40, borderRadius: 12, background: i === 0 ? 'rgba(255,255,255,0.2)' : `${P.primary}10`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 900, zIndex: 1, boxShadow: i === 0 ? 'inset 0 0 10px rgba(255,255,255,0.2)' : 'none' }}>
             {String(i + 1).padStart(2, '0')}
           </div>
-          <p style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : P.text, fontWeight: i === 0 ? 600 : 500, zIndex: 1 }}>
-            {safeString(item)}
-          </p>
+          <EditableText 
+            tagName="p"
+            value={safeString(item)}
+            onSave={val => {
+              const newArr = [...items];
+              newArr[i] = val;
+              onUpdateSlide?.({ content: newArr });
+            }}
+            style={{ fontSize: contentFontSize, lineHeight: 1.6, margin: 0, color: i === 0 ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 500), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', zIndex: 1 }}
+          />
         </div>
       ))}
     </div>
@@ -372,7 +476,7 @@ function renderGridCards(slide: Slide, contentFontSize: string) {
 // ScaledSlide — 메인 컴포넌트
 // ══════════════════════════════════════════════════════════════
 export const ScaledSlide: React.FC<ScaledSlideProps> = ({
-  slide, containerClassName = '', logoUrl, watermark,
+  slide, containerClassName = '', logoUrl, watermark, onUpdateSlide
 }) => {
   const rawContent = slide.content ?? slide.points ?? slide.items ?? [];
   const content = Array.isArray(rawContent) ? rawContent : [];
@@ -380,6 +484,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   const titleFontSize = slide.titleFontPt ? ptToPx(slide.titleFontPt) : ptToPx((slide.titleSizeScale ?? 1) * 36);
   const contentFontSize = slide.contentFontPt ? ptToPx(slide.contentFontPt) : ptToPx((slide.contentSizeScale ?? 1) * 20);
   const layout = slide.layout ?? 'default';
+
+  const tStyle = slide.titleStyle || {};
+  const cStyle = slide.contentStyle || {};
 
   // ── 1. 표지 슬라이드
   if (slide.type === 'title') {
@@ -412,13 +519,36 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>PRESENTATION</span>
           </div>
-          <h1 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h1>
-          {slide.subhead && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}>{slide.subhead}</p>}
+          <EditableText 
+            tagName="h1"
+            value={slide.title || ''}
+            onSave={v => onUpdateSlide?.({ title: v })}
+            style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.12, letterSpacing: '-0.03em', margin: 0, maxWidth: '72%', textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}
+          />
+          {slide.subhead && (
+            <EditableText 
+              tagName="p"
+              value={slide.subhead}
+              onSave={v => onUpdateSlide?.({ subhead: v })}
+              style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.95)', fontWeight: 500, margin: 0, maxWidth: '60%', lineHeight: 1.5 }}
+            />
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
           </div>
-          {content.length > 0 && <p style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.5)', maxWidth: '60%', lineHeight: 1.6, margin: 0 }}>{safeString(content[0])}</p>}
+          {content.length > 0 && (
+            <EditableText 
+              tagName="p"
+              value={safeString(content[0])}
+              onSave={v => {
+                const newC = [...content];
+                newC[0] = v;
+                onUpdateSlide?.({ content: newC });
+              }}
+              style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.8)', maxWidth: '60%', lineHeight: 1.6, margin: 0 }}
+            />
+          )}
         </div>
         <SlideNumber number={slide.slideNumber} light />
       </div>
@@ -436,8 +566,24 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, padding: '0 5% 0 7%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           {slide.slideNumber && <div style={{ fontSize: '3.5rem', fontWeight: 900, color: 'rgba(255,255,255,0.15)', lineHeight: 1 }}>{String(slide.slideNumber).padStart(2, '0')}</div>}
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.15, margin: 0 }}>{slide.title}</h2>
-          {content[0] && <p style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.75)', margin: 0, maxWidth: '60%' }}>{safeString(content[0])}</p>}
+          <EditableText 
+            tagName="h2"
+            value={slide.title || ''}
+            onSave={v => onUpdateSlide?.({ title: v })}
+            style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.15, margin: 0 }}
+          />
+          {content[0] && (
+            <EditableText 
+              tagName="p"
+              value={safeString(content[0])}
+              onSave={v => {
+                const newC = [...content];
+                newC[0] = v;
+                onUpdateSlide?.({ content: newC });
+              }}
+              style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.9)', margin: 0, maxWidth: '60%' }}
+            />
+          )}
         </div>
         <SlideNumber number={slide.slideNumber} light />
       </div>
@@ -454,22 +600,25 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <div style={{ position: 'absolute', top: 0, right: 0, width: '40%', height: '40%', background: P.primary, borderRadius: '50%', filter: 'blur(150px)', opacity: 0.05, pointerEvents: 'none' }} />
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><SlideBackground imageUrl={slide.imageUrl} bgGradient={slide.bgGradient} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div><SectionLabel>KPI METRICS</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
+          <div>
+            <SectionLabel>KPI METRICS</SectionLabel>
+            <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0 }} />
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '1.2rem', flex: 1 }}>
             {metrics.map((m, i) => {
               const isFirst = i === 0;
               return (
-                <div key={i} style={{ borderRadius: 24, padding: '1.8rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.6)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
+                <div key={i} style={{ borderRadius: 24, padding: '1.8rem', background: isFirst ? P.kpiGradients[0] : 'rgba(255,255,255,0.85)', border: `1px solid ${isFirst ? 'transparent' : 'rgba(241, 245, 249, 0.8)'}`, boxShadow: isFirst ? `0 20px 40px -10px ${P.primary}40` : '0 10px 30px -10px rgba(0,0,0,0.06)', backdropFilter: isFirst ? 'none' : 'blur(16px)', display: 'flex', flexDirection: 'column', gap: '0.8rem', position: 'relative', overflow: 'hidden' }}>
                   {/* Glass Shimmer */}
                   {isFirst && <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '50%', background: 'linear-gradient(to bottom, rgba(255,255,255,0.15), transparent)', pointerEvents: 'none' }} />}
                   <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.label}</div>
                   <BigNumber value={m.value} light={isFirst} />
                   {m.trend && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.8)' : '#10b981' }} />}
+                      {m.trend === 'up' && <TrendingUp style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.9)' : '#10b981' }} />}
                       {m.trend === 'down' && <TrendingDown style={{ width: 16, height: 16, color: '#ef4444' }} />}
-                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.5)' : '#94a3b8' }} />}
-                      {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.7)' : P.subtext }}>{m.description}</span>}
+                      {m.trend === 'flat' && <Minus style={{ width: 16, height: 16, color: isFirst ? 'rgba(255,255,255,0.6)' : '#64748b' }} />}
+                      {m.description && <span style={{ fontSize: '0.78em', color: isFirst ? 'rgba(255,255,255,0.85)' : P.subtext }}>{m.description}</span>}
                     </div>
                   )}
                 </div>
@@ -490,8 +639,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', gap: '3rem' }}>
           <div style={{ width: '28%', flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '1rem' }}>
             <SectionLabel>TIMELINE</SectionLabel>
-            <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2>
-            {content[0] && <p style={{ fontSize: contentFontSize, color: P.subtext, lineHeight: 1.6, margin: 0 }}>{safeString(content[0])}</p>}
+            <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0 }} />
+            {content[0] && (
+              <EditableText tagName="p" value={safeString(content[0])} onSave={val => { const newC = [...content]; newC[0] = val; onUpdateSlide?.({ content: newC }); }} style={{ fontSize: contentFontSize, color: cStyle.color || P.subtext, fontWeight: cStyle.bold ? 'bold' : 400, fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.6, margin: 0 }} />
+            )}
             <div style={{ width: '3rem', height: '3px', background: P.primary, borderRadius: 2 }} />
           </div>
           <div style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>{renderTimeline(slide, contentFontSize)}</div>
@@ -509,11 +660,11 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} invert />
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '0 10%', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div style={{ fontSize: '5rem', lineHeight: 1, color: P.primary, fontWeight: 900, opacity: 0.4 }}>"</div>
-          <p style={{ fontSize: titleFontSize, fontWeight: 700, color: '#fff', lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em' }}>{slide.text ?? slide.title}</p>
+          <EditableText tagName="p" value={slide.text ?? slide.title ?? ''} onSave={val => onUpdateSlide?.({ text: val, title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 700, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'center', lineHeight: 1.4, margin: 0, letterSpacing: '-0.01em' }} />
           {slide.author && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
               <div style={{ width: '2rem', height: '2px', background: P.primary }} />
-              <span style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.55)', fontStyle: 'italic' }}>{slide.author}</span>
+              <EditableText tagName="span" value={slide.author} onSave={val => onUpdateSlide?.({ author: val })} style={{ fontSize: '0.85em', color: 'rgba(255,255,255,0.75)', fontStyle: 'italic' }} />
               <div style={{ width: '2rem', height: '2px', background: P.primary }} />
             </div>
           )}
@@ -531,7 +682,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}>
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          <div><SectionLabel>COMPARISON</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
+          <div>
+            <SectionLabel>COMPARISON</SectionLabel>
+            <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0 }} />
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 40px 1fr', gap: '1rem', flex: 1 }}>
 
             {/* Left Glass Panel */}
@@ -541,7 +695,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
                 {leftItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
                     <div style={{ width: 6, height: 6, borderRadius: '50%', background: P.primary, marginTop: '0.45em', flexShrink: 0 }} />
-                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{safeString(item)}</span>
+                    <EditableText tagName="span" value={safeString(item)} onSave={val => { const newA = [...leftItems]; newA[i] = val; onUpdateSlide?.({ leftItems: newA }); }} style={{ fontSize: contentFontSize, color: cStyle.color || P.text, fontWeight: cStyle.bold ? 'bold' : 400, fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.5, flex: 1 }} />
                   </div>
                 ))}
               </div>
@@ -551,13 +705,13 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             </div>
 
             {/* Right Glass Panel */}
-            <div style={{ background: 'rgba(255,255,255,0.7)', borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(226,232,240,0.8)`, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ background: 'rgba(255,255,255,0.9)', borderRadius: 24, padding: '1.8rem', border: `1px solid rgba(226,232,240,0.8)`, boxShadow: '0 8px 24px rgba(0,0,0,0.03)', backdropFilter: 'blur(10px)' }}>
               <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.15em', color: P.text, marginBottom: '1.2rem' }}>{(slide.rightTitle ?? 'AFTER').toUpperCase()}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {rightItems.map((item, i) => (
                   <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'flex-start' }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#94a3b8', marginTop: '0.45em', flexShrink: 0 }} />
-                    <span style={{ fontSize: contentFontSize, color: P.text, lineHeight: 1.5 }}>{safeString(item)}</span>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#64748b', marginTop: '0.45em', flexShrink: 0 }} />
+                    <EditableText tagName="span" value={safeString(item)} onSave={val => { const newA = [...rightItems]; newA[i] = val; onUpdateSlide?.({ rightItems: newA }); }} style={{ fontSize: contentFontSize, color: cStyle.color || P.text, fontWeight: cStyle.bold ? 'bold' : 400, fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.5, flex: 1 }} />
                   </div>
                 ))}
               </div>
@@ -596,7 +750,10 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '4.5% 6%' }}>
         <SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} />
         <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-          <div><SectionLabel>DATA TABLE</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div>
+          <div>
+            <SectionLabel>DATA TABLE</SectionLabel>
+            <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0 }} />
+          </div>
           {/* overflowY 제거 — 스크롤 없이 슬라이드 안에 딱 맞게 표시 */}
           <div style={{ flex: 1, overflow: 'hidden', borderRadius: 16, border: `1px solid ${P.border}`, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: autoTableFontSize, tableLayout: 'fixed' }}>
@@ -638,7 +795,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: P.accent }} />
             <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.9)' }}>NEXT STEPS</span>
           </div>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: '#fff', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }}>{slide.title}</h2>
+          <EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || '#fff', fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0, textShadow: '0 2px 20px rgba(0,0,0,0.2)' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <div style={{ width: '3rem', height: '3px', background: P.accent, borderRadius: 2 }} />
             <div style={{ width: '1.2rem', height: '3px', background: 'rgba(255,255,255,0.3)', borderRadius: 2 }} />
@@ -648,7 +805,7 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
               {content.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
                   <div style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800, color: '#fff', marginTop: '2px' }}>{i + 1}</div>
-                  <span style={{ fontSize: contentFontSize, color: 'rgba(255,255,255,0.88)', lineHeight: 1.55 }}>{safeString(item)}</span>
+                  <EditableText tagName="span" value={safeString(item)} onSave={val => { const newC = [...content]; newC[i] = val; onUpdateSlide?.({ content: newC }); }} style={{ fontSize: contentFontSize, color: cStyle.color || 'rgba(255,255,255,0.95)', fontWeight: cStyle.bold ? 'bold' : 400, fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.55, flex: 1 }} />
                 </div>
               ))}
             </div>
@@ -660,9 +817,9 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
   }
 
   // ── 10. Split / Grid 레이아웃
-  if (layout === 'split-left') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, false)}</div><SlideNumber number={slide.slideNumber} /></div>;
-  if (layout === 'split-right') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, true)}</div><SlideNumber number={slide.slideNumber} /></div>;
-  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: P.text, lineHeight: 1.2, margin: 0 }}>{slide.title}</h2></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'split-left') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, false, onUpdateSlide)}</div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'split-right') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 6%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%' }}>{renderSplitLayout(slide, titleFontSize, contentFontSize, true, onUpdateSlide)}</div><SlideNumber number={slide.slideNumber} /></div>;
+  if (layout === 'grid') return <div className={containerClassName} style={{ aspectRatio: '16/9', position: 'relative', overflow: 'hidden', background: P.bg, fontFamily: "'Pretendard Variable', 'Pretendard', 'Noto Sans KR', sans-serif", padding: '5% 7%' }}><SlideWatermark text={watermark} /><SlideLogo logoUrl={logoUrl} /><div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}><div><SectionLabel>{slide.type?.toUpperCase() ?? 'SLIDE'}</SectionLabel><EditableText tagName="h2" value={slide.title || ''} onSave={val => onUpdateSlide?.({ title: val })} style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: tStyle.color || P.text, fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.2, margin: 0 }} /></div><div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>{renderGridCards(slide, contentFontSize, onUpdateSlide)}</div></div><SlideNumber number={slide.slideNumber} /></div>;
 
   // ── 11. 기본 콘텐츠 슬라이드 (전면 리디자인)
   return (
@@ -676,8 +833,20 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
       <div style={{ position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', gap: '1rem', paddingLeft: '0.8rem' }}>
         <div style={{ flexShrink: 0, borderLeft: `3px solid ${P.accent}`, paddingLeft: '1rem' }}>
           <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.2em', color: P.primary, textTransform: 'uppercase', marginBottom: '0.3rem' }}>{slide.type ?? 'CONTENT'}</div>
-          <h2 style={{ fontSize: titleFontSize, fontWeight: 900, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}>{slide.title}</h2>
-          {slide.subhead && <p style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.7)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}>{slide.subhead}</p>}
+          <EditableText 
+            tagName="h2"
+            value={slide.title || ''}
+            onSave={v => onUpdateSlide?.({ title: v })}
+            style={{ fontSize: titleFontSize, fontWeight: tStyle.bold ? 'bold' : 900, color: slide.bgGradient ? '#fff' : (tStyle.color || P.text), fontStyle: tStyle.italic ? 'italic' : 'normal', textDecoration: tStyle.underline ? 'underline' : 'none', textAlign: tStyle.align as any ?? 'left', lineHeight: 1.18, margin: 0, letterSpacing: '-0.02em' }}
+          />
+          {slide.subhead && (
+            <EditableText 
+              tagName="p"
+              value={slide.subhead}
+              onSave={v => onUpdateSlide?.({ subhead: v })}
+              style={{ fontSize: '0.85em', color: slide.bgGradient ? 'rgba(255,255,255,0.9)' : P.primary, fontWeight: 600, margin: '0.4rem 0 0', lineHeight: 1.4 }}
+            />
+          )}
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'flex-start' }}>
           {content.map((item, i) => (
@@ -685,7 +854,16 @@ export const ScaledSlide: React.FC<ScaledSlideProps> = ({
               <div style={{ width: '26px', height: '26px', borderRadius: '50%', flexShrink: 0, background: i === 0 ? `linear-gradient(135deg,${P.primary},${P.accent})` : `${P.primary}18`, color: i === 0 ? '#fff' : P.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 800 }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
-              <p style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : P.text, lineHeight: 1.58, margin: 0, flex: 1, fontWeight: i === 0 ? 600 : 400 }}>{safeString(item)}</p>
+              <EditableText 
+                tagName="p"
+                value={safeString(item)}
+                onSave={v => {
+                  const newC = [...content];
+                  newC[i] = v;
+                  onUpdateSlide?.({ content: newC });
+                }}
+                style={{ fontSize: contentFontSize, color: slide.bgGradient ? '#fff' : (cStyle.color || P.text), fontWeight: i === 0 ? 600 : (cStyle.bold ? 'bold' : 400), fontStyle: cStyle.italic ? 'italic' : 'normal', textDecoration: cStyle.underline ? 'underline' : 'none', textAlign: cStyle.align as any ?? 'left', lineHeight: 1.58, margin: 0, flex: 1 }}
+              />
             </div>
           ))}
         </div>

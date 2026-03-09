@@ -12,6 +12,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   SlidersHorizontal,
   Type,
   AlignLeft,
@@ -53,7 +59,7 @@ interface SlideEditorProps {
 
   onSave?: () => void;
   isSaving?: boolean;
-  onOpenExport?: () => void;
+  onOpenExport?: (type: 'pptx' | 'pdf' | 'pptx-image') => void;
   onOpenPlay?: () => void;
 
   onRegenerateSlide?: (slideIndex: number, userInstruction?: string) => void;
@@ -154,34 +160,24 @@ export function SlideEditor({
                 <Save className="w-3.5 h-3.5" /> {isSaving ? '저장 중...' : '저장'}
               </Button>
             )}
-            <div className="relative group">
-              <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
-                <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
-              </Button>
-              <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border shadow-elevated rounded-xl py-1 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all z-50">
-                <button
-                  onClick={() => onOpenExport?.('pptx')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50"
-                  title="일반 PPT 파일로 다운로드합니다. 텍스트 수정이 가능합니다."
-                >
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-8 border-primary/20 text-primary hover:bg-primary/5">
+                  <Download className="w-3.5 h-3.5" /> 다운로드 <ChevronDown className="w-3 h-3 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx')} className="font-medium cursor-pointer py-2">
                   PPT 파워포인트
-                </button>
-                <button
-                  onClick={() => onOpenExport?.('pptx-image')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium border-b border-border/50 text-emerald-600"
-                  title="모든 슬라이드를 이미지로 구워 PPT로 만듭니다. 폰트 깨짐이 없습니다."
-                >
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenExport?.('pptx-image')} className="font-medium cursor-pointer py-2 text-emerald-600 focus:text-emerald-700">
                   PPT (이미지 고정본)
-                </button>
-                <button
-                  onClick={() => onOpenExport?.('pdf')}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors font-medium text-blue-600"
-                  title="프린트 및 공유하기 좋은 PDF 파일로 다운로드합니다."
-                >
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenExport?.('pdf')} className="font-medium cursor-pointer py-2 text-blue-600 focus:text-blue-700">
                   PDF 문서
-                </button>
-              </div>
-            </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="w-px h-4 bg-border mx-1" />
             <Button
               variant="secondary"
@@ -211,8 +207,9 @@ export function SlideEditor({
         <div className="flex-1 w-full flex flex-col items-center justify-center overflow-auto custom-scrollbar pb-6 bg-slate-50/50">
           <div className="w-full max-w-[1024px] aspect-[16/9] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] ring-1 ring-border/20 rounded-xl overflow-hidden flex-shrink-0 bg-white mx-auto transition-all duration-300 transform sm:scale-95 md:scale-100">
             <ScaledSlide
-              slide={slide}
+              slide={slide as any}
               containerClassName="w-full h-full"
+              onUpdateSlide={(updates) => onUpdateSlide(currentSlide, updates as Partial<Slide>)}
             />
           </div>
         </div>
