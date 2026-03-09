@@ -27,3 +27,21 @@ dist-sr
 .env
 .env.local
 .env.production
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# debug
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+

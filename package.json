@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
@@ -100,5 +101,34 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
     "vitest": "^4.0.18"
+=======
+  "name": "entropic-nadir",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
+    "next": "^15.0.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.5.0",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "^15.0.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+>>>>>>> origin/main
   }
 }
