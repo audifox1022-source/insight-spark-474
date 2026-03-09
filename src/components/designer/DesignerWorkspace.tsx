@@ -263,17 +263,28 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
 
         {/* Right Sidebar (Properties Panel) */}
         {isIntegrated && presentation && (
-          <DesignerPropertiesPanel 
-            presentation={presentation}
-            currentSlide={currentSlide}
-            onUpdateSlide={(idx, updates) => {
-              if (onUpdateSlide) onUpdateSlide(idx, updates);
-              // Also immediately refresh canvas on property change
-              if (canvas) populateCanvasFromSlide(canvas, { ...presentation.slides[idx], ...updates });
-            }}
-            onAddContent={onAddContent}
-            onRemoveContent={onRemoveContent}
-          />
+          <DesignerErrorBoundary>
+            <DesignerPropertiesPanel 
+              presentation={presentation}
+              currentSlide={safeCurrentSlide}
+              onUpdateSlide={(idx, updates) => {
+                if (!Array.isArray(presentation.slides)) return;
+                if (idx < 0 || idx >= presentation.slides.length) return;
+                if (onUpdateSlide) onUpdateSlide(idx, updates);
+                // Also immediately refresh canvas on property change
+                if (canvas) {
+                  try {
+                    populateCanvasFromSlide(canvas, { ...presentation.slides[idx], ...updates });
+                  } catch (e) {
+                    console.error('Failed to update canvas from properties panel:', e);
+                    toast.error('슬라이드 속성을 적용하는 중 오류가 발생했습니다.');
+                  }
+                }
+              }}
+              onAddContent={onAddContent}
+              onRemoveContent={onRemoveContent}
+            />
+          </DesignerErrorBoundary>
         )}
       </div>
     </div>
