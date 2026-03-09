@@ -3,7 +3,7 @@
 import React from 'react';
 import { 
   Type, Image as ImageIcon, Square, Circle, Triangle, 
-  Layers, Layout, Palette, Sparkles, Box 
+  Layers, Layout, Palette, Sparkles, Box, Minus, ArrowRight, Star, Hexagon 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDesignerStore } from '@/store/useDesignerStore';
@@ -43,13 +43,68 @@ export const DesignerSidebar: React.FC = () => {
   const addCircle = () => {
     if (!canvas) return;
     const circle = new fabric.Circle({
-      left: 200,
-      top: 200,
-      fill: '#10B981',
-      radius: 50,
+      left: 200, top: 200, fill: '#10B981', radius: 50,
     });
     canvas.add(circle);
     canvas.setActiveObject(circle);
+  };
+
+  const addLine = () => {
+    if (!canvas) return;
+    const line = new fabric.Line([50, 50, 250, 50], {
+      left: 100, top: 100, stroke: '#333333', strokeWidth: 4,
+    });
+    canvas.add(line);
+    canvas.setActiveObject(line);
+  };
+
+  const addArrow = () => {
+    if (!canvas) return;
+    const line = new fabric.Line([50, 50, 200, 50], {
+      left: 100, top: 100, stroke: '#FF6B6B', strokeWidth: 4,
+    });
+    const triangle = new fabric.Triangle({
+      left: 280, top: 100, angle: 90, width: 20, height: 20, fill: '#FF6B6B', originX: 'center', originY: 'center'
+    });
+    const group = new fabric.Group([line, triangle], { left: 100, top: 100 });
+    canvas.add(group);
+    canvas.setActiveObject(group);
+  };
+
+  const addStar = () => {
+    if (!canvas) return;
+    // Simple 5-point star using Polygon
+    const points = [
+      {x: 10, y: 0}, {x: 13, y: 7}, {x: 20, y: 7}, {x: 15, y: 12}, 
+      {x: 17, y: 20}, {x: 10, y: 15}, {x: 3, y: 20}, {x: 5, y: 12}, 
+      {x: 0, y: 7}, {x: 7, y: 7}
+    ];
+    const star = new fabric.Polygon(points, {
+      left: 150, top: 150, fill: '#FFD93D', scaleX: 4, scaleY: 4
+    });
+    canvas.add(star);
+    canvas.setActiveObject(star);
+  };
+
+  const applyTemplate = (colors: string[]) => {
+    if (!canvas) return;
+    const gradient = new fabric.Gradient({
+      type: 'linear',
+      coords: { x1: 0, y1: 0, x2: canvas.getWidth(), y2: canvas.getHeight() },
+      colorStops: [
+        { offset: 0, color: colors[0] },
+        { offset: 1, color: colors[2] }
+      ]
+    });
+    canvas.setBackgroundColor(gradient as any, canvas.renderAll.bind(canvas));
+    
+    // Update all text colors based on brightness
+    const isDark = colors[0].startsWith('#0') || colors[0].startsWith('#1');
+    const textColor = isDark ? '#ffffff' : '#333333';
+    canvas.getObjects('i-text').forEach(obj => {
+      obj.set('fill', textColor);
+    });
+    canvas.renderAll();
   };
 
   return (
@@ -68,11 +123,18 @@ export const DesignerSidebar: React.FC = () => {
             <VisualAddButton icon={<Type size={18} />} label="텍스트" onClick={addText} color="bg-blue-500" />
             <VisualAddButton icon={<Square size={18} />} label="사각형" onClick={addRect} color="bg-indigo-500" />
             <VisualAddButton icon={<Circle size={18} />} label="원형" onClick={addCircle} color="bg-emerald-500" />
+            <VisualAddButton icon={<Minus size={18} />} label="선" onClick={addLine} color="bg-slate-500" />
             <VisualAddButton 
-              icon={<Triangle size={18} />} 
-              label="삼각형" 
-              onClick={() => {}} 
-              color="bg-amber-500" 
+              icon={<ArrowRight size={18} />} 
+              label="화살표" 
+              onClick={addArrow} 
+              color="bg-orange-500" 
+            />
+            <VisualAddButton 
+              icon={<Star size={18} />} 
+              label="스타" 
+              onClick={addStar} 
+              color="bg-yellow-500" 
             />
           </div>
         </section>
@@ -90,16 +152,37 @@ export const DesignerSidebar: React.FC = () => {
               name="비즈니스 모던" 
               targetColors={['#1e293b', '#3b82f6', '#f8fafc']} 
               description="깔끔하고 정돈된 기업용 디자인"
+              onClick={() => applyTemplate(['#1e293b', '#3b82f6', '#f8fafc'])}
             />
             <TemplatePreview 
               name="미니멀 파스텔" 
               targetColors={['#fdf2f8', '#fce7f3', '#db2777']} 
               description="밝고 화사한 발표용 디자인"
+              onClick={() => applyTemplate(['#fdf2f8', '#fce7f3', '#db2777'])}
             />
             <TemplatePreview 
               name="테크 브랜딩" 
               targetColors={['#0f172a', '#0ea5e9', '#38bdf8']} 
               description="강력한 인상의 기술 보고서"
+              onClick={() => applyTemplate(['#0f172a', '#0ea5e9', '#38bdf8'])}
+            />
+            <TemplatePreview 
+              name="스타트업 바이브" 
+              targetColors={['#6366f1', '#a5b4fc', '#ffffff']} 
+              description="젊고 혁신적인 디자인"
+              onClick={() => applyTemplate(['#6366f1', '#a5b4fc', '#ffffff'])}
+            />
+            <TemplatePreview 
+              name="다크 엘레강스" 
+              targetColors={['#111111', '#c5a059', '#333333']} 
+              description="고급스러운 블랙 & 골드 테마"
+              onClick={() => applyTemplate(['#111111', '#c5a059', '#333333'])}
+            />
+            <TemplatePreview 
+              name="에코 프렌들리" 
+              targetColors={['#064e3b', '#10b981', '#f0fdf4']} 
+              description="자연과 환경을 위한 그린 테마"
+              onClick={() => applyTemplate(['#064e3b', '#10b981', '#f0fdf4'])}
             />
           </div>
         </section>
@@ -131,8 +214,8 @@ const VisualAddButton = ({ icon, label, onClick, color }: any) => (
   </button>
 );
 
-const TemplatePreview = ({ name, targetColors, description }: any) => (
-  <div className="group cursor-pointer">
+const TemplatePreview = ({ name, targetColors, description, onClick }: any) => (
+  <div className="group cursor-pointer" onClick={onClick}>
     <div className="aspect-[4/3] rounded-2xl border border-border/60 overflow-hidden bg-muted/20 mb-2 relative group-hover:border-primary/40 group-hover:shadow-premium transition-all duration-300">
       {/* MOCK PREVIEW UI */}
       <div className="absolute inset-0 p-3 flex flex-col gap-1.5">

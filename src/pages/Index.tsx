@@ -95,19 +95,6 @@ const Index = () => {
             </button>
 
             <button
-              onClick={() => setActiveApp('designer')}
-              className={[
-                'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
-                activeApp === 'designer'
-                  ? 'bg-background shadow-sm text-primary border border-border/50'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
-              ].join(' ')}
-            >
-              <Palette className="w-3.5 h-3.5" />
-              디자이너
-            </button>
-
-            <button
               onClick={() => setActiveApp('form')}
               className={[
                 'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
@@ -446,7 +433,7 @@ const Index = () => {
         {/* 디자이너 탭 */}
         {activeApp === 'designer' && (
           <main className="flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden">
-            <DesignerWorkspace />
+            <DesignerWorkspace onBack={() => setActiveApp('presentation')} />
           </main>
         )}
 

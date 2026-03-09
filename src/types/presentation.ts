@@ -125,6 +125,7 @@ export interface Slide {
   keyMetrics?: {
     label: string;
     value: string;
+    unit?: string;
     trend?: 'up' | 'down' | 'flat';
     description?: string;
   }[];

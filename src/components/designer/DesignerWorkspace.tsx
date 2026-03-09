@@ -13,7 +13,11 @@ import { toast } from 'sonner';
 import { exportDesignerToPptx } from '@/lib/export-designer-pptx';
 import { populateCanvasFromSlide } from '@/lib/slide-to-canvas';
 
-export const DesignerWorkspace: React.FC = () => {
+export interface DesignerWorkspaceProps {
+  onBack?: () => void;
+}
+
+export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({ onBack }) => {
   const { slides, activeSlideId, addSlide, canvas } = useDesignerStore();
 
   // Watch for pending slide from Presentation tab
@@ -22,14 +26,18 @@ export const DesignerWorkspace: React.FC = () => {
 
     const pendingSlideStr = localStorage.getItem('pending_designer_slide');
     if (pendingSlideStr) {
-      try {
-        const slide = JSON.parse(pendingSlideStr);
-        populateCanvasFromSlide(canvas, slide);
-        localStorage.removeItem('pending_designer_slide');
-        toast.success('슬라이드 데이터를 성공적으로 불러왔습니다!');
-      } catch (e) {
-        console.error('Failed to parse pending slide:', e);
-      }
+      const loadPendingSlide = async () => {
+        try {
+          const slide = JSON.parse(pendingSlideStr);
+          await populateCanvasFromSlide(canvas, slide);
+          localStorage.removeItem('pending_designer_slide');
+          toast.success('슬라이드 데이터를 성공적으로 불러왔습니다!');
+        } catch (e) {
+          console.error('Failed to parse or load pending slide:', e);
+          toast.error('슬라이드 데이터를 불러오는 데 실패했습니다.');
+        }
+      };
+      loadPendingSlide();
     }
   }, [canvas]);
 
@@ -51,6 +59,17 @@ export const DesignerWorkspace: React.FC = () => {
       {/* Top Banner / Breadcrumb */}
       <div className="px-6 py-2 border-b border-border bg-muted/10 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {onBack && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onBack}
+              className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="w-4 h-4" /> 발표자료 에디터로 돌아가기
+            </Button>
+          )}
+          <div className="w-px h-4 bg-border mx-1" />
           <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
