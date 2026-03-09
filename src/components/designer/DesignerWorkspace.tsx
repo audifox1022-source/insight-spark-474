@@ -15,6 +15,40 @@ import { populateCanvasFromSlide } from '@/lib/slide-to-canvas';
 import { DesignerPropertiesPanel } from './DesignerPropertiesPanel';
 import { Presentation, Slide } from '@/types/presentation';
 
+// ─────────────────────────────────────────────────────────────
+// 에러 바운더리: 특정 슬라이드 데이터 손상 시 전체 앱이 죽지 않도록 보호
+// ─────────────────────────────────────────────────────────────
+class DesignerErrorBoundary extends React.Component<
+  { fallback?: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { fallback?: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: any, info: any) {
+    console.error('Designer workspace error boundary caught:', error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback ?? (
+          <div className="w-full h-full flex items-center justify-center text-sm text-red-500">
+            슬라이드 렌더링 중 오류가 발생했지만, 편집기는 계속 동작합니다.
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export interface DesignerWorkspaceProps {
   onBack?: () => void;
   presentation?: Presentation;
@@ -51,15 +85,30 @@ export const DesignerWorkspace: React.FC<DesignerWorkspaceProps> = ({
   const { slides: storeSlides, activeSlideId, addSlide, canvas } = useDesignerStore();
 
   const isIntegrated = !!presentation;
-  const navSlides = isIntegrated ? presentation.slides : storeSlides;
-  const activeIndex = isIntegrated ? currentSlide : storeSlides.findIndex(s => s.id === activeSlideId);
+  const rawSlides = isIntegrated ? presentation?.slides ?? [] : storeSlides ?? [];
+  const navSlides = Array.isArray(rawSlides) ? rawSlides : [];
+
+  const integratedIndex = isIntegrated
+    ? Math.max(0, Math.min(currentSlide, Math.max(navSlides.length - 1, 0)))
+    : -1;
+
+  const storeActiveIndex = !isIntegrated
+    ? Math.max(0, storeSlides.findIndex((s) => s.id === activeSlideId))
+    : -1;
+
+  const activeIndex = isIntegrated ? integratedIndex : storeActiveIndex;
+  const safeCurrentSlide = isIntegrated ? integratedIndex : activeIndex;
 
   // Sync canvas with presentation slide
   useEffect(() => {
-    if (!canvas || !isIntegrated || !presentation.slides[currentSlide]) return;
-    // Debounce or directly populate
-    populateCanvasFromSlide(canvas, presentation.slides[currentSlide]);
-  }, [canvas, currentSlide, isIntegrated]); // only watch slide change, not every edit to prevent overwriting manual canvas edits (wait, we need to apply form edits, so we watch the whole slide object, but that wipes manual edits... for now it's okay)
+    if (!canvas || !isIntegrated || !presentation?.slides?.[safeCurrentSlide]) return;
+    try {
+      populateCanvasFromSlide(canvas, presentation.slides[safeCurrentSlide]);
+    } catch (e) {
+      console.error('Failed to sync canvas with slide:', e);
+      toast.error('슬라이드를 렌더링하는 중 오류가 발생했습니다.');
+    }
+  }, [canvas, safeCurrentSlide, isIntegrated, presentation]);
 
   // Watch for pending slide from Presentation tab (legacy fallback)
   useEffect(() => {
