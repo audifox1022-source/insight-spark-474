@@ -1,6 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Pencil, Globe, Zap, FileText, ArrowRightLeft, Sparkles, HelpCircle } from 'lucide-react';
+import { 
+  X, Sparkles, Languages, Zap, MessageSquare, 
+  Search, ShieldCheck, Download, Pencil, BookOpen 
+} from 'lucide-react';
 
 interface HelpModalProps {
   isOpen: boolean;
@@ -8,23 +11,26 @@ interface HelpModalProps {
 }
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
-  const SectionTitle: React.FC<{ icon: React.ReactNode, children: React.ReactNode }> = ({ icon, children }) => (
-    <div className="flex items-center gap-3 mt-8 mb-4">
-      <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-        {icon}
+  const StepCard = ({ number, title, children }: { number: string; title: string; children: React.ReactNode }) => (
+    <div className="relative p-6 rounded-3xl bg-background/40 border border-white/5 hover:border-primary/20 transition-all group">
+      <div className="absolute -top-3 -left-3 w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20 shadow-sm">
+        <span className="text-xs font-black text-primary">{number}</span>
       </div>
-      <h3 className="text-sm font-black text-foreground uppercase tracking-tight">{children}</h3>
+      <h4 className="text-sm font-black text-foreground mb-2 group-hover:text-primary transition-colors">{title}</h4>
+      <div className="text-xs text-muted-foreground font-medium leading-relaxed">
+        {children}
+      </div>
     </div>
   );
 
-  const StepCard: React.FC<{ number: string, title: string, children: React.ReactNode }> = ({ number, title, children }) => (
-    <div className="group p-5 rounded-3xl bg-muted/20 border border-white/5 hover:bg-muted/30 transition-all hover:border-primary/20">
-      <div className="flex items-center gap-3 mb-3">
-        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-primary text-white">{number}</span>
-        <h4 className="text-sm font-black text-foreground">{title}</h4>
+  const ToolInfo = ({ icon: Icon, title, description }: { icon: any; title: string; description: string }) => (
+    <div className="flex items-start gap-4 p-4 rounded-2xl bg-muted/20 border border-white/5">
+      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-5 h-5 text-primary" />
       </div>
-      <div className="space-y-2 text-xs text-muted-foreground font-medium leading-relaxed pl-1">
-        {children}
+      <div>
+        <h5 className="text-xs font-black text-foreground mb-1">{title}</h5>
+        <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">{description}</p>
       </div>
     </div>
   );
@@ -32,94 +38,102 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-background/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-background/60 backdrop-blur-md"
           />
-          
+
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 30 }}
+            initial={{ opacity: 0, scale: 0.95, y: 40 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 30 }}
-            className="relative w-full max-w-3xl bg-card/80 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] shadow-elevated overflow-hidden flex flex-col"
+            exit={{ opacity: 0, scale: 0.95, y: 40 }}
+            className="relative w-full max-w-4xl max-h-[90vh] bg-card/70 backdrop-blur-3xl border border-white/10 rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between bg-muted/20">
+            <div className="flex-shrink-0 px-8 py-6 flex justify-between items-center border-b border-white/5 bg-muted/20">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
-                  <HelpCircle className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 rounded-[1.25rem] bg-gradient-to-tr from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
+                  <Sparkles className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-foreground tracking-tight">AI 번역 워크스페이스 가이드</h2>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Premium User Manual</p>
+                  <h2 className="text-xl font-black text-foreground tracking-tight">AI 전문 번역기 사용 가이드</h2>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Smart Translation & Analysis Engine</p>
                 </div>
               </div>
-              <button
+              <button 
                 onClick={onClose}
-                className="p-2 rounded-xl hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-all"
+                className="w-10 h-10 rounded-full bg-background/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background transition-all"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-8 overflow-y-auto custom-scrollbar" style={{ maxHeight: '70vh' }}>
-              <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 mb-2">
-                <p className="text-sm text-foreground/80 font-medium leading-relaxed">
-                  본 포털은 <span className="text-primary font-black">Gemini 1.5 Pro</span> 기반의 문맥 인지 엔진을 탑재한 전문 번역 환경입니다. 
-                  단순 언어 변환을 넘어 산업 도메인을 자동으로 감지하고, 비즈니스 문맥에 최적화된 용어와 문체를 제안합니다.
-                </p>
-              </div>
+            <div className="flex-grow overflow-y-auto p-8 custom-scrollbar">
+              <div className="space-y-10">
+                {/* Steps Section */}
+                <section>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">번역 프로세스</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StepCard number="01" title="원문 입력">
+                      텍스트를 직접 입력하거나 <strong>PDF, DOCX, TXT</strong> 파일을 업로드하여 분석을 시작하세요.
+                    </StepCard>
+                    <StepCard number="02" title="문맥 감지">
+                      AI가 실시간으로 문서의 전문 분야(IT, 법률, 의학 등)와 문체를 자동으로 감지합니다.
+                    </StepCard>
+                    <StepCard number="03" title="용어 분석">
+                      추출된 핵심 전문 용어와 문맥 분석 결과를 확인하고, 필요에 따라 추천 번역어를 선택하세요.
+                    </StepCard>
+                    <StepCard number="04" title="최종 검증">
+                      역번역 검증 기능을 통해 번역의 정확도를 체크하고, 결과물을 파일로 안전하게 저장하세요.
+                    </StepCard>
+                  </div>
+                </section>
 
-              <SectionTitle icon={<Zap className="w-4 h-4" />}>핵심 워크플로우</SectionTitle>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <StepCard number="01" title="원문 데이터 준비">
-                   텍스트를 직접 입력하거나, <span className="text-foreground font-bold">PDF, DOCX, TXT</span> 파일을 업로드하세요. 
-                   AI가 문서 구조를 분석하여 최적의 마크다운 형식으로 자동 변환합니다.
-                </StepCard>
-                <StepCard number="02" title="스마트 번역 및 분석">
-                   도착 언어를 선택하고 실행 버튼을 누르면, 실시간으로 <span className="text-primary font-bold">문맥 / 용어 / 문체</span> 3단계 심층 분석이 동시에 진행됩니다.
-                </StepCard>
-                <StepCard number="03" title="하이라이트 검토">
-                   번역 결과 내의 주요 용어는 하이라이트됩니다. <span className="text-accent font-bold">마우스를 올려</span> AI가 왜 해당 번역을 추천했는지 근거를 확인하세요.
-                </StepCard>
-                <StepCard number="04" title="역번역 및 최종 내보내기">
-                   '역번역 검증'을 통해 의미 왜곡 여부를 체크한 후, 편집 모드에서 최종 교정하여 파일로 저장하세요.
-                </StepCard>
-              </div>
-
-              <SectionTitle icon={<Sparkles className="w-4 h-4" />}>주요 도구 설명</SectionTitle>
-              <div className="space-y-3">
-                <div className="flex items-start gap-4 p-4 rounded-2xl bg-muted/20 border border-white/5">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
-                    <Pencil className="w-4 h-4 text-indigo-400" />
+                {/* Features Section */}
+                <section>
+                  <div className="flex items-center gap-2 mb-6">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+                    <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest">핵심 도구 설명</h3>
                   </div>
-                  <div>
-                    <h5 className="text-xs font-black text-foreground mb-1">정교한 마무리를 위한 편집 모드</h5>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">연필 아이콘을 클릭하여 AI가 생성한 번역문을 직접 수정할 수 있습니다. 수정 중에도 분석 패널은 실시간으로 유지됩니다.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ToolInfo 
+                      icon={BookOpen} 
+                      title="핵심 용어 자동 추출" 
+                      description="문서 내의 반복되는 전문 용어나 고유 명사를 AI가 정확하게 발굴하여 일관성 있는 번역을 보장합니다."
+                    />
+                    <ToolInfo 
+                      icon={MessageSquare} 
+                      title="문맥 주의 기반 번역" 
+                      description="단순 직역이 아닌, 앞뒤 문장과 문서 전체의 흐름을 파악하여 가장 자연스러운 비즈니스 어투를 제공합니다."
+                    />
+                    <ToolInfo 
+                      icon={ShieldCheck} 
+                      title="역번역 검증 엔진" 
+                      description="번역된 결과물을 다시 원문 언어로 교차 검증하여 의미 왜곡이 없는지 한눈에 확인할 수 있습니다."
+                    />
+                    <ToolInfo 
+                      icon={Download} 
+                      title="다양한 포맷 내보내기" 
+                      description="완성된 번역본을 원본 서식을 최대한 유지하며 워드(.docx)나 일반 텍스트(.txt)로 즉시 저장 가능합니다."
+                    />
                   </div>
-                </div>
-                <div className="flex items-start gap-4 p-4 rounded-2xl bg-muted/20 border border-white/5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                    <ArrowRightLeft className="w-4 h-4 text-emerald-500" />
-                  </div>
-                  <div>
-                    <h5 className="text-xs font-black text-foreground mb-1">정확도 보증을 위한 역번역</h5>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">번역된 문장을 다시 원문 언어로 번역하여, 의미가 제대로 전달되었는지 교차 검증할 수 있는 강력한 기능입니다.</p>
-                  </div>
-                </div>
+                </section>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="px-8 py-5 bg-muted/30 border-t border-white/5 flex justify-end">
+            <div className="flex-shrink-0 px-8 py-6 bg-muted/30 border-t border-white/5 flex justify-end">
               <button
                 onClick={onClose}
-                className="px-8 py-3 bg-gradient-to-r from-primary to-accent text-white text-sm font-black rounded-2xl hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                className="px-10 py-3.5 bg-foreground text-background text-sm font-black rounded-[1.25rem] hover:opacity-90 transition-all shadow-xl shadow-foreground/10"
               >
                 가이드 닫기
               </button>
@@ -128,33 +142,6 @@ const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         </div>
       )}
     </AnimatePresence>
-  );
-};
-
-export default HelpModal;
-�문을 직접 편집할 수 있는 모드로 전환됩니다.
-                  </ListItem>
-                 <ListItem title="역번역 확인">
-                  번역문의 의미가 원문과 일치하는지 검토하고 싶을 때 '역번역 확인' 버튼을 누르면, 번역문을 다시 원문 언어로 번역한 결과를 팝업으로 보여줍니다.
-                </ListItem>
-                 <ListItem title="복사 및 저장">
-                  각 패널 상단의 복사 및 다운로드 아이콘을 사용하여 원문과 번역문을 클립보드에 복사하거나, <strong>.txt</strong> 또는 <strong>.docx</strong> 파일로 저장할 수 있습니다.
-                </ListItem>
-              </ul>
-            </li>
-          </ol>
-        </div>
-
-        <div className="p-4 bg-gray-900/50 border-t border-gray-700 text-right">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-500 transition-colors"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </div>
   );
 };
 
