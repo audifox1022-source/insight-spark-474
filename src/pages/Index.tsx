@@ -68,7 +68,7 @@ const Index = () => {
             </motion.div>
             <div className="min-w-0">
               <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground truncate">
-                WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.0.1</span>
+                WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.0.2</span>
               </h1>
               <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
                 AI 업무 자동화 플랫폼
