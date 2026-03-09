@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useRef, useEffect } from 'react';
 import { useSlideStore } from '@/store/useSlideStore';
@@ -11,7 +11,6 @@ interface EditableTextProps {
   className?: string;
   tagName?: any;
   placeholder?: string;
-  style?: React.CSSProperties;
 }
 
 export const EditableText: React.FC<EditableTextProps> = ({
@@ -20,8 +19,7 @@ export const EditableText: React.FC<EditableTextProps> = ({
   value,
   className,
   tagName: Tag = 'div',
-  placeholder = '텍스트 입력...',
-  style,
+  placeholder = '?띿뒪???낅젰...',
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   const updateElement = useSlideStore((state) => state.updateElement);
@@ -72,7 +70,6 @@ export const EditableText: React.FC<EditableTextProps> = ({
         !value && 'after:content-[attr(data-placeholder)] after:opacity-50',
         className
       )}
-      style={style}
       data-placeholder={placeholder}
     />
   );

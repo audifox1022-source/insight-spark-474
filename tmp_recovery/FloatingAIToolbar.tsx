@@ -1,15 +1,14 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import { useSlideStore } from '@/store/useSlideStore';
 import { Sparkles, Send, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-// Note: We need to make sure classifyIntent is available in @/lib/gemini or similar
-// For now, we'll assume it exists or we will implement/port it.
+
 import { classifyIntent } from '@/lib/gemini';
 
 export const FloatingAIToolbar: React.FC = () => {
-  const { selectedElementId, slides, mergeSlideFragment, setElementSelection, apiKey } = useSlideStore();
+  const { selectedElementId, slides, mergeSlideFragment, setElementSelection, apiKey, updateElement } = useSlideStore();
   const [command, setCommand] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -33,7 +32,7 @@ export const FloatingAIToolbar: React.FC = () => {
       setElementSelection(null);
     } catch (err) {
       console.error(err);
-      alert('AI 편집 중 오류가 발생했습니다. (60초 제한 또는 문맥 오류 확인)');
+      alert('AI ?몄쭛 以??ㅻ쪟媛 諛쒖깮?덉뒿?덈떎. (60???쒗븳 ?먮뒗 臾몃㎘ ?ㅻ쪟 ?뺤씤)');
     } finally {
       setIsLoading(false);
     }
@@ -51,14 +50,14 @@ export const FloatingAIToolbar: React.FC = () => {
             type="text"
             value={command}
             onChange={(e) => setCommand(e.target.value)}
-            placeholder="선택한 영역을 어떻게 수정할까요?"
+            placeholder="?좏깮???곸뿭???대뼸寃??섏젙?좉퉴??"
             className="bg-transparent outline-none text-sm text-zinc-100 placeholder:text-zinc-500 px-2 h-8"
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             autoFocus
           />
           <div className="px-2 text-[10px] text-zinc-600 flex justify-between">
-            <span> AI는 슬라이드당 60초 제한 규칙을 준수합니다.</span>
-            <span className={command.length > 50 ? "text-yellow-500" : ""}>{command.length}자</span>
+            <span> AI???щ씪?대뱶??60???쒗븳 洹쒖튃??以?섑빀?덈떎.</span>
+            <span className={command.length > 50 ? "text-yellow-500" : ""}>{command.length}??/span>
           </div>
         </div>
 

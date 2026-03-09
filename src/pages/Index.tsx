@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
+import { FloatingAIToolbar } from '@/components/FloatingAIToolbar'
 
 
 const Index = () => {
@@ -429,7 +430,10 @@ const Index = () => {
 
         {/* 발표자료 탭 */}
         {activeApp === 'presentation' && (
-          <PresentationTab {...presentationHooks} />
+          <>
+            <PresentationTab {...presentationHooks} />
+            <FloatingAIToolbar />
+          </>
         )}
       </div>
 

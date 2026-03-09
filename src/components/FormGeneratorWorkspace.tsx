@@ -9,6 +9,7 @@ import {
   Loader2, PencilLine, Wand2, Send, Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 const FORM_PRESETS = [
   { id: 'report',   icon: '📊', label: '보고서',   desc: '주간/월간 업무 보고서'   },
@@ -28,6 +29,8 @@ export function FormGeneratorWorkspace() {
   const [isModifying,   setIsModifying]   = useState(false)
   const [modifyRequest, setModifyRequest] = useState('')
   const [showModify,    setShowModify]    = useState(false)
+  const [isCompact,     setIsCompact]     = useState(false)
+  const [isAutoFill,    setIsAutoFill]    = useState(false)
 
   const handleGenerate = async () => {
     const name = activePreset !== 'manual'
@@ -36,7 +39,10 @@ export function FormGeneratorWorkspace() {
     if (!name.trim()) { toast.error('양식명을 입력해주세요.'); return }
     setIsGenerating(true)
     try {
-      const html = await formAiService.generateForm(name, requirements)
+      const html = await formAiService.generateForm(name, requirements, {
+        isCompact,
+        isAutoFill
+      })
       setGeneratedHtml(html)
       toast.success('양식이 생성되었습니다!')
     } catch (err: any) {
@@ -182,6 +188,46 @@ export function FormGeneratorWorkspace() {
                 className="bg-background resize-none text-sm min-h-[120px]"
                 rows={5}
               />
+            </div>
+
+            {/* 고급 설정 */}
+            <div className="pt-2 border-t border-border/50">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                고급 설정
+              </p>
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div 
+                    onClick={() => setIsCompact(!isCompact)}
+                    className={cn(
+                      "w-8 h-4.5 rounded-full p-0.5 transition-colors",
+                      isCompact ? "bg-primary" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform",
+                      isCompact ? "translate-x-3.5" : "translate-x-0"
+                    )} />
+                  </div>
+                  <span className="text-xs font-medium text-foreground/80 group-hover:text-foreground">Compact Layout</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div 
+                    onClick={() => setIsAutoFill(!isAutoFill)}
+                    className={cn(
+                      "w-8 h-4.5 rounded-full p-0.5 transition-colors",
+                      isAutoFill ? "bg-primary" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-transform",
+                      isAutoFill ? "translate-x-3.5" : "translate-x-0"
+                    )} />
+                  </div>
+                  <span className="text-xs font-medium text-foreground/80 group-hover:text-foreground">Auto-fill Toggle</span>
+                </label>
+              </div>
             </div>
 
             {/* 생성 버튼 */}

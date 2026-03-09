@@ -33,7 +33,19 @@ export const formAiService = {
   /**
    * 양식명 + 요청사항을 받아 완전한 HTML 양식 파일을 생성합니다.
    */
-  async generateForm(formName: string, requirements: string): Promise<string> {
+  async generateForm(
+    formName:     string, 
+    requirements: string, 
+    options?: { isCompact?: boolean; isAutoFill?: boolean }
+  ): Promise<string> {
+    const compactInstruction = options?.isCompact 
+      ? `12. [Compact Layout] 표의 간격을 좁게 설정하고(py-1, px-2), 한 페이지에 최대한 많은 정보가 효율적으로 담기도록 하세요.`
+      : '';
+    
+    const autoFillInstruction = options?.isAutoFill
+      ? `13. [Auto-Fill] 모든 입력 필드(<input>, <textarea>)에 placeholder 대신 실제 데이터와 유사한 예시 내용을 value로 미리 채워 넣으세요.`
+      : '';
+
     const systemInstruction = `당신은 한국 업무환경에 최적화된 HTML 양식 생성 전문가입니다.
 아래 규칙을 반드시 준수하세요:
 1. 완전한 단일 HTML 파일을 생성합니다 (<!DOCTYPE html> 부터 </html> 까지).
@@ -46,7 +58,9 @@ export const formAiService = {
 8. Tab 키로 placeholder 예시 내용 적용 기능 포함.
 9. 양식명에 따른 동적 테마 색상 및 헤더 배경 적용.
 10. @media print 스타일로 인쇄/PDF 품질 보장.
-11. 반드시 HTML 코드만 반환하세요. 설명 텍스트나 마크다운 코드블록 없이 순수 HTML만.`
+11. 반드시 HTML 코드만 반환하세요. 설명 텍스트나 마크다운 코드블록 없이 순수 HTML만.
+${compactInstruction}
+${autoFillInstruction}`.trim();
 
     const themeGuide = getThemeGuide(formName)
 

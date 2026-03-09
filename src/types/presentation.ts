@@ -189,9 +189,6 @@ export interface OutlineData {
   }[];
 }
 
-// ✅ Added types from remote origin/main to fix store and hooks
-export type SlideLayout = 'title' | 'content' | 'two_column' | 'kpi' | 'conclusion';
-
 export interface KPI {
   id: string;
   label: string;
