@@ -213,23 +213,23 @@ const Index = () => {
 
       {/* ── 도움말 팝업 ──────────────────────────────────────── */}
       <AnimatePresence>
-        {helpOpen && activeApp === 'presentation' && (
+        {helpOpen && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={() => setHelpOpen(false)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               onClick={e => e.stopPropagation()}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border z-[101] overflow-hidden flex flex-col max-h-[85vh]"
+              className="relative w-full max-w-3xl bg-card rounded-2xl shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30 flex-shrink-0">
                 <h2 className="text-lg font-bold flex items-center gap-2 text-foreground">
                   <BookOpen className="w-5 h-5 text-primary" />
-                  WorkAI 사용 가이드
+                  WorkAI 서비스 통합 가이드
                 </h2>
                 <Button variant="ghost" size="icon" onClick={() => setHelpOpen(false)} className="w-8 h-8 rounded-full">
                   <X className="w-5 h-5" />
@@ -240,76 +240,108 @@ const Index = () => {
                 {/* ── 배너 ── */}
                 <div className="bg-primary/5 p-6 border-b border-primary/10">
                   <p className="text-sm text-foreground/80 leading-relaxed font-medium">
-                    WorkAI는 AI를 활용하여 전문적인 발표자료, 비즈니스 문서, 그리고 다국어 번역을 지원하는
-                    <span className="text-primary font-bold"> 올인원 업무 자동화 플랫폼</span>입니다.
+                    WorkAI는 최신 AI 인프라를 통해 비즈니스 생산성을 극대화하는 
+                    <span className="text-primary font-bold"> 차세대 업무 자동화 플랫폼</span>입니다. 
+                    핵심 서비스와 기술 사양을 확인해 보세요.
                   </p>
                 </div>
 
-                <div className="p-6 space-y-10">
-                  {/* 1. 단계별 가이드 */}
+                <div className="p-6 space-y-12">
+                  {/* 1. 서비스별 안내 */}
                   <section>
-                    <h3 className="text-sm font-black text-primary uppercase tracking-wider mb-5 flex items-center gap-2">
+                    <h3 className="text-sm font-black text-primary uppercase tracking-wider mb-6 flex items-center gap-2">
                        <div className="w-1.5 h-4 bg-primary rounded-full" />
-                       제작 단계 안내
+                       핵심 서비스 가이드
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[
-                        { icon: <MessageSquare className="w-5 h-5 text-blue-600" />, title: '주제 입력 및 파일 업로드', desc: '발표 주제를 직접 입력하거나 PDF, Word, Excel 파일을 업로드하여 AI가 맥락을 이해하게 합니다.' },
-                        { icon: <SlidersHorizontal className="w-5 h-5 text-purple-600" />, title: '정교한 AI 세부 설정', desc: '대상 청중, 발표 시간, 톤앤매너 등을 설정해 맞춤형 슬라이드 구성을 요청합니다.' },
-                        { icon: <BookOpen className="w-5 h-5 text-emerald-600" />, title: 'AI 목차 검토 및 편집', desc: 'AI가 제안한 목차를 자유롭게 수정하고 보충하여 전체 흐름을 미리 확정합니다.' },
-                        { icon: <Sparkles className="w-5 h-5 text-amber-600" />, title: '슬라이드 생성 및 실시간 수정', desc: '생성된 슬라이드의 텍스트를 클릭해 직접 수정하거나 AI 채팅으로 내용을 개선합니다.' },
-                      ].map((item, i) => (
-                        <div key={i} className="flex gap-3 p-4 rounded-xl bg-muted/30 border border-border/40 hover:border-primary/20 transition-colors">
-                          <div className="w-10 h-10 rounded-lg bg-background flex items-center justify-center shadow-sm flex-shrink-0">
-                            {item.icon}
-                          </div>
-                          <div>
-                            <h4 className="text-[14px] font-bold text-foreground mb-1">{item.title}</h4>
-                            <p className="text-[12px] text-muted-foreground leading-tight">{item.desc}</p>
-                          </div>
+                    <div className="space-y-6">
+                      {/* 발표자료 */}
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                          <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
-                      ))}
+                        <div>
+                          <h4 className="text-[15px] font-bold text-foreground mb-1">AI 발표자료 생성 (PPT / 이미지)</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            주제 입력 또는 파일(PDF, Word, Excel) 업로드 시 AI가 맥락을 분석해 슬라이드를 자동 구성합니다.
+                            <span className="block mt-1 text-primary/80 font-medium">• 인라인 편집, AI 채팅 수정, PPTX/PDF 내보내기 지원</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 문서 생성기 */}
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-[15px] font-bold text-foreground mb-1">스마트 문서 생성기</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            보고서, 사유서, 제안서 등 비즈니스 표준 양식을 선택하고 핵심 키워드만 입력하면 전문가 수준의 문서를 즉시 작성합니다.
+                            <span className="block mt-1 text-primary/80 font-medium">• 상황별 톤앤매너 조절, 실시간 프리뷰 지원</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* AI 번역 */}
+                      <div className="flex gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                          <Globe className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-[15px] font-bold text-foreground mb-1">문맥 인지 고성능 AI 번역</h4>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            단순 치환이 아닌 비즈니스 상황과 전문 용어를 이해하는 자연스러운 번역을 제공합니다. 
+                            <span className="block mt-1 text-primary/80 font-medium">• 한/영/중/일 등 다국어 지원, 실시간 협업 워크스페이스</span>
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </section>
 
-                  {/* 2. 주요 기능 */}
-                  <section>
+                  {/* 2. 시스템 API 및 기술 스택 (새로 추가) */}
+                  <section className="p-5 rounded-2xl bg-muted/40 border border-border/50">
                     <h3 className="text-sm font-black text-primary uppercase tracking-wider mb-5 flex items-center gap-2">
                        <div className="w-1.5 h-4 bg-primary rounded-full" />
-                       WorkAI 주요 기능
+                       시스템 인프라 및 API
                     </h3>
-                    <div className="space-y-4">
-                      <div className="p-4 rounded-xl border border-border/60 bg-gradient-to-br from-card to-muted/20">
-                        <div className="flex items-start gap-4">
-                          <div className="p-2.5 rounded-lg bg-blue-500/10 text-blue-500">
-                             <Sparkles className="w-5 h-5" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[13px] font-bold">LLM: Gemini 2.5 Flash</h5>
                           </div>
-                          <div>
-                            <h4 className="text-sm font-bold mb-1">AI 발표자료 생성 (PPT/PDF/Image)</h4>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              단순 텍스트뿐만 아니라 업로드한 데이터(Excel 등)를 기반으로 차트와 지표가 포함된 슬라이드를 생성합니다.
-                              완성된 자료는 PPTX, PDF 또는 고화질 이미지로 내보낼 수 있습니다.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-4 rounded-xl border border-border/60 bg-card">
-                          <div className="flex items-center gap-3 mb-2">
-                             <FileText className="w-4 h-4 text-emerald-500" />
-                             <h4 className="text-sm font-bold">문서 생성기</h4>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            보고서, 제안서, 이메일 등 비즈니스 문서 양식을 AI가 자동으로 작성하고 서식을 맞춥니다.
+                          <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                            최신 Gemini 2.5 Flash 모델을 API로 연동하여 빠른 추론 속도와 정교한 논리력을 확보했습니다. 대규모 컨텍스트를 안정적으로 처리합니다.
                           </p>
                         </div>
-                        <div className="p-4 rounded-xl border border-border/60 bg-card">
-                          <div className="flex items-center gap-3 mb-2">
-                             <Globe className="w-4 h-4 text-purple-500" />
-                             <h4 className="text-sm font-bold">AI 다국어 번역</h4>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[13px] font-bold">AI Image Generation API</h5>
                           </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            문맥의 의미를 파악하여 자연스러운 비즈니스 매너가 담긴 다국어 번역을 실시간으로 지원합니다.
+                          <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                            슬라이드의 주제와 본문 내용을 분석하여 최적의 저작권 프리 배경 이미지를 실시간으로 생성 및 배치합니다.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[13px] font-bold">Serverless Infra & Proxy</h5>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                            Vercel Serverless Functions 및 API Proxy 시스템을 통해 API 키 노출을 방지하고 보안이 강화된 안정적인 통신을 수행합니다.
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                            <h5 className="text-[13px] font-bold">Advanced Data Parsing</h5>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">
+                            PDF(스캔본 OCR 포함), Word, XLSX 데이터를 정형화된 데이터로 변환하여 AI 컨텍스트로 주입하는 고성능 파서를 탑재했습니다.
                           </p>
                         </div>
                       </div>
@@ -322,12 +354,12 @@ const Index = () => {
                         <h3 className="text-xs font-black text-primary uppercase tracking-wider mb-4">💡 활용 꿀팁</h3>
                         <ul className="space-y-3">
                            {[
-                             '기존 회사 양식(PPT/이미지)을 업로드하면 AI가 그 스타일을 참고합니다.',
-                             '슬라이드 편집기 내 AI 채팅을 통해 "전체 레이아웃을 더 모던하게 바꿔줘" 같은 요청이 가능합니다.',
-                             'Excel 파일을 올리면 AI가 지표(KPI)를 자동으로 추출하여 요약 슬라이드를 구성합니다.'
+                             'Excel 파일을 업로드하면 AI가 지표(KPI)를 자동으로 추출하여 대시보드형 슬라이드를 구성합니다.',
+                             '발표 설정에서 "발표 시간"을 지정하면 슬라이드 수와 내용의 양을 AI가 자동 조절합니다.',
+                             '모든 작업물은 Vercel 기반 보안 아키텍처 내에서 안전하게 관리됩니다.'
                            ].map((tip, i) => (
                              <li key={i} className="flex gap-2 text-xs text-foreground/80 leading-snug">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+                                <div className="w-1 h-1 rounded-full bg-primary mt-1.5 flex-shrink-0" />
                                 {tip}
                              </li>
                            ))}
@@ -336,23 +368,20 @@ const Index = () => {
                      <section>
                         <h3 className="text-xs font-black text-primary uppercase tracking-wider mb-4">📂 지원 파일 형식</h3>
                         <div className="flex flex-wrap gap-2">
-                           {['PDF', 'DOCX', 'XLSX', 'TXT', 'MD', 'CSV', '이미지(OCR 지원)'].map(ext => (
-                             <span key={ext} className="px-2.5 py-1 rounded-md bg-muted text-[11px] font-bold text-muted-foreground border border-border/50">
+                           {['PDF (OCR 지원)', 'DOCX / XLSX', 'TXT / MD / CSV', 'PNG / JPG'].map(ext => (
+                             <span key={ext} className="px-2.5 py-1 rounded-md bg-muted text-[10px] font-bold text-muted-foreground border border-border/50">
                                 {ext}
                              </span>
                            ))}
                         </div>
-                        <p className="mt-3 text-[10px] text-muted-foreground leading-tight">
-                           * 스캔된 PDF의 경우 자동으로 OCR 처리를 수행하여 텍스트를 추출합니다.
-                        </p>
                      </section>
                   </div>
                 </div>
               </div>
 
-              <div className="p-5 border-t border-border bg-muted/20 text-center">
+              <div className="p-5 border-t border-border bg-muted/20 text-center flex-shrink-0">
                 <Button onClick={() => setHelpOpen(false)} className="px-12 py-6 text-base rounded-xl gradient-primary font-bold text-white shadow-glow hover:opacity-95 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                  이해했습니다! 시작하기
+                  도움말 닫기
                 </Button>
               </div>
             </motion.div>
