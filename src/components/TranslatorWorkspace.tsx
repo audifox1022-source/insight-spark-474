@@ -3,6 +3,7 @@ import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import { Document, Packer, Paragraph } from 'docx';
 import saveAs from 'file-saver';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { analyzeAndTranslate, reverseTranslate, structureTextAsMarkdown } from '@/lib/translation-service';
 import type { AnalysisResults, TranslationAndAnalysisResponse, ContextualTerm, TerminologyTerm } from '@/types/translation';
@@ -12,6 +13,7 @@ import Loader from './Loader';
 import {
   Sparkles, ArrowRightLeft, Upload, Copy, Download,
   HelpCircle, Pencil, Check, Globe, RotateCcw,
+  Zap, FileText, ChevronDown, X
 } from 'lucide-react';
 import ReverseTranslationModal from './ReverseTranslationModal';
 import HelpModal from './HelpModal';
@@ -122,7 +124,7 @@ export const TranslatorWorkspace: React.FC = () => {
   const handleAnalysis = useCallback(async () => {
     if (!sourceText.trim()) { setError('번역할 내용을 입력해주세요.'); return; }
     setIsLoading(true);
-    setLoadingMessage('AI가 분석 중입니다...');
+    setLoadingMessage('AI가 문맥과 전문 용어를 분석 중입니다...');
     setError(null);
     setAnalysisResults(null);
     setTranslatedText('');
@@ -264,8 +266,8 @@ export const TranslatorWorkspace: React.FC = () => {
       return (
         <div
           ref={translationRef as React.RefObject<HTMLDivElement>}
-          className={`absolute inset-0 p-4 whitespace-pre-wrap overflow-y-auto text-sm leading-relaxed
-            ${!translatedText ? 'text-muted-foreground' : 'text-foreground'}`}
+          className={`absolute inset-0 p-6 whitespace-pre-wrap overflow-y-auto text-sm leading-relaxed custom-scrollbar
+            ${!translatedText ? 'text-muted-foreground/50' : 'text-foreground'}`}
           onScroll={handleSynchronizedScroll}
         >
           {translatedText || 'AI 번역 결과가 여기에 표시됩니다...'}
@@ -282,7 +284,7 @@ export const TranslatorWorkspace: React.FC = () => {
       return (
         <div
           ref={translationRef as React.RefObject<HTMLDivElement>}
-          className="absolute inset-0 p-4 text-foreground text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto"
+          className="absolute inset-0 p-6 text-foreground text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto custom-scrollbar"
           onScroll={handleSynchronizedScroll}
         >
           {translatedText}
@@ -302,24 +304,26 @@ export const TranslatorWorkspace: React.FC = () => {
     return (
       <div
         ref={translationRef as React.RefObject<HTMLDivElement>}
-        className="absolute inset-0 p-4 text-foreground text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto"
+        className="absolute inset-0 p-6 text-foreground text-sm leading-relaxed whitespace-pre-wrap overflow-y-auto custom-scrollbar"
         onScroll={handleSynchronizedScroll}
       >
         {parts.map((part, i) => {
           if (uniqueTerms.some(t => t.toLowerCase() === part.toLowerCase())) {
             const td = allTerms.find(t => t.displayTerm.toLowerCase() === part.toLowerCase());
             const cls = td?.type === 'terminology'
-              ? 'bg-teal-500/20 text-teal-600 dark:text-teal-300 font-semibold hover:bg-teal-500/30'
-              : 'bg-primary/15 text-primary font-semibold hover:bg-primary/25';
+              ? 'bg-teal-500/10 text-teal-600 dark:text-teal-300 border-b border-teal-500/30 hover:bg-teal-500/20'
+              : 'bg-primary/10 text-primary border-b border-primary/30 hover:bg-primary/20';
             return (
-              <span
+              <motion.span
                 key={i}
-                className={`${cls} rounded px-1.5 py-0.5 cursor-pointer transition-colors`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className={`${cls} rounded-sm px-0.5 cursor-pointer transition-all inline-block`}
                 onMouseEnter={e => handleMouseEnter(part, e)}
                 onMouseLeave={() => setPopoverContent(null)}
               >
                 {part}
-              </span>
+              </motion.span>
             );
           }
           return <React.Fragment key={i}>{part}</React.Fragment>;
@@ -328,7 +332,6 @@ export const TranslatorWorkspace: React.FC = () => {
     );
   }, [translatedText, analysisResults, handleSynchronizedScroll]);
 
-  // ── 공통 아이콘 버튼 ──────────────────────────────────────
   const IconBtn = ({
     onClick, disabled, title, children, className = '',
   }: {
@@ -341,7 +344,7 @@ export const TranslatorWorkspace: React.FC = () => {
       title={title}
       className={[
         'p-1.5 rounded-lg border border-transparent transition-all',
-        'text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border',
+        'text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:border-border/50',
         'disabled:opacity-40 disabled:cursor-not-allowed',
         className,
       ].join(' ')}
@@ -351,115 +354,142 @@ export const TranslatorWorkspace: React.FC = () => {
   );
 
   return (
-    <div className="flex w-full h-full gap-4 min-h-0">
-      <div className="flex flex-col flex-1 gap-4 min-h-0">
+    <div className="flex w-full h-full gap-5 min-h-0">
+      <div className="flex flex-col flex-1 gap-5 min-h-0">
 
-        {/* ── 컨트롤 바 ── */}
-        <div className="flex-shrink-0 flex items-center justify-between flex-wrap gap-3
-          bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
+        {/* ── 헤더 & 컨트롤 유닛 ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex-shrink-0 flex flex-col gap-4 p-5 rounded-3xl bg-card/40 backdrop-blur-xl border border-white/10 shadow-xl"
+        >
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
+                <Globe className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
+                  고성능 AI 전문 번역기
+                  <span className="text-[10px] font-black px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 uppercase tracking-widest shadow-sm shadow-primary/10">Premium</span>
+                </h1>
+                <p className="text-sm text-muted-foreground/80 font-medium">문맥 인지 모델이 실시간으로 전문 용어를 분석하고 최적의 번역을 제공합니다.</p>
+              </div>
+            </div>
 
-          {/* 언어 선택 */}
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <label htmlFor="target-lang-select" className="text-sm font-bold text-foreground whitespace-nowrap">
-              번역 언어
-            </label>
-            <select
-              id="target-lang-select"
-              value={targetLanguage}
-              onChange={e => setTargetLanguage(e.target.value)}
-              className={[
-                'bg-background border border-border text-foreground text-sm rounded-lg px-3 py-1.5',
-                'focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none',
-                'transition-colors cursor-pointer',
-              ].join(' ')}
-            >
-              {LANGUAGES.map(l => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+               <button
+                onClick={() => setHelpModalOpen(true)}
+                className="group flex items-center gap-2 px-5 py-3 text-[13px] font-bold rounded-2xl border border-border/40
+                  bg-background/40 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-background/60 transition-all shadow-sm"
+              >
+                <HelpCircle className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" /> 사용 가이드
+              </button>
+
+              <input type="file" ref={fileInputRef} onChange={handleFileChange}
+                accept=".txt,.pdf,.docx" className="hidden" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+                className="group flex items-center gap-2 px-5 py-3 text-[13px] font-bold rounded-2xl border border-border/40
+                  bg-background/40 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-background/60
+                  disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                <Upload className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" /> 파일 분석
+              </button>
+            </div>
           </div>
 
-          {/* 액션 버튼들 */}
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent opacity-50" />
 
-            {/* 사용법 */}
-            <button
-              onClick={() => setHelpModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-border
-                bg-card text-muted-foreground hover:text-foreground hover:bg-muted hover:border-primary/40 transition-all"
-            >
-              <HelpCircle className="w-4 h-4" /> 사용법
-            </button>
+          {/* 실질적 컨트롤 영역 */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-muted/30 border border-border/40">
+                <Globe className="w-3.5 h-3.5 text-primary/60" />
+                <span className="text-[13px] font-bold text-muted-foreground">도착 언어</span>
+                <div className="w-px h-3 bg-border" />
+                <select
+                  id="target-lang-select"
+                  value={targetLanguage}
+                  onChange={e => setTargetLanguage(e.target.value)}
+                  className="bg-transparent text-foreground text-[13px] font-bold outline-none cursor-pointer pr-2 appearance-none"
+                >
+                  {LANGUAGES.map(l => (
+                    <option key={l.value} value={l.value}>{l.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              </div>
 
-            {/* 파일 불러오기 */}
-            <input type="file" ref={fileInputRef} onChange={handleFileChange}
-              accept=".txt,.pdf,.docx" className="hidden" />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-border
-                bg-card text-muted-foreground hover:text-foreground hover:bg-muted hover:border-primary/40
-                disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              <Upload className="w-4 h-4" /> 파일 불러오기
-            </button>
+              <button
+                onClick={handleReverseTranslate}
+                disabled={isLoading || isReverseLoading || !translatedText || !sourceLanguage}
+                className="flex items-center gap-2 px-5 py-2.5 text-[13px] font-bold rounded-2xl border border-emerald-500/20
+                  bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10
+                  hover:border-emerald-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm"
+              >
+                {isReverseLoading
+                  ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  : <ArrowRightLeft className="w-3.5 h-3.5" />
+                }
+                역번역 검증
+              </button>
+            </div>
 
-            {/* 역번역 */}
-            <button
-              onClick={handleReverseTranslate}
-              disabled={isLoading || isReverseLoading || !translatedText || !sourceLanguage}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border border-border
-                bg-card text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30
-                hover:border-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {isReverseLoading
-                ? <><div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> 확인 중...</>
-                : <><ArrowRightLeft className="w-4 h-4" /> 역번역 확인</>
-              }
-            </button>
-
-            {/* 번역 & 분석 (메인 액션) */}
             <button
               onClick={handleAnalysis}
               disabled={isLoading || !sourceText.trim()}
               className={[
-                'flex items-center gap-1.5 px-4 py-2 text-sm font-bold rounded-xl transition-all',
-                'text-white bg-gradient-to-r from-primary to-accent',
-                'hover:opacity-90 hover:shadow-md hover:-translate-y-0.5',
-                'disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0',
+                'flex items-center gap-2 px-6 py-3 text-sm font-black rounded-2xl transition-all shadow-lg',
+                'text-white bg-gradient-to-r from-primary to-accent shadow-primary/20',
+                'hover:opacity-90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0',
+                'disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none',
               ].join(' ')}
             >
-              <Sparkles className="w-4 h-4" />
-              번역 및 분석
+              <Zap className={`w-4 h-4 ${isLoading ? 'animate-pulse' : ''}`} />
+              스마트 번역 및 분석 시작
             </button>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── 텍스트 패널 (2-column) ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 flex-1 min-h-0">
 
           {/* ══ 원문 패널 ══ */}
-          <div className="flex flex-col bg-card rounded-2xl border border-border shadow-md overflow-hidden min-h-0">
-
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="group flex flex-col bg-card/50 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden min-h-0 transition-all hover:border-primary/30 hover:shadow-primary/5"
+          >
             {/* 패널 헤더 */}
-            <div className="flex-shrink-0 flex justify-between items-center px-4 py-3 border-b border-border bg-muted/30">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-sm font-bold text-foreground">원문 (Source)</h2>
-                {sourceLanguage && (
-                  <span className="text-xs bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-medium">
-                    {getLanguageDisplay(sourceLanguage)}
-                  </span>
-                )}
-                {detectedDomain && (
-                  <span className="text-xs bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded-full font-medium">
-                    {getKoreanDomainDisplay(detectedDomain)}
-                  </span>
-                )}
+            <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-white/5 bg-muted/20">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-primary" />
+                </div>
+                <h2 className="text-sm font-black text-foreground tracking-tight">원문 데이터</h2>
+                <AnimatePresence>
+                  {sourceLanguage && (
+                    <motion.span
+                      initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                      className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full font-black uppercase tracking-widest"
+                    >
+                      {getLanguageDisplay(sourceLanguage)}
+                    </motion.span>
+                  )}
+                  {detectedDomain && (
+                    <motion.span
+                      initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                      className="text-[10px] bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2.5 py-1 rounded-full font-black uppercase tracking-widest"
+                    >
+                      {getKoreanDomainDisplay(detectedDomain)}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </div>
 
-              <div className="flex items-center gap-1">
-                {/* 소스 복사 */}
+              <div className="flex items-center gap-1.5">
                 <div className="relative">
                   <IconBtn onClick={handleSourceCopy} disabled={!sourceText} title="복사">
                     {showSourceCopySuccess
@@ -468,41 +498,33 @@ export const TranslatorWorkspace: React.FC = () => {
                     }
                   </IconBtn>
                   {showSourceCopySuccess && (
-                    <span className="absolute -top-8 right-1/2 translate-x-1/2 px-2 py-1 text-xs
-                      text-white bg-emerald-600 rounded-lg whitespace-nowrap z-10 shadow-md">
-                      복사됨!
-                    </span>
+                     <motion.span
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="absolute -top-10 right-0 px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 rounded-xl whitespace-nowrap z-10 shadow-xl"
+                    >
+                      복사 완료!
+                    </motion.span>
                   )}
                 </div>
 
-                {/* 소스 저장 */}
                 <div className="relative">
-                  <IconBtn
-                    onClick={() => setSourceSaveMenuOpen(p => !p)}
-                    disabled={!sourceText}
-                    title="파일 저장"
-                  >
+                  <IconBtn onClick={() => setSourceSaveMenuOpen(p => !p)} disabled={!sourceText} title="내보내기">
                     <Download className="w-4 h-4" />
                   </IconBtn>
-                  {isSourceSaveMenuOpen && (
-                    <div ref={sourceSaveMenuRef}
-                      className="absolute top-full right-0 mt-1.5 w-32 bg-card border border-border
-                        rounded-xl shadow-xl z-20 overflow-hidden py-1">
-                      <button onClick={() => handleSourceSaveFile('txt')}
-                        className="block w-full text-left px-4 py-2.5 text-xs font-medium text-foreground
-                          hover:bg-primary/10 hover:text-primary transition-colors">
-                        .txt 파일
-                      </button>
-                      <button onClick={() => handleSourceSaveFile('docx')}
-                        className="block w-full text-left px-4 py-2.5 text-xs font-medium text-foreground
-                          hover:bg-primary/10 hover:text-primary transition-colors">
-                        .docx 파일
-                      </button>
-                    </div>
-                  )}
+                  <AnimatePresence>
+                    {isSourceSaveMenuOpen && (
+                      <motion.div
+                        ref={sourceSaveMenuRef}
+                        initial={{ opacity: 0, scale: 0.95, y: 5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute top-full right-0 mt-2 w-36 bg-card border border-white/10 rounded-2xl shadow-elevated z-50 overflow-hidden py-1.5 backdrop-blur-2xl"
+                      >
+                        <button onClick={() => handleSourceSaveFile('txt')} className="block w-full text-left px-4 py-2.5 text-[12px] font-bold text-foreground hover:bg-primary/10 hover:text-primary transition-colors">.TXT 텍스트</button>
+                        <button onClick={() => handleSourceSaveFile('docx')} className="block w-full text-left px-4 py-2.5 text-[12px] font-bold text-foreground hover:bg-primary/10 hover:text-primary transition-colors">.DOCX 워드</button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {/* 지우기 */}
                 {sourceText && (
                   <IconBtn
                     onClick={() => {
@@ -519,7 +541,7 @@ export const TranslatorWorkspace: React.FC = () => {
             </div>
 
             {/* 텍스트 영역 */}
-            <div className="flex-1 relative min-h-0">
+            <div className="flex-1 relative min-h-0 bg-background/20 group-hover:bg-background/40 transition-colors">
               <textarea
                 ref={sourceRef}
                 onScroll={handleSynchronizedScroll}
@@ -530,36 +552,42 @@ export const TranslatorWorkspace: React.FC = () => {
                   setSourceLanguage(null); setAnalysisResults(null);
                   setTranslatedText(''); setTranslationEditing(true);
                 }}
-                placeholder="번역할 텍스트를 입력하거나 파일을 업로드하세요..."
+                placeholder="이곳에 번역할 비즈니스 텍스트를 입력하거나 문서를 업로드하세요..."
                 className={[
-                  'absolute inset-0 p-4 bg-transparent resize-none outline-none',
+                  'absolute inset-0 p-6 bg-transparent resize-none outline-none custom-scrollbar',
                   'text-sm text-foreground leading-relaxed',
-                  'placeholder:text-muted-foreground/50',
+                  'placeholder:text-muted-foreground/30 font-medium',
                 ].join(' ')}
                 disabled={isLoading}
               />
             </div>
-          </div>
+          </motion.div>
 
           {/* ══ 번역문 패널 ══ */}
-          <div className="flex flex-col bg-card rounded-2xl border border-border shadow-md overflow-hidden min-h-0">
-
+          <motion.div
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="group flex flex-col bg-card/50 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden min-h-0 transition-all hover:border-accent/30 hover:shadow-accent/5"
+          >
             {/* 패널 헤더 */}
-            <div className="flex-shrink-0 flex justify-between items-center px-4 py-3 border-b border-border bg-muted/30">
-              <h2 className="text-sm font-bold text-foreground">번역문 (Translation)</h2>
+            <div className="flex-shrink-0 flex justify-between items-center px-6 py-4 border-b border-white/5 bg-muted/20">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center shadow-inner">
+                  <Sparkles className="w-4 h-4 text-accent" />
+                </div>
+                <h2 className="text-sm font-black text-foreground tracking-tight">인공지능 번역 결과</h2>
+              </div>
 
-              <div className="flex items-center gap-1">
-                {/* 편집/보기 토글 */}
+              <div className="flex items-center gap-1.5">
                 <IconBtn
                   onClick={() => setTranslationEditing(p => !p)}
                   disabled={!translatedText || !analysisResults}
-                  title={isTranslationEditing ? '하이라이트 보기' : '편집 모드'}
-                  className={isTranslationEditing ? '' : 'text-primary border-primary/30 bg-primary/10'}
+                  title={isTranslationEditing ? '분석 하이라이트 보기' : '편집 모드 전환'}
+                  className={!isTranslationEditing && translatedText ? 'text-primary border-primary/20 bg-primary/10' : ''}
                 >
                   <Pencil className="w-4 h-4" />
                 </IconBtn>
 
-                {/* 번역문 복사 */}
                 <div className="relative">
                   <IconBtn onClick={handleCopy} disabled={!translatedText} title="복사">
                     {showCopySuccess
@@ -568,70 +596,77 @@ export const TranslatorWorkspace: React.FC = () => {
                     }
                   </IconBtn>
                   {showCopySuccess && (
-                    <span className="absolute -top-8 right-1/2 translate-x-1/2 px-2 py-1 text-xs
-                      text-white bg-emerald-600 rounded-lg whitespace-nowrap z-10 shadow-md">
-                      복사됨!
-                    </span>
+                     <motion.span
+                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="absolute -top-10 right-0 px-3 py-1.5 text-[11px] font-bold text-white bg-emerald-600 rounded-xl whitespace-nowrap z-10 shadow-xl"
+                    >
+                      복사 완료!
+                    </motion.span>
                   )}
                 </div>
 
-                {/* 번역문 저장 */}
                 <div className="relative">
-                  <IconBtn
-                    onClick={() => setSaveMenuOpen(p => !p)}
-                    disabled={!translatedText}
-                    title="파일 저장"
-                  >
+                  <IconBtn onClick={() => setSaveMenuOpen(p => !p)} disabled={!translatedText} title="내보내기">
                     <Download className="w-4 h-4" />
                   </IconBtn>
-                  {isSaveMenuOpen && (
-                    <div ref={saveMenuRef}
-                      className="absolute top-full right-0 mt-1.5 w-32 bg-card border border-border
-                        rounded-xl shadow-xl z-20 overflow-hidden py-1">
-                      <button onClick={() => handleSaveFile('txt')}
-                        className="block w-full text-left px-4 py-2.5 text-xs font-medium text-foreground
-                          hover:bg-primary/10 hover:text-primary transition-colors">
-                        .txt 파일
-                      </button>
-                      <button onClick={() => handleSaveFile('docx')}
-                        className="block w-full text-left px-4 py-2.5 text-xs font-medium text-foreground
-                          hover:bg-primary/10 hover:text-primary transition-colors">
-                        .docx 파일
-                      </button>
-                    </div>
-                  )}
+                  <AnimatePresence>
+                    {isSaveMenuOpen && (
+                      <motion.div
+                        ref={saveMenuRef}
+                        initial={{ opacity: 0, scale: 0.95, y: 5 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                        className="absolute top-full right-0 mt-2 w-36 bg-card border border-white/10 rounded-2xl shadow-elevated z-50 overflow-hidden py-1.5 backdrop-blur-2xl"
+                      >
+                        <button onClick={() => handleSaveFile('txt')} className="block w-full text-left px-4 py-2.5 text-[12px] font-bold text-foreground hover:bg-accent/10 hover:text-accent transition-colors">.TXT 텍스트</button>
+                        <button onClick={() => handleSaveFile('docx')} className="block w-full text-left px-4 py-2.5 text-[12px] font-bold text-foreground hover:bg-accent/10 hover:text-accent transition-colors">.DOCX 워드</button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
 
             {/* 번역 결과 영역 */}
-            <div className="flex-1 relative min-h-0">
+            <div className="flex-1 relative min-h-0 bg-background/20 group-hover:bg-background/40 transition-colors">
 
               {/* 로딩 오버레이 */}
-              {isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center
-                  bg-card/80 backdrop-blur-sm z-10 rounded-b-2xl">
-                  <Loader message={loadingMessage} />
-                </div>
-              )}
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex items-center justify-center bg-card/40 backdrop-blur-md z-10"
+                  >
+                    <Loader message={loadingMessage} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* 에러 오버레이 */}
               {error && !isLoading && (
-                <div className="absolute inset-0 flex items-center justify-center
-                  bg-card/80 backdrop-blur-sm z-10 rounded-b-2xl p-6">
-                  <div className="text-center space-y-2">
-                    <p className="text-destructive font-bold text-sm">오류 발생</p>
-                    <p className="text-muted-foreground text-xs leading-relaxed">{error}</p>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="absolute inset-0 flex items-center justify-center z-10 p-8"
+                >
+                  <div className="max-w-xs w-full bg-destructive/10 border border-destructive/20 rounded-3xl p-6 text-center backdrop-blur-xl">
+                    <div className="w-12 h-12 rounded-full bg-destructive/20 flex items-center justify-center mx-auto mb-4">
+                      <X className="w-6 h-6 text-destructive" />
+                    </div>
+                    <p className="text-sm font-black text-destructive mb-1">분석 중 오류 발생</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{error}</p>
+                    <button onClick={handleAnalysis} className="mt-4 text-xs font-bold text-destructive hover:underline">다시 시도</button>
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {/* 빈 상태 */}
               {!isLoading && !error && !translatedText && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3
-                  text-muted-foreground pointer-events-none">
-                  <Globe className="w-10 h-10 opacity-20" />
-                  <p className="text-sm">번역 결과가 여기에 표시됩니다</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground/30 pointer-events-none">
+                  <motion.div
+                    animate={{ y: [0, -5, 0] }}
+                    transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                  >
+                    <Globe className="w-16 h-16 opacity-10" />
+                  </motion.div>
+                  <p className="text-sm font-bold tracking-tight">분석을 시작하면 결과가 이곳에 표시됩니다</p>
                 </div>
               )}
 
@@ -644,16 +679,16 @@ export const TranslatorWorkspace: React.FC = () => {
                   onChange={e => setTranslatedText(e.target.value)}
                   placeholder="AI 번역 결과가 여기에 표시됩니다..."
                   className={[
-                    'absolute inset-0 p-4 bg-transparent resize-none outline-none',
-                    'text-sm text-foreground leading-relaxed',
-                    'placeholder:text-muted-foreground/50',
+                    'absolute inset-0 p-6 bg-transparent resize-none outline-none custom-scrollbar',
+                    'text-sm text-foreground leading-relaxed font-medium',
+                    'placeholder:text-muted-foreground/30',
                   ].join(' ')}
                 />
               ) : (
                 !isLoading && renderHighlightedTranslation()
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
       </div>
 
@@ -661,16 +696,18 @@ export const TranslatorWorkspace: React.FC = () => {
       <AnalysisPanel results={analysisResults} isLoading={isLoading} />
 
       {/* ── 모달 & 팝오버 ── */}
-      {isReverseModalOpen && (
-        <ReverseTranslationModal
-          isOpen={isReverseModalOpen}
-          onClose={() => setReverseModalOpen(false)}
-          originalText={translatedText}
-          reverseTranslation={reverseTranslation}
-          targetLanguage={sourceLanguage || ''}
-          isLoading={isReverseLoading}
-        />
-      )}
+      <AnimatePresence>
+        {isReverseModalOpen && (
+          <ReverseTranslationModal
+            isOpen={isReverseModalOpen}
+            onClose={() => setReverseModalOpen(false)}
+            originalText={translatedText}
+            reverseTranslation={reverseTranslation}
+            targetLanguage={sourceLanguage || ''}
+            isLoading={isReverseLoading}
+          />
+        )}
+      </AnimatePresence>
       <AnalysisPopover content={popoverContent} />
       <HelpModal isOpen={isHelpModalOpen} onClose={() => setHelpModalOpen(false)} />
     </div>

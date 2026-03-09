@@ -135,9 +135,16 @@ export async function exportToPptx(
   brand: BrandSettings = DEFAULT_BRAND
 ): Promise<void> {
   const pptx = new PptxGenJS();
-  pptx.layout = 'LAYOUT_WIDE'; // 16:9 비율 (13.33 x 7.5 inches)
+  pptx.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inches
   pptx.author = brand.companyName || 'WorkAI Presentation';
   pptx.title = presentation.title || 'Untitled';
+  
+  // ✅ 16:9 비율 최적화 상수 (ScaledSlide.tsx와 일치 유도)
+  const SW = 13.33;
+  const SH = 7.5;
+  const PAD_X = 0.75;
+  const PAD_Y = 0.55;
+  const TITLE_AREA_H = 1.2;
 
   // 사용자가 테마색을 크게 바꾸지 않았다면 기본 팔레트 사용
   const isBrandCustom = !!brand.primaryColor && brand.primaryColor !== '1B3A5C';
@@ -150,13 +157,11 @@ export async function exportToPptx(
   const SUBTEXT = '64748B';
   const BORDER = 'E2E8F0';
   const MUTED = 'F8FAFC';
-  const DARK = '1A2133';
+  const DARK = '0D2B2E'; // ScaledSlide P.dark 대응
 
-  // 해상도 비율 
-  const SW = 13.33;
-  const SH = 7.5;
-  const PAD_X = 0.8;
-  const PAD_Y = 0.6;
+  // ✅ 글꼴 크기 보정 계수 (웹 pt -> PPTX pt)
+  // PPTXGenJS의 텍스트 렌더링은 웹보다 약간 크게 보일 수 있으므로 0.95~1.0 사이 계수 적용
+  const FONT_SCALE = 1.0;
 
   for (const slide of presentation.slides) {
     const s = pptx.addSlide();
@@ -168,15 +173,15 @@ export async function exportToPptx(
 
     if (hasBg) {
       s.background = { path: bgUrl };
-      // 배경 이미지 위에 텍스트가 잘 보이도록 흰색 반투명 오버레이 처리
-      s.addShape('rect', { x: 0, y: 0, w: SW, h: SH, fill: { color: WHITE, transparency: 15 } });
+      s.addShape('rect', { x: 0, y: 0, w: SW, h: SH, fill: { color: WHITE, transparency: 18 } });
     } else {
       if (slide.type === 'title' || slide.type === 'quote' || slide.type === 'closing' || slide.type === 'summary' || slide.type === 'action') {
-        s.background = { color: DARK };
+        const titleBg = slide.bgGradient ? '#0D5C63' : DARK; // 그라디언트 대신 메인 컬러 단색 혹은 다크
+        s.background = { color: titleBg };
       } else if (slide.type === 'section') {
         s.background = { color: PRIMARY };
       } else {
-        s.background = { color: BG };
+        s.background = { color: 'F4F9F9' }; // ScaledSlide P.bg 대응
       }
     }
 
@@ -192,18 +197,18 @@ export async function exportToPptx(
         x: 1, y: SH * 0.35, w: SW - 2, h: 0.3, fontSize: 13, bold: true, color: WHITE, transparency: 40, charSpacing: 2, fontFace: SAFE_FONT
       });
       s.addText(safeString(slide.title), {
-        x: 1, y: SH * 0.35 + 0.3, w: SW - 2, h: TITLE_H + 0.5, fontSize: TITLE_PT + 16, bold: true, color: WHITE, fontFace: SAFE_FONT, valign: 'top'
+        x: 1, y: SH * 0.35 + 0.3, w: SW - 2, h: TITLE_H + 0.5, fontSize: (TITLE_PT + 16) * FONT_SCALE, bold: true, color: WHITE, fontFace: SAFE_FONT, valign: 'top'
       });
       if (slide.subhead) {
         s.addText(safeString(slide.subhead), {
-          x: 1, y: SH * 0.35 + TITLE_H + 0.8, w: SW - 2, h: 0.4, fontSize: CONTENT_PT + 2, color: PRIMARY, bold: true, fontFace: SAFE_FONT
+          x: 1, y: SH * 0.35 + TITLE_H + 0.8, w: SW - 2, h: 0.4, fontSize: (CONTENT_PT + 2) * FONT_SCALE, color: ACCENT, bold: true, fontFace: SAFE_FONT
         });
       }
-      s.addShape('rect', { x: 1, y: SH * 0.35 + TITLE_H + 1.4, w: 1, h: 0.05, fill: { color: PRIMARY } });
+      s.addShape('rect', { x: 1, y: SH * 0.35 + TITLE_H + 1.4, w: 1, h: 0.05, fill: { color: ACCENT } });
 
       if (slide.content && slide.content[0]) {
         s.addText(safeString(slide.content[0]), {
-          x: 1, y: SH * 0.35 + TITLE_H + 1.8, w: SW * 0.6, h: 1, fontSize: CONTENT_PT - 2, color: WHITE, transparency: 45, fontFace: SAFE_FONT, lineSpacing: 24, valign: 'top'
+          x: 1, y: SH * 0.35 + TITLE_H + 1.8, w: SW * 0.6, h: 1, fontSize: (CONTENT_PT - 2) * FONT_SCALE, color: WHITE, transparency: 40, fontFace: SAFE_FONT, lineSpacing: 24, valign: 'top'
         });
       }
       continue;
@@ -273,10 +278,10 @@ export async function exportToPptx(
     const sectionLabel = labelMapping[slide.type] || slide.type?.toUpperCase() || 'CONTENT';
 
     s.addText(sectionLabel, {
-      x: PAD_X, y: PAD_Y, w: 5, h: 0.2, fontSize: 11, bold: true, color: PRIMARY, charSpacing: 1.5, fontFace: SAFE_FONT
+      x: PAD_X, y: PAD_Y, w: 5, h: 0.2, fontSize: 10, bold: true, color: PRIMARY, charSpacing: 1.5, fontFace: SAFE_FONT
     });
     s.addText(safeString(slide.title), {
-      x: PAD_X, y: PAD_Y + 0.3, w: SW - (PAD_X * 2), h: TITLE_H + 0.2, fontSize: TITLE_PT, bold: true, color: TEXT, fontFace: SAFE_FONT, valign: 'top'
+      x: PAD_X, y: PAD_Y + 0.25, w: SW - (PAD_X * 2), h: TITLE_H + 0.2, fontSize: TITLE_PT * FONT_SCALE, bold: true, color: TEXT, fontFace: SAFE_FONT, valign: 'top'
     });
 
     let currentY = PAD_Y + 0.3 + TITLE_H + 0.2;
@@ -325,32 +330,33 @@ export async function exportToPptx(
         const kpiItems = slide.type === 'kpi' && slide.keyMetrics?.length ? slide.keyMetrics : contentItems;
         if (kpiItems && kpiItems.length > 0) {
           const cols = kpiItems.length <= 2 ? 2 : kpiItems.length <= 4 ? 2 : 3;
-          const gap = 0.4;
+          const gap = 0.3;
           const cardW = (mainW - (gap * (cols - 1))) / cols;
+          const cardH = 1.8;
 
           kpiItems.forEach((item: any, i: number) => {
             const isFirst = i === 0;
             const cx = contentX + (i % cols) * (cardW + gap);
-            const cy = contentY + Math.floor(i / cols) * 1.8;
+            const cy = contentY + Math.floor(i / cols) * (cardH + gap);
 
             s.addShape('rect', {
-              x: cx, y: cy, w: cardW, h: 1.6,
-              fill: { color: isFirst ? PRIMARY : MUTED },
-              line: { color: isFirst ? PRIMARY : BORDER, width: 1 },
-              rectRadius: 0.1,
-              shadow: isFirst ? { type: 'outer', blur: 15, offset: 5, color: PRIMARY, opacity: 0.3 } : undefined
+              x: cx, y: cy, w: cardW, h: cardH,
+              fill: { color: isFirst ? PRIMARY : 'FFFFFF' },
+              line: { color: isFirst ? PRIMARY : BORDER, width: 1.5 },
+              rectRadius: 0.15,
+              shadow: isFirst ? { type: 'outer', blur: 12, offset: 4, color: PRIMARY, opacity: 0.15 } : undefined
             });
 
             if (slide.type === 'kpi' && slide.keyMetrics?.length) {
-              s.addText(safeString(item.label), { x: cx + 0.2, y: cy + 0.2, w: cardW - 0.4, h: 0.3, fontSize: 10, bold: true, color: isFirst ? WHITE : SUBTEXT, transparency: isFirst ? 40 : 0, fontFace: SAFE_FONT });
-              s.addText(safeString(item.value), { x: cx + 0.2, y: cy + 0.6, w: cardW - 0.4, h: 0.5, fontSize: CONTENT_PT + 14, bold: true, color: isFirst ? WHITE : PRIMARY, fontFace: SAFE_FONT, valign: 'middle' });
+              s.addText(safeString(item.label), { x: cx + 0.2, y: cy + 0.25, w: cardW - 0.4, h: 0.3, fontSize: 10, bold: true, color: isFirst ? WHITE : SUBTEXT, transparency: isFirst ? 40 : 0, fontFace: SAFE_FONT });
+              s.addText(safeString(item.value), { x: cx + 0.2, y: cy + 0.65, w: cardW - 0.4, h: 0.6, fontSize: (CONTENT_PT + 16) * FONT_SCALE, bold: true, color: isFirst ? WHITE : PRIMARY, fontFace: SAFE_FONT, valign: 'middle' });
               if (item.description) {
-                s.addText(safeString(item.description), { x: cx + 0.2, y: cy + 1.2, w: cardW - 0.4, h: 0.3, fontSize: CONTENT_PT - 4, color: isFirst ? WHITE : TEXT, transparency: isFirst ? 20 : 0, fontFace: SAFE_FONT });
+                s.addText(safeString(item.description), { x: cx + 0.2, y: cy + 1.35, w: cardW - 0.4, h: 0.3, fontSize: (CONTENT_PT - 4) * FONT_SCALE, color: isFirst ? WHITE : TEXT, transparency: isFirst ? 25 : 0, fontFace: SAFE_FONT });
               }
             } else {
-              s.addShape('rect', { x: cx + 0.2, y: cy + 0.2, w: 0.4, h: 0.4, fill: { color: isFirst ? WHITE : PRIMARY, transparency: isFirst ? 75 : 85 }, rectRadius: 0.05 });
-              s.addText(String(i + 1).padStart(2, '0'), { x: cx + 0.2, y: cy + 0.2, w: 0.4, h: 0.4, color: isFirst ? WHITE : PRIMARY, bold: true, fontSize: 12, align: 'center', valign: 'middle', fontFace: SAFE_FONT });
-              s.addText(safeString(item), { x: cx + 0.2, y: cy + 0.8, w: cardW - 0.4, h: 0.6, color: isFirst ? WHITE : TEXT, fontSize: CONTENT_PT - 2, valign: 'top', fontFace: SAFE_FONT, lineSpacing: 20 });
+              s.addShape('rect', { x: cx + 0.2, y: cy + 0.25, w: 0.4, h: 0.4, fill: { color: isFirst ? WHITE : PRIMARY, transparency: isFirst ? 80 : 90 }, rectRadius: 0.08 });
+              s.addText(String(i + 1).padStart(2, '0'), { x: cx + 0.2, y: cy + 0.25, w: 0.4, h: 0.4, color: isFirst ? WHITE : PRIMARY, bold: true, fontSize: 11, align: 'center', valign: 'middle', fontFace: SAFE_FONT });
+              s.addText(safeString(item), { x: cx + 0.2, y: cy + 0.85, w: cardW - 0.4, h: 0.8, color: isFirst ? WHITE : TEXT, fontSize: (CONTENT_PT - 2) * FONT_SCALE, valign: 'top', fontFace: SAFE_FONT, lineSpacing: 22 });
             }
           });
         }
@@ -359,52 +365,52 @@ export async function exportToPptx(
       case 'compare':
         const leftItems = slide.leftItems ?? [];
         const rightItems = slide.rightItems ?? [];
-        const halfW = (mainW / 2) - 0.3;
+        const halfW = (mainW / 2) - 0.4;
 
         // AS-IS
-        s.addShape('rect', { x: contentX, y: contentY, w: halfW, h: contentH, fill: { color: PRIMARY, transparency: 88 }, line: { color: PRIMARY, transparency: 80, width: 1 }, rectRadius: 0.1 });
-        s.addText(safeString(slide.leftTitle || 'AS-IS').toUpperCase(), { x: contentX, y: contentY + 0.1, w: halfW, h: 0.4, fontSize: 11, bold: true, color: PRIMARY, align: 'center', charSpacing: 1.5, fontFace: SAFE_FONT });
+        s.addShape('rect', { x: contentX, y: contentY, w: halfW, h: contentH, fill: { color: 'FFFFFF' }, line: { color: PRIMARY, transparency: 70, width: 1.5 }, rectRadius: 0.15 });
+        s.addText(safeString(slide.leftTitle || 'AS-IS').toUpperCase(), { x: contentX, y: contentY + 0.15, w: halfW, h: 0.4, fontSize: 10, bold: true, color: PRIMARY, align: 'center', charSpacing: 1.5, fontFace: SAFE_FONT });
         if (leftItems.length > 0) {
           leftItems.forEach((text, i) => {
-            s.addShape('oval' as any, { x: contentX + 0.3, y: contentY + 0.7 + (i * 0.5), w: 0.08, h: 0.08, fill: { color: PRIMARY } });
-            s.addText(safeString(text), { x: contentX + 0.5, y: contentY + 0.6 + (i * 0.5), w: halfW - 0.7, h: 0.4, fontSize: CONTENT_PT, color: TEXT, fontFace: SAFE_FONT });
+            s.addShape('oval' as any, { x: contentX + 0.35, y: contentY + 0.85 + (i * 0.6), w: 0.08, h: 0.08, fill: { color: PRIMARY } });
+            s.addText(safeString(text), { x: contentX + 0.55, y: contentY + 0.75 + (i * 0.6), w: halfW - 0.8, h: 0.4, fontSize: (CONTENT_PT - 1) * FONT_SCALE, color: TEXT, fontFace: SAFE_FONT });
           });
         }
 
         // TO-BE
-        const rightX = contentX + halfW + 0.6;
-        s.addShape('rect', { x: rightX, y: contentY, w: halfW, h: contentH, fill: { color: MUTED }, line: { color: BORDER, width: 1 }, rectRadius: 0.1 });
-        s.addText(safeString(slide.rightTitle || 'TO-BE').toUpperCase(), { x: rightX, y: contentY + 0.1, w: halfW, h: 0.4, fontSize: 11, bold: true, color: SUBTEXT, align: 'center', charSpacing: 1.5, fontFace: SAFE_FONT });
+        const rightX = contentX + halfW + 0.8;
+        s.addShape('rect', { x: rightX, y: contentY, w: halfW, h: contentH, fill: { color: PRIMARY }, line: { color: PRIMARY, width: 1.5 }, rectRadius: 0.15, shadow: { type: 'outer', blur: 15, offset: 5, color: PRIMARY, opacity: 0.15 } });
+        s.addText(safeString(slide.rightTitle || 'TO-BE').toUpperCase(), { x: rightX, y: contentY + 0.15, w: halfW, h: 0.4, fontSize: 10, bold: true, color: WHITE, align: 'center', charSpacing: 1.5, fontFace: SAFE_FONT });
         if (rightItems.length > 0) {
           rightItems.forEach((text, i) => {
-            s.addShape('oval' as any, { x: rightX + 0.3, y: contentY + 0.7 + (i * 0.5), w: 0.08, h: 0.08, fill: { color: SUBTEXT } });
-            s.addText(safeString(text), { x: rightX + 0.5, y: contentY + 0.6 + (i * 0.5), w: halfW - 0.7, h: 0.4, fontSize: CONTENT_PT, color: TEXT, fontFace: SAFE_FONT });
+            s.addShape('oval' as any, { x: rightX + 0.35, y: contentY + 0.85 + (i * 0.6), w: 0.08, h: 0.08, fill: { color: WHITE } });
+            s.addText(safeString(text), { x: rightX + 0.55, y: contentY + 0.75 + (i * 0.6), w: halfW - 0.8, h: 0.4, fontSize: (CONTENT_PT - 1) * FONT_SCALE, color: WHITE, fontFace: SAFE_FONT });
           });
         }
 
         // VS Center
-        s.addShape('oval' as any, { x: contentX + halfW + 0.3 - 0.25, y: contentY + (contentH / 2) - 0.25, w: 0.5, h: 0.5, fill: { color: DARK } });
-        s.addText('VS', { x: contentX + halfW + 0.3 - 0.25, y: contentY + (contentH / 2) - 0.25, w: 0.5, h: 0.5, color: WHITE, fontSize: 10, bold: true, align: 'center', valign: 'middle' });
+        s.addShape('oval' as any, { x: contentX + halfW + 0.4 - 0.25, y: contentY + (contentH * 0.4), w: 0.5, h: 0.5, fill: { color: DARK }, line: { color: WHITE, width: 2 } });
+        s.addText('VS', { x: contentX + halfW + 0.4 - 0.25, y: contentY + (contentH * 0.4), w: 0.5, h: 0.5, color: WHITE, fontSize: 9, bold: true, align: 'center', valign: 'middle', fontFace: SAFE_FONT });
         break;
 
       case 'timeline':
         if (slide.milestones && slide.milestones.length > 0) {
-          const tX = contentX;
-          s.addShape('rect', { x: tX + 0.18, y: contentY + 0.1, w: 0.02, h: contentH - 0.2, fill: { color: BORDER } });
+          const tX = contentX + 0.2;
+          s.addShape('rect', { x: tX + 0.18, y: contentY + 0.2, w: 0.02, h: contentH - 0.4, fill: { color: BORDER } });
 
           slide.milestones.forEach((m, i) => {
-            const cy = contentY + 0.2 + (i * 1.0);
+            const cy = contentY + 0.2 + (i * 1.1);
             const isDone = m.state === 'done';
             const stateColor = isDone ? PRIMARY : m.state === 'next' ? 'F59E0B' : BORDER;
 
             s.addShape('oval' as any, { x: tX + 0.05, y: cy, w: 0.28, h: 0.28, fill: { color: isDone ? PRIMARY : WHITE }, line: { color: stateColor, width: 2 } });
-            s.addShape('rect', { x: tX + 0.6, y: cy - 0.1, w: mainW - 0.8, h: 0.7, fill: { color: isDone ? PRIMARY : MUTED, transparency: isDone ? 95 : 0 }, line: { color: isDone ? PRIMARY : BORDER, transparency: isDone ? 75 : 0, width: 1 }, rectRadius: 0.08 });
+            s.addShape('rect', { x: tX + 0.7, y: cy - 0.2, w: mainW - 1.2, h: 0.9, fill: { color: isDone ? 'F0F9F9' : 'FFFFFF' }, line: { color: isDone ? PRIMARY : BORDER, transparency: isDone ? 50 : 0, width: 1.5 }, rectRadius: 0.12 });
 
-            s.addText(safeString(m.label), { x: tX + 0.7, y: cy - 0.05, w: mainW - 2, h: 0.3, fontSize: CONTENT_PT, bold: true, color: TEXT, fontFace: SAFE_FONT });
-            s.addText(safeString(m.date), { x: tX + mainW - 1.5, y: cy - 0.05, w: 1, h: 0.3, fontSize: 10, bold: true, color: isDone ? PRIMARY : SUBTEXT, align: 'right', fontFace: SAFE_FONT });
+            s.addText(safeString(m.label).toUpperCase(), { x: tX + 0.85, y: cy - 0.15, w: mainW - 2.5, h: 0.3, fontSize: 10, bold: true, color: TEXT, fontFace: SAFE_FONT, charSpacing: 1 });
+            s.addText(safeString(m.date), { x: tX + mainW - 2.1, y: cy - 0.15, w: 1.2, h: 0.3, fontSize: 9, bold: true, color: isDone ? PRIMARY : SUBTEXT, align: 'right', fontFace: SAFE_FONT });
 
             if (m.description) {
-              s.addText(safeString(m.description), { x: tX + 0.7, y: cy + 0.25, w: mainW - 1, h: 0.3, fontSize: CONTENT_PT - 4, color: SUBTEXT, fontFace: SAFE_FONT });
+              s.addText(safeString(m.description), { x: tX + 0.85, y: cy + 0.2, w: mainW - 1.5, h: 0.35, fontSize: (CONTENT_PT - 4) * FONT_SCALE, color: SUBTEXT, fontFace: SAFE_FONT });
             }
           });
         }
@@ -415,21 +421,30 @@ export async function exportToPptx(
           const tableRows: any[][] = [];
           tableRows.push(slide.tableData.headers.map(h => ({
             text: safeString(h),
-            options: { fill: { color: PRIMARY }, color: WHITE, bold: true, fontSize: CONTENT_PT - 2, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.1 }
+            options: { fill: { color: 'F1F5F9' }, color: PRIMARY, bold: true, fontSize: (CONTENT_PT - 3) * FONT_SCALE, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.12 }
           })));
 
           slide.tableData.rows.forEach((row, rIdx) => {
-            const rowColor = rIdx % 2 === 0 ? WHITE : MUTED;
+            const rowColor = 'FFFFFF';
             tableRows.push(row.map((cell, ci) => ({
               text: safeString(cell),
-              options: { fill: { color: rowColor }, color: ci === 0 ? TEXT : SUBTEXT, bold: ci === 0, fontSize: CONTENT_PT - 2, fontFace: SAFE_FONT, align: 'left', valign: 'middle', margin: 0.1 }
+              options: { 
+                fill: { color: rowColor }, 
+                color: ci === 0 ? TEXT : SUBTEXT, 
+                bold: ci === 0, 
+                fontSize: (CONTENT_PT - 3) * FONT_SCALE, 
+                fontFace: SAFE_FONT, 
+                align: 'left', 
+                valign: 'middle', 
+                margin: 0.12,
+                border: [{ type: 'none' }, { type: 'none' }, { pt: 0.5, color: BORDER }, { type: 'none' }]
+              }
             })));
           });
 
           s.addTable(tableRows, {
             x: contentX, y: contentY, w: mainW,
-            border: [{ type: 'none' }, { type: 'none' }, { pt: 1, color: BORDER }, { type: 'none' }], // Bottom border only for a modern look
-            rowH: slide.tableDensity === 'compact' ? 0.3 : 0.5
+            rowH: slide.tableDensity === 'compact' ? 0.35 : 0.55
           });
         }
         break;
