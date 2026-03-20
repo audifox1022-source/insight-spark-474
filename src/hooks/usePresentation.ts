@@ -1,8 +1,9 @@
 // ============================================================
-// src/hooks/usePresentation.ts — 누락된 인덱스 반환 수정 완결판
+// src/hooks/usePresentation.ts
+// ✅ 강제 종료(forceAbort) 및 전역 상태 완전 초기화 포함 최종판
 // ============================================================
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { parseFile, ParsedFileData, buildAIPayload } from '@/lib/file-parser';
 import { PresentationSettings, Presentation, Slide, AppStep, SlideChartData } from '@/types/presentation';
 import { savePresentation, loadPresentations, deletePresentation, SavedPresentation } from '@/lib/presentation-storage';
@@ -156,6 +157,11 @@ export function usePresentation() {
     return localStorage.getItem('geminiApiKey') || '';
   });
 
+  // ✅ AbortController ref — 강제 종료 시 진행 중인 비동기 작업 중단
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // ✅ 딥 리서치 강제 종료 플래그 (AsyncGenerator 내부 탈출용)
+  const deepResearchAbortedRef = useRef(false);
+
   const setBrandKit = useCallback((kit: Partial<BrandKit>) => {
     setBrandKitState((prev) => {
       const next = { ...prev, ...kit };
@@ -251,21 +257,62 @@ export function usePresentation() {
     toast.success('주제가 입력되었습니다.');
   }, []);
 
+  // ✅ 전역 상태 완전 초기화 — catch/finally 어디서든 호출 가능
+  const resetLoadingState = useCallback(() => {
+    setIsGenerating(false);
+    setIsLoadingOutline(false);
+    setIsFixing(false);
+    setIsReviewing(false);
+    setIsGeneratingImage(false);
+    deepResearchAbortedRef.current = false;
+  }, []);
+
+  // ✅ 강제 종료 함수 — UI 킬스위치에서 호출
+  const forceAbortLoading = useCallback(() => {
+    // AbortController를 통한 진행 중 API 요청 중단
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    // 딥 리서치 플래그 설정 (AsyncGenerator 내부 탈출)
+    deepResearchAbortedRef.current = true;
+    // 모든 전역 로딩 상태를 즉시 false로 강제 초기화
+    resetLoadingState();
+    // 이전 화면(info 또는 upload)으로 복귀
+    setStep((prev) => {
+      if (prev === 'generating') return 'info';
+      if (prev === 'outline') return 'info';
+      return 'upload';
+    });
+    toast.warning('⛔ 작업이 강제 종료되었습니다. 이전 화면으로 돌아갑니다.');
+  }, [resetLoadingState]);
+
   const requestOutline = useCallback(async () => {
     if (parsedFiles.length === 0) { toast.error('자료가 없습니다.'); return; }
     setIsLoadingOutline(true);
     setStep('outline');
+    // 새 AbortController 등록
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(() => aiService.getOutline({ 
         fileData: payload, meetingInfo, settings: { ...settings, audience: useAudienceStore.getState().audienceMode }, template, referenceStructure 
       }), { maxRetries: 1 });
+      // 강제 종료된 경우 결과를 무시
+      if (controller.signal.aborted) return;
       setOutline({ title: resData.title ?? '새 발표 자료', outline: resData.outline || [] });
     } catch (err: any) {
-      toast.error(getKoreanErrorMessage(err));
-      setStep('info');
+      if (!controller.signal.aborted) {
+        toast.error(getKoreanErrorMessage(err));
+        setStep('info');
+      }
     } finally {
+      // ✅ 강제 종료 여부와 관계없이 전역 로딩 상태 반드시 해제
       setIsLoadingOutline(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
@@ -273,21 +320,32 @@ export function usePresentation() {
     if (parsedFiles.length === 0) { setStep('upload'); return; }
     setStep('generating');
     setIsGenerating(true);
+    // 새 AbortController 등록
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     try {
       const payload = buildAIPayload(parsedFiles);
       const resData = await retryWithBackoff(() => aiService.generatePresentation({ 
         fileData: payload, meetingInfo, settings: { ...settings, audience: useAudienceStore.getState().audienceMode }, template, approvedOutline, referenceStructure 
       }), { maxRetries: 1 });
+      // 강제 종료된 경우 결과를 무시
+      if (controller.signal.aborted) return;
       const { presentation: fixedPresentation } = validateAndFixPresentation(resData.presentation);
       setPresentation(normalizePresentationSlides(fixedPresentation));
-      setCurrentSlideIndex(0); // ✅ 화면 전환 시 슬라이드 0번으로 초기화
+      setCurrentSlideIndex(0);
       setStep('preview');
       toast.success('발표자료가 생성되었습니다!');
     } catch (err: any) {
-      toast.error(getKoreanErrorMessage(err));
-      setStep('info');
+      if (!controller.signal.aborted) {
+        toast.error(getKoreanErrorMessage(err));
+        setStep('info');
+      }
     } finally {
+      // ✅ 강제 종료 여부와 관계없이 전역 로딩 상태 반드시 해제
       setIsGenerating(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
   }, [parsedFiles, meetingInfo, settings, template, referenceStructure]);
 
@@ -299,6 +357,7 @@ export function usePresentation() {
     setDeepResearchStageIndex(0);
     setDeepResearchSourceCount(0);
     setDeepResearchElapsed(0);
+    deepResearchAbortedRef.current = false;
 
     // 주제 텍스트 추출
     const topic = meetingInfo?.week ||
@@ -314,6 +373,12 @@ export function usePresentation() {
       );
 
       for await (const progress of gen) {
+        // ✅ 강제 종료 플래그 확인 — AsyncGenerator 즉시 탈출
+        if (deepResearchAbortedRef.current) {
+          console.log('[DeepResearch] 강제 종료 플래그 감지, 파이프라인 중단');
+          return;
+        }
+
         setDeepResearchStage(progress.stage);
         setDeepResearchStageIndex(progress.stageIndex);
         setDeepResearchMessage(progress.message);
@@ -336,10 +401,15 @@ export function usePresentation() {
         }
       }
     } catch (err: any) {
-      toast.error(`딥 리서치 오류: ${err.message}`);
-      setStep('info');
+      // 강제 종료로 인한 중단은 오류 toast 표시 안 함
+      if (!deepResearchAbortedRef.current) {
+        toast.error(`딥 리서치 오류: ${err.message}`);
+        setStep('info');
+      }
     } finally {
+      // ✅ 강제 종료 여부와 관계없이 전역 로딩 상태 반드시 해제
       setIsGenerating(false);
+      deepResearchAbortedRef.current = false;
     }
   }, [parsedFiles, meetingInfo, settings, template]);
 
@@ -385,7 +455,6 @@ export function usePresentation() {
   const requestChatEdit = useCallback(async (message: string, slideIndex: number, currentSlide: Slide) => {
     try {
       const resData = await retryWithBackoff(() => aiService.chatEdit({ userMessage: message, currentSlide, slideIndex, presentation, selectedText }), { maxRetries: 1 });
-      // 부분 Patch JSON이므로 여기서 normalize를 수행하면 원본 필드가 소실될 수 있음. 바로 반환.
       return resData.result;
     } catch (err: any) {
       toast.error(getKoreanErrorMessage(err));
@@ -464,7 +533,7 @@ export function usePresentation() {
     setMeetingInfo(saved.meetingInfo);
     setSettings(saved.settings);
     setTemplate(saved.template);
-    setCurrentSlideIndex(0); // 히스토리 열 때도 0으로 초기화
+    setCurrentSlideIndex(0);
     setStep('preview');
     setHistoryOpen(false);
     toast.success(`"${saved.title}" 로드 완료`);
@@ -531,7 +600,6 @@ export function usePresentation() {
       const part2 = rawContent.slice(mid);
 
       const slide1 = { ...target, content: part1, title: `${target.title} (1/2)` };
-      // Omit id for the new clone
       const slide2 = { ...target, id: undefined, content: part2, title: `${target.title} (2/2)` };
 
       const slides = [...prev.slides];
@@ -549,8 +617,10 @@ export function usePresentation() {
     setPresentation(null);
     setOutline(null);
     setCurrentSlideIndex(0);
+    // ✅ 강제 종료 시에도 호환되도록 모든 로딩 상태 초기화
+    resetLoadingState();
     clearReferenceFile();
-  }, [clearReferenceFile]);
+  }, [clearReferenceFile, resetLoadingState]);
 
   const requestReview = useCallback(async () => {
     if (!presentation) return;
@@ -615,7 +685,7 @@ export function usePresentation() {
     }
   }, []);
 
-  // ✅ 누락되었던 return 블록의 완벽한 복구
+  // ✅ 완벽한 return 블록
   return {
     step, setStep,
     dataSummary: dataSummary(),
@@ -649,7 +719,7 @@ export function usePresentation() {
     // Brand Kit
     brandKit, setBrandKit,
 
-    // ✅ 이것이 없어서 Index.tsx가 undefined를 넘기고 화면이 터졌습니다!
+    // ✅ 슬라이드 인덱스
     currentSlideIndex, setCurrentSlideIndex,
 
     // ── 딥 리서치 모드 ──
@@ -657,5 +727,8 @@ export function usePresentation() {
     deepResearchStage, deepResearchStageIndex,
     deepResearchMessage, deepResearchSourceCount, deepResearchElapsed,
     generatePresentationWithDeepResearch,
+
+    // ✅ 강제 종료 콜백 — PresentationTab이 로딩 컴포넌트에 전달
+    forceAbortLoading,
   };
 }

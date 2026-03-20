@@ -1,9 +1,10 @@
 // ============================================================
 // GeneratingState.tsx — 3단계 파이프라인 시각화 UI (Feature 5)
+// ✅ [강제 종료] 버튼 및 자동 타임아웃 킬스위치 추가
 // ============================================================
 import { motion } from 'framer-motion';
-import { FileSearch, Brain, LayoutDashboard, Sparkles, CheckCircle2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { FileSearch, Brain, LayoutDashboard, Sparkles, CheckCircle2, XCircle } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
 import { PIPELINE_STAGES } from '@/lib/pipeline';
 
 // 파이프라인 단계와 내부 기존 단계를 매핑
@@ -34,12 +35,20 @@ const STEPS = [
   },
 ];
 
+// 일반 생성 최대 대기 시간
+const MAX_WAIT_MS = 3 * 60 * 1000; // 3분
+
 interface GeneratingStateProps {
   currentStage?: number; // 0~3 외부에서 주입 가능
+  /** 강제 종료 콜백 — 부모가 전달. 없으면 버튼 숨김 */
+  onForceAbort?: () => void;
 }
 
-export function GeneratingState({ currentStage }: GeneratingStateProps) {
+export function GeneratingState({ currentStage, onForceAbort }: GeneratingStateProps) {
   const [activeStep, setActiveStep] = useState(currentStage ?? 0);
+  const [timedOut, setTimedOut] = useState(false);
+  const mountedAt = useRef(Date.now());
+  const timeoutHandled = useRef(false);
 
   useEffect(() => {
     if (currentStage !== undefined) {
@@ -52,6 +61,29 @@ export function GeneratingState({ currentStage }: GeneratingStateProps) {
     }, 4000);
     return () => clearInterval(interval);
   }, [currentStage]);
+
+  // ── 자동 타임아웃 킬스위치 ────────────────────────────────
+  useEffect(() => {
+    const remaining = MAX_WAIT_MS - (Date.now() - mountedAt.current);
+    if (remaining <= 0 || timeoutHandled.current) return;
+
+    const timeout = setTimeout(() => {
+      if (timeoutHandled.current) return;
+      timeoutHandled.current = true;
+      setTimedOut(true);
+      if (onForceAbort) {
+        onForceAbort();
+      }
+    }, remaining);
+
+    return () => clearTimeout(timeout);
+  }, []); // 마운트 시 1회만 등록
+
+  const handleForceAbort = () => {
+    if (timeoutHandled.current) return;
+    timeoutHandled.current = true;
+    if (onForceAbort) onForceAbort();
+  };
 
   return (
     <motion.div
@@ -162,6 +194,35 @@ export function GeneratingState({ currentStage }: GeneratingStateProps) {
           );
         })}
       </div>
+
+      {/* ── 강제 종료 버튼 (킬스위치) ── */}
+      {onForceAbort && (
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={handleForceAbort}
+            className="
+              flex items-center gap-2 px-5 py-2.5 rounded-xl
+              border-2 border-red-400/60 bg-red-50 dark:bg-red-950/30
+              text-red-600 dark:text-red-400 font-bold text-sm
+              hover:bg-red-100 dark:hover:bg-red-900/40 hover:border-red-500
+              active:scale-95 transition-all duration-150 shadow-sm
+            "
+            title="진행 중인 요청을 즉시 중단하고 이전 화면으로 돌아갑니다"
+          >
+            <XCircle className="w-4 h-4" />
+            진행 취소 및 강제 종료
+          </button>
+          {timedOut && (
+            <motion.p
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-xs font-semibold text-red-500 text-center"
+            >
+              ⚠️ 3분 초과: 자동으로 종료를 시도합니다.
+            </motion.p>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

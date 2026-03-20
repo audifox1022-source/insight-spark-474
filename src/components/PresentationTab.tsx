@@ -105,6 +105,8 @@ export function PresentationTab(props: PresentationTabProps) {
     deepResearchStage, deepResearchStageIndex,
     deepResearchMessage, deepResearchSourceCount, deepResearchElapsed,
     generatePresentationWithDeepResearch,
+    // ✅ 강제 종료 콜백
+    forceAbortLoading,
   } = props;
 
   return (
@@ -331,8 +333,9 @@ export function PresentationTab(props: PresentationTabProps) {
                 message={deepResearchMessage}
                 sourceCount={deepResearchSourceCount}
                 elapsedSeconds={deepResearchElapsed}
+                onForceAbort={forceAbortLoading}
               />
-            : <GeneratingState />
+            : <GeneratingState onForceAbort={forceAbortLoading} />
         )}
 
         {/* STEP: preview (슬라이드 에디터) */}

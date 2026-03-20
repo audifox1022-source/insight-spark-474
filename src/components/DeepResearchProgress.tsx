@@ -1,16 +1,20 @@
 // ============================================================
 // src/components/DeepResearchProgress.tsx
 // 딥 리서치 파이프라인 진행 상황 시각화 UI
+// ✅ [강제 종료] 버튼 및 타임아웃 킬스위치 포함
 // ============================================================
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BookOpen, Globe, Search, Download, Brain, FileText,
-  Sparkles, CheckCircle2, Clock, Database,
+  Sparkles, CheckCircle2, Clock, Database, XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { DEEP_RESEARCH_STAGES, DeepResearchStage } from '@/lib/deep-research-pipeline';
 
 const STAGE_ICONS = [BookOpen, Globe, Search, Download, Brain, FileText, Sparkles];
+
+// ── 무한 로딩 방지: 최대 대기 시간 (ms) ──────────────────────
+const MAX_WAIT_MS = 5 * 60 * 1000; // 5분
 
 interface DeepResearchProgressProps {
   currentStage: DeepResearchStage;
@@ -18,6 +22,8 @@ interface DeepResearchProgressProps {
   message: string;
   sourceCount?: number;
   elapsedSeconds?: number;
+  /** 강제 종료 콜백 — 부모가 전달. 없으면 버튼 숨김 */
+  onForceAbort?: () => void;
 }
 
 export function DeepResearchProgress({
@@ -26,19 +32,25 @@ export function DeepResearchProgress({
   message,
   sourceCount = 0,
   elapsedSeconds = 0,
+  onForceAbort,
 }: DeepResearchProgressProps) {
   // 카운터 애니메이션용 로컬 상태
   const [displayedCount, setDisplayedCount] = useState(0);
   const [localElapsed, setLocalElapsed] = useState(elapsedSeconds);
+  // 자동 타임아웃이 발동됐을 때 사용자에게 알리기 위한 상태
+  const [timedOut, setTimedOut] = useState(false);
 
-  // 경과 시간 로컬 카운터 (1초마다 증가)
+  const mountedAt = useRef(Date.now());
+  const timeoutHandled = useRef(false);
+
+  // ── 경과 시간 로컬 카운터 ──────────────────────────────────
   useEffect(() => {
     setLocalElapsed(elapsedSeconds);
     const timer = setInterval(() => setLocalElapsed((t) => t + 1), 1000);
     return () => clearInterval(timer);
   }, [elapsedSeconds]);
 
-  // 출처 수 애니메이션
+  // ── 출처 수 애니메이션 ────────────────────────────────────
   useEffect(() => {
     if (sourceCount <= displayedCount) return;
     const step = Math.ceil((sourceCount - displayedCount) / 20);
@@ -52,6 +64,24 @@ export function DeepResearchProgress({
     return () => clearInterval(timer);
   }, [sourceCount]);
 
+  // ── 자동 타임아웃 킬스위치 ────────────────────────────────
+  useEffect(() => {
+    const remaining = MAX_WAIT_MS - (Date.now() - mountedAt.current);
+    if (remaining <= 0 || timeoutHandled.current) return;
+
+    const timeout = setTimeout(() => {
+      if (timeoutHandled.current) return;
+      timeoutHandled.current = true;
+      setTimedOut(true);
+      // onForceAbort가 있으면 자동 호출
+      if (onForceAbort) {
+        onForceAbort();
+      }
+    }, remaining);
+
+    return () => clearTimeout(timeout);
+  }, []); // 마운트 시 1회만 등록
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -59,8 +89,13 @@ export function DeepResearchProgress({
   };
 
   const progressPct = ((stageIndex + 1) / 7) * 100;
-
   const CurrentIcon = STAGE_ICONS[Math.min(stageIndex, 6)];
+
+  const handleForceAbort = () => {
+    if (timeoutHandled.current) return;
+    timeoutHandled.current = true;
+    if (onForceAbort) onForceAbort();
+  };
 
   return (
     <motion.div
@@ -124,6 +159,10 @@ export function DeepResearchProgress({
             {DEEP_RESEARCH_STAGES[Math.min(stageIndex, 6)]?.desc}
           </motion.p>
         </AnimatePresence>
+        {/* 현재 메시지 */}
+        {message && (
+          <p className="text-xs text-muted-foreground/70 mt-1 break-all">{message}</p>
+        )}
       </div>
 
       {/* 통계 카드 행 */}
@@ -217,10 +256,41 @@ export function DeepResearchProgress({
         })}
       </div>
 
-      {/* 안내 문구 */}
-      <p className="text-xs text-muted-foreground/70 text-center max-w-xs">
-        💡 딥 리서치는 약 3~5분 소요됩니다. 브라우저를 닫지 마세요.
-      </p>
+      {/* ── 안내 문구 + 강제 종료 버튼 (킬스위치) ── */}
+      <div className="flex flex-col items-center gap-3 w-full max-w-sm">
+        <p className="text-xs text-muted-foreground/70 text-center">
+          💡 딥 리서치는 약 3~5분 소요됩니다. 브라우저를 닫지 마세요.
+        </p>
+
+        {/* ✅ 물리적 킬스위치: [진행 취소 및 강제 종료] 버튼 */}
+        {onForceAbort && (
+          <button
+            onClick={handleForceAbort}
+            className="
+              flex items-center gap-2 px-5 py-2.5 rounded-xl
+              border-2 border-red-400/60 bg-red-50 dark:bg-red-950/30
+              text-red-600 dark:text-red-400 font-bold text-sm
+              hover:bg-red-100 dark:hover:bg-red-900/40 hover:border-red-500
+              active:scale-95 transition-all duration-150 shadow-sm
+            "
+            title="진행 중인 요청을 즉시 중단하고 이전 화면으로 돌아갑니다"
+          >
+            <XCircle className="w-4 h-4" />
+            진행 취소 및 강제 종료
+          </button>
+        )}
+
+        {/* 타임아웃 발동 시 경고 메시지 */}
+        {timedOut && (
+          <motion.p
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-xs font-semibold text-red-500 text-center"
+          >
+            ⚠️ 5분 초과: 자동으로 종료를 시도합니다.
+          </motion.p>
+        )}
+      </div>
     </motion.div>
   );
 }
