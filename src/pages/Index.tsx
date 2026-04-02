@@ -1,0 +1,326 @@
+// ============================================================
+// src/pages/Index.tsx (Work AI 통합 플랫폼 메인 - Ultimate Hardened)
+// [Phase 35] Deep Multimodal Data Transformation Pipeline integration
+// ============================================================
+import { useState, useRef, Suspense, useEffect } from 'react'
+import { usePresentation } from '@/hooks/usePresentation'
+import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
+import { useVisitorCount } from '@/hooks/useVisitorCount'
+import { PresentationTab } from '@/components/PresentationTab'
+import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
+import { SlideEditor } from '@/components/designer/SlideEditor'
+import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
+import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { LoadingScreen } from '@/loading' // [FIX] LoadingScreen 경로 확인 (기존 LoadingScreen 사용)
+import {
+  Sparkles, Moon, Sun, FolderOpen, Loader2,
+  HelpCircle, LogOut, Palette, Globe, CheckCircle2, 
+  ChevronLeft, Headphones, FileDigit, BookOpen, X, BarChart3
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '@/integrations/supabase/client'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
+
+// [FIX] LoadingScreen이 @/components/LoadingScreen 인지 확인
+import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
+
+const Index = () => {
+  const navigate = useNavigate()
+
+  // ── [Debug Tracker] ──
+  console.log('Rendering [Index] Component Startup Check');
+
+  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
+  const [activeApp, setActiveApp] = useState<AppMode>('presentation')
+  const translatorRef = useRef<{ handleBack: () => boolean }>(null)
+  const [themeMenuOpen, setThemeMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+
+  // ── [Safe Guard for Visitor Stats] ──
+  const visitorCountHook = useVisitorCount();
+  const visitorStats = (visitorCountHook || {}).stats || null;
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      toast.success('로그아웃 되었습니다.')
+      navigate('/auth', { replace: true })
+    } catch (err) {
+      console.error('Logout error:', err)
+      navigate('/auth', { replace: true })
+    }
+  }
+
+  // ── [Safe Guard for usePresentation] ──
+  const presentationHooks = usePresentation();
+  
+  // ── [Debug Tracker] ──
+  useEffect(() => {
+    console.log('Index Mounted. activeApp:', activeApp, 'visitorStats:', !!visitorStats);
+  }, []);
+
+  // ── [Rendering Guard: Physically preventing crash if hooks are missing] ──
+  if (!presentationHooks) {
+    console.warn('Index.tsx: presentationHooks is null, rendering LoadingScreen');
+    return <AppLoadingScreen />;
+  }
+
+  // ── [Mandatory Fallback & Safe Destructuring] ──
+  const step = presentationHooks.step || 'upload';
+  const isDark = presentationHooks.isDark || false;
+  const toggleDark = presentationHooks.toggleDark || (() => {});
+  const appTheme = presentationHooks.appTheme || 'blue';
+  const changeTheme = presentationHooks.changeTheme || (() => {});
+  const openHistory = presentationHooks.openHistory || (() => {});
+  const presentationData = presentationHooks.presentation || null;
+  const currentSlideIndex = presentationHooks.currentSlideIndex || 0;
+  const setCurrentSlideIndex = presentationHooks.setCurrentSlideIndex || (() => {});
+  const isGenerating = presentationHooks.isGenerating || false;
+  const template = presentationHooks.template || 'auto';
+  const setTemplate = presentationHooks.setTemplate || (() => {});
+  const dataSummary = presentationHooks.dataSummary || '';
+  const setDataSummary = presentationHooks.setDataSummary || (() => {});
+  const sourceFileData = presentationHooks.sourceFileData || '';
+  const setSourceFileData = presentationHooks.setSourceFileData || (() => {});
+
+  const guide = getStepGuide(step);
+
+  const handleBack = () => {
+    if (activeApp === 'designer') {
+      setActiveApp('presentation');
+      return;
+    }
+    if (activeApp === 'pdfeditor') {
+      setActiveApp('presentation');
+      return;
+    }
+    if (activeApp === 'translator' && translatorRef.current?.handleBack()) {
+      return;
+    }
+    if (activeApp === 'presentation' && step !== 'upload') {
+      presentationHooks.reset?.();
+      return;
+    }
+    
+    navigate('/');
+  };
+
+  const headerIcon = () => {
+    if (activeApp === 'pdfeditor') return <FileDigit className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'audiolab') return <Headphones className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
+    if (activeApp === 'designer') return <Palette className="w-[18px] h-[18px] text-primary-foreground" />
+    return <Sparkles className="w-[18px] h-[18px] text-primary-foreground" />
+  }
+
+  return (
+    <ErrorBoundary>
+      <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
+
+        {/* ── HEADER ───────────────────────────────────────────── */}
+        <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+          <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
+
+            <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+              <button 
+                onClick={() => {
+                  presentationHooks.reset?.();
+                  setActiveApp('presentation');
+                  toast.success('홈 화면으로 돌아왔습니다.');
+                  navigate('/');
+                }}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
+                <motion.div
+                  className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
+                  whileHover={{ scale: 1.08, rotate: 6 }}
+                >
+                  {headerIcon()}
+                </motion.div>
+                <div className="min-w-0 text-left">
+                  <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground">
+                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.1.0</span>
+                  </h1>
+                  <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
+                    AI 업무 자동화 플랫폼
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
+              {(['presentation', 'translator', 'audiolab', 'pdfeditor'] as AppMode[]).map((mode) => {
+                const labels: Record<string, string> = { presentation: '발표자료', translator: 'AI 번역', audiolab: 'Audio Lab', pdfeditor: 'PDF 편집' };
+                const Icons: Record<string, any> = { presentation: Sparkles, translator: Globe, audiolab: Headphones, pdfeditor: FileDigit };
+                const Icon = Icons[mode] || Sparkles;
+                
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setActiveApp(mode)}
+                    className={[
+                      'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
+                      activeApp === mode ? 'bg-background shadow-sm text-primary border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
+                    ].join(' ')}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {labels[mode] || mode}
+                  </button>
+                )
+              })}
+              <div className="w-px h-6 bg-border/60 mx-1.5" />
+              <button onClick={handleBack} className="flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg text-muted-foreground hover:text-foreground transition-all">
+                <ChevronLeft className="w-3.5 h-3.5" /> 뒤로
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {activeApp === 'presentation' && <StepIndicator currentStep={step} />}
+              <div className="w-px h-6 bg-border/60 mx-1.5 hidden sm:block" />
+              <Button variant="ghost" size="sm" onClick={openHistory} className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold">
+                <FolderOpen className="w-3.5 h-3.5" /> 저장 목록
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-8 h-8 text-muted-foreground hover:text-foreground"><HelpCircle className="w-4 h-4" /></Button>
+              <div className="relative">
+                <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-8 h-8 text-muted-foreground hover:text-foreground"><Palette className="w-4 h-4" /></Button>
+                <AnimatePresence>
+                  {themeMenuOpen && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1">
+                      {(['blue', 'navy', 'purple', 'green', 'orange'] as const).map(t => (
+                        <button key={t} onClick={() => { changeTheme(t); setThemeMenuOpen(false) }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-3">
+                          <div className={['w-3.5 h-3.5 rounded-full', t === 'blue' ? 'bg-blue-500' : t === 'navy' ? 'bg-slate-700' : t === 'purple' ? 'bg-purple-500' : t === 'green' ? 'bg-emerald-500' : 'bg-orange-500'].join(' ')} />
+                          <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>{t}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <Button variant="ghost" size="icon" onClick={toggleDark} className="w-8 h-8 text-muted-foreground">{isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</Button>
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="w-8 h-8 text-muted-foreground hover:text-destructive"><LogOut className="w-4 h-4" /></Button>
+            </div>
+          </div>
+        </header>
+
+        <HelpPopup open={helpOpen} onClose={() => setHelpOpen(false)} />
+
+        <Suspense fallback={<AppLoadingScreen />}>
+          <div className="flex-1 flex flex-col relative overflow-hidden">
+            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
+              <TranslatorWorkspace ref={translatorRef} />
+            </main>
+            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'audiolab' ? 'hidden' : ''}`}>
+              <AudioLabWorkspace />
+            </main>
+            <main className={`flex-1 w-full max-none mx-auto flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'pdfeditor' ? 'hidden' : ''}`}>
+              <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
+            </main>
+            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'designer' ? 'hidden' : ''}`}>
+              <SlideEditor 
+                onBack={() => setActiveApp('presentation')} 
+                presentation={presentationHooks.presentation || undefined}
+                currentSlide={presentationHooks.currentSlideIndex || 0}
+                onSave={presentationHooks.handleSave}
+                isSaving={presentationHooks.isSaving}
+                onRegenerateSlide={presentationHooks.regenerateSlide}
+                onOpenChat={() => presentationHooks.setChatOpen?.(true)}
+                onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
+                onAutoDesign={presentationHooks.reviewAndFixPresentation}
+                // [Phase 35] 데이터 파이프라인 관련 Props 전달
+                dataFiles={presentationHooks.dataFiles}
+                onDataFileUpload={presentationHooks.handleDataFileUpload}
+                onRemoveDataFile={presentationHooks.handleRemoveDataFile}
+                dataSummary={presentationHooks.dataSummary}
+              />
+            </main>
+            <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>
+              <PresentationTab 
+                {...(presentationHooks as any)} 
+                template={template} 
+                setTemplate={setTemplate} 
+                isGenerating={isGenerating} 
+                dataSummary={dataSummary} 
+                currentSlideIndex={currentSlideIndex}
+                setCurrentSlideIndex={setCurrentSlideIndex}
+                /** [Phase 38] 구성안 생성(계획 포함) 시 디자이너로 전환 */
+                handleGenerateOutline={() => {
+                  presentationHooks.handleGenerateOutline(() => {
+                    setActiveApp('designer');
+                  });
+                }}
+                /** [FIX] 생성 완료 콜백 시 즉시 디자이너로 전환 */
+                handleGenerateFull={(outline: any) => {
+                  presentationHooks.handleGenerateFull(outline, () => {
+                    setActiveApp('designer');
+                  });
+                }}
+                switchToDesigner={() => setActiveApp('designer')} 
+                sourceFileData={sourceFileData}
+                setSourceFileData={setSourceFileData}
+              />
+            </div>
+          </div>
+        </Suspense>
+
+        <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
+          <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span></p>
+            {visitorStats && (
+              <div className="flex items-center gap-4 text-[10px]">
+                <span>누적 방문 <span className="font-bold">{(visitorStats.total_visits || 0).toLocaleString()}</span></span>
+                <div className="w-px h-3 bg-border" />
+                <span>오늘 <span className="font-bold">{(visitorStats.today_visits || 0).toLocaleString()}</span></span>
+              </div>
+            )}
+          </div>
+        </footer>
+      </div>
+    </ErrorBoundary>
+  )
+}
+
+const HelpPopup = ({ open, onClose }: { open: boolean, onClose: () => void }) => (
+  <AnimatePresence>
+    {open && (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-3xl bg-card rounded-[32px] shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
+          <div className="flex items-center justify-between px-8 py-6 border-b border-border bg-muted/30">
+            <h2 className="text-xl font-bold flex items-center gap-3 italic"><BookOpen className="w-6 h-6 text-primary" /> WorkAI Guide & Pricing</h2>
+            <Button variant="ghost" size="icon" onClick={onClose} className="w-10 h-10 rounded-full"><X className="w-6 h-6" /></Button>
+          </div>
+          <div className="p-8 space-y-12 overflow-y-auto text-foreground custom-scrollbar">
+             <div className="space-y-4">
+               <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> WorkAI 플랫폼 유의사항</h3>
+               <p className="text-sm leading-relaxed text-muted-foreground font-medium">WorkAI는 AI 기술로 발표 자료 제작, 번역, 오디오 분석 등 복잡한 업무를 자동화합니다.</p>
+             </div>
+             <div className="space-y-6">
+               <h3 className="text-base font-black border-l-4 border-primary pl-3">💡 단계별 사용 방법</h3>
+               <div className="grid grid-cols-1 gap-4">
+                 <div className="flex gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary flex-shrink-0">1</div>
+                   <div><p className="font-bold text-sm mb-1">파일 업로드 또는 주제 입력</p><p className="text-xs text-muted-foreground leading-relaxed">준비된 데이터를 입력하세요.</p></div>
+                 </div>
+                 <div className="flex gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary flex-shrink-0">2</div>
+                   <div><p className="font-bold text-sm mb-1">상세 설정</p><p className="text-xs text-muted-foreground leading-relaxed">AI가 내용을 분석하는 동안 상세 옵션을 선택하세요.</p></div>
+                 </div>
+                 <div className="flex gap-4 p-4 rounded-2xl bg-muted/30 border border-border">
+                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary flex-shrink-0">3</div>
+                   <div><p className="font-bold text-sm mb-1">편집 및 내보내기</p><p className="text-xs text-muted-foreground leading-relaxed">생성 완료 후 '디자이너'에서 최종 편집을 진행하세요.</p></div>
+                 </div>
+               </div>
+             </div>
+          </div>
+          <div className="p-6 border-t border-border bg-muted/20 flex justify-center">
+             <Button onClick={onClose} className="rounded-2xl font-black px-12 h-12 shadow-xl shadow-primary/20">가이드 내용 확인 완료</Button>
+          </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+)
+
+export default Index

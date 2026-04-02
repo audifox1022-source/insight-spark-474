@@ -1,0 +1,5 @@
+project_id = "enbbfidgbylvhoivkvkj"
+
+[functions.generate-presentation]
+enabled = true
+verify_jwt = false
