@@ -2,7 +2,8 @@
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
 // [CRITICAL UPGRADE] Forensic & Strategic Analysis Pipeline Restore
 // [Engine] Gemini 2.5 Flash Engine Force Apply (404 FIX)
-// [STABILITY] finally 블록 강제 적용 및 20MB 용량 제한, 60초 타임아웃 방어 로직 완벽 구축
+// [STABILITY] finally 블록 강제 적용 및 10MB 용량 제한, 60초 타임아웃 방어 로직 완벽 구축
+// [TRACE] 사일런트 크래시 추적을 위한 단계 1 Console Logging 주입
 // [RETRY & FALLBACK] 503 에러 대응 및 지수 백오프 UI 연동 완벽 구현
 // [STABILITY] 100% Full Code Output (김현 님 지침 준수)
 // ============================================================
@@ -59,10 +60,10 @@ export const AudioLab: React.FC = () => {
       return;
     }
 
-    // [DEFENSE] 20MB 파일 용량 제한 (브라우저 메모리 및 타임아웃 방어)
-    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+    // [DEFENSE] 10MB 파일 용량 제한 (브라우저 메모리 및 타임아웃 방어 - 김현 님 긴급 지침)
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
     if (file.size > MAX_SIZE) {
-      toast.error("파일 용량이 너무 큽니다 (최대 20MB). 소형 파일로 시도해 주세요.", {
+      toast.error("10MB 이하의 오디오 파일만 분석할 수 있습니다. 용량을 줄여주세요.", {
         duration: 5000,
         icon: <AlertCircle className="text-red-500" />
       });
@@ -133,11 +134,21 @@ export const AudioLab: React.FC = () => {
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
+    // [STRICT DEFENSE] 실행 직전 용량 재검사 (10MB)
+    const MAX_SIZE = 10 * 1024 * 1024;
+    if (selectedFile.size > MAX_SIZE) {
+        toast.error("10MB 이하의 오디오 파일만 분석할 수 있습니다.");
+        return;
+    }
+
+    // [TRACE] 단계 1: 분석 시작 로깅
+    console.log(`[AudioLab] 단계 1: 분석 시작 버튼 클릭됨 (파일: ${selectedFile.name}, 크기: ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`);
+
     setStep('analyzing');
     setError(null);
     
     // [UI] 엔진 버전 명시 및 로딩 알림
-    const toastId = toast.loading("Gemini 2.5 Flash 엔진이 오디오 데이터를 전공 분석 중입니다. (60초 타임아웃 적용)");
+    const toastId = toast.loading("Gemini 2.5 Flash 엔진이 오디오 데이터를 정밀 분석 중입니다. (10MB 제한 적용)");
 
     try {
       // [Service Call] geminiAudioService.analyzeAudioDeep
@@ -153,19 +164,19 @@ export const AudioLab: React.FC = () => {
         throw new Error("AI 응답 데이터 구조가 올바르지 않습니다.");
       }
     } catch (err: any) {
-      console.error("Audio analysis final failure:", err);
+      console.error("❌ Audio analysis final failure:", err);
       
       // [GRACEFUL FALLBACK] 구체적인 에러 안내
       let userFriendlyMsg = "분석 중 알 수 없는 오류가 발생했습니다: " + (err.message || 'Unknown Error');
       
-      if (err.message?.includes("[TIMEOUT]")) {
+      if (err.message?.includes("10MB")) {
+         userFriendlyMsg = "10MB 이하의 오디오 파일만 분석할 수 있습니다. 용량을 줄여주세요.";
+      } else if (err.message?.includes("[TIMEOUT]")) {
          userFriendlyMsg = "분석 시간이 초과되었습니다 (60s). 인터넷 연결을 확인하거나 더 짧은 파일로 다시 시도해 주세요.";
       } else if (err.message?.includes("503") || err.message?.includes("부하")) {
          userFriendlyMsg = "현재 AI 서버에 접속자가 많아 분석이 지연되고 있습니다. 1~2분 후 다시 시도해 주십시오. (503 Service Unavailable)";
       } else if (err.message?.includes("429")) {
          userFriendlyMsg = "실시간 분석 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (429 Too Many Requests)";
-      } else if (err.message?.includes("용량")) {
-         userFriendlyMsg = err.message;
       }
 
       setError(userFriendlyMsg);
@@ -175,9 +186,7 @@ export const AudioLab: React.FC = () => {
       setStep('upload'); 
     } finally {
       // [CRITICAL] 어떤 경우에도 'analyzing' 상태에서 멈춤 현상이 발생하지 않도록 최종 보장
-      // 이미 성공 시 'result'로, 에러 시 'upload'로 이동했으므로, 
-      // 예기치 못한 상태 멈춤(Hang)을 방지하는 최후의 수단
-      console.log("Audio Lab Analysis Process - Finally Block Reached.");
+      console.log("[AudioLab] Audio Lab Analysis Process - Flow Completed.");
     }
   };
 
@@ -240,7 +249,7 @@ export const AudioLab: React.FC = () => {
                 </div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
                 <p className="text-[11px] text-slate-400 font-black mt-4 uppercase tracking-[0.4em]">Drag & Drop or Click to Select</p>
-                <p className="text-[9px] text-[#0D9488] font-black mt-2 tracking-widest opacity-50 uppercase">Max Size: 20MB</p>
+                <p className="text-[9px] text-[#0D9488] font-black mt-2 tracking-widest opacity-50 uppercase">Max Size: 10MB</p>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
@@ -320,7 +329,7 @@ export const AudioLab: React.FC = () => {
        <div className="space-y-4">
           <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">McKinsey Strategy Engine <br/>Deciphering Audio...</h3>
           <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed italic break-keep text-xs">
-            "인공지능이 음성 파형을 시맨틱 데이터로 변환하고 패턴을 분석 중입니다. <br/>하드 타임아웃(60s)이 적용되어 기술적 멈춤 현상을 원천 차단합니다."
+            "인공지능이 음성 파형을 시맨틱 데이터로 변환하고 패턴을 분석 중입니다. <br/>하드 타임아웃(60s) 및 10MB 정밀 검증이 적용되었습니다."
           </p>
           <div className="w-64 h-1 bg-slate-100 rounded-full mx-auto overflow-hidden">
              <motion.div 
@@ -355,7 +364,7 @@ export const AudioLab: React.FC = () => {
             </div>
             <div className="flex items-center gap-10">
                 <div className="flex gap-6">
-                    {['Engine 2.5', '60s Timeout', 'Max 20MB'].map(item => (
+                    {['Engine 2.5', '10MB Limit', 'Trace Active'].map(item => (
                         <span key={item} className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item}</span>
                     ))}
                 </div>

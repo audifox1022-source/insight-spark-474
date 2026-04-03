@@ -6,7 +6,8 @@ import * as prompts from './prompts';
  * [ENGINE] Gemini 2.5 Flash Engine Force Apply (404 FIX)
  * [RETRY] 지수 백오프 기반 자동 재시도 로직 (503/429 대응)
  * [TIMEOUT] 하드 타임아웃(60s) 및 비동기 체인 무결성 강화
- * [ARCHITECTURE] McKinsey 수준의 비즈니스 리포트 및 정밀 포렌식 데이터 추출
+ * [TRACE] 사일런트 크래시 추적을 위한 5단계 Console Logging 주입
+ * [STABILITY] 10MB 용량 제한 및 MIME 타입 검증 강화
  */
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -82,25 +83,48 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, message: string): Promi
 export const analyzeAudioDeep = async (file: File): Promise<any> => {
   if (!file) throw new Error('파일이 제공되지 않았습니다.');
 
-  // 파일 용량 최종 방어 (20MB)
-  const MAX_SIZE = 20 * 1024 * 1024;
+  // [STRICT DEFENSE] 파일 용량 10MB 제한 (사일런트 크래시 방어)
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
   if (file.size > MAX_SIZE) {
-    throw new Error('파일 용량이 20MB를 초과하여 분석할 수 없습니다.');
+    throw new Error('10MB 이하의 오디오 파일만 분석할 수 있습니다. 용량을 줄여주세요.');
   }
 
   return withTimeout(new Promise((resolve, reject) => {
     const reader = new FileReader();
 
     const timeoutId = setTimeout(() => {
+        console.error("❌ [Audio Service] FileReader 타임아웃 발생 (60s)");
         reader.abort();
         reject(new Error("파일 읽기 시간이 초과되었습니다 (60s)."));
     }, DEFAULT_TIMEOUT_MS);
 
+    // [TRACE] 단계 2: Base64 변환 시작
+    console.log(`[AudioLab] 단계 2: 오디오 파일 Base64 변환 시작 (필터링된 타입: ${file.type})`);
+
+    reader.onloadstart = () => console.log("[AudioLab] FileReader: Data loading started...");
+    reader.onprogress = (e) => {
+        if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            console.log(`[AudioLab] FileReader: Loading... ${percent.toFixed(1)}%`);
+        }
+    };
+
     reader.onloadend = async () => {
       clearTimeout(timeoutId);
+      
+      const rawResult = reader.result as string;
+      if (!rawResult) {
+          console.error("❌ [AudioLab] FileReader 결과가 비어있습니다 (Silent Fail)");
+          reject(new Error("파일 데이터 변환에 실패했습니다."));
+          return;
+      }
+
+      const base64Data = rawResult.split(',')[1];
+      
+      // [TRACE] 단계 3: Base64 변환 완료
+      console.log(`[AudioLab] 단계 3: Base64 변환 완료 (길이: ${base64Data.length})`);
+
       try {
-        const base64Data = (reader.result as string).split(',')[1];
-        
         const modelName = import.meta.env.VITE_GEMINI_MODEL || "gemini-2.5-flash";
         const model = genAI.getGenerativeModel({ 
           model: modelName, 
@@ -114,13 +138,16 @@ export const analyzeAudioDeep = async (file: File): Promise<any> => {
           - 음악 분석 시: ${prompts.GEMINI_AUDIO_MUSIC_ANALYSIS_PROMPT('한국어')}
         `;
 
+        // [TRACE] 단계 4: Gemini API 호출 시작
+        console.log(`[aiService] 단계 4: Gemini API 호출 시작 (MIME: ${file.type || 'audio/mpeg'})`);
+
         const result = await retryWithBackoff(async () => {
           return await model.generateContent([
             systemPrompt,
             {
               inlineData: {
                 data: base64Data,
-                mimeType: file.type
+                mimeType: file.type || 'audio/mpeg' // MIME 타입 보정
               }
             }
           ]);
@@ -128,22 +155,28 @@ export const analyzeAudioDeep = async (file: File): Promise<any> => {
 
         const response = await result.response;
         const text = response.text();
+        
+        // [TRACE] 단계 5: Gemini API 응답 수신 완료
+        console.log(`[aiService] 단계 5: Gemini API 응답 수신 완료 (텍스트 길이: ${text.length})`);
+
         const jsonResult = extractJson(text);
 
         if (jsonResult) {
           resolve(jsonResult);
         } else {
+          console.error("❌ [aiService] JSON 파싱 실패 - AI 응답 전문:", text);
           reject(new Error("AI 응답 데이터 구조가 올바르지 않습니다."));
         }
       } catch (innerErr: any) {
-        console.error("Gemini Deep Analysis Final Failure:", innerErr);
+        console.error("❌ [aiService] Gemini Deep Analysis Fail:", innerErr);
         reject(innerErr);
       }
     };
 
-    reader.onerror = () => {
+    reader.onerror = (e) => {
       clearTimeout(timeoutId);
-      reject(new Error("파일을 읽는 중 오류가 발생했습니다."));
+      console.error("❌ [AudioLab] FileReader 에러 발생 이벤트:", e);
+      reject(new Error("파일을 읽는 중 오류가 발생했습니다. (FileReader Error)"));
     };
     
     reader.readAsDataURL(file);
@@ -162,7 +195,7 @@ export const translateLiveAudio = async (audioBlob: Blob, targetLanguage: string
     const timeoutId = setTimeout(() => {
         reader.abort();
         reject(new Error("통역 데이터 변환 시간 초과."));
-    }, 15000); // 통역은 15초 타임아웃
+    }, 15000); 
 
     reader.onloadend = async () => {
       clearTimeout(timeoutId);
@@ -178,7 +211,7 @@ export const translateLiveAudio = async (audioBlob: Blob, targetLanguage: string
             {
               inlineData: {
                 data: base64Data,
-                mimeType: audioBlob.type
+                mimeType: audioBlob.type || 'audio/webm'
               }
             }
           ]);
@@ -205,3 +238,6 @@ export const geminiAudioService = {
   analyzeAudioDeep,
   translateLiveAudio
 };
+// ============================================================
+// © 2026 Work AI Audio Intelligence Engine
+// ============================================================
