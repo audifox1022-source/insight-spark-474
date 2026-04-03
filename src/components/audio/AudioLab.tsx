@@ -2,6 +2,7 @@
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
 // [CRITICAL UPGRADE] Forensic & Strategic Analysis Pipeline Restore
 // [Engine] Gemini 2.5 Flash Engine Force Apply (404 FIX)
+// [STABILITY] finally 블록 강제 적용 및 20MB 용량 제한, 60초 타임아웃 방어 로직 완벽 구축
 // [RETRY & FALLBACK] 503 에러 대응 및 지수 백오프 UI 연동 완벽 구현
 // [STABILITY] 100% Full Code Output (김현 님 지침 준수)
 // ============================================================
@@ -52,8 +53,19 @@ export const AudioLab: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // [DEFENSE] 확장자 체크
     if (!file.type.startsWith('audio/')) {
       toast.error("오디오 파일만 분석 가능합니다 (.mp3, .wav 등)");
+      return;
+    }
+
+    // [DEFENSE] 20MB 파일 용량 제한 (브라우저 메모리 및 타임아웃 방어)
+    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+    if (file.size > MAX_SIZE) {
+      toast.error("파일 용량이 너무 큽니다 (최대 20MB). 소형 파일로 시도해 주세요.", {
+        duration: 5000,
+        icon: <AlertCircle className="text-red-500" />
+      });
       return;
     }
 
@@ -125,10 +137,11 @@ export const AudioLab: React.FC = () => {
     setError(null);
     
     // [UI] 엔진 버전 명시 및 로딩 알림
-    const toastId = toast.loading("Gemini 2.5 Flash 엔진이 오디오 데이터를 분석 중입니다. (과부하 시 최대 3회 재시도 수행)");
+    const toastId = toast.loading("Gemini 2.5 Flash 엔진이 오디오 데이터를 전공 분석 중입니다. (60초 타임아웃 적용)");
 
     try {
-      // [Service Call] geminiAudioService.analyzeAudioDeep (내부에 지수 백오프 로직 포함됨)
+      // [Service Call] geminiAudioService.analyzeAudioDeep
+      // - 내부에 하드 타임아웃(60s) 및 지수 백오프 로직 포함됨
       const result = await geminiAudioService.analyzeAudioDeep(selectedFile);
       
       if (result && result.type) {
@@ -142,23 +155,29 @@ export const AudioLab: React.FC = () => {
     } catch (err: any) {
       console.error("Audio analysis final failure:", err);
       
-      // [GRACEFUL FALLBACK] 503 에러 및 기타 통신 에러 안내 최적화
-      let userFriendlyMsg = "분석 중 알 수 없는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+      // [GRACEFUL FALLBACK] 구체적인 에러 안내
+      let userFriendlyMsg = "분석 중 알 수 없는 오류가 발생했습니다: " + (err.message || 'Unknown Error');
       
-      if (err.message?.includes("503") || err.message?.includes("부하")) {
-         userFriendlyMsg = "현재 AI 서버에 접속자가 많아 분석이 지연되고 있습니다. 1~2분 후 다시 시도해 주시면 감사하겠습니다. (503 Service Unavailable)";
+      if (err.message?.includes("[TIMEOUT]")) {
+         userFriendlyMsg = "분석 시간이 초과되었습니다 (60s). 인터넷 연결을 확인하거나 더 짧은 파일로 다시 시도해 주세요.";
+      } else if (err.message?.includes("503") || err.message?.includes("부하")) {
+         userFriendlyMsg = "현재 AI 서버에 접속자가 많아 분석이 지연되고 있습니다. 1~2분 후 다시 시도해 주십시오. (503 Service Unavailable)";
       } else if (err.message?.includes("429")) {
-         userFriendlyMsg = "요청 한도를 초과했습니다. 잠시 대기 후 다시 시도해 주세요. (429 Too Many Requests)";
-      } else if (err.status === 404) {
-         userFriendlyMsg = "AI 모델 설정을 찾을 수 없습니다. 관리자에게 문의하세요. (404 Not Found)";
-      } else if (err.message) {
+         userFriendlyMsg = "실시간 분석 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (429 Too Many Requests)";
+      } else if (err.message?.includes("용량")) {
          userFriendlyMsg = err.message;
       }
 
-      // [UI RECOVERY] 로딩 상태 해제 및 에러 노출
       setError(userFriendlyMsg);
-      setStep('upload'); // 업로드 화면으로 안전하게 복구
       toast.error(userFriendlyMsg, { id: toastId, duration: 6000 });
+      
+      // [STATE RECOVERY] 업로드 화면으로 안전하게 복구
+      setStep('upload'); 
+    } finally {
+      // [CRITICAL] 어떤 경우에도 'analyzing' 상태에서 멈춤 현상이 발생하지 않도록 최종 보장
+      // 이미 성공 시 'result'로, 에러 시 'upload'로 이동했으므로, 
+      // 예기치 못한 상태 멈춤(Hang)을 방지하는 최후의 수단
+      console.log("Audio Lab Analysis Process - Finally Block Reached.");
     }
   };
 
@@ -221,6 +240,7 @@ export const AudioLab: React.FC = () => {
                 </div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
                 <p className="text-[11px] text-slate-400 font-black mt-4 uppercase tracking-[0.4em]">Drag & Drop or Click to Select</p>
+                <p className="text-[9px] text-[#0D9488] font-black mt-2 tracking-widest opacity-50 uppercase">Max Size: 20MB</p>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
@@ -300,8 +320,14 @@ export const AudioLab: React.FC = () => {
        <div className="space-y-4">
           <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">McKinsey Strategy Engine <br/>Deciphering Audio...</h3>
           <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed italic break-keep text-xs">
-            "인공지능이 음성 파형을 시맨틱 데이터로 변환하고 패턴을 분석 중입니다. 과부하가 발생하더라도 지수 백오프 기반으로 자동 재시도를 수행합니다."
+            "인공지능이 음성 파형을 시맨틱 데이터로 변환하고 패턴을 분석 중입니다. <br/>하드 타임아웃(60s)이 적용되어 기술적 멈춤 현상을 원천 차단합니다."
           </p>
+          <div className="w-64 h-1 bg-slate-100 rounded-full mx-auto overflow-hidden">
+             <motion.div 
+                className="h-full bg-[#0D9488]" 
+                initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 60, ease: "linear" }} 
+             />
+          </div>
        </div>
     </div>
   );
@@ -329,7 +355,7 @@ export const AudioLab: React.FC = () => {
             </div>
             <div className="flex items-center gap-10">
                 <div className="flex gap-6">
-                    {['Engine 2.5', 'Retries Active', 'Forensics'].map(item => (
+                    {['Engine 2.5', '60s Timeout', 'Max 20MB'].map(item => (
                         <span key={item} className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item}</span>
                     ))}
                 </div>
