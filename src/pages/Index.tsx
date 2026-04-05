@@ -12,7 +12,6 @@ import { SlideEditor } from '@/components/designer/SlideEditor'
 import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
 import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { LoadingScreen } from '@/loading' // [FIX] LoadingScreen 경로 확인 (기존 LoadingScreen 사용)
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2,
   HelpCircle, LogOut, Palette, Globe, CheckCircle2, 
@@ -222,7 +221,6 @@ const Index = () => {
               <SlideEditor 
                 onBack={() => setActiveApp('presentation')} 
                 presentation={presentationHooks.presentation || undefined}
-                currentSlide={presentationHooks.currentSlideIndex || 0}
                 onSave={presentationHooks.handleSave}
                 isSaving={presentationHooks.isSaving}
                 onRegenerateSlide={presentationHooks.regenerateSlide}
