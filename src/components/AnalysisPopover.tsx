@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // ✨ [경로 수정됨]
@@ -12,21 +12,56 @@ interface PopoverProps {
 }
 
 const isTerminologyTerm = (term: any): term is TerminologyTerm => {
-    return 'englishTerm' in term && 'description' in term;
+    return 'englishTerm' in term && 'definition' in term;
 };
 
-const AnalysisPopover: React.FC<PopoverProps> = ({ content }) => {
+export const AnalysisPopover: React.FC<PopoverProps> = ({ content }) => {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState({ top: 0, left: 0 });
+
+  useLayoutEffect(() => {
+    if (content && popoverRef.current) {
+      const { top, left } = content.position;
+      const { offsetWidth, offsetHeight } = popoverRef.current;
+      
+      let newTop = top + 20;
+      let newLeft = left + 20;
+
+      // 뷰포트 우측 경계 체크
+      if (newLeft + offsetWidth > window.innerWidth) {
+        newLeft = left - offsetWidth - 20;
+      }
+      
+      // 뷰포트 하단 경계 체크
+      if (newTop + offsetHeight > window.innerHeight) {
+        newTop = top - offsetHeight - 20;
+      }
+
+      // 최소값 방어 (상단/좌측으로 나가는 경우)
+      newLeft = Math.max(10, newLeft);
+      newTop = Math.max(10, newTop);
+
+      setAdjustedPosition({ top: newTop, left: newLeft });
+    }
+  }, [content]);
+
   return (
     <AnimatePresence>
       {content && (
         <motion.div
+          ref={popoverRef}
           initial={{ opacity: 0, scale: 0.9, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1, 
+            y: 0,
+            top: adjustedPosition.top,
+            left: adjustedPosition.left
+          }}
           exit={{ opacity: 0, scale: 0.9, y: 10 }}
-          className="fixed bg-card/60 backdrop-blur-2xl border border-primary/10 rounded-3xl shadow-elevated p-6 max-w-sm z-[100] text-sm pointer-events-none"
+          className="fixed bg-card/80 backdrop-blur-3xl border border-primary/20 rounded-3xl shadow-2xl p-6 max-w-sm z-[9999] text-sm pointer-events-none"
           style={{
-            top: `${content.position.top + 20}px`,
-            left: `${content.position.left + 20}px`,
+            position: 'fixed'
           }}
         >
           {isTerminologyTerm(content.term) ? (
@@ -38,7 +73,7 @@ const AnalysisPopover: React.FC<PopoverProps> = ({ content }) => {
                 </p>
               </div>
               <p className="text-muted-foreground font-medium text-xs leading-relaxed pl-3.5">
-                {content.term.description}
+                {(content.term as TerminologyTerm).definition}
               </p>
             </div>
           ) : (
@@ -48,9 +83,9 @@ const AnalysisPopover: React.FC<PopoverProps> = ({ content }) => {
                 <p className="font-black text-primary text-xs uppercase tracking-tight">문맥 분석 결과</p>
               </div>
               <div className="pl-3.5 space-y-1.5">
-                <p className="font-black text-foreground">{(content.term as ContextualTerm).koreanTerm}</p>
+                <p className="font-black text-foreground">{(content.term as ContextualTerm).originalContext}</p>
                 <p className="text-xs font-bold text-primary">추천: {(content.term as ContextualTerm).suggestedTranslation}</p>
-                <p className="text-[11px] text-muted-foreground font-medium italic">"{(content.term as ContextualTerm).alternatives}"</p>
+                <p className="text-[11px] text-muted-foreground font-medium italic">"{(content.term as ContextualTerm).reasoning}"</p>
               </div>
             </div>
           )}

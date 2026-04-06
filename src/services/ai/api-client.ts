@@ -54,6 +54,10 @@ export async function streamGeminiAPI(
     return fullText;
   } catch (err: any) {
     console.error("❌ [Streaming API Error]:", err);
+    const lowerMsg = (err.message || '').toLowerCase();
+    if (lowerMsg.includes('403') || lowerMsg.includes('401') || lowerMsg.includes('leaked') || lowerMsg.includes('api key')) {
+      throw new Error("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다. 관리자에게 문의하여 시스템 환경 변수(.env)를 업데이트해 주세요.");
+    }
     throw new Error(`AI 스트리밍 호출 실패: ${err.message || '모델 응답 없음'}`);
   }
 }
@@ -69,7 +73,6 @@ export async function callGeminiAPI(
   useWebSearch = false,
   signal?: AbortSignal
 ): Promise<string> {
-  // [HOTFIX] gemini-2.5-flash로 엔진 업그레이드 (404 방어)
   const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -82,23 +85,25 @@ export async function callGeminiAPI(
         return p; 
       });
 
-  console.log("💎 [System] callGeminiAPI v1.2.0 (MAX_TOKENS Defense applied)");
+  console.log("💎 [System] callGeminiAPI v1.3.0 (Stability Enhanced)");
   
   const systemPrefix = systemInstruction ? `[SYSTEM_INSTRUCTION]\n${systemInstruction}\n\n` : '';
-  const jsonRule = responseMimeType === 'application/json' ? "\n\nIMPORTANT: Return ONLY a valid JSON object." : "";
+  const jsonRule = responseMimeType === 'application/json' ? "\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or extra text outside the JSON." : "";
   
   const finalUserParts = [...userParts];
   if (finalUserParts.length > 0 && finalUserParts[0].text) {
     finalUserParts[0].text = systemPrefix + finalUserParts[0].text + jsonRule;
-  } else {
-    finalUserParts.unshift({ text: systemPrefix + "AI Assistant, please follow the instructions." + jsonRule });
+  } else if (finalUserParts.length === 0) {
+    finalUserParts.push({ text: systemPrefix + "No user prompt provided." + jsonRule });
   }
 
   const universalPayload: any = {
     contents: [{ role: "user", parts: finalUserParts }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: maxTokens, // [FIX] 상항 조절된 한도 적용
+      maxOutputTokens: maxTokens,
+      topP: 0.95,
+      topK: 40,
     },
   };
 
@@ -119,12 +124,6 @@ export async function callGeminiAPI(
         ? `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
         : PROXY_URL;
 
-      console.log("🚀 [AI Active Payload]:", {
-        url,
-        parts: universalPayload.contents[0].parts.length,
-        config: universalPayload.generationConfig
-      });
-
       const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -132,7 +131,7 @@ export async function callGeminiAPI(
         signal
       });
 
-      if (response.status === 429 || response.status === 503) {
+      if (response.status === 429 || response.status === 503 || response.status === 504) {
         const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
         await new Promise((res) => setTimeout(res, waitMs));
         continue;
@@ -140,24 +139,33 @@ export async function callGeminiAPI(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("❌ [AI API Error]:", errorData);
         const msg = errorData.error?.message || errorData.error || '알 수 없는 API 에러';
+        const fullErrStr = `AI 서버 통신 오류 (${response.status}): ${msg}`.toLowerCase();
+        
+        if (
+          response.status === 403 || 
+          response.status === 401 || 
+          fullErrStr.includes('leaked') || 
+          fullErrStr.includes('api key')
+        ) {
+          throw new Error("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다. 관리자에게 문의하여 시스템 환경 변수(.env)를 업데이트해 주세요.");
+        }
+        
         throw new Error(`AI 서버 통신 오류 (${response.status}): ${msg}`);
       }
 
       const data = await response.json();
       
-      // [CRITICAL] 토큰 한도 초과(MAX_TOKENS) 발생 시 즉시 명시적 에러 반환
       if (data?.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
-        console.warn("⚠️ [AI Warning]: Response truncated due to MAX_TOKENS limit.");
         throw new Error("생성할 내용이 너무 길어 중간에 끊겼습니다. 내용을 줄이거나 다시 시도해 주세요.");
       }
 
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
-      if (text === null || text === undefined || typeof text !== 'string' || !text.trim()) {
-        console.warn("⚠️ AI가 빈 응답을 반환했습니다.");
-        return responseMimeType === "application/json" ? "{}" : "";
+      if (!text || text.trim().length === 0) {
+         // 가끔 응답이 비어있는 경우 재시도
+         if (attempt < MAX_RETRIES - 1) continue;
+         throw new Error("AI가 빈 응답을 반환했습니다. 잠시 후 다시 시도해 주세요.");
       }
 
       return text;
@@ -166,8 +174,11 @@ export async function callGeminiAPI(
       lastError = err;
       if (err.name === 'AbortError') throw err;
       
-      // 사용자 요청 한도 초과 에러는 재시도 없이 바로 상위로 전파
       if (err.message && err.message.includes("생성할 내용이 너무 길어")) {
+        throw err;
+      }
+      
+      if (err.message && err.message.includes("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다")) {
         throw err;
       }
 

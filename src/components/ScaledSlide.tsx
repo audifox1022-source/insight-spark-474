@@ -3,7 +3,8 @@
 // ============================================================
 import React, { useState, useEffect, useRef } from 'react';
 import { Rnd } from 'react-rnd';
-import { useSlideStore, SlideElement } from '@/store/useSlideStore';
+import { useSlideStore } from '@/store/useSlideStore';
+import { SlideElement } from '@/types/presentation';
 import { cn } from '@/lib/utils';
 
 interface ScaledSlideProps {

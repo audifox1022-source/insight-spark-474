@@ -207,6 +207,10 @@ export const usePresentation = () => {
         template 
       });
 
+      if (!result || (Array.isArray(result) && result.length === 0)) {
+        throw new Error("데이터 형식이 올바르지 않습니다");
+      }
+
       setOutline(result);
       setAiParts(multimodalParts);
       setSourceFileData(integratedText);
@@ -214,7 +218,7 @@ export const usePresentation = () => {
       toast.success('AI 목차 설계 및 품질 검증 완료 (Enterprise Engine)');
     } catch (err: any) { 
       console.error("Outline Generation Failure:", err);
-      toast.error(`구성안 생성 실패: ${err.message}`);
+      toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `구성안 생성 실패: ${err.message}`);
     } finally { 
       setIsGenerating(false);
     }
@@ -226,20 +230,23 @@ export const usePresentation = () => {
     startLoadingTimer('full'); 
     
     try {
-      console.log("🚀 [Engine] Slide generation started with context-aware data...");
+      // 1-Step: 파싱 성공
+      console.log("[Step 1] 구성안 데이터 수신 및 파싱 성공");
       const combinedInput = aiParts.length > 0 ? [...aiParts, { text: sourceFileData }] : sourceFileData;
+      
+      // 2-Step: 생성 API 호출
+      console.log("[Step 2] 슬라이드 콘텐츠 생성 API 호출 시작");
       const result = await aiService.generatePresentation({
         fileData: combinedInput, template, meetingInfo: info, settings, approvedOutline
       });
       
       // [FIX] 방어적 데이터 매핑: Dual-JSON 구조(slides 래퍼 등)를 모두 고려하여 최종 배열 추출
-      // aiService.extractJson에서 이미 대부분 처리되지만, 여기서 한 번 더 배열 여부 검증
       const slideData = Array.isArray(result) ? result : (result?.slides || result?.presentation?.slides || []);
       
       // [CRITICAL FIX] 조용한 실패(Silent Failure) 방지 - 슬라이드가 0장이면 명시적 에러 발생
       if (!Array.isArray(slideData) || slideData.length === 0) {
         console.error("❌ [Engine] 슬라이드 데이터 생성 실패 (0장):", result);
-        throw new Error("슬라이드 생성 결과가 0장입니다. 구성안이나 설명을 다시 확인해 주세요.");
+        throw new Error("데이터 형식이 올바르지 않습니다");
       }
 
       const presentationWithBrand = { 
@@ -251,14 +258,18 @@ export const usePresentation = () => {
       setPresentationState(presentationWithBrand);
       setStorePresentation(presentationWithBrand);
       
+      // 3-Step: Zustand 반영
+      console.log("[Step 3] 최종 슬라이드 데이터 스토어(Zustand) 반영 완료");
+      
       setStep('preview');
       toast.success(`총 ${slideData.length}장의 발표자료 생성이 완료되었습니다.`);
       if (onSuccess) onSuccess();
     } catch (err: any) { 
       console.error("Full Slides Generation Error:", err);
       // [UX] 에러 메시지 알림 명시화
-      toast.error(`발표자료 생성 실패: ${err.message || "알 수 없는 프로토콜 에러"}`);
+      toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `발표자료 생성 실패: ${err.message || "알 수 없는 에러"}`);
     } finally { 
+      // 4-Step: 종료
       setIsGenerating(false);
     }
   };
@@ -284,7 +295,7 @@ export const usePresentation = () => {
         toast.success(`${slideIndex + 1}번 슬라이드 재생성 완료`);
       }
     } catch (err: any) {
-        toast.error(`슬라이드 재생성 실패: ${err.message}`);
+        toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `슬라이드 재생성 실패: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
@@ -302,7 +313,7 @@ export const usePresentation = () => {
         toast.success('디자인 밸런스 자동 최적화 완료 (Self-annealing)');
       }
     } catch (err: any) {
-      toast.error(`자동 디자인 실패: ${err.message}`);
+      toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `자동 디자인 실패: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }

@@ -8,6 +8,8 @@ export interface Presentation {
   title: string;
   slides: Slide[];
   brandColor?: string; // [NEW] 실무 브랜딩용 메인 컬러
+  logoUrl?: string;    // [NEW] 발표 모드용 로고 URL
+  watermark?: string;  // [NEW] 발표 모드용 워터마크 텍스트
 }
 
 export interface Slide {
@@ -52,6 +54,8 @@ export interface SlideElement {
   content?: string;
   src?: string;
   fontSize?: number;
+  fontFamily?: string;
+  fontStyle?: string;
   color?: string;
   backgroundColor?: string;
   fontWeight?: string;

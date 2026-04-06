@@ -40,7 +40,7 @@ export const usePdfStore = create<PdfState>()(
           ...state.pdfEdits,
           {
             ...edit,
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             status: 'completed'
           }
         ]

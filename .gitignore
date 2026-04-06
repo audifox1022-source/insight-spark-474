@@ -27,6 +27,7 @@ dist-sr
 .env
 .env.local
 .env.production
+.env.*
 
 # next.js
 /.next/

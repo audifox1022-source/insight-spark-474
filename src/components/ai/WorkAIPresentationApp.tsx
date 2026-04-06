@@ -8,7 +8,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, Upload, ChevronLeft, ChevronRight, 
   Loader2, User, Sparkles, Presentation, FileText, Image as ImageIcon,
-  Download, FileDown, Maximize2, X, Play, Monitor, ListChecks, Grid3X3
+  Download, FileDown, Maximize2, X, Play, Monitor, ListChecks, Grid3X3, Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

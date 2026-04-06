@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Slide } from '@/types/presentation';
-import { ScaledSlide } from './ScaledSlide';
+import { SlideLayoutRenderer } from './designer/SlideLayoutRenderer';
 
 interface SlideRendererProps {
   slide: Slide;
@@ -72,14 +72,21 @@ export const SlideRenderer: React.FC<SlideRendererProps> = ({
         }}
         className="relative shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden"
       >
-        <ScaledSlide 
-          slide={slide} 
-          logoUrl={logoUrl} 
-          watermark={watermark} 
-          onUpdateSlide={onUpdateSlide}
-          onElementMouseDown={onElementMouseDown}
-          activeElementId={activeElementId}
+        <SlideLayoutRenderer
+          slide={slide}
+          slideIndex={index ?? 0}
+          thumbnailMode={true}
         />
+        {/* 워터마크 오버레이 */}
+        {watermark && (
+          <div className="absolute bottom-4 right-6 text-xs text-white/30 font-medium pointer-events-none select-none">
+            {watermark}
+          </div>
+        )}
+        {/* 로고 오버레이 */}
+        {logoUrl && (
+          <img src={logoUrl} alt="logo" className="absolute top-4 right-6 h-8 object-contain pointer-events-none opacity-70" />
+        )}
       </div>
     </div>
   );

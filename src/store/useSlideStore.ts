@@ -1,7 +1,6 @@
 // ============================================================
 // src/store/useSlideStore.ts (Work AI 슬라이드 상태 관리 - Ultimate Edition)
-// [CRITICAL UPGRADE] Aspect Ratio (16:9 / 4:3) Control System
-// [Phase 45] AI 실행자 페르소나 지원을 위한 상태 고도화
+// [REFACTORED] Performance Optimized State & History Management
 // [STABILITY] 전체 코드 출력 (김현 님 지침 준수)
 // ============================================================
 import { create } from 'zustand';
@@ -10,8 +9,7 @@ import { processAllSlides } from '@/utils/smartSplitter';
 import { 
   Presentation, 
   Slide, 
-  SlideElement, 
-  SlideContent 
+  SlideElement 
 } from '@/types/presentation';
 
 export interface PlanTask {
@@ -37,15 +35,12 @@ interface SlideState {
   history: Presentation[];
   historyIndex: number;
   
-  // Enterprise Edit Mode
   isEditMode: boolean;
   setIsEditMode: (val: boolean) => void;
   
-  // [NEW] Aspect Ratio Control (Phase 45)
   aspectRatio: '16:9' | '4:3';
   setAspectRatio: (ratio: '16:9' | '4:3') => void;
   
-  // [NEW] Sidebar & Review States (Phase 43)
   isFeedbackOpen: boolean;
   setIsFeedbackOpen: (val: boolean) => void;
   isChatOpen: boolean;
@@ -53,7 +48,6 @@ interface SlideState {
   feedbackData: any | null;
   setFeedbackData: (data: any) => void;
 
-  // [NEW] HITL Execution Plan
   executionPlan: ExecutionPlan | null;
   setExecutionPlan: (plan: ExecutionPlan | null) => void;
   updatePlanTask: (taskId: string, updates: Partial<PlanTask>) => void;
@@ -75,7 +69,7 @@ interface SlideState {
   addSlide: () => void;
   deleteSlide: (index: number) => void;
   
-  // Slide Content Intelligence (Fine-grained)
+  // Slide Content Intelligence
   updateSlideTitle: (index: number, title: string) => void;
   updateSlideSubtitle: (index: number, subtitle: string) => void;
   updateSlideContent: (index: number, content: any) => void;
@@ -84,7 +78,6 @@ interface SlideState {
   updateSlideTheme: (index: number, theme: Partial<Slide['theme']>) => void;
   updateSlideStyle: (index: number, style: any) => void;
   
-  // Loading & Error
   isGenerating: boolean;
   isSyncing: boolean;
   isLoading: boolean;
@@ -104,6 +97,18 @@ interface SlideState {
   applySmartSplit: () => void;
 }
 
+/**
+ * [Internal] 가벼운 성능 위주의 Deep Clone 유틸리티
+ */
+function fastClone<T>(obj: T): T {
+  try {
+    if (typeof structuredClone === 'function') return structuredClone(obj);
+    return JSON.parse(JSON.stringify(obj));
+  } catch (e) {
+    return obj;
+  }
+}
+
 export const useSlideStore = create<SlideState>()(
   persist(
     (set, get) => ({
@@ -113,16 +118,13 @@ export const useSlideStore = create<SlideState>()(
       history: [],
       historyIndex: -1,
       isEditMode: false,
-
-      // [NEW] Aspect Ratio Default (Phase 45)
       aspectRatio: '16:9',
+
       setAspectRatio: (ratio) => {
         set({ aspectRatio: ratio });
-        // Optional: Trigger re-calculation or history push if needed
         get().pushHistory();
       },
       
-      // [NEW] Sidebar States
       isFeedbackOpen: false,
       setIsFeedbackOpen: (val) => set({ isFeedbackOpen: val }),
       isChatOpen: false,
@@ -130,7 +132,6 @@ export const useSlideStore = create<SlideState>()(
       feedbackData: null,
       setFeedbackData: (data) => set({ feedbackData: data }),
 
-      // [NEW] HITL State
       executionPlan: null,
       setExecutionPlan: (plan) => set({ executionPlan: plan }),
       updatePlanTask: (taskId, updates) => {
@@ -168,13 +169,13 @@ export const useSlideStore = create<SlideState>()(
       setPresentation: (presentation) => {
         if (!presentation) return;
         const currentP = get().presentation;
-        const history = get().history;
         const isNewCreation = !currentP || currentP.id !== presentation.id;
         
         if (isNewCreation) {
+          const clone = fastClone(presentation);
           set({ 
-            presentation, 
-            history: [JSON.parse(JSON.stringify(presentation))], 
+            presentation: clone, 
+            history: [clone], 
             historyIndex: 0,
             currentSlideIndex: 0,
             executionPlan: null 
@@ -190,8 +191,7 @@ export const useSlideStore = create<SlideState>()(
       setCurrentSlideIndex: (index) => {
         const p = get().presentation;
         const count = (p?.slides || []).length;
-        if (count === 0) return set({ currentSlideIndex: 0 });
-        set({ currentSlideIndex: Math.max(0, Math.min(index, count - 1)) });
+        set({ currentSlideIndex: count === 0 ? 0 : Math.max(0, Math.min(index, count - 1)) });
       },
       
       setSelectedElementId: (id) => set({ selectedElementId: id }),
@@ -199,30 +199,33 @@ export const useSlideStore = create<SlideState>()(
       pushHistory: () => {
         const { presentation, history, historyIndex } = get();
         if (!presentation) return;
-        const next = (history || []).slice(0, historyIndex + 1);
-        try {
-          next.push(JSON.parse(JSON.stringify(presentation)));
-          if (next.length > 50) next.shift();
-          set({ history: next, historyIndex: next.length - 1 });
-        } catch (e) {
-          console.error('pushHistory Error:', e);
-        }
+        
+        // 히스토리 인덱스 이후의 히스토리를 날리고 현재 상태 추가
+        const next = history.slice(0, historyIndex + 1);
+        const clone = fastClone(presentation);
+        
+        // 이전 상태와 동일하면 push 하지 않음 (간단한 성능 최적화)
+        if (next.length > 0 && JSON.stringify(next[next.length - 1]) === JSON.stringify(clone)) return;
+
+        next.push(clone);
+        if (next.length > 50) next.shift();
+        set({ history: next, historyIndex: next.length - 1 });
       },
 
       undo: () => {
         const { history, historyIndex } = get();
-        if (history && historyIndex > 0) {
+        if (historyIndex > 0) {
           const idx = historyIndex - 1;
-          const restored = JSON.parse(JSON.stringify(history[idx]));
+          const restored = fastClone(history[idx]);
           set({ presentation: restored, historyIndex: idx });
         }
       },
 
       redo: () => {
         const { history, historyIndex } = get();
-        if (history && historyIndex < history.length - 1) {
+        if (historyIndex < history.length - 1) {
           const idx = historyIndex + 1;
-          const restored = JSON.parse(JSON.stringify(history[idx]));
+          const restored = fastClone(history[idx]);
           set({ presentation: restored, historyIndex: idx });
         }
       },
@@ -230,9 +233,9 @@ export const useSlideStore = create<SlideState>()(
       addSlide: () => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
+        
         const newSlide: Slide = {
-          id: `slide-${Date.now()}`,
+          id: `slide-${crypto.randomUUID()}`,
           title: "새 슬라이드",
           subtitle: "",
           type: "normal",
@@ -240,49 +243,59 @@ export const useSlideStore = create<SlideState>()(
           content: [{ heading: "새로운 내용을 입력하세요.", description: "" }],
           elements: []
         };
+        
         const currentIndex = get().currentSlideIndex;
-        if (!updated.slides) updated.slides = [];
-        updated.slides.splice(currentIndex + 1, 0, newSlide);
-        set({ presentation: updated, currentSlideIndex: currentIndex + 1 });
+        const slides = [...(p.slides || [])];
+        slides.splice(currentIndex + 1, 0, newSlide);
+        
+        set({ presentation: { ...p, slides }, currentSlideIndex: currentIndex + 1 });
         get().pushHistory();
       },
 
       deleteSlide: (index) => {
         const p = get().presentation;
         if (!p || !p.slides || p.slides.length <= 1) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        updated.slides.splice(index, 1);
+        
+        const slides = p.slides.filter((_, i) => i !== index);
         const currentIndex = get().currentSlideIndex;
-        set({ presentation: updated, currentSlideIndex: currentIndex === index ? Math.max(0, index - 1) : (currentIndex > index ? currentIndex - 1 : currentIndex) });
+        
+        set({ 
+          presentation: { ...p, slides }, 
+          currentSlideIndex: currentIndex === index ? Math.max(0, index - 1) : (currentIndex > index ? currentIndex - 1 : currentIndex) 
+        });
         get().pushHistory();
       },
 
       updateSlideTitle: (index, title) => {
         const p = get().presentation;
-        if (!p || !p.slides[index]) return;
-        if (p.slides[index].title === title) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].title = title;
-        set({ presentation: next });
+        if (!p || !p.slides[index] || p.slides[index].title === title) return;
+        
+        const slides = [...p.slides];
+        slides[index] = { ...slides[index], title };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       updateSlideSubtitle: (index, subtitle) => {
         const p = get().presentation;
-        if (!p || !p.slides[index]) return;
-        if (p.slides[index].subtitle === subtitle) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].subtitle = subtitle;
-        set({ presentation: next });
+        if (!p || !p.slides[index] || p.slides[index].subtitle === subtitle) return;
+        
+        const slides = [...p.slides];
+        slides[index] = { ...slides[index], subtitle };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       updateSlideContent: (index, content) => {
         const p = get().presentation;
         if (!p || !p.slides[index]) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].content = content;
-        set({ presentation: next });
+        
+        const slides = [...p.slides];
+        slides[index] = { ...slides[index], content };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
@@ -290,128 +303,175 @@ export const useSlideStore = create<SlideState>()(
         const p = get().presentation;
         if (!p || !p.slides[slideIndex]) return;
         
-        const next = JSON.parse(JSON.stringify(p));
-        const slide = next.slides[slideIndex];
-        
-        let list = slide.content;
-        if (typeof list === 'string') {
-          try { list = JSON.parse(list); } catch (e) { list = [list]; }
-        }
-        if (!Array.isArray(list)) list = [];
+        const slide = p.slides[slideIndex];
+        let list = [...(Array.isArray(slide.content) ? slide.content : [])];
         
         if (list[itemIndex]) {
           if (typeof list[itemIndex] === 'object') {
             if (list[itemIndex][field] === value) return;
-            list[itemIndex][field] = value;
+            list[itemIndex] = { ...list[itemIndex], [field]: value };
           } else if (field === 'heading') {
             if (list[itemIndex] === value) return;
             list[itemIndex] = value;
           }
         }
         
-        slide.content = list;
-        set({ presentation: next });
+        const slides = [...p.slides];
+        slides[slideIndex] = { ...slide, content: list };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       updateSlideLayout: (index, layout) => {
         const p = get().presentation;
-        if (!p || !p.slides[index]) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].layout = layout;
-        set({ presentation: next });
+        if (!p || !p.slides[index] || p.slides[index].layout === layout) return;
+        
+        const slides = [...p.slides];
+        slides[index] = { ...slides[index], layout };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       updateSlideTheme: (index, themeUpdate) => {
         const p = get().presentation;
         if (!p || !p.slides[index]) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].theme = { ...(next.slides[index].theme || {}), ...themeUpdate };
-        set({ presentation: next });
+        
+        const slides = [...p.slides];
+        slides[index] = { 
+          ...slides[index], 
+          theme: { ...(slides[index].theme || {}), ...themeUpdate } 
+        };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       updateSlideStyle: (index, styleUpdate) => {
         const p = get().presentation;
         if (!p || !p.slides[index]) return;
-        const next = JSON.parse(JSON.stringify(p));
-        next.slides[index].style = { ...(next.slides[index].style || {}), ...styleUpdate };
-        set({ presentation: next });
+        
+        const slides = [...p.slides];
+        slides[index] = { 
+          ...slides[index], 
+          style: { ...(slides[index].style || {}), ...styleUpdate } 
+        };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       addElement: (slideId, elementData) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        const maxZ = (slide.elements || []).reduce((m: number, e: any) => Math.max(m, e.zIndex || 0), 0);
-        const newEl = { ...elementData, id: `el-${Date.now()}`, zIndex: maxZ + 1 };
-        slide.elements = [...(slide.elements || []), newEl];
-        set({ presentation: updated, selectedElementId: newEl.id });
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const maxZ = (slide.elements || []).reduce((m, e) => Math.max(m, e.zIndex || 0), 0);
+        const newEl = { ...elementData, id: `el-${crypto.randomUUID()}`, zIndex: maxZ + 1 };
+        
+        const slides = [...p.slides];
+        slides[slideIndex] = { ...slide, elements: [...(slide.elements || []), newEl] };
+        
+        set({ presentation: { ...p, slides }, selectedElementId: newEl.id });
         get().pushHistory();
       },
 
       updateElement: (slideId, elementId, updates) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        slide.elements = (slide.elements || []).map((el: any) => el.id === elementId ? { ...el, ...updates } : el);
-        set({ presentation: updated });
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const slides = [...p.slides];
+        slides[slideIndex] = {
+          ...slide,
+          elements: (slide.elements || []).map(el => el.id === elementId ? { ...el, ...updates } : el)
+        };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory(); 
       },
 
       deleteElement: (slideId, elementId) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        slide.elements = (slide.elements || []).filter((el: any) => el.id !== elementId);
-        set({ presentation: updated, selectedElementId: null });
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const slides = [...p.slides];
+        slides[slideIndex] = {
+          ...slide,
+          elements: (slide.elements || []).filter(el => el.id !== elementId)
+        };
+        
+        set({ presentation: { ...p, slides }, selectedElementId: null });
         get().pushHistory();
       },
 
       duplicateElement: (slideId, elementId) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        const origin = (slide.elements || []).find((el: any) => el.id === elementId);
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const origin = (slide.elements || []).find(el => el.id === elementId);
         if (!origin) return;
-        const maxZ = (slide.elements || []).reduce((m: number, e: any) => Math.max(m, e.zIndex || 0), 0);
-        const copy = { ...origin, id: `el-${Date.now()}`, x: (origin.x || 0) + 20, y: (origin.y || 0) + 20, zIndex: maxZ + 1 };
-        slide.elements = [...(slide.elements || []), copy];
-        set({ presentation: updated, selectedElementId: copy.id });
+        
+        const maxZ = (slide.elements || []).reduce((m, e) => Math.max(m, e.zIndex || 0), 0);
+        const copy = { ...origin, id: `el-${crypto.randomUUID()}`, x: (origin.x || 0) + 20, y: (origin.y || 0) + 20, zIndex: maxZ + 1 };
+        
+        const slides = [...p.slides];
+        slides[slideIndex] = { ...slide, elements: [...(slide.elements || []), copy] };
+        
+        set({ presentation: { ...p, slides }, selectedElementId: copy.id });
         get().pushHistory();
       },
 
       bringToFront: (slideId, elementId) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        const maxZ = (slide.elements || []).reduce((m: number, e: any) => Math.max(m, e.zIndex || 0), 0);
-        slide.elements = (slide.elements || []).map((el: any) => el.id === elementId ? { ...el, zIndex: maxZ + 1 } : el);
-        set({ presentation: updated });
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const maxZ = (slide.elements || []).reduce((m, e) => Math.max(m, e.zIndex || 0), 0);
+        const slides = [...p.slides];
+        slides[slideIndex] = {
+          ...slide,
+          elements: (slide.elements || []).map(el => el.id === elementId ? { ...el, zIndex: maxZ + 1 } : el)
+        };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
       sendToBack: (slideId, elementId) => {
         const p = get().presentation;
         if (!p) return;
-        const updated = JSON.parse(JSON.stringify(p));
-        const slide = updated.slides.find((s: any) => s.id === slideId);
-        if (!slide) return;
-        const minZ = (slide.elements || []).reduce((m: number, e: any) => Math.min(m, e.zIndex || 0), 0);
-        slide.elements = (slide.elements || []).map((el: any) => el.id === elementId ? { ...el, zIndex: minZ - 1 } : el);
-        set({ presentation: updated });
+        
+        const slideIndex = p.slides.findIndex(s => s.id === slideId);
+        if (slideIndex === -1) return;
+        
+        const slide = p.slides[slideIndex];
+        const minZ = (slide.elements || []).reduce((m, e) => Math.min(m, e.zIndex || 0), 0);
+        const slides = [...p.slides];
+        slides[slideIndex] = {
+          ...slide,
+          elements: (slide.elements || []).map(el => el.id === elementId ? { ...el, zIndex: minZ - 1 } : el)
+        };
+        
+        set({ presentation: { ...p, slides } });
         get().pushHistory();
       },
 
@@ -433,7 +493,7 @@ export const useSlideStore = create<SlideState>()(
         try {
           const optimizedSlides = processAllSlides(p.slides as any);
           set({ 
-            presentation: { ...p, slides: optimizedSlides.map((s: any, idx: number) => ({ ...s, id: s.id || `slide-opt-${Date.now()}-${idx}` })) },
+            presentation: { ...p, slides: optimizedSlides.map((s: any, idx: number) => ({ ...s, id: s.id || `slide-opt-${crypto.randomUUID()}-${idx}` })) },
             currentSlideIndex: Math.min(get().currentSlideIndex, optimizedSlides.length - 1)
           });
           get().pushHistory();
@@ -444,8 +504,12 @@ export const useSlideStore = create<SlideState>()(
     }),
     {
       name: 'work-ai-presentation-storage',
-      partialize: (s) => ({ presentation: s.presentation, currentSlideIndex: s.currentSlideIndex, aspectRatio: s.aspectRatio }),
-      onRehydrateStorage: () => (s) => {}
+      partialize: (s) => ({ 
+        presentation: s.presentation, 
+        currentSlideIndex: s.currentSlideIndex, 
+        aspectRatio: s.aspectRatio 
+      }),
+      onRehydrateStorage: () => () => {}
     }
   )
 );

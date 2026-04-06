@@ -25,7 +25,7 @@ export type ProgressCallback = (message: string) => void;
  * [FIX] '조용한 에러(Silent Failure)' 해결을 위해 파싱 실패 시 원본 데이터를 콘솔에 강제 출력합니다.
  * [Regex] 마크다운 블록 및 불필요한 인사말을 완벽히 제거합니다.
  */
-function extractJson(text: string): any {
+export function extractJson(text: string): any {
   if (!text || typeof text !== 'string') { 
     console.warn("⚠️ extractJson: 입력된 텍스트가 없거나 문자열이 아닙니다.");
     return null; 
@@ -33,8 +33,8 @@ function extractJson(text: string): any {
   
   let cleanText = text.trim();
 
-  // 1단계: 마크다운 코드 블록 마커 제거
-  cleanText = cleanText.replace(/```json/gi, '').replace(/```/g, '').trim();
+  // 1단계: 마크다운 코드 블록 마커 제거 (완전 무결성 필터링)
+  cleanText = cleanText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
   // 2단계: 최외곽 JSON 구조 추출 (정규식 기반)
   // { ... } 또는 [ ... ] 사이의 본문만 남깁니다.
@@ -44,11 +44,12 @@ function extractJson(text: string): any {
   try {
     const parsed = JSON.parse(targetText);
     
-    // [Phase 46] Dual-JSON Parsing 방어 로직
+    // [Phase 46] Dual-JSON Parsing 방어 로직 (유연한 객체 및 배열 정규화)
     // AI가 [{...}] 배열을 주거나 { "slides": [...] } 객체를 주는 경우를 모두 수용합니다.
     if (parsed && typeof parsed === 'object') {
        if (Array.isArray(parsed)) return parsed;
        if (parsed.slides && Array.isArray(parsed.slides)) return parsed.slides;
+       if (parsed.presentation && Array.isArray(parsed.presentation)) return parsed.presentation;
        if (parsed.presentation && parsed.presentation.slides) return parsed.presentation.slides;
        if (parsed.outline && Array.isArray(parsed.outline)) return parsed.outline;
     }
@@ -65,7 +66,16 @@ function extractJson(text: string): any {
     try {
       // 흔한 JSON 오류 수정 시도 (후행 콤마 제거)
       const repaired = targetText.replace(/,\s*([\}\]])/g, '$1');
-      return JSON.parse(repaired);
+      const parsedRepaired = JSON.parse(repaired);
+
+      if (parsedRepaired && typeof parsedRepaired === 'object') {
+        if (Array.isArray(parsedRepaired)) return parsedRepaired;
+        if (parsedRepaired.slides && Array.isArray(parsedRepaired.slides)) return parsedRepaired.slides;
+        if (parsedRepaired.presentation && Array.isArray(parsedRepaired.presentation)) return parsedRepaired.presentation;
+        if (parsedRepaired.presentation && parsedRepaired.presentation.slides) return parsedRepaired.presentation.slides;
+        if (parsedRepaired.outline && Array.isArray(parsedRepaired.outline)) return parsedRepaired.outline;
+      }
+      return parsedRepaired;
     } catch (innerError) {
       // 모든 복구 시도 실패 시 자가 진단 서브 에이전트 루프를 탈수 있도록 null 반환
       return null;
@@ -228,7 +238,7 @@ export const aiService = {
       const response = await callGeminiAPI(
         prompts.GEMINI_STRATEGIC_CHAT_EXECUTOR_PROMPT, 
         userPrompt, 
-        8192, // [UPGRADE] 4096 -> 8192
+        8192, // [UPGRADE] 토큰을 8192 수준으로 충분하게 상향 (통신 안정화)
         "application/json", 
         false, 
         signal
@@ -283,11 +293,8 @@ export const aiService = {
 
   async analyzeReferenceStructure(content: any) {
     return withTimeout(async (signal) => {
-      console.log("📚 [Engine] Analyzing reference architecture with Gemini 2.5...");
+      console.log("📚 [Engine] Analyzing reference architecture with Gemini...");
       
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { maxOutputTokens: 8192 } });
-
       const systemPrompt = `
         당신은 문서 구조 분석 전문가입니다. 
         제공된 문서를 분석하여 논리적 흐름, 슬라이드 구성 패턴, 사용된 핵심 키워드 스타일을 추출하십시오. 
@@ -301,34 +308,27 @@ export const aiService = {
         }
       `;
 
-      let promptParts: any[] = [systemPrompt];
-      
+      let promptBody = "";
       if (Array.isArray(content)) {
-        promptParts = [...promptParts, ...content, "위의 문서 데이터를 분석하여 구조를 파악해 주세요."];
+        promptBody = content.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join('\n');
       } else {
-        const safeContent = typeof content === 'string' ? content : String(content || '');
-        promptParts.push(safeContent.substring(0, 30000));
-        promptParts.push("위의 텍스트 데이터를 분석하여 구조를 파악해 주세요.");
+        promptBody = typeof content === 'string' ? content : String(content || '');
       }
 
-      const result = await model.generateContent(promptParts);
-      const response = await result.response;
-      return extractJson(response.text());
+      const response = await callGeminiAPI(systemPrompt, promptBody.substring(0, 30000), 8192, "application/json", false, signal);
+      return extractJson(response);
     });
   },
 
   async analyzeRawData(jsonData: any) {
     return withTimeout(async (signal) => {
-      const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig: { maxOutputTokens: 8192 } });
-      
       let targetData = typeof jsonData === 'string' ? jsonData : JSON.stringify(jsonData);
       if (targetData.length > 50000) targetData = targetData.substring(0, 50000);
 
+      const systemPrompt = "당신은 비즈니스 데이터 분석가입니다. 데이터를 심층 분석하여 비즈니스 통찰력을 도출하고 요약해 주십시오.";
       const prompt = `다음 데이터를 심층 분석하여 비즈니스 통찰력을 도출하고 요약해 주십시오:\n${targetData}`;
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
+      
+      return await callGeminiAPI(systemPrompt, prompt, 8192, "text", false, signal);
     });
   }
 };
@@ -336,3 +336,4 @@ export const aiService = {
 export const geminiService = {
   ...aiService
 };
+

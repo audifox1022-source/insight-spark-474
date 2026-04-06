@@ -208,7 +208,7 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
                 padding: 0
               }}
             >
-              <SlideLayoutRenderer slide={slide} />
+              <SlideLayoutRenderer slide={slide} slideIndex={idx} />
             </div>
           ))}
         </div>

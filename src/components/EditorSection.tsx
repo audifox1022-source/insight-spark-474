@@ -115,7 +115,7 @@ const EditorSection: React.FC<EditorSectionProps> = ({
       setActivity('analyzing');
       // aiService.analyzeDocument를 사용하여 요약
       const contentStr = typeof parsedContent?.content === 'string' ? parsedContent.content : JSON.stringify(parsedContent?.content || {});
-      const summaryResult = await aiService.analyzeDocument(contentStr);
+      const summaryResult = await aiService.routeAndCall('analyze', `다음 문서 내용을 핵심 요약해줘. 발표 자료 작성에 활용할 수 있도록 구조화된 형태로 정리해줘:\n\n${contentStr}`, '당신은 문서 분석 및 요약 전문가입니다.');
       setSourceText(typeof summaryResult === 'string' ? summaryResult : JSON.stringify(summaryResult || {}, null, 2));
 
     } catch (err) {

@@ -106,7 +106,6 @@ export const AudioLabWorkspace = () => {
     // 기본 기술 분석 리포트
     return (
       <TechnicalAnalysis 
-        data={analysisResult} 
         audioFile={audioFile!}
       />
     );
