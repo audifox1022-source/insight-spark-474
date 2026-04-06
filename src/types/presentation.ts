@@ -62,6 +62,9 @@ export interface SlideElement {
   textAlign?: 'left' | 'center' | 'right';
   zIndex: number;
   borderRadius?: number;
+  opacity?: number;      // [NEW] 투명도 지원
+  border?: string;       // [NEW] 보더 스타일 지원
+  boxShadow?: string;    // [NEW] 그림자 효과 지원
 }
 
 export interface MeetingInfo {

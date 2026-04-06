@@ -65,3 +65,15 @@
 ## 3. 자율 품질 측정 (Browser Subagent 활용)
 - 로컬 인스턴스의 환경 변수(`.env`) 미지원 에러(`VITE_SUPABASE_URL` 부족)를 스스로 감지하고 우회(dummy env 적용)하여 렌더링 무결성 검사(Browser Validation Test)를 성공적으로 마쳤습니다.
 - React/Vite 환경에서 콘솔 렌더링 오류나 네트워크 블로킹 파단점 없이 최상위 다크 테마 라우트(`/auth` 등)가 안정적으로 스캐폴딩 됨을 100% 교차 검증 완료했습니다.
+
+---
+
+# [UI 엔진 렌더링 오류 복구 보고] SlideElement 타입 정의 보강
+
+## 1. 발생 문제 (TypeScript Error)
+- **현상**: `src/components/designer/SlideCanvas.tsx` 파일에서 `SlideElement` 타입에 존재하지 않는 `opacity`, `border`, `boxShadow` 속성에 접근하려 할 때 빌드 타임 에러가 발생했습니다.
+- **원인**: 초기 아키텍처 설계 시 `SlideElement` 인터페이스에 시각적 효과를 위한 스타일링 필드(opacity, border, boxShadow)가 누락되어 있었습니다.
+
+## 2. 해결책 (Type Integrity 강화)
+- **`src/types/presentation.ts`**: `SlideElement` 인터페이스에 `opacity?: number`, `border?: string`, `boxShadow?: string` 선택적 속성을 추가하여 타입 안정성을 확보했습니다.
+- 이를 통해 `SlideCanvas.tsx`에서 AI가 생성한 고도화된 스타일 데이터를 에너 없이 안전하게 렌더링할 수 있도록 조치했습니다.

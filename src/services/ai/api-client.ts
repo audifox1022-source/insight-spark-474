@@ -12,7 +12,11 @@ export const googleProvider = createGoogleGenerativeAI({
   apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
 });
 
-const PROXY_URL = '/api/gemini-proxy';
+// 프론트엔드의 aiService.ts에서 프록시 서버로 fetch 또는 axios 요청을 보낼 때, 환경에 따라 올바른 URL설정
+const PROXY_URL = import.meta.env.MODE === 'development' 
+  ? '/api/gemini-proxy' 
+  : 'https://twmakeppt.vercel.app/api/gemini-proxy';
+
 const MAX_RETRIES = 3;
 const RETRY_BASE_MS = 1_000;
 
@@ -56,7 +60,7 @@ export async function streamGeminiAPI(
     console.error("❌ [Streaming API Error]:", err);
     const lowerMsg = (err.message || '').toLowerCase();
     if (lowerMsg.includes('403') || lowerMsg.includes('401') || lowerMsg.includes('leaked') || lowerMsg.includes('api key')) {
-      throw new Error("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다. 관리자에게 문의하여 시스템 환경 변수(.env)를 업데이트해 주세요.");
+      throw new Error("Vercel 프록시 403 에러 발생 시, Vercel 대시보드의 'Environment Variables'에 최신 GEMINI_API_KEY가 올바르게 등록되어 있고 재배포(Redeploy)되었는지 확인하세요.");
     }
     throw new Error(`AI 스트리밍 호출 실패: ${err.message || '모델 응답 없음'}`);
   }
@@ -124,9 +128,16 @@ export async function callGeminiAPI(
         ? `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
         : PROXY_URL;
 
+      // 요청 헤더 설정 (프록시 서버가 요구하는 인증 헤더 포함)
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const proxySecret = import.meta.env.VITE_PROXY_SECRET;
+      if (proxySecret) {
+        headers['x-proxy-secret'] = proxySecret;
+      }
+
       const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(universalPayload),
         signal
       });
@@ -146,9 +157,10 @@ export async function callGeminiAPI(
           response.status === 403 || 
           response.status === 401 || 
           fullErrStr.includes('leaked') || 
-          fullErrStr.includes('api key')
+          fullErrStr.includes('api key') ||
+          fullErrStr.includes('unauthorized')
         ) {
-          throw new Error("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다. 관리자에게 문의하여 시스템 환경 변수(.env)를 업데이트해 주세요.");
+          throw new Error("Vercel 프록시 403 에러 발생 시, Vercel 대시보드의 'Environment Variables'에 최신 GEMINI_API_KEY가 올바르게 등록되어 있고 재배포(Redeploy)되었는지 확인하세요.");
         }
         
         throw new Error(`AI 서버 통신 오류 (${response.status}): ${msg}`);
@@ -178,7 +190,7 @@ export async function callGeminiAPI(
         throw err;
       }
       
-      if (err.message && err.message.includes("API 키가 만료되었거나 유출되어 서버에서 차단되었습니다")) {
+      if (err.message && err.message.includes("Vercel 프록시 403 에러 발생 시")) {
         throw err;
       }
 

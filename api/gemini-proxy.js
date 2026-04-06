@@ -1,12 +1,20 @@
 // api/gemini-proxy.js
 export default async function handler(req, res) {
   // CORS
-  res.setHeader('Access-Control-Allow-Origin',  '*')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-proxy-secret');
 
-  if (req.method === 'OPTIONS') return res.status(200).end()
-  if (req.method !== 'POST')   return res.status(405).json({ error: '허용되지 않는 메서드' })
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).json({ error: '허용되지 않는 메서드' });
+
+  // 자체 프록시 보안 인증 도입 (환경변수에 PROXY_SECRET이 설정되어 있을 경우에만 발동)
+  if (process.env.PROXY_SECRET) {
+    if (req.headers['x-proxy-secret'] !== process.env.PROXY_SECRET) {
+      console.warn('[Proxy] 403 Unauthorized: Invalid or missing x-proxy-secret');
+      return res.status(403).json({ error: 'Unauthorized: 프록시 서버 보안 인증 실패' });
+    }
+  }
 
   try {
     const body    = req.body
@@ -14,7 +22,12 @@ export default async function handler(req, res) {
     let model     = body.model ?? 'gemini-2.5-flash'
     if (model.startsWith('models/')) model = model.substring(7)
     
+    // Vercel 환경변수 점검
     const API_KEY = process.env.GEMINI_API_KEY
+    if (!API_KEY) {
+      console.error('[Proxy] 403 Forbidden: Missing GEMINI_API_KEY in Vercel Environment');
+      return res.status(403).json({ error: "Vercel 서버리스 환경 변수에 GEMINI_API_KEY가 누락되었습니다." });
+    }
 
     const callUpstream = async (targetModel, apiVersion = 'v1') => {
       // Gemini 2.x 또는 실험용(exp) 모델은 v1beta에서 더 안정적인 경우가 많으므로 자동 전환 로직 유지
