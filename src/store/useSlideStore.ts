@@ -82,11 +82,13 @@ interface SlideState {
   isSyncing: boolean;
   isLoading: boolean;
   error: string | null;
+  criticalError: string | null;
   
   setIsGenerating: (generating: boolean) => void;
   setIsSyncing: (syncing: boolean) => void;
   setIsLoading: (loading: boolean) => void;
   setError: (err: string | null) => void;
+  setCriticalError: (err: string | null) => void;
   resetAllLoadingStates: () => void;
   
   pushHistory: () => void;
@@ -150,12 +152,14 @@ export const useSlideStore = create<SlideState>()(
       isSyncing: false,
       isLoading: false,
       error: null,
+      criticalError: null,
 
       setIsEditMode: (val) => set({ isEditMode: val }),
       setIsGenerating: (val) => set({ isGenerating: val }),
       setIsSyncing: (val) => set({ isSyncing: val }),
       setIsLoading: (val) => set({ isLoading: val }),
       setError: (err) => set({ error: err }),
+      setCriticalError: (err) => set({ criticalError: err }),
       
       resetAllLoadingStates: () => set({ 
         isGenerating: false, 

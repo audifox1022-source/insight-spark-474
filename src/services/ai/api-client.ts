@@ -63,7 +63,7 @@ export async function streamGeminiAPI(
     useSlideStore.getState().resetAllLoadingStates();
     const lowerMsg = (err.message || '').toLowerCase();
     if (lowerMsg.includes('403') || lowerMsg.includes('401') || lowerMsg.includes('leaked') || lowerMsg.includes('api key')) {
-      toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
+      useSlideStore.getState().setCriticalError("시스템 설정 오류: 구글 API 키가 만료되었거나 유효하지 않습니다. Vercel 환경 변수를 확인하고 서버를 재배포해 주세요.");
       throw new Error("Vercel 프록시 403 에러 발생 시, Vercel 대시보드의 'Environment Variables'에 최신 GEMINI_API_KEY가 올바르게 등록되어 있고 재배포(Redeploy)되었는지 확인하세요.");
     }
     throw new Error(`AI 스트리밍 호출 실패: ${err.message || '모델 응답 없음'}`);
@@ -172,9 +172,13 @@ export async function callGeminiAPI(
           
           if (googleStatus === 403 || googleStatus === 401 || msg.toLowerCase().includes('api key')) {
             useSlideStore.getState().resetAllLoadingStates();
-            toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
+            useSlideStore.getState().setCriticalError("시스템 설정 오류: 구글 API 키가 만료되었거나 유효하지 않습니다. Vercel 환경 변수를 확인하고 서버를 재배포해 주세요.");
             throw new Error(`[Proxy 403 Error] 구글 API에서 거부: ${msg}`);
           }
+          
+          // 일반적인 서버 에러 500 등
+          useSlideStore.getState().resetAllLoadingStates();
+          useSlideStore.getState().setCriticalError(`프록시 통신 오류가 발생했습니다. (상태: ${googleStatus})\n메시지: ${msg}`);
           throw new Error(`[Proxy Error] ${msg} (Status: ${googleStatus})`);
         } else {
           // 기존 일반 구글 API 다이렉트 에러 등
@@ -189,10 +193,12 @@ export async function callGeminiAPI(
             fullErrStr.includes('unauthorized')
           ) {
             useSlideStore.getState().resetAllLoadingStates();
-            toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
+            useSlideStore.getState().setCriticalError("시스템 설정 오류: 구글 API 키가 만료되었거나 유효하지 않습니다. Vercel 환경 변수를 확인하고 서버를 재배포해 주세요.");
             throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
           }
           
+          useSlideStore.getState().resetAllLoadingStates();
+          useSlideStore.getState().setCriticalError(`서버 통신 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n상태: ${response.status}`);
           throw new Error(`AI 서버 통신 오류 (${response.status}): ${msg}`);
         }
       }
@@ -222,8 +228,8 @@ export async function callGeminiAPI(
         throw err;
       }
       
-      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403"))) {
-        // 이미 위에서 toast와 resetAllLoadingStates를 호출함
+      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403") || err.message.includes("프록시 통신 오류") || err.message.includes("서버 통신 오류"))) {
+        // 이미 위에서 Overlay와 resetAllLoadingStates를 호출함
         throw err;
       }
 
