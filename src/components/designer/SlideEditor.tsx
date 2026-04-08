@@ -404,6 +404,19 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     if (Array.isArray(objRef.outline)) tasksToRender = objRef.outline;
                     else if (Array.isArray(objRef.tasks)) tasksToRender = objRef.tasks;
                     else if (Array.isArray(objRef.plan)) tasksToRender = objRef.plan;
+                    else if (Array.isArray(objRef.phases)) tasksToRender = objRef.phases;
+                    else if (Array.isArray(objRef.steps)) tasksToRender = objRef.steps;
+                    else if (Array.isArray(objRef.items)) tasksToRender = objRef.items;
+                    else {
+                      // [지능형 Fallback] 객체 내부의 모든 키를 순회하며 첫 번째 배열을 찾아냅니다.
+                      for (const key in objRef) {
+                        if (Array.isArray(objRef[key]) && objRef[key].length > 0) {
+                          tasksToRender = objRef[key];
+                          break;
+                        }
+                      }
+                      if (tasksToRender.length === 0) tasksToRender = [objRef];
+                    }
                   }
 
                   if (!tasksToRender || tasksToRender.length === 0) {
@@ -638,18 +651,24 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   );
 };
 
-const PlanTaskItem: React.FC<{ task: PlanTask; idx: number; onUpdate: (updates: Partial<PlanTask>) => void }> = ({ task, idx, onUpdate }) => {
+const PlanTaskItem: React.FC<{ task: any; idx: number; onUpdate: (updates: Partial<PlanTask>) => void }> = ({ task, idx, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
+  
+  // AI 응답 키(Key) 유연성 방어 로직 (맵핑)
+  const fallbackTitle = task.title || task.phaseName || task.step || task.name || task.topic || `항목 ${idx + 1}`;
+  const fallbackDesc = task.description || task.detail || task.deliverables || task.summary || task.content || '세부 내용이 없습니다.';
+  const fallbackImpact = task.impact || task.priority || task.status || (idx === 0 ? 'high' : 'medium');
+
   return (
     <div className={`p-6 rounded-3xl border transition-all ${isEditing ? 'border-primary ring-8 ring-primary/5 bg-background shadow-xl' : 'border-border bg-slate-50 hover:border-primary/40'}`}>
       <div className="flex items-start gap-5">
         <div className="w-12 h-12 rounded-2xl bg-white border border-border flex items-center justify-center font-black text-sm shrink-0 shadow-sm text-primary">{idx + 1}</div>
         <div className="flex-1 space-y-2">
           <div className="flex items-center justify-between">
-            {isEditing ? <input autoFocus className="w-full bg-transparent border-none text-base font-black outline-none" value={task.title} onChange={(e) => onUpdate({ title: e.target.value })} onBlur={() => setIsEditing(false)} /> : <div className="text-base font-black flex items-center gap-2 cursor-pointer group" onClick={() => setIsEditing(true)}>{task.title} <Edit3 className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" /></div>}
-            <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${task.impact === 'high' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>{task.impact} Priority</div>
+            {isEditing ? <input autoFocus className="w-full bg-transparent border-none text-base font-black outline-none" value={fallbackTitle} onChange={(e) => onUpdate({ title: e.target.value })} onBlur={() => setIsEditing(false)} /> : <div className="text-base font-black flex items-center gap-2 cursor-pointer group" onClick={() => setIsEditing(true)}>{fallbackTitle} <Edit3 className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" /></div>}
+            <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${fallbackImpact === 'high' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>{fallbackImpact} Priority</div>
           </div>
-          {isEditing ? <textarea className="w-full bg-transparent border-none text-sm font-medium text-muted-foreground outline-none resize-none" value={task.description} onChange={(e) => onUpdate({ description: e.target.value })} onBlur={() => setIsEditing(false)} /> : <p className="text-sm font-medium text-muted-foreground leading-relaxed cursor-pointer" onClick={() => setIsEditing(true)}>{task.description}</p>}
+          {isEditing ? <textarea className="w-full bg-transparent border-none text-sm font-medium text-muted-foreground outline-none resize-none" value={fallbackDesc} onChange={(e) => onUpdate({ description: e.target.value })} onBlur={() => setIsEditing(false)} /> : <p className="text-sm font-medium text-muted-foreground leading-relaxed cursor-pointer" onClick={() => setIsEditing(true)}>{fallbackDesc}</p>}
         </div>
       </div>
     </div>

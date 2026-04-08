@@ -163,13 +163,31 @@ export const usePresentation = () => {
         const userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
         const plan = await aiService.createProjectPlan(userRequest, settings);
         if (plan) {
-          // [FIX] 배열과 객체를 모두 고려하여 실질적인 데이터 배열을 추출
-          let tasksData = [];
-          if (Array.isArray(plan)) tasksData = plan;
-          else if (plan.tasks && Array.isArray(plan.tasks)) tasksData = plan.tasks;
-          else if (plan.outline && Array.isArray(plan.outline)) tasksData = plan.outline;
-          else if (plan.plan && Array.isArray(plan.plan)) tasksData = plan.plan;
-          else tasksData = plan; // UI단에서 파싱하도록 원본 통째로 넘김
+          // [FIX] 배열과 객체를 모두 고려하여 실질적인 데이터 배열을 추출 (맵핑 방어)
+          let tasksData: any[] = [];
+          if (Array.isArray(plan)) {
+            tasksData = plan;
+          } else if (plan && typeof plan === 'object') {
+            if (Array.isArray(plan.tasks)) tasksData = plan.tasks;
+            else if (Array.isArray(plan.outline)) tasksData = plan.outline;
+            else if (Array.isArray(plan.plan)) tasksData = plan.plan;
+            else if (Array.isArray(plan.phases)) tasksData = plan.phases;
+            else if (Array.isArray(plan.steps)) tasksData = plan.steps;
+            else if (Array.isArray(plan.items)) tasksData = plan.items;
+            else {
+              // [지능형 Fallback] 객체 내부의 모든 키를 순회하며 첫 번째 배열을 찾아냅니다.
+              for (const key in plan) {
+                if (Array.isArray(plan[key]) && plan[key].length > 0) {
+                  tasksData = plan[key];
+                  break;
+                }
+              }
+              // 만약 배열이 전혀 없다면 plan 자체를 강제로 배열에 넣습니다.
+              if (tasksData.length === 0) tasksData = [plan];
+            }
+          } else {
+            tasksData = [plan];
+          }
 
           setExecutionPlan({
             id: `plan-${Date.now()}`,
