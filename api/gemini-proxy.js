@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     
     // Vercel 환경변수 점검
     const API_KEY = process.env.GEMINI_API_KEY
-    console.log("Proxy Key Check (First 10 chars):", API_KEY?.substring(0, 10));
+    console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : "키 없음(UNDEFINED)");
     if (!API_KEY) {
       return res.status(500).json({ 
         success: false,

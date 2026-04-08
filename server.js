@@ -27,7 +27,7 @@ const upload = multer({
 
 // Initialize Gemini with server-side API key
 const apiKey = process.env.GEMINI_API_KEY;
-console.log("Proxy Key Check (First 10 chars):", apiKey?.substring(0, 10));
+console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : "키 없음(UNDEFINED)");
 if (!apiKey) {
   console.warn('WARNING: VITE_GEMINI_API_KEY or GEMINI_API_KEY is not set in environment variables.');
 }
