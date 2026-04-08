@@ -176,6 +176,12 @@ export async function callGeminiAPI(
             throw new Error(`[Proxy 403 Error] 구글 API에서 거부: ${msg}`);
           }
           
+          if (googleStatus === 503 || googleStatus === 429) {
+            useSlideStore.getState().resetAllLoadingStates();
+            toast.warning('현재 구글 AI 서버에 트래픽이 몰려 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
+            throw new Error(`[Proxy Traffic Delay] ${msg} (Status: ${googleStatus})`);
+          }
+          
           // 일반적인 서버 에러 500 등
           useSlideStore.getState().resetAllLoadingStates();
           useSlideStore.getState().setCriticalError(`프록시 통신 오류가 발생했습니다. (상태: ${googleStatus})\n메시지: ${msg}`);
@@ -195,6 +201,11 @@ export async function callGeminiAPI(
             useSlideStore.getState().resetAllLoadingStates();
             useSlideStore.getState().setCriticalError("시스템 설정 오류: 구글 API 키가 만료되었거나 유효하지 않습니다. Vercel 환경 변수를 확인하고 서버를 재배포해 주세요.");
             throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
+          }
+          if (response.status === 503 || response.status === 429) {
+            useSlideStore.getState().resetAllLoadingStates();
+            toast.warning('현재 구글 AI 서버에 트래픽이 몰려 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
+            throw new Error(`[Direct Traffic Delay] ${msg} (Status: ${response.status})`);
           }
           
           useSlideStore.getState().resetAllLoadingStates();
@@ -228,7 +239,7 @@ export async function callGeminiAPI(
         throw err;
       }
       
-      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403") || err.message.includes("프록시 통신 오류") || err.message.includes("서버 통신 오류"))) {
+      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403") || err.message.includes("프록시 통신 오류") || err.message.includes("서버 통신 오류") || err.message.includes("Traffic Delay"))) {
         // 이미 위에서 Overlay와 resetAllLoadingStates를 호출함
         throw err;
       }
