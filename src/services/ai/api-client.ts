@@ -2,6 +2,7 @@
 // src/services/ai/api-client.ts - Gemini 연동 (Hotfix: Engine Upgrade & Loading Defense)
 // [FIX] models/gemini-1.5-pro -> gemini-2.5-flash 전면 교체
 // [UPGRADE] MAX_TOKENS 한도 상황 대비 에러 핸들링 보강
+// [UPGRADE] Exponential Backoff 대기 시간 강화 (5s -> 10s -> 20s)
 // ============================================================
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -19,8 +20,8 @@ const PROXY_URL = import.meta.env.MODE === 'development'
   ? '/api/gemini-proxy' 
   : 'https://twmakeppt.vercel.app/api/gemini-proxy';
 
-const MAX_RETRIES = 3;
-const RETRY_BASE_MS = 1_000;
+// [STABILITY] 재시도 횟수 상향 및 지수 백오프 강화
+const MAX_RETRIES = 4; // 최초 1회 + 재시도 3회
 
 /**
  * [Streaming Implementation] Vercel AI SDK 적용
@@ -93,7 +94,7 @@ export async function callGeminiAPI(
         return p; 
       });
 
-  console.log("💎 [System] callGeminiAPI v1.3.0 (Stability Enhanced)");
+  console.log("💎 [System] callGeminiAPI v1.4.0 (Backoff Enhanced)");
   
   const systemPrefix = systemInstruction ? `[SYSTEM_INSTRUCTION]\n${systemInstruction}\n\n` : '';
   const jsonRule = responseMimeType === 'application/json' ? "\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or extra text outside the JSON." : "";
@@ -147,7 +148,6 @@ export async function callGeminiAPI(
       });
 
       if (response.status === 429 || response.status === 503 || response.status === 504) {
-        toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
         throw new Error(`[Traffic Delay] 서버 트래픽 과부하 (Status: ${response.status})`);
       }
 
@@ -176,7 +176,6 @@ export async function callGeminiAPI(
           }
           
           if (googleStatus === 503 || googleStatus === 429) {
-            toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
             throw new Error(`[Traffic Delay] 프록시 릴레이 트래픽 지연 (Status: ${googleStatus})`);
           }
           
@@ -201,7 +200,6 @@ export async function callGeminiAPI(
             throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
           }
           if (response.status === 503 || response.status === 429) {
-            toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
             throw new Error(`[Traffic Delay] 다이렉트 트래픽 지연 (Status: ${response.status})`);
           }
           
@@ -241,9 +239,25 @@ export async function callGeminiAPI(
         throw err;
       }
 
+      const isTrafficError = err.message && err.message.includes("[Traffic Delay]");
+
+      if (isTrafficError && attempt < MAX_RETRIES - 1) {
+        const delaySeconds = 5 * Math.pow(2, attempt); // 5s, 10s, 20s
+        console.warn(`[Attempt ${attempt + 1}] Google server overload. Retrying in ${delaySeconds}s...`);
+        toast.info(`구글 서버 과부하로 인해 ${delaySeconds}초 후 재시도합니다... (시도 ${attempt + 1}/${MAX_RETRIES - 1})`, { 
+          id: 'retry-toast',
+          duration: delaySeconds * 1000 
+        });
+        await new Promise((res) => setTimeout(res, delaySeconds * 1000));
+        continue;
+      }
+
       console.error(`[Attempt ${attempt + 1}] API Call Failed:`, err);
+      
       if (attempt < MAX_RETRIES - 1) {
-        await new Promise((res) => setTimeout(res, RETRY_BASE_MS * Math.pow(2, attempt)));
+        // 일반적인 일시적 오류에 대한 기본 대기 (1s, 2s, 4s...)
+        const baseDelay = 1000 * Math.pow(2, attempt);
+        await new Promise((res) => setTimeout(res, baseDelay));
       } else {
         useSlideStore.getState().resetAllLoadingStates();
         toast.warning('서버 트래픽이 너무 많습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
