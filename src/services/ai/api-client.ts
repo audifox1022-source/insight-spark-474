@@ -147,9 +147,8 @@ export async function callGeminiAPI(
       });
 
       if (response.status === 429 || response.status === 503 || response.status === 504) {
-        const waitMs = RETRY_BASE_MS * Math.pow(2, attempt);
-        await new Promise((res) => setTimeout(res, waitMs));
-        continue;
+        toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
+        throw new Error(`[Traffic Delay] 서버 트래픽 과부하 (Status: ${response.status})`);
       }
 
       if (!response.ok) {
@@ -177,9 +176,8 @@ export async function callGeminiAPI(
           }
           
           if (googleStatus === 503 || googleStatus === 429) {
-            useSlideStore.getState().resetAllLoadingStates();
-            toast.warning('현재 구글 AI 서버에 트래픽이 몰려 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
-            throw new Error(`[Proxy Traffic Delay] ${msg} (Status: ${googleStatus})`);
+            toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
+            throw new Error(`[Traffic Delay] 프록시 릴레이 트래픽 지연 (Status: ${googleStatus})`);
           }
           
           // 일반적인 서버 에러 500 등
@@ -203,9 +201,8 @@ export async function callGeminiAPI(
             throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
           }
           if (response.status === 503 || response.status === 429) {
-            useSlideStore.getState().resetAllLoadingStates();
-            toast.warning('현재 구글 AI 서버에 트래픽이 몰려 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
-            throw new Error(`[Direct Traffic Delay] ${msg} (Status: ${response.status})`);
+            toast.info("구글 AI 서버 접속이 지연되어 재시도 중입니다...", { id: 'retry-toast' });
+            throw new Error(`[Traffic Delay] 다이렉트 트래픽 지연 (Status: ${response.status})`);
           }
           
           useSlideStore.getState().resetAllLoadingStates();
@@ -239,7 +236,7 @@ export async function callGeminiAPI(
         throw err;
       }
       
-      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403") || err.message.includes("프록시 통신 오류") || err.message.includes("서버 통신 오류") || err.message.includes("Traffic Delay"))) {
+      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403") || err.message.includes("프록시 통신 오류") || err.message.includes("서버 통신 오류"))) {
         // 이미 위에서 Overlay와 resetAllLoadingStates를 호출함
         throw err;
       }
@@ -249,6 +246,7 @@ export async function callGeminiAPI(
         await new Promise((res) => setTimeout(res, RETRY_BASE_MS * Math.pow(2, attempt)));
       } else {
         useSlideStore.getState().resetAllLoadingStates();
+        toast.warning('서버 트래픽이 너무 많습니다. 잠시 후 다시 시도해 주세요.', { duration: 8000 });
       }
     }
   }
