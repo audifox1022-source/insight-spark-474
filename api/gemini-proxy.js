@@ -1,6 +1,6 @@
 // api/gemini-proxy.js
 export default async function handler(req, res) {
-  // 1. CORS 완전 개방 전략 (테스트용)
+  // 1. CORS 완전 개방 전략 (테스트용) - 무조건 최우선 부착
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', '*') // GET, POST, PUT, DELETE, OPTIONS 등 모두 허용
   res.setHeader('Access-Control-Allow-Headers', '*') // Authorization 등 모든 커스텀 헤더 허용
@@ -25,13 +25,13 @@ export default async function handler(req, res) {
     const API_KEY = process.env.GEMINI_API_KEY
     if (!API_KEY) {
       return res.status(500).json({ 
-        error: 'Proxy Configuration Error: GEMINI_API_KEY is missing on Vercel.',
-        proxy_error_relay: true
+        success: false,
+        proxyError: true,
+        message: 'Proxy Configuration Error: GEMINI_API_KEY is missing on Vercel.'
       })
     }
 
     const callUpstream = async (targetModel, apiVersion = 'v1') => {
-      // Gemini 2.x 모델의 경우 v1beta API 사용 유지
       if (targetModel.includes('2.') || targetModel.includes('exp')) {
         apiVersion = 'v1beta';
       }
@@ -73,32 +73,39 @@ export default async function handler(req, res) {
       data = responseText ? JSON.parse(responseText) : {}
     } catch (parseErr) {
       console.error("Proxy JSON Parse Error:", parseErr, "Response:", responseText)
-      return res.status(500).json({ error: 'AI 응답 파싱 실패 (Error Relay)', details: responseText })
-    }
-
-    // 2. 에러 릴레이 (Error Relay) 구현
-    // 구글 API에서 에러 응답(비정상 코드가)이 올 경우, 이를 단순히 403 등으로 가리지 않고 원본 데이터 그대로 전달.
-    if (!upstream.ok) {
-      console.error(`[Proxy Error Relay] Upstream Failed with status: ${upstream.status}`, data);
-      return res.status(upstream.status).json({
-        proxy_error_relay: true,
-        original_status: upstream.status,
-        original_error_message: data?.error?.message || 'Google API에서 알 수 없는 에러 반환',
-        raw_google_response: data
+      return res.status(500).json({ 
+        success: false,
+        proxyError: true,
+        message: 'AI 응답 파싱 실패 (Error Relay)', 
+        details: responseText 
       })
     }
 
-    // 성공한 경우 순수 결과 전달
+    // 2. 투명 에러 릴레이 (Transparent Error Relay) 구현
+    // 구글 API에서 거부/에러 응답(403 등)이 올 경우 클라이언트 브라우저가 CORS로 오인하지 않도록 
+    // Proxy 차원에서는 500 코드를 내리고 JSON 내부에 원본 상태와 메시지를 감싸서 보냅니다.
+    if (!upstream.ok) {
+      console.error(`[Proxy Error Relay] Upstream Failed with status: ${upstream.status}`, data);
+      return res.status(500).json({
+        success: false,
+        proxyError: true,
+        googleStatus: upstream.status,
+        message: data?.error?.message || 'Google API에서 알 수 없는 에러 반환',
+        rawGoogleResponse: data
+      })
+    }
+
+    // 성공한 경우 원본 데이터 반환 (클라이언트 하위호환성 유지)
     return res.status(upstream.status).json(data)
 
   } catch (err) {
     // 3. 서버 측 런타임 예외 릴레이 핸들링
     console.error("Proxy Critical Exception Error Relay:", err)
     return res.status(500).json({ 
-      error: err.message, 
-      stack: err.stack, 
-      proxy_error_relay: true,
-      message: "Vercel 서버 내부 로직 예외입니다."
+      success: false,
+      proxyError: true,
+      message: "Vercel 서버 내부 로직 예외입니다.",
+      errorDetails: err.message
     })
   }
 }

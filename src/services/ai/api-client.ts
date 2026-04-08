@@ -128,7 +128,7 @@ export async function callGeminiAPI(
         ? `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
         : PROXY_URL;
 
-      // 요청 헤더 설정 (프록시 서버가 요구하는 인증 헤더 포함)
+      // 요청 헤더 설정
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       const proxySecret = import.meta.env.VITE_PROXY_SECRET;
       if (proxySecret) {
@@ -149,21 +149,44 @@ export async function callGeminiAPI(
       }
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const msg = errorData.error?.message || errorData.error || '알 수 없는 API 에러';
-        const fullErrStr = `AI 서버 통신 오류 (${response.status}): ${msg}`.toLowerCase();
-        
-        if (
-          response.status === 403 || 
-          response.status === 401 || 
-          fullErrStr.includes('leaked') || 
-          fullErrStr.includes('api key') ||
-          fullErrStr.includes('unauthorized')
-        ) {
-          throw new Error("Vercel 프록시 403 에러 발생 시, Vercel 대시보드의 'Environment Variables'에 최신 GEMINI_API_KEY가 올바르게 등록되어 있고 재배포(Redeploy)되었는지 확인하세요.");
+        // [수정] 프록시 에러 릴레이 세부 처리 강화
+        let errorData: any = {};
+        try {
+          const textData = await response.text();
+          if (textData) {
+            errorData = JSON.parse(textData);
+          }
+        } catch (e) {
+          console.warn("[Proxy Relay Error] JSON 파싱 실패", e);
         }
-        
-        throw new Error(`AI 서버 통신 오류 (${response.status}): ${msg}`);
+
+        // 투명 에러 릴레이 형식 파싱
+        if (errorData?.proxyError) {
+          const googleStatus = errorData.googleStatus || response.status;
+          const msg = errorData.message || '프록시에서 원인 불명의 에러 반환';
+          console.error(`[Proxy Relay Error] Status: ${googleStatus}, Message: ${msg}`, errorData);
+          
+          if (googleStatus === 403 || googleStatus === 401 || msg.toLowerCase().includes('api key')) {
+            throw new Error(`[Proxy 403 Error] 구글 API에서 거부: ${msg}`);
+          }
+          throw new Error(`[Proxy Error] ${msg} (Status: ${googleStatus})`);
+        } else {
+          // 기존 일반 구글 API 다이렉트 에러 등
+          const msg = errorData.error?.message || errorData.error || '알 수 없는 API 에러';
+          const fullErrStr = `AI 서버 통신 오류 (${response.status}): ${msg}`.toLowerCase();
+          
+          if (
+            response.status === 403 || 
+            response.status === 401 || 
+            fullErrStr.includes('leaked') || 
+            fullErrStr.includes('api key') ||
+            fullErrStr.includes('unauthorized')
+          ) {
+            throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
+          }
+          
+          throw new Error(`AI 서버 통신 오류 (${response.status}): ${msg}`);
+        }
       }
 
       const data = await response.json();
@@ -190,7 +213,7 @@ export async function callGeminiAPI(
         throw err;
       }
       
-      if (err.message && err.message.includes("Vercel 프록시 403 에러 발생 시")) {
+      if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403"))) {
         throw err;
       }
 
