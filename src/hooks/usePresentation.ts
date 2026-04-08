@@ -163,10 +163,18 @@ export const usePresentation = () => {
         const userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
         const plan = await aiService.createProjectPlan(userRequest, settings);
         if (plan) {
+          // [FIX] 배열과 객체를 모두 고려하여 실질적인 데이터 배열을 추출
+          let tasksData = [];
+          if (Array.isArray(plan)) tasksData = plan;
+          else if (plan.tasks && Array.isArray(plan.tasks)) tasksData = plan.tasks;
+          else if (plan.outline && Array.isArray(plan.outline)) tasksData = plan.outline;
+          else if (plan.plan && Array.isArray(plan.plan)) tasksData = plan.plan;
+          else tasksData = plan; // UI단에서 파싱하도록 원본 통째로 넘김
+
           setExecutionPlan({
             id: `plan-${Date.now()}`,
             title: plan.title || '발표자료 생성 계획서',
-            tasks: plan.tasks || [],
+            tasks: tasksData || [],
             isApproved: false,
             totalSlidesRequested: settings.slideCount
           });

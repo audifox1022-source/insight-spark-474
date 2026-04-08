@@ -13,7 +13,7 @@ import {
   Monitor, Smartphone, Tablet, Layout, CheckCircle2,
   X, AlertCircle, Edit3, ListChecks, Loader2, Send,
   HelpCircle, Info, FileDown, Eye, FileDigit, 
-  MoreHorizontal, DownloadCloud, FileText, AspectRatio,
+  MoreHorizontal, DownloadCloud, FileText,
   Maximize2, Box
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -393,9 +393,37 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-10 space-y-5 custom-scrollbar">
-                {store.executionPlan.tasks.map((task, idx) => (
-                  <PlanTaskItem key={task.id} task={task} idx={idx} onUpdate={(u) => store.updatePlanTask(task.id, u)} />
-                ))}
+                {(() => {
+                  let tasksToRender: any[] = [];
+                  const rawTasks = store.executionPlan.tasks;
+                  
+                  if (Array.isArray(rawTasks)) {
+                    tasksToRender = rawTasks;
+                  } else if (rawTasks && typeof rawTasks === 'object') {
+                    const objRef = rawTasks as any;
+                    if (Array.isArray(objRef.outline)) tasksToRender = objRef.outline;
+                    else if (Array.isArray(objRef.tasks)) tasksToRender = objRef.tasks;
+                    else if (Array.isArray(objRef.plan)) tasksToRender = objRef.plan;
+                  }
+
+                  if (!tasksToRender || tasksToRender.length === 0) {
+                    return (
+                      <div className="flex flex-col flex-1 items-center justify-center p-10 text-center space-y-4 h-full">
+                        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                           <AlertCircle className="w-8 h-8 text-slate-400" />
+                        </div>
+                        <p className="text-slate-500 font-medium tracking-tight">
+                           데이터를 분석할 수 없습니다.<br/>
+                           <span className="text-sm opacity-80">AI 응답 형식이 올바르지 않거나 비어있습니다.</span>
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return tasksToRender.map((task, idx) => (
+                    <PlanTaskItem key={task.id || idx} task={task} idx={idx} onUpdate={(u) => store.updatePlanTask(task.id || String(idx), u)} />
+                  ));
+                })()}
               </div>
               <div className="p-10 bg-muted/10 border-t border-border flex items-center justify-between">
                 <div className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em]">Req Slides: {store.executionPlan.totalSlidesRequested}</div>

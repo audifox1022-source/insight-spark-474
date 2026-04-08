@@ -34,6 +34,7 @@ export function extractJson(text: string): any {
   let cleanText = text.trim();
 
   // 1단계: 마크다운 코드 블록 마커 제거 (완전 무결성 필터링)
+  // 정규식: ```json 이나 ``` 과 같은 백틱 흔적 완벽하게 제거
   cleanText = cleanText.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
 
   // 2단계: 최외곽 JSON 구조 추출 (정규식 기반)
@@ -41,8 +42,11 @@ export function extractJson(text: string): any {
   const jsonMatch = cleanText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
   const targetText = jsonMatch ? jsonMatch[1] : cleanText;
 
+  console.log("[Parse Debug] Raw:", text);
+
   try {
     const parsed = JSON.parse(targetText);
+    console.log("[Parse Debug] Parsed:", parsed);
     
     // [Phase 46] Dual-JSON Parsing 방어 로직 (유연한 객체 및 배열 정규화)
     // AI가 [{...}] 배열을 주거나 { "slides": [...] } 객체를 주는 경우를 모두 수용합니다.
