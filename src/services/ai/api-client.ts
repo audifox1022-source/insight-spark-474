@@ -6,6 +6,8 @@
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
+import { toast } from 'sonner';
+import { useSlideStore } from '@/store/useSlideStore';
 
 // Vercel AI SDK를 위한 커스텀 Google Provider 생성
 export const googleProvider = createGoogleGenerativeAI({
@@ -58,8 +60,10 @@ export async function streamGeminiAPI(
     return fullText;
   } catch (err: any) {
     console.error("❌ [Streaming API Error]:", err);
+    useSlideStore.getState().resetAllLoadingStates();
     const lowerMsg = (err.message || '').toLowerCase();
     if (lowerMsg.includes('403') || lowerMsg.includes('401') || lowerMsg.includes('leaked') || lowerMsg.includes('api key')) {
+      toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
       throw new Error("Vercel 프록시 403 에러 발생 시, Vercel 대시보드의 'Environment Variables'에 최신 GEMINI_API_KEY가 올바르게 등록되어 있고 재배포(Redeploy)되었는지 확인하세요.");
     }
     throw new Error(`AI 스트리밍 호출 실패: ${err.message || '모델 응답 없음'}`);
@@ -167,6 +171,8 @@ export async function callGeminiAPI(
           console.error(`[Proxy Relay Error] Status: ${googleStatus}, Message: ${msg}`, errorData);
           
           if (googleStatus === 403 || googleStatus === 401 || msg.toLowerCase().includes('api key')) {
+            useSlideStore.getState().resetAllLoadingStates();
+            toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
             throw new Error(`[Proxy 403 Error] 구글 API에서 거부: ${msg}`);
           }
           throw new Error(`[Proxy Error] ${msg} (Status: ${googleStatus})`);
@@ -182,6 +188,8 @@ export async function callGeminiAPI(
             fullErrStr.includes('api key') ||
             fullErrStr.includes('unauthorized')
           ) {
+            useSlideStore.getState().resetAllLoadingStates();
+            toast.error('구글 API 키가 만료되거나 유출되었습니다. Vercel 환경 변수를 업데이트 후 재배포해 주세요.', { duration: 10000 });
             throw new Error(`[Google API 403] 인증 거절 또는 API Key 오류: ${msg}`);
           }
           
@@ -210,16 +218,20 @@ export async function callGeminiAPI(
       if (err.name === 'AbortError') throw err;
       
       if (err.message && err.message.includes("생성할 내용이 너무 길어")) {
+        useSlideStore.getState().resetAllLoadingStates();
         throw err;
       }
       
       if (err.message && (err.message.includes("Proxy 403 Error") || err.message.includes("Google API 403"))) {
+        // 이미 위에서 toast와 resetAllLoadingStates를 호출함
         throw err;
       }
 
       console.error(`[Attempt ${attempt + 1}] API Call Failed:`, err);
       if (attempt < MAX_RETRIES - 1) {
         await new Promise((res) => setTimeout(res, RETRY_BASE_MS * Math.pow(2, attempt)));
+      } else {
+        useSlideStore.getState().resetAllLoadingStates();
       }
     }
   }
