@@ -1,63 +1,60 @@
 // api/gemini-proxy.js
 export default async function handler(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-proxy-secret');
+  // 1. CORS 완전 개방 전략 (테스트용)
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', '*') // GET, POST, PUT, DELETE, OPTIONS 등 모두 허용
+  res.setHeader('Access-Control-Allow-Headers', '*') // Authorization 등 모든 커스텀 헤더 허용
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: '허용되지 않는 메서드' });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end()
+  }
 
-  // 자체 프록시 보안 인증 도입 (환경변수에 PROXY_SECRET이 설정되어 있을 경우에만 발동)
-  if (process.env.PROXY_SECRET) {
-    if (req.headers['x-proxy-secret'] !== process.env.PROXY_SECRET) {
-      console.warn('[Proxy] 403 Unauthorized: Invalid or missing x-proxy-secret');
-      return res.status(403).json({ error: 'Unauthorized: 프록시 서버 보안 인증 실패' });
-    }
+  // 프록시 내부의 불필요한 차단 로직(Custom Auth)은 모두 제거됨
+  // 이곳의 유일한 목적은 프론트엔드 요청을 Google API로 순수하게 바이패스해 주는 것뿐입니다.
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: '허용되지 않는 메서드' })
   }
 
   try {
-    const body    = req.body
-    // [HOTFIX] gemini-1.5-flash에서 2.5-flash로 업그레이드
-    let model     = body.model ?? 'gemini-2.5-flash'
+    const body = req.body || {}
+    let model = body.model || 'gemini-2.5-flash'
     if (model.startsWith('models/')) model = model.substring(7)
     
     // Vercel 환경변수 점검
     const API_KEY = process.env.GEMINI_API_KEY
     if (!API_KEY) {
-      console.error('[Proxy] 403 Forbidden: Missing GEMINI_API_KEY in Vercel Environment');
-      return res.status(403).json({ error: "Vercel 서버리스 환경 변수에 GEMINI_API_KEY가 누락되었습니다." });
+      return res.status(500).json({ 
+        error: 'Proxy Configuration Error: GEMINI_API_KEY is missing on Vercel.',
+        proxy_error_relay: true
+      })
     }
 
     const callUpstream = async (targetModel, apiVersion = 'v1') => {
-      // Gemini 2.x 또는 실험용(exp) 모델은 v1beta에서 더 안정적인 경우가 많으므로 자동 전환 로직 유지
+      // Gemini 2.x 모델의 경우 v1beta API 사용 유지
       if (targetModel.includes('2.') || targetModel.includes('exp')) {
         apiVersion = 'v1beta';
       }
       
-      // 클라이언트에서 페이로드에 이미 model이 포함되어 있을 수 있으므로 제거 후 전달 (Google API 정책 대응)
       const { model: _, ...payloadWithoutModel } = body;
       
       return await fetch(
         `https://generativelanguage.googleapis.com/${apiVersion}/models/${targetModel}:generateContent?key=${API_KEY}`,
         {
-          method:  'POST',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(payloadWithoutModel),
+          body: JSON.stringify(payloadWithoutModel),
         }
       )
     }
 
-    // 1단계: v1 (Stable) 시도
     let upstream = await callUpstream(model, 'v1')
 
-    // 2단계: v1에서 404면 v1beta 시도
     if (upstream.status === 404) {
       console.warn(`[Proxy] Model ${model} not found on v1. Trying v1beta...`)
       upstream = await callUpstream(model, 'v1beta')
     }
 
-    // 3단계: 여전히 404면 가용성이 높은 gemini-2.5-flash 또는 gemini-flash-latest로 시도 (최종 보루)
     if (upstream.status === 404) {
       const fallbackModels = ['gemini-2.5-flash', 'gemini-flash-latest'];
       for (const fbModel of fallbackModels) {
@@ -76,13 +73,32 @@ export default async function handler(req, res) {
       data = responseText ? JSON.parse(responseText) : {}
     } catch (parseErr) {
       console.error("Proxy JSON Parse Error:", parseErr, "Response:", responseText)
-      return res.status(500).json({ error: 'AI 응답 파싱 실패', details: responseText })
+      return res.status(500).json({ error: 'AI 응답 파싱 실패 (Error Relay)', details: responseText })
     }
 
-    res.status(upstream.status).json(data)
+    // 2. 에러 릴레이 (Error Relay) 구현
+    // 구글 API에서 에러 응답(비정상 코드가)이 올 경우, 이를 단순히 403 등으로 가리지 않고 원본 데이터 그대로 전달.
+    if (!upstream.ok) {
+      console.error(`[Proxy Error Relay] Upstream Failed with status: ${upstream.status}`, data);
+      return res.status(upstream.status).json({
+        proxy_error_relay: true,
+        original_status: upstream.status,
+        original_error_message: data?.error?.message || 'Google API에서 알 수 없는 에러 반환',
+        raw_google_response: data
+      })
+    }
+
+    // 성공한 경우 순수 결과 전달
+    return res.status(upstream.status).json(data)
 
   } catch (err) {
-    console.error("Proxy Critical Error:", err)
-    res.status(500).json({ error: err.message })
+    // 3. 서버 측 런타임 예외 릴레이 핸들링
+    console.error("Proxy Critical Exception Error Relay:", err)
+    return res.status(500).json({ 
+      error: err.message, 
+      stack: err.stack, 
+      proxy_error_relay: true,
+      message: "Vercel 서버 내부 로직 예외입니다."
+    })
   }
 }
