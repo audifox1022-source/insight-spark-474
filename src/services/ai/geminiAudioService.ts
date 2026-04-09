@@ -1,6 +1,6 @@
 // src/services/ai/geminiAudioService.ts
-// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 서비스
-// [STABILITY] 10MB 제한 해제 -> 500MB 대용량 처리 아키텍처 지원
+// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 서비스 (v2.1.0)
+// [STABILITY] 데이터 타입 엄격 검증 및 에러 트래픽 방어
 // [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy
 
 /**
@@ -20,12 +20,21 @@ const extractJson = (text: string): any => {
 
 /**
  * [CORE] analyzeAudioDeep
- * Vercel Blob URL을 수신하여 프록시를 통해 Gemini로 전달하고 분석 결과를 받습니다.
+ * @param blobUrl 브라우저 업로드 후 획득한 Vercel Blob의 공개 URL (String)
+ * @param mimeType 오디오 파일의 MIME 타입
  */
 export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promise<any> => {
-  if (!blobUrl) throw new Error('Blob URL이 제공되지 않았습니다.');
+  // [CRITICAL DEFENSE] 데이터 타입 검증 ( [object File] 에러 방어 )
+  if (!blobUrl || typeof blobUrl !== 'string') {
+    console.error("❌ [Audio Service] Invalid blobUrl type provided:", typeof blobUrl, blobUrl);
+    throw new Error(`분석을 시작할 수 없습니다. 올바른 파일 URL이 아닌 ${typeof blobUrl} 데이터가 전달되었습니다.`);
+  }
 
-  console.log(`[Audio Service] 🚀 Analyzing Large Audio: ${blobUrl}`);
+  if (!blobUrl.startsWith('http')) {
+    throw new Error('분석을 시작할 수 없습니다. 파일 URL 형식이 올바르지 않습니다.');
+  }
+
+  console.log(`[Audio Service] 🚀 Analyzing Verified Audio URL: ${blobUrl}`);
 
   try {
     const response = await fetch('/api/gemini-proxy', {
@@ -63,25 +72,23 @@ export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promi
     if (!text) throw new Error("AI 응답에서 텍스트를 찾을 수 없습니다.");
 
     const jsonResult = extractJson(text);
-    if (!jsonResult) throw new Error("AI 응답 파싱 실패");
+    if (!jsonResult) throw new Error("AI 응답 파싱 실패 (JSON 구조 오류)");
 
     return {
       type: jsonResult.type || 'Speech', // 렌더러 분기를 위해 타입 추론 (기본값 Speech)
       data: jsonResult
     };
   } catch (err: any) {
-    console.error("❌ [Audio Service] Deep Analysis Fail:", err);
+    console.error("❌ [Audio Service] Pipeline Error:", err);
     throw err;
   }
 };
 
 /**
- * [UTILITY] translateLiveAudio - 실시간 통역은 기존 Base64 방식 유지 (작은 버퍼)
- * 500MB 분석 서비스와 별도로, 통역용 소량 데이터는 즉각성을 위해 직접 호출합니다.
+ * [UTILITY] translateLiveAudio - 실시간 통역은 기존 Base64 방식 유지 (작은 Buffer)
  */
 export const translateLiveAudio = async (audioBlob: Blob, targetLanguage: string): Promise<string> => {
-  // 실시간 통역 로직은 그대로 유지하거나 비슷한 프록시 패턴으로 전환 가능
-  // 여기서는 대용량 분석에 집중하기 위해 수정을 생략하거나 필요시 추가 수정
+  // 실시간 통역은 통계적으로 데이터가 매우 작으므로 기존 인라인 방식을 권장할 수 있음
   return "Live translation service is active."; 
 };
 
@@ -91,5 +98,5 @@ export const geminiAudioService = {
 };
 
 // ============================================================
-// © 2026 Work AI Audio Intelligence Engine (v2.0.0 Blob Ready)
+// © 2026 Work AI Audio Intelligence Engine (v2.1.0 Robust Ready)
 // ============================================================

@@ -1,6 +1,6 @@
 // api/gemini-proxy.js
-// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 프록시
-// 대용량 오디오(최대 500MB) 처리를 위한 고가용성 아키텍처 지원
+// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 프록시 (v2.1.0)
+// [STABILITY] URL 유효성 검증 및 400 Bad Request 방어 로직 강화
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import fs from "fs";
@@ -42,40 +42,52 @@ export default async function handler(req, res) {
 
     // --- [CORE] 대용량 파일 처리 로직 (Blob URL 감지 시) ---
     if (blobUrl) {
-      console.log(`[PROXY] ✨ Large file detected. Processing Blob: ${blobUrl}`);
+      // [DEFENSE] URL 유효성 및 데이터 타입 엄격 검증
+      if (typeof blobUrl !== 'string' || !blobUrl.startsWith('http')) {
+        console.error(`[PROXY ERROR] Invalid URL detected:`, blobUrl);
+        return res.status(400).json({
+          success: false,
+          proxyError: true,
+          message: "올바른 파일 URL이 전달되지 않았습니다. (blobUrl은 반드시 http로 시작하는 문자열이어야 합니다.)",
+          receivedType: typeof blobUrl,
+          receivedValue: String(blobUrl).substring(0, 100)
+        });
+      }
+
+      console.log(`[PROXY] ✨ Processing Valid Blob URL: ${blobUrl}`);
       
       // 1. Vercel /tmp 디렉토리에 임시 파일 다운로드
-      const fileName = `temp_audio_${Date.now()}_${path.basename(new URL(blobUrl).pathname)}`;
+      const urlObj = new URL(blobUrl);
+      const fileName = `temp_audio_${Date.now()}_${path.basename(urlObj.pathname)}`;
       tmpFilePath = path.join(os.tmpdir(), fileName);
       
-      console.log(`[PROXY] 📥 Downloading from Blob to: ${tmpFilePath}`);
+      console.log(`[PROXY] 📥 Downloading to storage: ${tmpFilePath}`);
       const response = await fetch(blobUrl);
-      if (!response.ok) throw new Error(`Blob 다운로드 실패: ${response.statusText}`);
+      if (!response.ok) throw new Error(`Blob 다운로드 실패 (${response.status}): ${response.statusText}`);
       
       const buffer = await response.arrayBuffer();
       fs.writeFileSync(tmpFilePath, Buffer.from(buffer));
 
       // 2. Gemini File API로 업로드
-      console.log(`[PROXY] 🚀 Uploading to Gemini File API...`);
+      console.log(`[PROXY] 🚀 Uploading to Google AI File Manager...`);
       const uploadResponse = await fileManager.uploadFile(tmpFilePath, {
         mimeType: mimeType || 'audio/mpeg',
         displayName: fileName,
       });
 
-      console.log(`[PROXY] ✅ Gemini Upload Success: ${uploadResponse.file.uri}`);
+      console.log(`[PROXY] ✅ Gemini File API Upload Success: ${uploadResponse.file.uri}`);
 
       // 3. 파일 처리 상태 대기 (ACTIVE 상태가 될 때까지)
       let file = await fileManager.getFile(uploadResponse.file.name);
       let retryCount = 0;
-      while (file.state === "PROCESSING" && retryCount < 10) {
-        process.stdout.write(".");
+      while (file.state === "PROCESSING" && retryCount < 15) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
         file = await fileManager.getFile(uploadResponse.file.name);
         retryCount++;
       }
 
       if (file.state !== "ACTIVE") {
-        throw new Error(`파일 분석 준비 실패: ${file.state}`);
+        throw new Error(`Gemini 서버의 파일 분석 준비가 완료되지 않았습니다 (상태: ${file.state})`);
       }
 
       // 4. 요청 구조 재구성 (File Data 포함)
@@ -83,7 +95,7 @@ export default async function handler(req, res) {
         {
           role: "user",
           parts: [
-            { text: contents?.[0]?.parts?.[0]?.text || "이 오디오 내용을 분석해 주세요." },
+            { text: contents?.[0]?.parts?.[0]?.text || "이 오디오 내용을 정밀 분석해 주세요." },
             { fileData: { mimeType: file.mimeType, fileUri: file.uri } }
           ]
         }
@@ -91,9 +103,8 @@ export default async function handler(req, res) {
     }
 
     // --- [EXECUTE] Gemini API 호출 ---
-    console.log(`[PROXY] 💎 Calling Gemini GenerateContent (${modelName})...`);
+    console.log(`[PROXY] 💎 Executing Gemini Inference (${modelName})...`);
     
-    // v1beta API를 사용하여 최신 기능 지원 (특히 File API 연동 시 권장)
     const model = genAI.getGenerativeModel({ 
       model: modelName,
       systemInstruction: system_instruction
@@ -108,7 +119,7 @@ export default async function handler(req, res) {
     return res.status(200).json(aiResponse);
 
   } catch (err) {
-    console.error("❌ [PROXY CRITICAL ERROR]:", err);
+    console.error("❌ [PROXY CRITICAL FAILURE]:", err);
     return res.status(500).json({ 
       success: false,
       proxyError: true,
@@ -116,13 +127,13 @@ export default async function handler(req, res) {
       errorDetails: err.stack
     });
   } finally {
-    // --- [CLEANUP] 임시 파일 보장적 삭제 ---
+    // --- [CLEANUP] 임시 파일 무조건 삭제 ---
     if (tmpFilePath && fs.existsSync(tmpFilePath)) {
       try {
         fs.unlinkSync(tmpFilePath);
-        console.log(`[PROXY] 🧹 Cleanup: Internal /tmp file deleted.`);
+        console.log(`[PROXY] 🧹 Cleanup: Internal local file purged.`);
       } catch (e) {
-        console.error(`[PROXY] ⚠️ Failed to delete /tmp file:`, e);
+        console.error(`[PROXY] ⚠️ Cleanup Failed:`, e);
       }
     }
   }
