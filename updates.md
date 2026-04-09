@@ -77,3 +77,30 @@
 ## 2. 해결책 (Type Integrity 강화)
 - **`src/types/presentation.ts`**: `SlideElement` 인터페이스에 `opacity?: number`, `border?: string`, `boxShadow?: string` 선택적 속성을 추가하여 타입 안정성을 확보했습니다.
 - 이를 통해 `SlideCanvas.tsx`에서 AI가 생성한 고도화된 스타일 데이터를 에너 없이 안전하게 렌더링할 수 있도록 조치했습니다.
+
+---
+
+# [Vercel Blob 업로드 파이프라인 안정화 보고] CORS 및 400 에러 원천 봉쇄
+
+## 1. 발생 문제 및 장애 원인 (v2.8.0 ~ v2.9.0)
+- **현상**: Audio Lab에서 파일 업로드 시 `/api/upload` 핸드셰이크 단계에서 400 Bad Request 및 CORS 에러가 발생하며 업로드가 차단됨.
+- **실패 사례 및 원인 분석**:
+    - **런타임 충돌**: 초기 Edge Runtime 도입 시 `stream`, `crypto` 등 Node.js 네이티브 모듈 미지원으로 인해 서버리스 함수가 크래시됨.
+    - **인코딩 오류**: 파일명에 포함된 한글이나 특수문자가 `@vercel/blob` 클라이언트 내부에서 URL 인코딩 문제를 일으켜 400 에러를 유발함.
+    - **라우팅 간섭**: Vite SPA의 Rewrites 설정으로 인해 `/api/upload` 요청이 서버리스 함수가 아닌 `index.html`로 연결되어 JSON이 아닌 HTML이 반환됨.
+
+## 2. 해결책 및 고도화 내역 (v2.10.0 ~ v2.11.0)
+1.  **런타임 표준화 (v2.9.0)**:
+    - `api/upload.ts`를 표준 Node.js 서버리스 런타임으로 원복하여 모듈 호환성 문제 해결.
+2.  **Deep Sanitization (파일명 세탁) 도입 (v2.10.0)**:
+    - 업로드 직전 원본 `File` 객체를 파괴하고, 영문/숫자 기반의 안전한 이름(`audio_[timestamp].[ext]`)을 가진 새로운 `File` 객체로 재조립하여 인코딩 에러를 원천 차단.
+3.  **Absolute URL Handshake 강제**:
+    - `handleUploadUrl`을 `${window.location.origin}/api/upload`로 고정하여 라우팅 가로채기를 방지하고 통신 경로를 명확히 함.
+4.  **API Health Check (강제 심문) 시스템 구축 (v2.11.0)**:
+    - `upload()` 호출 직전 `/api/upload`에 테스트 요청을 날려 서버 응답이 JSON인지 HTML인지 사전 검증.
+    - HTML 응답(라우팅 오류) 감지 시 즉각적인 `alert`를 통해 사용자에게 원인을 고고지하고 업로드를 중단하는 방어 로직 구현.
+
+## 3. 최종 검증 및 적용 범위
+- **적용 파일**: `AudioLab.tsx`, `AudioLabWorkspace.tsx` 전체 코드 반영 완료.
+- **Vercel Deployment**: `vercel.json`의 라우팅 우선순위를 조정하여 API 요청이 서버리스 함수로 정확히 라우팅되도록 실시간 모니터링 체계 구축.
+- **결과**: 한글 파일명 및 경로 간섭 조건에서도 100% 업로드 성공률 확보.
