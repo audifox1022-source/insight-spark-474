@@ -1,22 +1,21 @@
 // ============================================================
-// api/upload.ts (Vercel Edge Runtime - v2.14.0)
-// [ARCHITECT UPGRADE] Pure Web API Transformation (No @vercel/node)
-// [CRITICAL] FIXED: TS2307 Cannot find module '@vercel/node'
+// api/upload.ts (Vercel Serverless Function - v2.15.0)
+// [ARCHITECT UPGRADE] Node.js Runtime Restore (Serverless Environment)
+// [CRITICAL] FIXED: Edge Function referencing unsupported modules (stream, crypto, etc.)
 // [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\api\upload.ts
 // ============================================================
 
 import { handleUpload } from '@vercel/blob/client';
 
 /**
- * [Vercel Edge Runtime Configuration]
- * @vercel/node 의존성을 완전히 제거하고 표준 Web API를 사용하여 빌드 안정성을 확보합니다.
+ * [Vercel Serverless Configuration]
+ * Edge 런타임의 모듈 제약(stream, crypto 미지원) 이슈를 해결하기 위해 
+ * 표준 Node.js 환경에서 Web API 스타일(Request, Response)을 사용합니다.
+ * (runtime: 'edge' 설정을 의도적으로 제거함)
  */
-export const config = {
-  runtime: 'edge',
-};
 
 export default async function handler(request: Request): Promise<Response> {
-  // --- [1] CORS 및 OPTIONS 요청 처리 (Edge standard) ---
+  // --- [1] CORS 및 OPTIONS 요청 처리 ---
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -37,10 +36,10 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    // --- [3] Request Body 파싱 (Edge 방식) ---
+    // --- [3] Request Body 파싱 (표준 Web API 방식) ---
     const body = await request.json();
 
-    console.log(`[Edge Runtime Upload]: Initiating Handshake (v2.14.0)...`);
+    console.log(`[Node.js Serverless Upload]: Initiating Handshake (v2.15.0)...`);
 
     // --- [4] handleUpload 실행 ---
     const jsonResponse = await handleUpload({
@@ -66,18 +65,18 @@ export default async function handler(request: Request): Promise<Response> {
           // [CRITICAL] 500MB 용량 제한 강제 적용
           maximumSizeInBytes: 524288000, 
           tokenPayload: JSON.stringify({
-            runtime: 'edge-v2.14.0',
+            runtime: 'nodejs-serverless-v2.15.0',
             timestamp: new Date().toISOString()
           }),
         };
       },
 
       onUploadCompleted: async ({ blob }) => {
-        console.log(`[Edge Runtime Upload]: ✅ COMPLETED: ${blob.url}`);
+        console.log(`[Node.js Serverless Upload]: ✅ COMPLETED: ${blob.url}`);
       },
     });
 
-    // --- [5] JSON 응답 반환 (Edge Response) ---
+    // --- [5] JSON 응답 반환 (Web API Response) ---
     return new Response(JSON.stringify(jsonResponse), {
       status: 200,
       headers: { 
@@ -87,7 +86,7 @@ export default async function handler(request: Request): Promise<Response> {
     });
 
   } catch (error: any) {
-    console.error('[Edge Runtime Upload Error]:', error);
+    console.error('[Node.js Serverless Upload Error]:', error);
     
     return new Response(JSON.stringify({ error: error.message || 'MIME-Aligned Handshake Failed' }), {
       status: 400,
