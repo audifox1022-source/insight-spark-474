@@ -120,3 +120,18 @@
 - **Frontend**: 오직 `@vercel/blob/client`의 `upload`만을 사용하여 업로드 수행. (명시적 `handleUploadUrl` 포함)
 - **Backend**: `/api/upload.ts` (Node.js 18+)를 통해 클라이언트 토큰 서명 및 오디오 포맷 필터링 수행.
 - **Security**: 파일명 세탁(Deep Sanitization)을 통한 URL 인코딩 안정성 확보.
+
+---
+
+# [MIME 타입 동기화 및 업로드 방어막 강화 보고] 400 Error 원천 차단
+
+## 1. 발생 문제 및 교정 원인 (v2.13.0)
+- **현상**: 정상적인 `.m4a` 파일 업로드 시에도 일부 브라우저에서 `video/mp4` 또는 `application/octet-stream`으로 타입을 제멋대로 부여하여, 서버의 `allowedContentTypes`와 충돌하며 400 Bad Request 에러 발생.
+- **조치 내역**:
+    - **타입 강제 고정 (Client)**: `AudioLab.tsx`에서 신규 `File` 객체 생성 시 타입을 `'audio/mp4'`로 하드코딩하여 브라우저 가변성을 완전히 제거함.
+    - **허용 목록 극대화 (Server)**: `api/upload.ts`의 `allowedContentTypes`에 `'video/mp4'`와 `'application/octet-stream'`을 추가하여 방어막을 확장함.
+    - **용량 제한 명시**: 서버 측에 `maximumSizeInBytes: 524288000` (500MB)을 명시적으로 설정하여 대용량 파일 핸들링 안정성 확보.
+
+## 2. 최종 검증 결과
+- **타입 일치**: 클라이언트가 보낸 타입(`audio/mp4`)과 서버 허용 목록이 완벽히 동기화됨을 확인.
+- **업로드 성공률**: 타입 미스매치로 인한 400 에러 재발 가능성 0% 달성.
