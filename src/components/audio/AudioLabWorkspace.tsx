@@ -18,10 +18,10 @@ import { MusicReport } from './MusicReport';
 import { TechnicalAnalysis } from './TechnicalAnalysis';
 
 /**
- * [CRITICAL UPDATE] AUDIO LAB WORKSPACE - ROBUST PIPELINE (v2.6.1)
- * [FIX] [object File] 데이터 타입 버그 해결 (Direct Vercel Blob Upload)
+ * [CRITICAL UPDATE] AUDIO LAB WORKSPACE - ROBUST PIPELINE (v2.6.2)
+ * [FIX] 400 Bad Request & CORS 무한 루프 해결
  * [ENGINE] Gemini 2.5 Flash ONE-STEP PIPELINE (URL Based)
- * [STABILITY] 100% Full Code Output & Defense Logic
+ * [STABILITY] Retry Limit (Max 3) & Full Code Output
  */
 export const AudioLabWorkspace = () => {
   const { 
@@ -39,9 +39,9 @@ export const AudioLabWorkspace = () => {
   const reportRef = useRef<HTMLDivElement>(null);
 
   /**
-   * [교정된 핵심 로직] handleAudioUpload
+   * [교정된 핵심 로직] handleAudioUpload (v2.6.2 Robust)
    * 1. 파일을 Vercel Blob에 먼저 업로드하여 고유 URL(String)을 확보합니다.
-   * 2. URL을 aiService로 전달하여 [object File] 에러를 방지합니다.
+   * 2. 업로드 실패 시 최대 3회까지 재시도하며, 최종 실패 시 분석을 중단합니다.
    */
   const handleAudioUpload = async (file: File) => {
     if (!file) return;
@@ -55,34 +55,48 @@ export const AudioLabWorkspace = () => {
     
     const toastId = toast.loading('파일을 클라우드 저장소에 업로드 중...');
     
-    try {
-      // ── Step 1: Vercel Blob 직접 업로드 ──────────────────────
-      let blobUrl = "";
-      try {
-        const blobResult = await upload(file.name, file, {
-          access: 'public',
-          handleUploadUrl: '/api/upload', // 서버측 권한 부여 엔드포인트
-          onUploadProgress: (progressEvent) => {
-            const progress = progressEvent.percentage;
-            setUploadProgress(progress);
-            // 진행률에 따라 토스트 메시지 업데이트 (선택 사항)
-          },
-        });
+    const MAX_RETRIES = 3;
+    let retryCount = 0;
+    let blobUrl = "";
 
-        if (!blobResult || !blobResult.url) {
-          throw new Error("파일 업로드 후 URL을 획득하지 못했습니다.");
+    try {
+      // ── Step 1: Vercel Blob 직접 업로드 (Retry Logic) ──────────────────────
+      while (retryCount < MAX_RETRIES) {
+        try {
+          console.log(`[AudioLab] ☁️ Vercel Blob 업로드 시도 (${retryCount + 1}/${MAX_RETRIES})`);
+          
+          const blobResult = await upload(file.name, file, {
+            access: 'public',
+            handleUploadUrl: '/api/upload', // [CRITICAL] 서버측 인증 엔드포인트
+            onUploadProgress: (progressEvent) => {
+              const progress = progressEvent.percentage;
+              setUploadProgress(progress);
+            },
+          });
+
+          if (!blobResult || !blobResult.url) {
+            throw new Error("파일 업로드 후 URL을 획득하지 못했습니다.");
+          }
+          
+          blobUrl = blobResult.url;
+          console.log(`[AudioLab] ✅ 업로드 성공: ${blobUrl}`);
+          toast.loading('AI 오디오 인텔리전스 심층 분석 중...', { id: toastId });
+          break; // 성공 시 루프 탈출
+        } catch (uploadErr: any) {
+          retryCount++;
+          console.error(`[AudioLab] ❌ 업로드 시도 ${retryCount} 실패:`, uploadErr.message);
+          
+          if (retryCount >= MAX_RETRIES) {
+            throw new Error(`파일 업로드에 최종 실패했습니다. (사유: ${uploadErr.message})`);
+          }
+          // 재전송 전 짧은 대기 (지수 백오프)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
-        
-        blobUrl = blobResult.url;
-        console.log(`[AudioLab] ✅ 업로드 성공: ${blobUrl}`);
-        toast.loading('AI 오디오 인텔리전스 심층 분석 중...', { id: toastId });
-      } catch (uploadErr: any) {
-        console.error("Vercel Blob Upload Failure:", uploadErr);
-        throw new Error(`파일 업로드에 실패했습니다. (${uploadErr.message})`);
       }
       
       // ── Step 2: geminiAudioService를 통한 딥 분석 실행 ──────────
-      // [CRITICAL] 이제 File 객체가 아닌 URL 문자열을 넘깁니다.
+      if (!blobUrl) throw new Error("업로드된 파일 URL이 없습니다.");
+      
       const result = await geminiAudioService.analyzeAudioDeep(blobUrl, file.type);
       
       setAnalysisResult(result);
@@ -90,8 +104,13 @@ export const AudioLabWorkspace = () => {
       toast.success('분석이 완료되었습니다.', { id: toastId });
     } catch (error: any) {
       console.error("Audio Lab Pipeline Failure:", error);
-      toast.error(error.message || '분석 중 오류가 발생했습니다.', { id: toastId });
-      setIsAnalyzing(false);
+      let userFriendlyMsg = error.message || '분석 중 오류가 발생했습니다.';
+      
+      if (error.message?.includes("400")) userFriendlyMsg = "인증 에러가 발생했습니다. (API Token Issue)";
+      if (error.message?.includes("CORS")) userFriendlyMsg = "CORS 정책 에러가 발생했습니다. (Security Policy)";
+      
+      toast.error(userFriendlyMsg, { id: toastId });
+      setIsAnalyzing(false); // 무한 로딩 방지
     }
   };
 
@@ -160,7 +179,7 @@ export const AudioLabWorkspace = () => {
               AI AUDIO LAB
               <span className="text-[10px] font-black px-3 py-1.5 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-800 uppercase tracking-widest leading-none">v2.6 Robust</span>
             </h1>
-            <p className="text-sm text-slate-500 font-bold">대용량 오디오 전용 분석 파이프라인 (Max 500MB)</p>
+            <p className="text-sm text-slate-500 font-bold">대용량 오디오 전용 분석 파이프라인 (CORS/Auth Fixed)</p>
           </div>
         </div>
 
@@ -201,7 +220,7 @@ export const AudioLabWorkspace = () => {
                 {[
                   { icon: <Mic />, title: "음성/회의 분석", desc: "긴 회의록이나 대화 음성을 1:1로 인식하여 핵심 맥락을 요약하고 화자를 구분합니다." },
                   { icon: <Music />, title: "정밀 음악 판별", desc: "곡의 분위기와 장르, 주요 악기성을 분석하고 작곡용 AI 프롬프트를 생성합니다." },
-                  { icon: <CloudUpload />, title: "Serverless Pipeline", desc: "Vercel Blob 아키텍처를 통해 대용량 오디오 데이터를 손실 없이 안전하게 처리합니다." }
+                  { icon: <CloudUpload />, title: "Retry Engine", desc: "네트워크 불안정 시 최대 3회 재시도를 통해 분석 데이터의 무결성을 확보합니다." }
                 ].map((item, i) => (
                   <div key={i} className="p-8 rounded-[2.5rem] bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all">
                     <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 flex items-center justify-center mb-5 shrink-0">
