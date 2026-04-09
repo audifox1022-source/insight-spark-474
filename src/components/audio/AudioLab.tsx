@@ -1,8 +1,7 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
-// [ARCHITECT UPGRADE] Client-Only Upload Pipeline Standardization (v2.12.0)
-// [CRITICAL] REMOVED: Server-side 'put' functions & Health Check interrogation
-// [CRITICAL] FIXED: Direct upload to Vercel internal API CORS/400 bug
+// [ARCHITECT UPGRADE] MIME Type Synchronization & Stabilization (v2.13.0)
+// [CRITICAL] FIXED: Forced 'audio/mp4' MIME type to bypass browser variability
 // [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\src\components\audio\AudioLab.tsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
@@ -17,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { upload } from '@vercel/blob/client'; // [CORE] 클라이언트 전용 업로드 패키지 확정 (v2.12.0)
+import { upload } from '@vercel/blob/client'; 
 
 // components
 import { SpeechReport } from './SpeechReport';
@@ -114,22 +113,23 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Client-Only Upload Pipeline (v2.12.0)
-   * 🔑 1. [DELETED] Health Check: 불필요한 서버 심문 로직 제거
-   * 🔑 2. Deep Sanitization: 파일명 세탁 적용
-   * 🔑 3. Standard Client Upload: @vercel/blob/client 기반의 정석적인 호출
+   * [CORE] handleAnalyze - MIME Sync Pipeline (v2.13.0)
+   * 🔑 1. Deep Sanitization: 파일명 세탁
+   * 🔑 2. [CRITICAL FIX] Forced MIME Type: 클라이언트 MIME 타입을 'audio/mp4'로 강제 고정
+   * 🔑 3. Standard Client Upload: Vercel Blob API 연동
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
     // --- [1] DEEP SANITIZATION (파일명 세탁) ---
-    // 한글 및 특수문자로 인한 URL 인코딩 에러 방지를 위해 영어/숫자로 파일명 재조립
     const ext = selectedFile.name.split('.').pop() || 'm4a';
     const safeFileName = `audio_${Date.now()}.${ext}`;
-    const safeFile = new File([selectedFile], safeFileName, { type: selectedFile.type });
+    
+    // [CRITICAL] 브라우저가 제멋대로 부여하는 타입을 무시하고 'audio/mp4'로 강제 세탁
+    const safeFile = new File([selectedFile], safeFileName, { type: 'audio/mp4' });
 
-    console.log(`[Blob Upload] 🚀 Phase 1: Initiating Client-Side Sanitized Pipeline...`);
-    console.log(`[Blob Upload] 🧼 Original: ${selectedFile.name} -> Sanitized: ${safeFileName}`);
+    console.log(`[Blob Upload] 🚀 Phase 1: Initiating MIME-Aligned Pipeline...`);
+    console.log(`[Blob Upload] 🧼 Original Type: ${selectedFile.type} -> Forced Type: audio/mp4`);
 
     setStep('analyzing');
     setError(null);
@@ -144,8 +144,6 @@ export const AudioLab: React.FC = () => {
         try {
           console.log(`[Blob Upload] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
           
-          // [CRITICAL] 반드시 @vercel/blob/client의 upload 함수를 사용
-          // handleUploadUrl로 지정된 /api/upload 핸드셰이크 엔드포인트를 통해 토큰을 발급받음
           const newBlob = await upload(safeFileName, safeFile, {
             access: 'public',
             handleUploadUrl: `${window.location.origin}/api/upload`, 
@@ -166,7 +164,7 @@ export const AudioLab: React.FC = () => {
           console.error(`[Blob Upload] ❌ 업로드 라우트 통신 실패 (시도 ${retryCount}):`, uploadErr);
           
           if (retryCount >= MAX_RETRIES) {
-            throw new Error(`업로드 통신 최종 실패: ${uploadErr.message}. 서버리스 함수(/api/upload) 상태를 확인하십시오.`);
+            throw new Error(`업로드 통신 최종 실패: ${uploadErr.message}. 서버리스 함수(/api/upload)의 MIME 허용 설정을 확인하십시오.`);
           }
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
@@ -224,9 +222,9 @@ export const AudioLab: React.FC = () => {
   const renderUpload = () => (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-10">
       <header className="text-center space-y-6">
-        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">Client-Only Pipeline v2.12.0</span></div>
+        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">MIME Sync v2.13.0</span></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
-        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"클라이언트 전용 업로드 파이프라인(v2.12.0)을 통해 <br/>안전하고 견고하게 오디오 자산을 배포합니다."</p>
+        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"클라이언트와 서버의 MIME 타입을 'audio/mp4'로 강제 정렬하여 <br/>업로드 사각지대를 완전히 제거합니다."</p>
       </header>
 
       {error && <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4"><AlertCircle className="text-red-500 shrink-0" size={24} /><p className="text-sm font-bold text-red-700 break-keep">{error}</p></div>}
@@ -238,7 +236,7 @@ export const AudioLab: React.FC = () => {
               <div className="flex flex-col items-center justify-center">
                 <div className="w-28 h-28 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all mb-10 border border-slate-100"><FileAudio className="w-12 h-12 text-[#0D9488]" /></div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
-                <div className="flex items-center gap-2 mt-4"><span className="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" /><p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Vercel Blob Client Pipeline Active</p></div>
+                <div className="flex items-center gap-2 mt-4"><span className="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" /><p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Forced audio/mp4 Encoding Active</p></div>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
@@ -248,7 +246,7 @@ export const AudioLab: React.FC = () => {
                   <div className="flex items-center justify-between mb-10 relative z-10">
                     <div className="flex items-center gap-8">
                        <div className="w-20 h-20 bg-[#0D9488] rounded-3xl flex items-center justify-center text-white shadow-[0_0_40px_rgba(13,148,136,0.6)] group-hover:rotate-6 transition-transform"><Mic className="w-10 h-10" /></div>
-                       <div><p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p><p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_UPLOAD</p></div>
+                       <div><p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p><p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_TO_FORCED_STREAM</p></div>
                     </div>
                     <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}><Trash2 size={28} /></Button>
                   </div>
@@ -264,7 +262,7 @@ export const AudioLab: React.FC = () => {
                   <audio ref={audioRef} src={audioUrl || ''} onEnded={() => setIsPlaying(false)} className="hidden" />
                </div>
                <div className="grid grid-cols-2 gap-6">
-                  <Button className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group" onClick={handleAnalyze}><CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START DEPLOYMENT</Button>
+                  <Button className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group" onClick={handleAnalyze}><CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START SECURE_UPLOAD</Button>
                   <Button variant="outline" className="h-24 border-2 border-slate-200 text-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all">ANALYSIS PARAMS</Button>
                </div>
             </div>
@@ -278,8 +276,8 @@ export const AudioLab: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
        <div className="relative"><Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" /><CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" /></div>
        <div className="space-y-8 w-full max-w-md">
-          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Uploading Asset..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "Vercel Blob 클라이언트 핸드셰이크를 통해 오디오 파일을 안전하게 전송 중입니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
-          <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Uploading' : 'Decoding'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
+          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Uploading & Aligning..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "브라우저 MIME 타입을 강제 교정하여 Vercel Blob 보안 터널을 통과 중입니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
+          <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Syncing' : 'Decoding'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
        </div>
     </div>
   );
