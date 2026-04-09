@@ -43,13 +43,19 @@ export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promi
       body: JSON.stringify({
         blobUrl: blobUrl,
         mimeType: mimeType,
-        model: "gemini-2.5-flash",
+        model: (import.meta as any).env?.VITE_GEMINI_MODEL || "gemini-2.5-flash",
         system_instruction: `
           당신은 최고 수준의 오디오 포렌식 전문가이자 비즈니스 전략 컨설턴트입니다.
           제공된 오디오 데이터를 듣고 다음 과정을 거쳐 분석 리포트를 생성하십시오.
           회의록이나 인터뷰라면 대화 내용 요약과 액션 아이템을, 
           음악이나 배경 소음이라면 사운드 패턴과 포렌식 분석 결과를 반환하세요.
-          반드시 유효한 JSON 형식으로 응답하십시오.
+          
+          반드시 다음 구조의 유효한 JSON 형식으로 응답하십시오:
+          {
+            "type": "Speech" | "Music",
+            "summary": "...",
+            "details": { ... }
+          }
         `,
         contents: [
           {
@@ -74,8 +80,9 @@ export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promi
     const jsonResult = extractJson(text);
     if (!jsonResult) throw new Error("AI 응답 파싱 실패 (JSON 구조 오류)");
 
+    // [STABILITY] 프론트엔드 기대 구조 강제 맵핑
     return {
-      type: jsonResult.type || 'Speech', // 렌더러 분기를 위해 타입 추론 (기본값 Speech)
+      type: jsonResult.type || 'Speech', 
       data: jsonResult
     };
   } catch (err: any) {

@@ -170,9 +170,11 @@ export const AudioLab: React.FC = () => {
         }
       }
 
-      if (!finalBlobUrl) throw new Error("최종 업로드 URL 인가 실패");
+      if (!finalBlobUrl) throw new Error("최종 업로드 URL 인가 실패 (연결 상태를 확인하세요)");
       
       console.log("[Blob Upload] 💎 Phase 2: Passing to Gemini Forensic Engine...");
+      
+      // [STABILITY] 분석 결과 획득 시 타임아웃 방어는 서비스 레이어 및 프록시에서 처리됨
       const result = await geminiAudioService.analyzeAudioDeep(finalBlobUrl, selectedFile.type);
       
       if (result && result.type) {
@@ -181,13 +183,21 @@ export const AudioLab: React.FC = () => {
         setStep('result');
         toast.success(`오디오 분석 보고서가 생성되었습니다.`);
       } else {
-        throw new Error("Gemini 분석 결과 구조가 비정상적입니다.");
+        throw new Error("AI 분석 결과 구조가 비정상적입니다. 다시 시도해 주세요.");
       }
     } catch (err: any) {
       console.error("❌ Audio Lab Final Failure:", err);
-      setError(err.message || "오디오 처리 중 오류가 발생했습니다.");
-      toast.error(err.message || "오디오 처리 중 오류가 발생했습니다.");
+      const errorMsg = err.message || "오디오 처리 중 오류가 발생했습니다.";
+      
+      setError(errorMsg);
+      toast.error(errorMsg, {
+        description: "모델 설정(2.5-flash) 또는 네트워크 상태를 확인해 주세요.",
+        duration: 5000
+      });
+      
+      // [CRITICAL] 무한 로딩 방어: 어떤 에러 상황에서도 업로드 단계로 복구
       setStep('upload'); 
+      setUploadProgress(0);
     }
   };
 

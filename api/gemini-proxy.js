@@ -110,20 +110,40 @@ export default async function handler(req, res) {
       systemInstruction: system_instruction
     });
 
-    const result = await model.generateContent({
+    // [STABILITY] 120초 타임아웃 레이어 추가 (AI 응답 지연 방기)
+    const inferencePromise = model.generateContent({
       contents: finalContents,
-      generationConfig: generationConfig || { temperature: 0.1, responseMimeType: "application/json" }
+      generationConfig: generationConfig || { 
+        temperature: 0.1, 
+        maxOutputTokens: 8192,
+        responseMimeType: "application/json" 
+      }
     });
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error("AI 분석 시간이 초과되었습니다. (60초 제한)")), 60000)
+    );
+
+    const result = await Promise.race([inferencePromise, timeoutPromise]);
     const aiResponse = await result.response;
+    
+    console.log(`[PROXY] ✅ AI Generation Success! Payload size: ${JSON.stringify(aiResponse).length}`);
     return res.status(200).json(aiResponse);
 
   } catch (err) {
     console.error("❌ [PROXY CRITICAL FAILURE]:", err);
-    return res.status(500).json({ 
+    
+    // 에러 상태 코드 분류
+    let statusCode = 500;
+    if (err.message.includes("not found") || err.message.includes("non-existent")) statusCode = 404;
+    if (err.message.includes("API key")) statusCode = 403;
+    if (err.message.includes("초과")) statusCode = 504;
+
+    return res.status(statusCode).json({ 
       success: false,
       proxyError: true,
-      message: err.message,
+      message: err.message || "서버 내부 오류가 발생했습니다.",
+      model: req.body?.model,
       errorDetails: err.stack
     });
   } finally {
