@@ -1,48 +1,47 @@
 // ============================================================
-// api/upload.ts (Vercel Edge Runtime - v2.8.0)
-// [ARCHITECT UPGRADE] Web standard Request/Response architecture
+// api/upload.ts (Standard Node.js Runtime - v2.9.0)
+// [ARCHITECT RECOVERY] Reverting to Node.js due to Edge Runtime limitations
 // [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\api\upload.ts
-// [CRITICAL] Fixes Node.js/Web API mismatch causing 400/CORS crashes
+// [CRITICAL] Fixes "unsupported modules" build error & Stabilizes handshake
 // ============================================================
 
 import { handleUpload } from '@vercel/blob/client';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 /**
- * [VITAL] Vercel Edge Runtime 선언
- * 이 설정은 이 함수가 Node.js가 아닌 Edge 환경에서 실행되도록 보장합니다.
- * Edge 환경은 Web 표준 Request/Response 객체를 네이티브로 지원합니다.
+ * [Vercel Node.js Serverless Function]
+ * @vercel/blob handles Node.js streams internally, requiring the standard runtime.
  */
-export const config = {
-  runtime: 'edge',
-};
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // --- [1] CORS 헤더 설정 (Serverless standard) ---
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-/**
- * [Edge Standard Handler]
- * @param request Web API standard Request object
- */
-export default async function handler(request: Request) {
-  // --- [1] POST 요청만 수락 ---
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // --- [2] POST 요청 체크 ---
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    // --- [2] Request Body 파싱 (Edge standard) ---
-    const body = await request.json();
+    // --- [3] Request Body 안전 파싱 ---
+    // Vercel 런타임이 자동으로 파싱했을 경우 req.body는 객체이며, 그렇지 않으면 문자열임.
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-    // --- [3] handleUpload 실행 (Web standard Request 호환) ---
+    console.log(`[Node.js Upload]: Initiating Vercel Blob Handshake (v2.9.0)...`);
+
+    // --- [4] handleUpload 실행 ---
     const jsonResponse = await handleUpload({
-      body: body,
-      request: request, // Edge Runtime 상에서 정합성 완벽 보장
+      body: body,      // 파싱된 바디
+      request: req,    // Node.js VercelRequest 객체
       
       onBeforeGenerateToken: async (pathname) => {
-        console.log(`[Edge Upload]: Handshaking for path: ${pathname}`);
-        
         return {
-          // [USER REQUEST] 모든 오디오 MIME 타입 명시적 허용
+          // [STABLE] 모든 주요 오디오 MIME 타입 허용
           allowedContentTypes: [
             'audio/mp4',
             'audio/x-m4a',
@@ -55,38 +54,25 @@ export default async function handler(request: Request) {
             'audio/x-wav'
           ],
           tokenPayload: JSON.stringify({
-            runtime: 'edge-v2.8.0',
+            runtime: 'nodejs-v2.9.0',
             timestamp: new Date().toISOString()
           }),
         };
       },
 
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log(`[Edge Upload]: ✅ COMPLETED: ${blob.url}`);
+      onUploadCompleted: async ({ blob }) => {
+        console.log(`[Node.js Upload]: ✅ COMPLETED: ${blob.url}`);
       },
     });
 
-    // --- [4] Web Standard Response 반환 ---
-    return new Response(JSON.stringify(jsonResponse), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*', // CORS 안전장치
-      },
-    });
+    // --- [5] JSON 응답 반환 ---
+    return res.status(200).json(jsonResponse);
 
   } catch (error: any) {
-    console.error('[Edge Upload API Error]:', error);
+    console.error('[Node.js Upload API Error]:', error);
     
-    // 우아한 에러 응답
-    return new Response(JSON.stringify({ 
-      error: error.message || 'Edge Blob Handshake Failed' 
-    }), {
-      status: 400,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+    return res.status(400).json({ 
+      error: error.message || 'Node.js Blob Handshake Failed' 
     });
   }
 }
