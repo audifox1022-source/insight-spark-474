@@ -1,8 +1,8 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
 // [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 (Max 500MB)
-// [CRITICAL FIX] [object File] 데이터 타입 버그 완벽 교정 (v2.1.0)
-// [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy
+// [CRITICAL FIX] [object File] 데이터 타입 버그 완벽 교정 (v2.1.1)
+// [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy (URL Based)
 // [TRACE] 업로드 파이프라인 정밀 모니터링 및 UI 연동
 // [STABILITY] 100% Full Code Output (김현 님 지침 준수)
 // ============================================================
@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { upload } from '@vercel/blob/client';
+import { upload } from '@vercel/blob/client'; // [CORE] Vercel Blob 클라이언트 모듈
 
 // components
 import { SpeechReport } from './SpeechReport';
@@ -129,10 +129,10 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Corrected Pipeline (v2.1.0)
+   * [CORE] handleAnalyze - Corrected Robust Pipeline (v2.1.1)
    * 1. Check Auth (Blob Token)
-   * 2. Direct Upload to Vercel Blob
-   * 3. Pass Valid URL STRING to analyzeAudioDeep
+   * 2. Direct Upload to Vercel Blob (Returns URL String)
+   * 3. Pass Valid URL STRING to analyzeAudioDeep (Fixes [object File] error)
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
@@ -147,26 +147,32 @@ export const AudioLab: React.FC = () => {
       // 1단계: Vercel Blob 클라이언트 직접 업로드 (Progress 반영)
       console.log("[AudioLab] ☁️ Step 1: Uploading to Vercel Storage...");
       
-      const newBlob = await upload(selectedFile.name, selectedFile, {
-        access: 'public',
-        handleUploadUrl: '/api/upload', // 표준 API 경로로 통합
-        onUploadProgress: (progressEvent) => {
-          setUploadProgress(progressEvent.percentage);
-        },
-      });
+      let finalBlobUrl = "";
+      try {
+        const newBlob = await upload(selectedFile.name, selectedFile, {
+          access: 'public',
+          handleUploadUrl: '/api/upload', // 표준 API 경로로 통합
+          onUploadProgress: (progressEvent) => {
+            setUploadProgress(progressEvent.percentage);
+          },
+        });
 
-      // [CRITICAL FIX] URL 확보 시점의 데이터 타입 보장
-      if (!newBlob || !newBlob.url || typeof newBlob.url !== 'string') {
-        throw new Error("파일 업로드 후 유효한 URL을 획득하지 못했습니다.");
+        // [CRITICAL FIX] URL 확보 시점의 데이터 타입 보장
+        if (!newBlob || !newBlob.url || typeof newBlob.url !== 'string') {
+          throw new Error("파일 업로드 후 유효한 URL을 획득하지 못했습니다.");
+        }
+        
+        finalBlobUrl = newBlob.url;
+        console.log(`[AudioLab] ✅ Step 1 Success: Secured URL -> ${finalBlobUrl}`);
+      } catch (uploadErr: any) {
+        console.error("Vercel Blob Upload Failure:", uploadErr);
+        throw new Error(`파일 업로드에 실패했습니다. (${uploadErr.message})`);
       }
-
-      const finalBlobUrl = newBlob.url;
-      console.log(`[AudioLab] ✅ Step 1 Success: Secured URL -> ${finalBlobUrl}`);
 
       // 2단계: Gemini File API 프록시 호출 및 분석
       console.log("[AudioLab] 💎 Step 2: Running Gemini Strategic Analysis...");
       
-      // [object File] 에러 방지를 위해 변수 재선언 및 명시적 전달
+      // [object File] 에러 방지를 위해 업로드한 URL 문자열을 명시적 전달
       const result = await geminiAudioService.analyzeAudioDeep(finalBlobUrl, selectedFile.type);
       
       if (result && result.type) {
@@ -229,7 +235,7 @@ export const AudioLab: React.FC = () => {
       <header className="text-center space-y-6">
         <div className="flex justify-center mb-4">
            <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">
-             Native Blob Engine v2.1.0 Ready
+             Native Blob Engine v2.1.1 Ready
            </span>
         </div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
@@ -355,7 +361,7 @@ export const AudioLab: React.FC = () => {
                    initial={{ width: 0 }} 
                    animate={{ width: `${uploadProgress}%` }} 
                    transition={{ duration: 0.5 }} 
-                />
+                 />
              </div>
           </div>
        </div>
