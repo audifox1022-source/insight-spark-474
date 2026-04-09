@@ -1,6 +1,6 @@
 // api/upload.js
 // @vercel/blob의 클라이언트 사이드 업로드를 위한 권한 대행(Proxy/Token) API
-// [STABILITY] CORS 대응 및 에러 핸들링 강화 (v2.6.2)
+// [STABILITY] CORS 대응 및 핸드셰이크 정밀 로깅 (v2.6.3)
 import { handleUpload } from '@vercel/blob/client';
 
 export default async function handler(request, response) {
@@ -15,15 +15,18 @@ export default async function handler(request, response) {
   }
 
   try {
+    console.log(`[Prod-Blob-Handshake] 🚀 Start: ${request.method} ${request.url}`);
+    
+    /**
+     * handleUpload: Vercel Blob 클라이언트 업로드를 위한 핸드셰이크 핵심 함수
+     * 1. 클라이언트에서 upload() 호출 시 이 엔드포인트로 토큰 발급을 요청함.
+     * 2. onBeforeGenerateToken에서 허용 여부를 결정하고 토큰을 발급함.
+     */
     const jsonResponse = await handleUpload({
       body: request.body,
       request,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
-        /**
-         * [SECURITY] 업로드 전 토큰 생성 보안 로직
-         * 여기서 사용자 인증(Session)을 체크하거나 특정 파일 타입만 허용할 수 있습니다.
-         */
-        console.log(`[Blob Auth] Generating token for: ${pathname}`);
+        console.log(`[Prod-Blob-Handshake] 🔑 Token Request for: ${pathname}`);
         
         return {
           allowedContentTypes: [
@@ -36,34 +39,22 @@ export default async function handler(request, response) {
             'audio/mp4'
           ],
           tokenPayload: JSON.stringify({
-            userId: 'work-ai-user', // 실제 연동 시 세션 ID 등으로 교체 가능
+            userId: 'work-ai-prod-user',
             uploadTime: new Date().toISOString(),
           }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        /**
-         * [CALLBACK] 업로드 완료 후 실행되는 로직
-         * 데이터베이스에 URL을 저장하거나 추가 작업을 수행할 수 있습니다.
-         */
-        console.log('✅ [Blob Pipeline] Upload Completed:', blob.url);
-        
-        try {
-          const { userId } = JSON.parse(tokenPayload);
-          console.log(`[Blob Pipeline] Verified for user: ${userId}`);
-        } catch (e) {
-          console.error('[Blob Pipeline] Payload parse error');
-        }
+        console.log('✅ [Prod-Blob-Handshake] Finalized:', blob.url);
       },
     });
 
     return response.status(200).json(jsonResponse);
   } catch (error) {
-    console.error('❌ [Blob Auth Error]:', error);
-    // 400 Bad Request와 함께 명확한 에러 메시지 반환
+    console.error('❌ [Prod-Blob-Handshake Error]:', error);
     return response.status(400).json({ 
-      error: error.message || 'Vercel Blob 인증에 실패했습니다.',
-      code: 'BLOB_AUTH_FAILED'
+      error: error.message || '인증 핸드셰이크 실패',
+      code: 'BLOB_HANDSHAKE_FAILED'
     });
   }
 }

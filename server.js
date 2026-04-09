@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { handleUpload } from '@vercel/blob/client';
 
 // Load environment variables
 dotenv.config();
@@ -36,6 +37,46 @@ const genAI = new GoogleGenerativeAI(apiKey || '');
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Work AI Backend Server is running' });
+});
+
+/**
+ * [CRITICAL] Vercel Blob Handshake Handler (Local Support)
+ * 클라이언트의 upload() 함수와 직접 통신하여 토큰을 발급합니다.
+ */
+app.post('/api/upload', async (req, res) => {
+  console.log(`[Blob Handshake] 📥 Incoming handshake request for: ${req.body.type}`);
+  
+  try {
+    const jsonResponse = await handleUpload({
+      body: req.body,
+      request: req,
+      onBeforeGenerateToken: async (pathname) => {
+        console.log(`[Blob Handshake] 🔑 Generating token for: ${pathname}`);
+        return {
+          allowedContentTypes: [
+            'audio/mpeg', 
+            'audio/wav', 
+            'audio/ogg', 
+            'audio/webm', 
+            'audio/flac', 
+            'audio/x-m4a',
+            'audio/mp4'
+          ],
+          tokenPayload: JSON.stringify({
+            userId: 'work-ai-local-user',
+          }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('✅ [Blob Handshake] Upload Completed:', blob.url);
+      },
+    });
+
+    res.status(200).json(jsonResponse);
+  } catch (error) {
+    console.error('❌ [Blob Handshake Error]:', error);
+    res.status(400).json({ error: error.message });
+  }
 });
 
 /**

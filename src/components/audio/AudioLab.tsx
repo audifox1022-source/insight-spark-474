@@ -1,9 +1,9 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
 // [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 (Max 500MB)
-// [CRITICAL FIX] 400 Bad Request & CORS 무한 루프 해결 (v2.6.2)
+// [CRITICAL FIX] 클라이언트 업로드 핸드셰이크 완벽 교정 (v2.6.3)
 // [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy (URL Based)
-// [STABILITY] Retry Limit (Max 3) & Full Code Output
+// [DEBUG] Handshake Step-by-Step Logging 추가
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -55,13 +55,11 @@ export const AudioLab: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // [DEFENSE] 확장자 체크
     if (!file.type.startsWith('audio/')) {
       toast.error("오디오 파일만 분석 가능합니다 (.mp3, .wav 등)");
       return;
     }
 
-    // [UPGRADE] 500MB 파일 용량 제한 (Vercel Blob 아키텍처)
     const MAX_SIZE = 500 * 1024 * 1024; // 500MB
     if (file.size > MAX_SIZE) {
       toast.error("500MB 이하의 오디오 파일만 분석할 수 있습니다.");
@@ -81,60 +79,51 @@ export const AudioLab: React.FC = () => {
   /** [Utility] Web Audio API 시각화 엔진 */
   const initVisualizer = () => {
     if (!audioRef.current || !canvasRef.current) return;
-
     if (!audioCtxRef.current) {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       audioCtxRef.current = new AudioContext();
       analyserRef.current = audioCtxRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
-      
       sourceRef.current = audioCtxRef.current.createMediaElementSource(audioRef.current);
       sourceRef.current.connect(analyserRef.current);
       analyserRef.current.connect(audioCtxRef.current.destination);
     }
-
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
     const bufferLength = analyserRef.current!.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-
     const draw = () => {
       animationRef.current = requestAnimationFrame(draw);
       analyserRef.current!.getByteFrequencyData(dataArray);
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
       const barWidth = (canvas.width / bufferLength) * 2.5;
       let barHeight;
       let x = 0;
-
       for (let i = 0; i < bufferLength; i++) {
         barHeight = dataArray[i];
-        
-        // Gradient Design (Work AI Theme Color)
         const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-        gradient.addColorStop(0, '#0D9488'); // TEAL-600
-        gradient.addColorStop(1, '#2DD4BF'); // TEAL-400
-        
+        gradient.addColorStop(0, '#0D9488');
+        gradient.addColorStop(1, '#2DD4BF');
         ctx.fillStyle = gradient;
         ctx.fillRect(x, canvas.height - barHeight / 2, barWidth, barHeight / 2);
         x += barWidth + 1;
       }
     };
-
     draw();
   };
 
   /**
-   * [CORE] handleAnalyze - Robust Pipeline with Retry Limit (v2.6.2)
-   * [FIX] Infinite loop prevention & 400 Bad Request defense
+   * [CORE] handleAnalyze - Robust Handshake Pipeline (v2.6.3)
+   * 1. 🔑 Token Handshake: Client requests upload token from /api/upload
+   * 2. 📤 Direct Portal: After handshake, upload directly to Vercel with token
+   * 3. 💎 Strategic Analysis: Pass URL to Gemini for analysis
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
-    console.log(`[AudioLab] 📤 Initiating Robust Pipeline (Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`[Blob Handshake] 🚀 Phase 1: Initiating Handshake with Server...`);
+    console.log(`[Blob Handshake] 📂 File: ${selectedFile.name} (Type: ${selectedFile.type})`);
 
     setStep('analyzing');
     setError(null);
@@ -145,42 +134,44 @@ export const AudioLab: React.FC = () => {
     let finalBlobUrl = "";
 
     try {
-      // 1단계: Vercel Blob 클라이언트 직접 업로드 (Retry Logic)
       while (retryCount < MAX_RETRIES) {
         try {
-          console.log(`[AudioLab] ☁️ Step 1: Uploading to Vercel Storage (Attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+          console.log(`[Blob Handshake] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
           
+          /**
+           * @vercel/blob upload() 함수 상세 동작:
+           * handleUploadUrl 옵션이 설정되면, 이 함수는 먼저 지정된 URL(/api/upload)로 
+           * POST 요청을 보내어 업로드 권한(Token)을 획득하는 '핸드셰이크'를 수행합니다.
+           */
           const newBlob = await upload(selectedFile.name, selectedFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload', // [CRITICAL] 서버측 인증 엔드포인트 연결
+            handleUploadUrl: '/api/upload', // [CRITICAL] 백엔드 핸드셰이크 엔드포인트
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },
           });
 
-          if (!newBlob || !newBlob.url || typeof newBlob.url !== 'string') {
-            throw new Error("유효한 URL을 획득하지 못했습니다.");
+          if (!newBlob || !newBlob.url) {
+            throw new Error("Handshake successful but secured URL is missing.");
           }
           
           finalBlobUrl = newBlob.url;
-          console.log(`[AudioLab] ✅ Step 1 Success: Secured URL -> ${finalBlobUrl}`);
-          break; // 업로드 성공 시 루프 탈출
+          console.log(`[Blob Handshake] 🤝 Handshake Success! Secured URL -> ${finalBlobUrl}`);
+          break; 
         } catch (uploadErr: any) {
           retryCount++;
-          console.error(`[AudioLab] ❌ Attempt ${retryCount} failed:`, uploadErr.message);
+          console.error(`[Blob Handshake] ❌ Attempt ${retryCount} failed:`, uploadErr.message);
           
           if (retryCount >= MAX_RETRIES) {
-            throw new Error(`파일 업로드에 실패했습니다. (3회 시도 초과: ${uploadErr.message})`);
+            throw new Error(`핸드셰이크 실패: ${uploadErr.message}. 백엔드 /api/upload 라우트를 확인하세요.`);
           }
-          // 지수 백오프 (점진적 대기 시간 증가)
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
 
-      // 2단계: Gemini File API 프록시 호출 및 분석
-      if (!finalBlobUrl) throw new Error("분석을 위한 파일 URL이 확보되지 않았습니다.");
+      if (!finalBlobUrl) throw new Error("업로드 파이프라인이 정상적으로 완료되지 않았습니다.");
       
-      console.log("[AudioLab] 💎 Step 2: Running Gemini Strategic Analysis...");
+      console.log("[Blob Handshake] 💎 Phase 2: Running Gemini Strategic Analysis...");
       const result = await geminiAudioService.analyzeAudioDeep(finalBlobUrl, selectedFile.type);
       
       if (result && result.type) {
@@ -195,12 +186,15 @@ export const AudioLab: React.FC = () => {
       console.error("❌ Audio Lab Failure Track:", err);
       let userFriendlyMsg = err.message || "분석 중 알 수 없는 오류가 발생했습니다.";
       
-      if (err.message?.includes("400")) userFriendlyMsg = "인증 에러가 발생했습니다. (API Token Issue)";
-      if (err.message?.includes("CORS")) userFriendlyMsg = "네트워크 보안 정책(CORS) 에러가 발생했습니다.";
+      if (err.message?.toLowerCase().includes("cors")) {
+        userFriendlyMsg = "CORS 정책 차단: 서버(/api/upload)의 응답 헤더를 확인하십시오.";
+      } else if (err.message?.includes("400")) {
+        userFriendlyMsg = "Handshake 400 Error: 요청 데이터 형식이 올바르지 않거나 토큰 발급이 거부되었습니다.";
+      }
 
       setError(userFriendlyMsg);
-      toast.error(userFriendlyMsg, { duration: 6000 });
-      setStep('upload'); // 무한 루프 차단을 위해 업로드 단계로 강제 복구
+      toast.error(userFriendlyMsg, { duration: 8000 });
+      setStep('upload'); 
     }
   };
 
@@ -232,104 +226,51 @@ export const AudioLab: React.FC = () => {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
   };
 
-  // --- Render Sections ---
-
   const renderUpload = () => (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-      className="max-w-4xl mx-auto space-y-10"
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-10">
       <header className="text-center space-y-6">
-        <div className="flex justify-center mb-4">
-           <span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">
-             Native Blob Engine v2.6.2 Robust
-           </span>
-        </div>
+        <div className="flex justify-center mb-4"><span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">Robust Handshake v2.6.3 Ready</span></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
-        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">
-          "인증 파이프라인이 교정되었습니다. <br/>CORS 정책과 토큰 검증이 적용된 안전한 업로드를 지원합니다."
-        </p>
+        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"핸드셰이크 보안 파이프라인이 재구축되었습니다. <br/>로컬 서버와 Vercel 클라우드 간의 토큰 발급 프로세스가 동기화되었습니다."</p>
       </header>
 
-      {error && (
-        <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
-           <AlertCircle className="text-red-500 shrink-0" size={24} />
-           <p className="text-sm font-bold text-red-700 break-keep">{error}</p>
-        </div>
-      )}
+      {error && <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4"><AlertCircle className="text-red-500 shrink-0" size={24} /><p className="text-sm font-bold text-red-700 break-keep">{error}</p></div>}
 
       <Card className="border-none shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] rounded-[3.5rem] overflow-hidden bg-white">
         <CardContent className="p-16">
           {!selectedFile ? (
             <label className="flex flex-col items-center justify-center w-full h-96 border-4 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50 hover:bg-slate-50 hover:border-[#0D9488]/40 transition-all cursor-pointer group">
               <div className="flex flex-col items-center justify-center">
-                <div className="w-28 h-28 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all mb-10 border border-slate-100">
-                  <FileAudio className="w-12 h-12 text-[#0D9488]" />
-                </div>
+                <div className="w-28 h-28 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all mb-10 border border-slate-100"><FileAudio className="w-12 h-12 text-[#0D9488]" /></div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
-                <p className="text-[11px] text-slate-400 font-black mt-4 uppercase tracking-[0.4em]">Drag & Drop or Click to Select</p>
-                <div className="flex items-center gap-2 mt-4">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Verified Pipeline Active</p>
-                </div>
+                <div className="flex items-center gap-2 mt-4"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /><p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Verified Handshake Portal</p></div>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
           ) : (
             <div className="space-y-12 animate-in slide-in-from-bottom-10 duration-700">
                <div className="p-10 bg-slate-950 rounded-[3rem] shadow-4xl relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#0D9488]/20 via-transparent to-transparent opacity-30 pointer-events-none" />
-                  
                   <div className="flex items-center justify-between mb-10 relative z-10">
                     <div className="flex items-center gap-8">
-                       <div className="w-20 h-20 bg-[#0D9488] rounded-3xl flex items-center justify-center text-white shadow-[0_0_40px_rgba(13,148,136,0.6)] group-hover:rotate-6 transition-transform">
-                          <Mic className="w-10 h-10" />
-                       </div>
-                       <div>
-                          <p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p>
-                          <p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_PIPELINE</p>
-                       </div>
+                       <div className="w-20 h-20 bg-[#0D9488] rounded-3xl flex items-center justify-center text-white shadow-[0_0_40px_rgba(13,148,136,0.6)] group-hover:rotate-6 transition-transform"><Mic className="w-10 h-10" /></div>
+                       <div><p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p><p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_HANDSHAKE</p></div>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}>
-                       <Trash2 size={28} />
-                    </Button>
+                    <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}><Trash2 size={28} /></Button>
                   </div>
-
                   <div className="space-y-8 relative z-10">
                      <div className="bg-white/5 p-8 rounded-[2rem] border border-white/5 backdrop-blur-3xl">
                         <canvas ref={canvasRef} width={800} height={100} className="w-full h-24 mb-6 opacity-60" />
                         <div className="flex items-center gap-8">
-                           <Button 
-                             onClick={togglePlayback}
-                             className="w-16 h-16 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-full transition-all active:scale-95 shadow-2xl flex items-center justify-center group"
-                           >
-                             {isPlaying ? <Pause className="fill-current w-6 h-6" /> : <Play className="fill-current w-6 h-6 translate-x-0.5" />}
-                           </Button>
-                           <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden shadow-inner">
-                              <div 
-                                className="h-full bg-gradient-to-r from-[#0D9488] to-[#00F2FF] shadow-[0_0_15px_#00F2FF] transition-all duration-300"
-                                style={{ width: isPlaying ? '100%' : '0%' }}
-                              />
-                           </div>
+                           <Button onClick={togglePlayback} className="w-16 h-16 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-full transition-all active:scale-95 shadow-2xl flex items-center justify-center group">{isPlaying ? <Pause className="fill-current w-6 h-6" /> : <Play className="fill-current w-6 h-6 translate-x-0.5" />}</Button>
+                           <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden shadow-inner"><div className="h-full bg-gradient-to-r from-[#0D9488] to-[#00F2FF] shadow-[0_0_15px_#00F2FF] transition-all duration-300" style={{ width: isPlaying ? '100%' : '0%' }}/></div>
                         </div>
                      </div>
                   </div>
                   <audio ref={audioRef} src={audioUrl || ''} onEnded={() => setIsPlaying(false)} className="hidden" />
                </div>
-
                <div className="grid grid-cols-2 gap-6">
-                  <Button 
-                    className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group"
-                    onClick={handleAnalyze}
-                  >
-                    <CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START SECURE ANALYTICS
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    className="h-24 border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all"
-                  >
-                    ADVANCED CONFIG
-                  </Button>
+                  <Button className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group" onClick={handleAnalyze}><CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START SECURE ANALYTICS</Button>
+                  <Button variant="outline" className="h-24 border-2 border-slate-200 text-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all">ADVANCED CONFIG</Button>
                </div>
             </div>
           )}
@@ -340,47 +281,17 @@ export const AudioLab: React.FC = () => {
 
   const renderAnalyzing = () => (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
-       <div className="relative">
-          <div className="absolute inset-0 m-auto w-64 h-64 bg-[#0D9488]/10 rounded-full animate-ping" />
-          <Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" />
-          <CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" />
-       </div>
+       <div className="relative"><Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" /><CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" /></div>
        <div className="space-y-8 w-full max-w-md">
-          <div className="space-y-2">
-            <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-              {uploadProgress < 100 ? "Secure Uploading..." : "Pipeline Analysis..."}
-            </h3>
-            <p className="text-slate-400 font-bold leading-relaxed italic break-keep text-xs">
-              {uploadProgress < 100 
-                ? "브라우저에서 Vercel 로컬 스토리지로 데이터를 안전하게 전송 중입니다." 
-                : "업로드 성공. Gemini File API 프록시가 데이터 타입을 검증하고 분석을 시작합니다."}
-            </p>
-          </div>
-          
-          <div className="space-y-3">
-             <div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1">
-                <span>Network: {uploadProgress < 100 ? 'Uploading' : 'Analysing'}</span>
-                <span>{uploadProgress.toFixed(1)}%</span>
-             </div>
-             <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner">
-                <motion.div 
-                   className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" 
-                   initial={{ width: 0 }} 
-                   animate={{ width: `${uploadProgress}%` }} 
-                   transition={{ duration: 0.5 }} 
-                 />
-             </div>
-          </div>
+          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Pipeline Analysis..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-xs">{uploadProgress < 100 ? "서버로부터 업로드 권한(Token)을 안전하게 획득하고 데이터를 전송 중입니다." : "업로드 성공. Gemini 2.5 Flash가 오디오 맥락을 분석하고 있습니다."}</p></div>
+          <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Handshaking' : 'Analysing'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
        </div>
     </div>
   );
 
   const renderResult = () => {
-    if (analysisType === 'Speech') {
-       return <SpeechReport analysisResult={analysisResult} audioFile={selectedFile || undefined} onBack={() => setStep('upload')} />;
-    } else if (analysisType === 'Music') {
-       return <MusicReport data={analysisResult} audioFile={selectedFile!} />;
-    }
+    if (analysisType === 'Speech') return <SpeechReport analysisResult={analysisResult} audioFile={selectedFile || undefined} onBack={() => setStep('upload')} />;
+    if (analysisType === 'Music') return <MusicReport data={analysisResult} audioFile={selectedFile!} />;
     return null;
   };
 
@@ -388,29 +299,9 @@ export const AudioLab: React.FC = () => {
     <div className="bg-[#F8FAFC] min-h-screen">
       {step !== 'result' && (
         <nav className="w-full h-24 border-b border-slate-100 bg-white flex items-center justify-between px-16 sticky top-0 z-[100] backdrop-blur-md">
-            <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#0D9488] rounded-xl flex items-center justify-center text-white">
-                    <Headphones size={24} />
-                </div>
-                <h1 className="text-xl font-black tracking-tighter uppercase">Work AI: Audio Lab</h1>
-            </div>
-            <div className="flex items-center gap-10">
-                <div className="flex gap-6">
-                    {['Engine 2.6', 'CORS Fixed', 'Retry Limit'].map(item => (
-                        <span key={item} className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item}</span>
-                    ))}
-                </div>
-                <div className="w-[1px] h-6 bg-slate-200" />
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-900">
-                    <History size={20} />
-                </Button>
-                <Button variant="ghost" size="icon" className="text-slate-400 hover:text-slate-900">
-                    <Settings size={20} />
-                </Button>
-            </div>
+            <div className="flex items-center gap-4"><div className="w-10 h-10 bg-[#0D9488] rounded-xl flex items-center justify-center text-white"><Headphones size={24} /></div><h1 className="text-xl font-black tracking-tighter uppercase">Work AI: Audio Lab</h1></div>
         </nav>
       )}
-
       <main className={cn(step === 'result' ? "p-0" : "p-16")}>
          <AnimatePresence mode="wait">
             {step === 'upload' && renderUpload()}
@@ -418,23 +309,6 @@ export const AudioLab: React.FC = () => {
             {step === 'result' && renderResult()}
          </AnimatePresence>
       </main>
-
-      {step !== 'result' && (
-        <footer className="p-20 text-center border-t border-slate-100 flex flex-col items-center gap-6 grayscale opacity-30 select-none">
-            <div className="flex items-center gap-3">
-                <Sparkles size={20} className="text-[#0D9488]" />
-                <p className="text-[10px] font-black uppercase tracking-[0.8em]">End-to-End Pipeline Integrity Active</p>
-            </div>
-            <p className="text-[9px] font-bold text-slate-400">© 2026 AI AUDIO LOGISTICS CENTER. ALL RIGHTS RESERVED.</p>
-        </footer>
-      )}
-
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
-      `}</style>
     </div>
   );
 };
