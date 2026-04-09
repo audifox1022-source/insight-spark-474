@@ -28,7 +28,7 @@ const GlobalErrorOverlay = () => {
        <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-xl text-center border-2 border-red-500 mx-4">
          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
          </div>
          <h2 className="text-2xl font-black text-slate-900 mb-4 tracking-tight">치명적인 시스템 오류</h2>
@@ -46,29 +46,39 @@ const GlobalErrorOverlay = () => {
 /**
  * [ARCHITECT] ThemeObserver
  * Zustand의 테마 상태를 HTML Root 요소에 동기화하는 컴포넌트입니다.
+ * [STABILITY] 방어 로직을 추가하여 테마 엔진 오류가 앱 전체 크래시로 이어지지 않게 보호합니다.
  */
 const ThemeObserver = () => {
-  const { theme, appTheme } = useThemeStore();
+  // 스토어 로드 시 안전장치 마련
+  const themeStore = useThemeStore();
+  const theme = themeStore?.theme || 'light';
+  const appTheme = themeStore?.appTheme || 'blue';
 
   useEffect(() => {
-    const root = window.document.documentElement;
-    
-    // 1. 다크 모드 클래스 동기화
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    try {
+      const root = window.document.documentElement;
+      if (!root) return;
+      
+      // 1. 다크 모드 클래스 동기화
+      if (theme === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+
+      // 2. 브랜드 컬러 테마 클래스 동기화
+      const themes = ['theme-blue', 'theme-navy', 'theme-purple', 'theme-green', 'theme-orange'];
+      root.classList.remove(...themes);
+      
+      // 유효한 테마 이름인지 확인 후 적용
+      if (appTheme) {
+        root.classList.add(`theme-${appTheme}`);
+      }
+
+      console.log(`[Theme System] Applied: mode=${theme}, brand=${appTheme}`);
+    } catch (err) {
+      console.error("[Critical] Theme synchronization failed:", err);
     }
-
-    // 2. 브랜드 컬러 테마 클래스 동기화
-    // 기존 테마 클래스 제거
-    const themes = ['theme-blue', 'theme-navy', 'theme-purple', 'theme-green', 'theme-orange'];
-    root.classList.remove(...themes);
-    
-    // 신규 테마 클래스 추가
-    root.classList.add(`theme-${appTheme}`);
-
-    console.log(`[Theme System] Applied: mode=${theme}, brand=${appTheme}`);
   }, [theme, appTheme]);
 
   return null;

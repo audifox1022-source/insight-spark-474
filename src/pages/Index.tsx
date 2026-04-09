@@ -2,6 +2,7 @@
 // src/pages/Index.tsx (Work AI 통합 플랫폼 메인 - Ultimate Hardened)
 // [SYSTEM-LEVEL DARK MODE] 전역 useThemeStore 통합 및 UI 최적화 (v2.0.0)
 // [CLEANUP] 기존 Option 1 지능형 위키 기능 완전 제거 (v2.1.0)
+// [STABILITY] 테마 엔진 방어 로직 강화 및 에러 방지 (v2.1.1)
 // ============================================================
 import { useState, useRef, Suspense, useEffect } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
@@ -41,8 +42,13 @@ const Index = () => {
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
-  // ── [Theme System Integration] ──
-  const { theme, toggleTheme, appTheme, setAppTheme } = useThemeStore();
+  // ── [Theme System Integration & Safety] ────────────
+  const themeStore = useThemeStore();
+  const theme = themeStore?.theme || 'light';
+  const toggleTheme = themeStore?.toggleTheme || (() => console.error("Theme toggle failed: Store not ready"));
+  const appTheme = themeStore?.appTheme || 'blue';
+  const setAppTheme = themeStore?.setAppTheme || (() => {});
+  
   const isDark = theme === 'dark';
 
   // ── [Safe Guard for Visitor Stats] ──
@@ -140,7 +146,7 @@ const Index = () => {
                 </motion.div>
                 <div className="min-w-0 text-left">
                   <h1 className="text-[15px] font-extrabold leading-tight tracking-tight">
-                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v2.1.0</span>
+                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v2.1.1</span>
                   </h1>
                   <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
                     AI 업무 자동화 플랫폼

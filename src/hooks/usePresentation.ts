@@ -2,6 +2,7 @@
 // src/hooks/usePresentation.ts (Work AI 고성능 발표자료 엔진)
 // [ENTERPRISE UPGRADE] AI 아키텍처 연동 및 UI 상태 복구
 // [THEME MIGRATION] 전역 useThemeStore 시스템으로 테마 제어권 이관 (v1.2.0)
+// [FIX] ReferenceError: toggleDark is not defined 해결 (v1.2.1)
 // ============================================================
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Presentation, MeetingInfo, PresentationSettings, Slide } from '@/types/presentation';
@@ -27,10 +28,16 @@ export interface DataFileState {
 }
 
 export const usePresentation = () => {
-  // ── [UI & Theme State MIGRATED to useThemeStore] ───────────
-  // 기존 로컬 state 제거 후 전역 스토어 구독
-  const { theme, toggleTheme, appTheme, setAppTheme } = useThemeStore();
+  // ── [UI & Theme System Integration] ───────────────────────
+  // useThemeStore가 없는 환경(SSR 등)에서도 앱이 죽지 않도록 방어 코드 적용
+  const themeStore = useThemeStore();
+  const theme = themeStore?.theme || 'light';
+  const toggleTheme = themeStore?.toggleTheme || (() => console.warn('Theme Store not initialized'));
+  const appTheme = themeStore?.appTheme || 'blue';
+  const setAppTheme = themeStore?.setAppTheme || (() => {});
+  
   const isDark = theme === 'dark';
+  const toggleDark = toggleTheme; // [FIX] ReferenceError 해결을 위해 명시적 선언
   
   // ── [Core Flow State] ────────────────────────────────────
   const [step, setStep] = useState<'upload' | 'info' | 'outline' | 'preview'>('upload');
@@ -365,7 +372,7 @@ export const usePresentation = () => {
     dataSummary, setDataSummary, sourceFileData, setSourceFileData,
     referenceFileName, isAnalyzingReference, handleReferenceFileUpload,
     handleClearReferenceFile: () => { setReferenceFileName(''); setReferenceStructure(null); },
-    isDark, toggleDark, appTheme, changeTheme: setAppTheme, // 전역 스토어 액션으로 매핑
+    isDark, toggleDark, appTheme, changeTheme: setAppTheme, // [FIX] toggleDark 명시적 반환
     openHistory: () => setIsHistoryOpen(true),
     isChatOpen, setChatOpen: setIsChatOpen,
     isReviewOpen, setReviewOpen: setIsReviewOpen,
