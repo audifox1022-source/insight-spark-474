@@ -1,8 +1,8 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
-// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.5)
-// [CRITICAL] Intensified Catch Block & Full Error Details
-// [DEBUG] Handshake Step-by-Step Logging
+// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.8)
+// [CRITICAL] 3-Stage Defense: Rewrites, Env Check, Descriptive Trace
+// [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\src\components\audio\AudioLab.tsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -113,8 +113,9 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.5)
-   * 1. 🔑 Token Handshake: /api/upload (Root Folder)
+   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.8)
+   * 🔑 1. /api/upload 라우트 통신 보호 (vercel.json)
+   * 🔑 2. 서버측 BLOB_READ_WRITE_TOKEN 체크 (upload.ts)
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
@@ -135,9 +136,10 @@ export const AudioLab: React.FC = () => {
         try {
           console.log(`[Blob Handshake] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
           
+          // [CRITICAL] handleUploadUrl이 정확히 '/api/upload'를 가리키고 있는지 확인
           const newBlob = await upload(selectedFile.name, selectedFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload', // [MUST] Root api folder mapping
+            handleUploadUrl: '/api/upload', 
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },
@@ -152,11 +154,16 @@ export const AudioLab: React.FC = () => {
           break; 
         } catch (uploadErr: any) {
           retryCount++;
-          console.error(`[Blob Handshake] ❌ Auth Attempt Failed (Attempt ${retryCount}):`);
-          console.dir(uploadErr); // [DEBUG] Intensified Console Trace
+          // [DEBUG] 김현 님 요청: 원인 파악을 위한 명확한 catch 로그
+          console.error(`[Blob Handshake] ❌ 업로드 라우트 통신 실패 (시도 ${retryCount}):`);
+          console.error(`- Error Message: ${uploadErr.message}`);
+          console.error(`- Status Code: ${uploadErr.status || 'Unknown'}`);
           
+          if (uploadErr.message?.includes("Unexpected token '<'")) {
+             console.error(`- [DIAGNOSIS] 서버리스 API 대신 HTML(index.html)이 반환되었습니다. vercel.json의 rewrite 규칙을 점검하세요.`);
+          }
+
           if (retryCount >= MAX_RETRIES) {
-            // [CORS & 400 Trace] 에러 객체 내부를 문자열화하여 명확히 로깅
             const errorTrace = {
                message: uploadErr.message,
                status: uploadErr.status,
@@ -164,8 +171,9 @@ export const AudioLab: React.FC = () => {
                stack: uploadErr.stack
             };
             console.error("[Handshake Critical Trace]", JSON.stringify(errorTrace, null, 2));
-            throw new Error(`핸드셰이크 최종 실패: ${uploadErr.message}. /api/upload 경로와 BLOB_READ_WRITE_TOKEN을 점검하십시오.`);
+            throw new Error(`업로드 라우트 통신 최종 실패: ${uploadErr.message}. 서버의 BLOB_READ_WRITE_TOKEN 환경변수 누락 여부와 vercel.json 설정을 반드시 확인하십시오.`);
           }
+          // 지수 백오프
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
@@ -185,16 +193,15 @@ export const AudioLab: React.FC = () => {
       }
     } catch (err: any) {
       console.error("❌ Audio Lab Final Failure:", err);
-      // [INTENSIFIED DEBUGGING] 김현 님 요청에 따른 에러 상세 출력
+      // [INTENSIFIED DEBUGGING]
       console.log("Error Message:", err.message);
-      console.log("Error Status:", err.status || "N/A");
       
       let userFriendlyMsg = err.message || "오디오 처리 중 오류가 발생했습니다.";
       
       if (err.message?.toLowerCase().includes("cors")) {
-        userFriendlyMsg = "CORS 차단: 서버(/api/upload)가 올바른 Access-Control-Allow-Origin 헤더를 반환하지 않았습니다.";
-      } else if (err.message?.includes("400")) {
-        userFriendlyMsg = "인증 에러 (400): 서버리스 함수가 요청을 거부했습니다. 루트 /api 폴더 및 토큰 유효성을 확인하세요.";
+        userFriendlyMsg = "CORS 차단 또는 라우팅 가로채기 발생: vercel.json의 /api 설정이 올바르지 않거나 서버 토큰이 누락되었습니다.";
+      } else if (err.message?.includes("400") || err.message?.includes("405")) {
+        userFriendlyMsg = "인증 에러 (400/405): 서버리스 핸들러가 요청을 거부했습니다. Vercel 환경변수(BLOB_READ_WRITE_TOKEN)를 확인하세요.";
       }
 
       setError(userFriendlyMsg);
@@ -234,9 +241,9 @@ export const AudioLab: React.FC = () => {
   const renderUpload = () => (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-10">
       <header className="text-center space-y-6">
-        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">Perfect Serverless Auth v2.6.5</span></div>
+        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">3-Stage Defense v2.6.8</span></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
-        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"최상위 루틴 /api/upload 핸드셰이크를 통해 <br/>안전하고 완벽한 오디오 분석 파이프라인을 구축합니다."</p>
+        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"vercel.json 라우팅 보강 및 서버측 환경변수 체크를 통해 <br/>완벽한 업로드 파이프라인을 구축했습니다."</p>
       </header>
 
       {error && <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4"><AlertCircle className="text-red-500 shrink-0" size={24} /><p className="text-sm font-bold text-red-700 break-keep">{error}</p></div>}
@@ -288,7 +295,7 @@ export const AudioLab: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
        <div className="relative"><Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" /><CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" /></div>
        <div className="space-y-8 w-full max-w-md">
-          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "루트 /api 인증을 통해 임시 업로드 토큰을 생성하고 있습니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
+          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "루트 /api 인증 및 vercel.json 라우팅을 검증 중입니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
           <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Authenticating' : 'Decoding'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
        </div>
     </div>

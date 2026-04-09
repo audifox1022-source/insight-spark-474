@@ -1,8 +1,8 @@
 // ============================================================
 // src/components/audio/AudioLabWorkspace.tsx (Work AI - Professional Audio Intelligence)
-// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.5)
-// [CRITICAL] Intensified Catch Block & Full Error Details
-// [DEBUG] Handshake Step-by-Step Logging
+// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.8)
+// [CRITICAL] 3-Stage Defense: Rewrites, Env Check, Descriptive Trace
+// [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\src\components\audio\AudioLabWorkspace.tsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -69,8 +69,9 @@ export const AudioLabWorkspace: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.5)
-   * 🔑 Token Handshake: /api/upload (Root Folder Mapping)
+   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.8)
+   * 🔑 1. /api/upload 라우트 통신 보호 (vercel.json)
+   * 🔑 2. 서버측 BLOB_READ_WRITE_TOKEN 체크 (upload.ts)
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
@@ -108,8 +109,13 @@ export const AudioLabWorkspace: React.FC = () => {
           break; 
         } catch (uploadErr: any) {
           retryCount++;
-          console.error(`[Blob Workspace Handshake] ❌ Auth Attempt Failed (Attempt ${retryCount}):`);
-          console.dir(uploadErr); // [DEBUG] Intensified Trace
+          console.error(`[Blob Workspace Handshake] ❌ 업로드 라우트 통신 실패 (시도 ${retryCount}):`);
+          console.error(`- Error Message: ${uploadErr.message}`);
+          console.error(`- Status Code: ${uploadErr.status || 'Unknown'}`);
+
+          if (uploadErr.message?.includes("Unexpected token '<'")) {
+             console.error(`- [DIAGNOSIS] 서버리스 API 대신 HTML이 반환되었습니다. vercel.json 설정을 확인하세요.`);
+          }
           
           if (retryCount >= MAX_RETRIES) {
              const errorTrace = {
@@ -119,7 +125,7 @@ export const AudioLabWorkspace: React.FC = () => {
                stack: uploadErr.stack
             };
             console.error("[Handshake Critical Trace]", JSON.stringify(errorTrace, null, 2));
-            throw new Error(`핸드셰이크 최종 실패: ${uploadErr.message}. /api/upload 및 BLOB_READ_WRITE_TOKEN 점검 요망.`);
+            throw new Error(`업로드 라우트 최종 실패: ${uploadErr.message}. 서버 환경변수와 vercel.json을 점검하십시오.`);
           }
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
@@ -142,13 +148,12 @@ export const AudioLabWorkspace: React.FC = () => {
       console.error("❌ Audio Lab Workspace Final Failure:", err);
       // [INTENSIFIED DEBUGGING]
       console.log("Detailed Error Message:", err.message);
-      console.log("Detailed Error Status:", err.status || "N/A");
 
       let userFriendlyMsg = err.message || "오디오 처리 중 오류가 발생했습니다.";
       if (err.message?.toLowerCase().includes("cors")) {
-        userFriendlyMsg = "CORS 차단: /api/upload 서버가 Access-Control-Allow-Origin 헤더를 반환하지 않았습니다.";
-      } else if (err.message?.includes("400")) {
-        userFriendlyMsg = "인증 에러 (400): 서버리스 핸들러가 요청을 거부했습니다. 루트 /api 위치를 확인하세요.";
+        userFriendlyMsg = "CORS 차단 또는 라우팅 가로채기 발생: vercel.json 또는 서버 토큰을 점검하세요.";
+      } else if (err.message?.includes("400") || err.message?.includes("405")) {
+        userFriendlyMsg = "인증 에러 (400/405): 서버가 요청을 거절했습니다. BLOB_READ_WRITE_TOKEN을 확인하세요.";
       }
       
       setError(userFriendlyMsg);
@@ -164,18 +169,30 @@ export const AudioLabWorkspace: React.FC = () => {
     setIsPlaying(!isPlaying);
   };
 
+  const resetSelection = () => {
+    setSelectedFile(null);
+    setAnalysisResult(null);
+    setAnalysisType('Unknown');
+    setError(null);
+    setStep('upload');
+    setUploadProgress(0);
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(null);
+    setIsPlaying(false);
+  };
+
   const renderUpload = () => (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div className="flex items-center justify-between mb-8">
          <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic leading-none flex items-center gap-3">
-               Audio Workspace <span className="bg-teal-500 text-white text-[10px] px-2 py-1 rounded italic not-italic font-black">v2.6.5</span>
+               Audio Workspace <span className="bg-teal-500 text-white text-[10px] px-2 py-1 rounded italic not-italic font-black">v2.6.8</span>
             </h2>
-            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"최상위 api/upload 라우트를 사용하는 완벽한 작업 공간"</p>
+            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"3단 방어벽(vercel.json, env, logging)이 적용된 작업 공간"</p>
          </div>
          <div className="flex gap-2">
             <Button variant="outline" className="border-slate-200 text-slate-400 font-black text-xs h-10 px-4 rounded-xl hover:bg-slate-50 transition-all uppercase tracking-widest"><Maximize2 size={14} className="mr-2" /> Expand</Button>
-            <Button variant="outline" className="border-teal-500/20 text-teal-600 font-black text-xs h-10 px-4 rounded-xl hover:bg-teal-50 transition-all uppercase tracking-widest"><ShieldCheck size={14} className="mr-2" /> Secured</Button>
+            <Button variant="outline" className="border-teal-500/20 text-teal-600 font-black text-xs h-10 px-4 rounded-xl hover:bg-teal-50 transition-all uppercase tracking-widest"><ShieldCheck size={14} className="mr-2" /> 3-Stage Secured</Button>
          </div>
       </div>
 
@@ -251,18 +268,6 @@ export const AudioLabWorkspace: React.FC = () => {
     if (analysisType === 'Speech') return <SpeechReport analysisResult={analysisResult} audioFile={selectedFile || undefined} onBack={() => setStep('upload')} />;
     if (analysisType === 'Music') return <MusicReport data={analysisResult} audioFile={selectedFile!} />;
     return null;
-  };
-
-  const resetSelection = () => {
-    setSelectedFile(null);
-    setAnalysisResult(null);
-    setAnalysisType('Unknown');
-    setError(null);
-    setStep('upload');
-    setUploadProgress(0);
-    if (audioUrl) URL.revokeObjectURL(audioUrl);
-    setAudioUrl(null);
-    setIsPlaying(false);
   };
 
   return (
