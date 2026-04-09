@@ -2,6 +2,7 @@
 // src/store/useSlideStore.ts (Work AI 슬라이드 상태 관리 - Ultimate Edition)
 // [REFACTORED] Performance Optimized State & History Management
 // [STABILITY] 전체 코드 출력 (김현 님 지침 준수)
+// [LLM WIKI] Hot Context 및 지능형 위키 상태 통합
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -52,6 +53,14 @@ interface SlideState {
   setExecutionPlan: (plan: ExecutionPlan | null) => void;
   updatePlanTask: (taskId: string, updates: Partial<PlanTask>) => void;
   approvePlan: () => void;
+
+  // [LLM WIKI] Hot Context (최근 대화 및 작업기억)
+  hotContext: string | null;
+  setHotContext: (ctx: string | null) => void;
+  
+  // [LLM WIKI] 지식 베이스 연동 상태
+  wikiNotes: any[];
+  setWikiNotes: (notes: any[]) => void;
 
   setPresentation: (presentation: Presentation) => void;
   setCurrentSlideIndex: (index: number) => void;
@@ -147,6 +156,14 @@ export const useSlideStore = create<SlideState>()(
         if (!plan) return;
         set({ executionPlan: { ...plan, isApproved: true } });
       },
+
+      // [LLM WIKI] Hot Context 초기화
+      hotContext: null,
+      setHotContext: (ctx) => set({ hotContext: ctx }),
+      
+      // [LLM WIKI] 위키 상태 초기화
+      wikiNotes: [],
+      setWikiNotes: (notes) => set({ wikiNotes: notes }),
 
       isGenerating: false,
       isSyncing: false,
@@ -488,7 +505,9 @@ export const useSlideStore = create<SlideState>()(
         executionPlan: null,
         isFeedbackOpen: false,
         isChatOpen: false,
-        aspectRatio: '16:9'
+        aspectRatio: '16:9',
+        hotContext: null,
+        wikiNotes: []
       }),
 
       applySmartSplit: () => {
@@ -511,7 +530,9 @@ export const useSlideStore = create<SlideState>()(
       partialize: (s) => ({ 
         presentation: s.presentation, 
         currentSlideIndex: s.currentSlideIndex, 
-        aspectRatio: s.aspectRatio 
+        aspectRatio: s.aspectRatio,
+        hotContext: s.hotContext,
+        wikiNotes: s.wikiNotes
       }),
       onRehydrateStorage: () => () => {}
     }

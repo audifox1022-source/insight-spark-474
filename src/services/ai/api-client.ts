@@ -3,6 +3,7 @@
 // [FIX] models/gemini-1.5-pro -> gemini-2.5-flash 전면 교체
 // [UPGRADE] MAX_TOKENS 한도 상황 대비 에러 핸들링 보강
 // [UPGRADE] Exponential Backoff 대기 시간 강화 (5s -> 10s -> 20s)
+// [LLM WIKI] Hot Context (Persistent Memory) 주입 로직 추가
 // ============================================================
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -35,6 +36,11 @@ export async function streamGeminiAPI(
   // [HOTFIX] gemini-2.5-flash로 엔진 업그레이드 (404 방어)
   const modelName = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
   
+  const hotContext = useSlideStore.getState().hotContext;
+  const combinedSystem = hotContext 
+    ? `${systemInstruction}\n\n[RECENT_CONTEXT_CACHE]\n${hotContext}`
+    : systemInstruction;
+
   const userParts = typeof userContent === 'string' 
     ? [{ text: userContent }] 
     : userContent.map(p => {
@@ -46,7 +52,7 @@ export async function streamGeminiAPI(
   try {
     const { textStream } = await streamText({
       model: googleProvider(modelName),
-      system: systemInstruction,
+      system: combinedSystem,
       prompt: typeof userContent === 'string' ? userContent : JSON.stringify(userParts),
       abortSignal: signal,
       temperature: 0.1,
@@ -86,6 +92,11 @@ export async function callGeminiAPI(
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
+  const hotContext = useSlideStore.getState().hotContext;
+  const combinedSystem = hotContext 
+    ? `${systemInstruction}\n\n[RECENT_CONTEXT_CACHE]\n${hotContext}`
+    : systemInstruction;
+
   const userParts = typeof userContent === 'string' 
     ? [{ text: userContent }] 
     : userContent.map(p => {
@@ -94,9 +105,9 @@ export async function callGeminiAPI(
         return p; 
       });
 
-  console.log("💎 [System] callGeminiAPI v1.4.0 (Backoff Enhanced)");
+  console.log("💎 [System] callGeminiAPI v1.5.0 (Hot Cache Enabled)");
   
-  const systemPrefix = systemInstruction ? `[SYSTEM_INSTRUCTION]\n${systemInstruction}\n\n` : '';
+  const systemPrefix = combinedSystem ? `[SYSTEM_INSTRUCTION]\n${combinedSystem}\n\n` : '';
   const jsonRule = responseMimeType === 'application/json' ? "\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or extra text outside the JSON." : "";
   
   const finalUserParts = [...userParts];

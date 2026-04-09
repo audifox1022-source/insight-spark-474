@@ -1,6 +1,7 @@
 // ============================================================
 // src/pages/Index.tsx (Work AI 통합 플랫폼 메인 - Ultimate Hardened)
 // [Phase 35] Deep Multimodal Data Transformation Pipeline integration
+// [LLM WIKI] Knowledge Hub workspace integration
 // ============================================================
 import { useState, useRef, Suspense, useEffect } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
@@ -11,11 +12,13 @@ import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
 import { SlideEditor } from '@/components/designer/SlideEditor'
 import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
 import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
+import { KnowledgeHub } from '@/components/designer/KnowledgeHub'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2,
   HelpCircle, LogOut, Palette, Globe, CheckCircle2, 
-  ChevronLeft, Headphones, FileDigit, BookOpen, X, BarChart3
+  ChevronLeft, Headphones, FileDigit, BookOpen, X, BarChart3,
+  Library, Brain
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,7 +35,7 @@ const Index = () => {
   // ── [Debug Tracker] ──
   console.log('Rendering [Index] Component Startup Check');
 
-  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
+  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor' | 'knowledge'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
   const translatorRef = useRef<{ handleBack: () => boolean }>(null)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
@@ -88,6 +91,10 @@ const Index = () => {
   const guide = getStepGuide(step);
 
   const handleBack = () => {
+    if (activeApp === 'knowledge') {
+      setActiveApp('presentation');
+      return;
+    }
     if (activeApp === 'designer') {
       setActiveApp('presentation');
       return;
@@ -108,6 +115,7 @@ const Index = () => {
   };
 
   const headerIcon = () => {
+    if (activeApp === 'knowledge') return <Library className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'pdfeditor') return <FileDigit className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'audiolab') return <Headphones className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
@@ -141,7 +149,7 @@ const Index = () => {
                 </motion.div>
                 <div className="min-w-0 text-left">
                   <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground">
-                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.1.0</span>
+                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.2.0</span>
                   </h1>
                   <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
                     AI 업무 자동화 플랫폼
@@ -151,9 +159,21 @@ const Index = () => {
             </div>
 
             <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
-              {(['presentation', 'translator', 'audiolab', 'pdfeditor'] as AppMode[]).map((mode) => {
-                const labels: Record<string, string> = { presentation: '발표자료', translator: 'AI 번역', audiolab: 'Audio Lab', pdfeditor: 'PDF 편집' };
-                const Icons: Record<string, any> = { presentation: Sparkles, translator: Globe, audiolab: Headphones, pdfeditor: FileDigit };
+              {(['presentation', 'knowledge', 'translator', 'audiolab', 'pdfeditor'] as AppMode[]).map((mode) => {
+                const labels: Record<string, string> = { 
+                  presentation: '발표자료', 
+                  knowledge: '지식 허브',
+                  translator: 'AI 번역', 
+                  audiolab: 'Audio Lab', 
+                  pdfeditor: 'PDF 편집' 
+                };
+                const Icons: Record<string, any> = { 
+                  presentation: Sparkles, 
+                  knowledge: Library,
+                  translator: Globe, 
+                  audiolab: Headphones, 
+                  pdfeditor: FileDigit 
+                };
                 const Icon = Icons[mode] || Sparkles;
                 
                 return (
@@ -167,6 +187,9 @@ const Index = () => {
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {labels[mode] || mode}
+                    {mode === 'knowledge' && (
+                      <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
+                    )}
                   </button>
                 )
               })}
@@ -208,6 +231,9 @@ const Index = () => {
 
         <Suspense fallback={<AppLoadingScreen />}>
           <div className="flex-1 flex flex-col relative overflow-hidden">
+            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-0 flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'knowledge' ? 'hidden' : ''}`}>
+              <KnowledgeHub />
+            </main>
             <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
               <TranslatorWorkspace ref={translatorRef} />
             </main>
