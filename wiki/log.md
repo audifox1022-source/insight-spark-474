@@ -2,6 +2,7 @@
 
 ## [2026-04-09] System Refactoring & Upgrade
 - **Emergency Patch (v2.1.1)**: Fixed `ReferenceError: toggleDark is not defined` crash in `usePresentation.ts`. Added defensive logic for theme store across the app.
+- **Audio Lab Pure Serverless Auth (v2.6.4)**: Rebuilt `api/upload.js` as a standard Vercel Node.js serverless function. Hardcoded `/api/upload` handshake mapping in the client to resolve CORS/400 errors.
 - **Audio Lab Handshake Reconstruction (v2.6.3)**: Synchronized Vercel Blob token handshake between local Express server (`server.js`) and client. Improved debug logging and fixed CORS/400 errors for both Local and Prod environments.
 - **Audio Lab Stability Upgrade (v2.6.2)**: Established Vercel Blob authentication pipeline (`api/upload.js`). Fixed 400 Bad Request & CORS errors during client-side upload and implemented retry limits (Max 3) to prevent infinite loading loops.
 - **Audio Lab Pipeline Fix (v2.6.1)**: Resolved `[object File]` data type bug in large audio analysis. Established a robust Vercel Blob pre-upload pipeline.

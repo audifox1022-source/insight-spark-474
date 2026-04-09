@@ -1,9 +1,9 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
 // [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 (Max 500MB)
-// [CRITICAL FIX] 클라이언트 업로드 핸드셰이크 완벽 교정 (v2.6.3)
-// [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy (URL Based)
-// [DEBUG] Handshake Step-by-Step Logging 추가
+// [CRITICAL FIX] Vercel Serverless Handshake Hardcoded (/api/upload)
+// [VERSION] v2.6.4 Standard Handshake
+// [DEBUG] Handshake Step-by-Step Logging & Error Handling
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -114,7 +114,8 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Robust Handshake Pipeline (v2.6.3)
+   * [CORE] handleAnalyze - Robust Handshake Pipeline (v2.6.4)
+   * [CRITICAL] handleUploadUrl: '/api/upload' 하드코딩 적용
    * 1. 🔑 Token Handshake: Client requests upload token from /api/upload
    * 2. 📤 Direct Portal: After handshake, upload directly to Vercel with token
    * 3. 💎 Strategic Analysis: Pass URL to Gemini for analysis
@@ -122,8 +123,8 @@ export const AudioLab: React.FC = () => {
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
-    console.log(`[Blob Handshake] 🚀 Phase 1: Initiating Handshake with Server...`);
-    console.log(`[Blob Handshake] 📂 File: ${selectedFile.name} (Type: ${selectedFile.type})`);
+    console.log(`[Blob Handshake] 🚀 Phase 1: Vercel Serverless Handshake Initiated...`);
+    console.log(`[Blob Handshake] 📂 Target File: ${selectedFile.name} (${selectedFile.type})`);
 
     setStep('analyzing');
     setError(null);
@@ -136,60 +137,61 @@ export const AudioLab: React.FC = () => {
     try {
       while (retryCount < MAX_RETRIES) {
         try {
-          console.log(`[Blob Handshake] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
+          console.log(`[Blob Handshake] ☁️ Attempting Connection to /api/upload (${retryCount + 1}/${MAX_RETRIES})...`);
           
           /**
-           * @vercel/blob upload() 함수 상세 동작:
-           * handleUploadUrl 옵션이 설정되면, 이 함수는 먼저 지정된 URL(/api/upload)로 
-           * POST 요청을 보내어 업로드 권한(Token)을 획득하는 '핸드셰이크'를 수행합니다.
+           * [@vercel/blob upload() 핵심 설정]
+           * handleUploadUrl: Vercel 서버리스 함수 경로 (/api/upload.js) 와 매핑됩니다.
+           * 이 경로를 통해 BLOB_READ_WRITE_TOKEN을 안전하게 관리하고 토큰을 발급받습니다.
            */
           const newBlob = await upload(selectedFile.name, selectedFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload', // [CRITICAL] 백엔드 핸드셰이크 엔드포인트
+            handleUploadUrl: '/api/upload', // [CRITICAL] 서버리스 핸드셰이크 엔드포인트 강제 매핑
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },
           });
 
           if (!newBlob || !newBlob.url) {
-            throw new Error("Handshake successful but secured URL is missing.");
+            throw new Error("Handshake successful but final secure URL is missing.");
           }
           
           finalBlobUrl = newBlob.url;
-          console.log(`[Blob Handshake] 🤝 Handshake Success! Secured URL -> ${finalBlobUrl}`);
+          console.log(`[Blob Handshake] 🤝 Phase 2: Handshake Success! Secured URL -> ${finalBlobUrl}`);
           break; 
         } catch (uploadErr: any) {
           retryCount++;
-          console.error(`[Blob Handshake] ❌ Attempt ${retryCount} failed:`, uploadErr.message);
+          console.error(`[Blob Handshake] ❌ Handshake Failure (Attempt ${retryCount}):`, uploadErr.message);
           
           if (retryCount >= MAX_RETRIES) {
-            throw new Error(`핸드셰이크 실패: ${uploadErr.message}. 백엔드 /api/upload 라우트를 확인하세요.`);
+            throw new Error(`핸드셰이크 최종 실패: ${uploadErr.message}. Vercel 대시보드 환경 변수 및 /api/upload 라우트를 확인하십시오.`);
           }
+          // Exponential Backoff
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
 
-      if (!finalBlobUrl) throw new Error("업로드 파이프라인이 정상적으로 완료되지 않았습니다.");
+      if (!finalBlobUrl) throw new Error("업로드 인증 파이프라인 무결성 오류");
       
-      console.log("[Blob Handshake] 💎 Phase 2: Running Gemini Strategic Analysis...");
+      console.log("[Blob Handshake] 💎 Phase 3: Passing to Gemini Forensic Analysis Engine...");
       const result = await geminiAudioService.analyzeAudioDeep(finalBlobUrl, selectedFile.type);
       
       if (result && result.type) {
         setAnalysisType(result.type);
         setAnalysisResult(result.data);
         setStep('result');
-        toast.success(`분석이 성공적으로 완료되었습니다.`);
+        toast.success(`오디오 분석이 완벽하게 완료되었습니다.`);
       } else {
-        throw new Error("분석 결과 데이터 구조가 올바르지 않습니다.");
+        throw new Error("Gemini 분석 결과 구조가 유효하지 않습니다.");
       }
     } catch (err: any) {
-      console.error("❌ Audio Lab Failure Track:", err);
-      let userFriendlyMsg = err.message || "분석 중 알 수 없는 오류가 발생했습니다.";
+      console.error("❌ Audio Lab Lifecycle Failure:", err);
+      let userFriendlyMsg = err.message || "오디오 처리 중 알 수 없는 장애가 발생했습니다.";
       
       if (err.message?.toLowerCase().includes("cors")) {
-        userFriendlyMsg = "CORS 정책 차단: 서버(/api/upload)의 응답 헤더를 확인하십시오.";
+        userFriendlyMsg = "CORS 차단: 서버(/api/upload)가 올바른 응답 헤더를 반환하지 않았거나, 전송 권한이 없습니다.";
       } else if (err.message?.includes("400")) {
-        userFriendlyMsg = "Handshake 400 Error: 요청 데이터 형식이 올바르지 않거나 토큰 발급이 거부되었습니다.";
+        userFriendlyMsg = "핸드셰이크 400 에러: 서버리스 함수가 요청 데이터 형식을 거부했습니다. api/upload.js 상태를 확인하세요.";
       }
 
       setError(userFriendlyMsg);
@@ -229,9 +231,9 @@ export const AudioLab: React.FC = () => {
   const renderUpload = () => (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-10">
       <header className="text-center space-y-6">
-        <div className="flex justify-center mb-4"><span className="bg-emerald-100 text-emerald-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-200 shadow-sm">Robust Handshake v2.6.3 Ready</span></div>
+        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">Vercel Serverless Handshake v2.6.4</span></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
-        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"핸드셰이크 보안 파이프라인이 재구축되었습니다. <br/>로컬 서버와 Vercel 클라우드 간의 토큰 발급 프로세스가 동기화되었습니다."</p>
+        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"서버리스 핸드셰이크 인증을 통해 대용량 오디오 데이터를 <br/>안전하게 클라우드에 배치하고 인공지능으로 분석합니다."</p>
       </header>
 
       {error && <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4"><AlertCircle className="text-red-500 shrink-0" size={24} /><p className="text-sm font-bold text-red-700 break-keep">{error}</p></div>}
@@ -243,7 +245,7 @@ export const AudioLab: React.FC = () => {
               <div className="flex flex-col items-center justify-center">
                 <div className="w-28 h-28 bg-white rounded-[2.5rem] flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:rotate-6 transition-all mb-10 border border-slate-100"><FileAudio className="w-12 h-12 text-[#0D9488]" /></div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
-                <div className="flex items-center gap-2 mt-4"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /><p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Verified Handshake Portal</p></div>
+                <div className="flex items-center gap-2 mt-4"><span className="w-2 h-2 rounded-full bg-[#0D9488] animate-pulse" /><p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Verified Pure Serverless Portal</p></div>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
@@ -253,7 +255,7 @@ export const AudioLab: React.FC = () => {
                   <div className="flex items-center justify-between mb-10 relative z-10">
                     <div className="flex items-center gap-8">
                        <div className="w-20 h-20 bg-[#0D9488] rounded-3xl flex items-center justify-center text-white shadow-[0_0_40px_rgba(13,148,136,0.6)] group-hover:rotate-6 transition-transform"><Mic className="w-10 h-10" /></div>
-                       <div><p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p><p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_HANDSHAKE</p></div>
+                       <div><p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p><p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_SECURE_AUTH</p></div>
                     </div>
                     <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}><Trash2 size={28} /></Button>
                   </div>
@@ -269,8 +271,8 @@ export const AudioLab: React.FC = () => {
                   <audio ref={audioRef} src={audioUrl || ''} onEnded={() => setIsPlaying(false)} className="hidden" />
                </div>
                <div className="grid grid-cols-2 gap-6">
-                  <Button className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group" onClick={handleAnalyze}><CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START SECURE ANALYTICS</Button>
-                  <Button variant="outline" className="h-24 border-2 border-slate-200 text-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all">ADVANCED CONFIG</Button>
+                  <Button className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group" onClick={handleAnalyze}><CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START AUTH_UPLOAD</Button>
+                  <Button variant="outline" className="h-24 border-2 border-slate-200 text-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all">ANALYSIS PARAMS</Button>
                </div>
             </div>
           )}
@@ -283,8 +285,8 @@ export const AudioLab: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
        <div className="relative"><Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" /><CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" /></div>
        <div className="space-y-8 w-full max-w-md">
-          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Pipeline Analysis..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-xs">{uploadProgress < 100 ? "서버로부터 업로드 권한(Token)을 안전하게 획득하고 데이터를 전송 중입니다." : "업로드 성공. Gemini 2.5 Flash가 오디오 맥락을 분석하고 있습니다."}</p></div>
-          <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Handshaking' : 'Analysing'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
+          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "Vercel 서버리스 인증을 통해 임시 업로드 토큰을 생성하고 있습니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
+          <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Authenticating' : 'Decoding'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
        </div>
     </div>
   );
