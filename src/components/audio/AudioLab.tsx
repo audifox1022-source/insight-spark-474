@@ -1,23 +1,24 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
-// [CRITICAL UPGRADE] Forensic & Strategic Analysis Pipeline Restore
-// [Engine] Gemini 2.5 Flash Engine Force Apply (404 FIX)
-// [STABILITY] finally 블록 강제 적용 및 10MB 용량 제한, 60초 타임아웃 방어 로직 완벽 구축
-// [TRACE] 사일런트 크래시 추적을 위한 단계 1 Console Logging 주입
-// [RETRY & FALLBACK] 503 에러 대응 및 지수 백오프 UI 연동 완벽 구현
+// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 (Max 500MB)
+// [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy
+// [STABILITY] 10MB 제한 전면 해제 -> 브라우저 직접 업로드 아키텍처 도입
+// [TRACE] 업로드 진행률(Progress) 실시간 추적 및 UI 연동
 // [STABILITY] 100% Full Code Output (김현 님 지침 준수)
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Mic, Music, FileAudio, Upload, Loader2, Sparkles, 
   CheckCircle2, AlertCircle, Play, Pause, Trash2, Headphones,
-  BarChart3, FileText, Download, Share2, ArrowLeft, History, Settings
+  BarChart3, FileText, Download, Share2, ArrowLeft, History, Settings,
+  CloudUpload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { upload } from '@vercel/blob/client';
 
 // components
 import { SpeechReport } from './SpeechReport';
@@ -36,6 +37,7 @@ export const AudioLab: React.FC = () => {
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [analysisType, setAnalysisType] = useState<AudioType>('Unknown');
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   // Audio Playback Preview
   const [isPlaying, setIsPlaying] = useState(false);
@@ -60,10 +62,10 @@ export const AudioLab: React.FC = () => {
       return;
     }
 
-    // [DEFENSE] 10MB 파일 용량 제한 (브라우저 메모리 및 타임아웃 방어 - 김현 님 긴급 지침)
-    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    // [UPGRADE] 500MB 파일 용량 제한으로 대폭 상향 (Vercel Blob 아키텍처)
+    const MAX_SIZE = 500 * 1024 * 1024; // 500MB
     if (file.size > MAX_SIZE) {
-      toast.error("10MB 이하의 오디오 파일만 분석할 수 있습니다. 용량을 줄여주세요.", {
+      toast.error("500MB 이하의 오디오 파일만 분석할 수 있습니다. 대용량 클라우드 솔루션을 이용해 주세요.", {
         duration: 5000,
         icon: <AlertCircle className="text-red-500" />
       });
@@ -74,6 +76,7 @@ export const AudioLab: React.FC = () => {
     setAnalysisResult(null);
     setError(null);
     setStep('upload');
+    setUploadProgress(0);
 
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(URL.createObjectURL(file));
@@ -129,64 +132,59 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - With Enhanced Error Recovery
+   * [CORE] handleAnalyze - Hybrid Architecture Implementation
+   * Vercel Blob (Upload) + Gemini File API (Processing)
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
-    // [STRICT DEFENSE] 실행 직전 용량 재검사 (10MB)
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (selectedFile.size > MAX_SIZE) {
-        toast.error("10MB 이하의 오디오 파일만 분석할 수 있습니다.");
-        return;
-    }
-
-    // [TRACE] 단계 1: 분석 시작 로깅
-    console.log(`[AudioLab] 단계 1: 분석 시작 버튼 클릭됨 (파일: ${selectedFile.name}, 크기: ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`);
+    console.log(`[AudioLab] 📤 Initiating Large Asset Pipeline (Size: ${(selectedFile.size / 1024 / 1024).toFixed(2)}MB)`);
 
     setStep('analyzing');
     setError(null);
+    setUploadProgress(0);
     
-    // [UI] 엔진 버전 명시 및 로딩 알림
-    const toastId = toast.loading("Gemini 2.5 Flash 엔진이 오디오 데이터를 정밀 분석 중입니다. (10MB 제한 적용)");
+    let blobUrl = '';
 
     try {
-      // [Service Call] geminiAudioService.analyzeAudioDeep
-      // - 내부에 하드 타임아웃(60s) 및 지수 백오프 로직 포함됨
-      const result = await geminiAudioService.analyzeAudioDeep(selectedFile);
+      // 1단계: Vercel Blob 클라이언트 직접 업로드 (Progress 반영)
+      console.log("[AudioLab] ☁️ Phase 1: Direct Client Upload to Vercel Blob...");
+      const newBlob = await upload(selectedFile.name, selectedFile, {
+        access: 'public',
+        handleUploadUrl: '/api/blob-token', // 서버 측 토큰 생성 엔드포인트
+        onUploadProgress: (progressEvent) => {
+          const percent = progressEvent.percentage;
+          setUploadProgress(percent);
+          console.log(`[AudioLab] Upload Progress: ${percent}%`);
+        },
+      });
+
+      blobUrl = newBlob.url;
+      console.log(`[AudioLab] ✅ Phase 1 Success: Blob secured at ${blobUrl}`);
+
+      // 2단계: Gemini File API 프록시 호출 및 분석
+      console.log("[AudioLab] 💎 Phase 2: Requesting Gemini Forensic Engine Analysis...");
+      const result = await geminiAudioService.analyzeAudioDeep(blobUrl, selectedFile.type);
       
       if (result && result.type) {
         setAnalysisType(result.type);
         setAnalysisResult(result.data);
         setStep('result');
-        toast.success(`${result.type === 'Speech' ? '회의록/인터뷰' : '음악/포렌식'} 분석이 완료되었습니다.`, { id: toastId });
+        toast.success(`분석이 성공적으로 완료되었습니다.`);
       } else {
         throw new Error("AI 응답 데이터 구조가 올바르지 않습니다.");
       }
     } catch (err: any) {
-      console.error("❌ Audio analysis final failure:", err);
+      console.error("❌ Audio Lab Failure:", err);
+      let userFriendlyMsg = err.message || "분석 중 알 수 없는 오류가 발생했습니다.";
       
-      // [GRACEFUL FALLBACK] 구체적인 에러 안내
-      let userFriendlyMsg = "분석 중 알 수 없는 오류가 발생했습니다: " + (err.message || 'Unknown Error');
-      
-      if (err.message?.includes("10MB")) {
-         userFriendlyMsg = "10MB 이하의 오디오 파일만 분석할 수 있습니다. 용량을 줄여주세요.";
-      } else if (err.message?.includes("[TIMEOUT]")) {
-         userFriendlyMsg = "분석 시간이 초과되었습니다 (60s). 인터넷 연결을 확인하거나 더 짧은 파일로 다시 시도해 주세요.";
-      } else if (err.message?.includes("503") || err.message?.includes("부하")) {
-         userFriendlyMsg = "현재 AI 서버에 접속자가 많아 분석이 지연되고 있습니다. 1~2분 후 다시 시도해 주십시오. (503 Service Unavailable)";
-      } else if (err.message?.includes("429")) {
-         userFriendlyMsg = "실시간 분석 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (429 Too Many Requests)";
+      if (err.message?.includes("Vercel")) {
+         userFriendlyMsg = "Vercel Blob 스토리지 설정이 필요합니다. 대시보드를 확인해 주세요.";
       }
 
       setError(userFriendlyMsg);
-      toast.error(userFriendlyMsg, { id: toastId, duration: 6000 });
-      
-      // [STATE RECOVERY] 업로드 화면으로 안전하게 복구
+      toast.error(userFriendlyMsg, { duration: 6000 });
       setStep('upload'); 
-    } finally {
-      // [CRITICAL] 어떤 경우에도 'analyzing' 상태에서 멈춤 현상이 발생하지 않도록 최종 보장
-      console.log("[AudioLab] Audio Lab Analysis Process - Flow Completed.");
     }
   };
 
@@ -211,6 +209,7 @@ export const AudioLab: React.FC = () => {
     setAnalysisType('Unknown');
     setError(null);
     setStep('upload');
+    setUploadProgress(0);
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioUrl(null);
     setIsPlaying(false);
@@ -219,16 +218,20 @@ export const AudioLab: React.FC = () => {
 
   // --- Render Sections ---
 
-  /** [Upload Section] */
   const renderUpload = () => (
     <motion.div 
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto space-y-10"
     >
       <header className="text-center space-y-6">
+        <div className="flex justify-center mb-4">
+           <span className="bg-amber-100 text-amber-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200 shadow-sm animate-pulse">
+             Enterprise Tier: 500MB Enabled
+           </span>
+        </div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
         <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">
-          "소리 너머의 비즈니스 인텔리전스를 추출합니다. <br/>McKinsey 수준의 정밀한 통찰력과 포렌식 데이터를 경험하세요."
+          "브이로그, 대규모 회의, 긴 인터뷰까지. <br/>Vercel Blob 기반의 네이티브 아키텍처로 한계 없는 분석 환경을 제공합니다."
         </p>
       </header>
 
@@ -249,7 +252,10 @@ export const AudioLab: React.FC = () => {
                 </div>
                 <p className="text-lg font-black text-slate-800 uppercase tracking-widest text-center">Audio Asset Deployment</p>
                 <p className="text-[11px] text-slate-400 font-black mt-4 uppercase tracking-[0.4em]">Drag & Drop or Click to Select</p>
-                <p className="text-[9px] text-[#0D9488] font-black mt-2 tracking-widest opacity-50 uppercase">Max Size: 10MB</p>
+                <div className="flex items-center gap-2 mt-4">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <p className="text-[9px] text-[#0D9488] font-black tracking-widest uppercase">Blob Engine: Max 500MB</p>
+                </div>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
             </label>
@@ -265,7 +271,7 @@ export const AudioLab: React.FC = () => {
                        </div>
                        <div>
                           <p className="text-lg font-black text-white truncate max-w-[300px] uppercase tracking-tight">{selectedFile.name}</p>
-                          <p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_DEEP_ANALYSIS</p>
+                          <p className="text-[11px] text-[#0D9488] font-black uppercase mt-2 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_FOR_BLOB_UPLOAD</p>
                        </div>
                     </div>
                     <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}>
@@ -284,11 +290,9 @@ export const AudioLab: React.FC = () => {
                              {isPlaying ? <Pause className="fill-current w-6 h-6" /> : <Play className="fill-current w-6 h-6 translate-x-0.5" />}
                            </Button>
                            <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden shadow-inner">
-                              <motion.div 
-                                className="h-full bg-gradient-to-r from-[#0D9488] to-[#00F2FF] shadow-[0_0_15px_#00F2FF]"
-                                initial={{ width: 0 }}
-                                animate={{ width: isPlaying ? '100%' : '0%' }}
-                                transition={{ duration: 30, ease: "linear" }}
+                              <div 
+                                className="h-full bg-gradient-to-r from-[#0D9488] to-[#00F2FF] shadow-[0_0_15px_#00F2FF] transition-all duration-300"
+                                style={{ width: isPlaying ? '100%' : '0%' }}
                               />
                            </div>
                         </div>
@@ -299,16 +303,16 @@ export const AudioLab: React.FC = () => {
 
                <div className="grid grid-cols-2 gap-6">
                   <Button 
-                    className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4"
+                    className="h-24 bg-[#0D9488] hover:bg-[#0c7a70] text-white font-black text-xl rounded-[2.5rem] shadow-[0_20px_50px_-10px_rgba(13,148,136,0.5)] active:scale-95 transition-all flex items-center gap-4 group"
                     onClick={handleAnalyze}
                   >
-                    <Sparkles className="w-6 h-6" /> DEEP ANALYSIS START
+                    <CloudUpload className="w-6 h-6 group-hover:animate-bounce" /> START BLOB ANALYTICS
                   </Button>
                   <Button 
                     variant="outline"
                     className="h-24 border-2 border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-400 font-extrabold text-lg rounded-[2.5rem] transition-all"
                   >
-                    ADVANCED SETTINGS
+                    DEEP FORENSIC CONFIG
                   </Button>
                </div>
             </div>
@@ -318,30 +322,43 @@ export const AudioLab: React.FC = () => {
     </motion.div>
   );
 
-  /** [Analyzing Section] */
   const renderAnalyzing = () => (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
        <div className="relative">
           <div className="absolute inset-0 m-auto w-64 h-64 bg-[#0D9488]/10 rounded-full animate-ping" />
           <Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" />
-          <Sparkles className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-pulse" />
+          <CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" />
        </div>
-       <div className="space-y-4">
-          <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">McKinsey Strategy Engine <br/>Deciphering Audio...</h3>
-          <p className="text-slate-400 font-bold max-w-sm mx-auto leading-relaxed italic break-keep text-xs">
-            "인공지능이 음성 파형을 시맨틱 데이터로 변환하고 패턴을 분석 중입니다. <br/>하드 타임아웃(60s) 및 10MB 정밀 검증이 적용되었습니다."
-          </p>
-          <div className="w-64 h-1 bg-slate-100 rounded-full mx-auto overflow-hidden">
-             <motion.div 
-                className="h-full bg-[#0D9488]" 
-                initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 60, ease: "linear" }} 
-             />
+       <div className="space-y-8 w-full max-w-md">
+          <div className="space-y-2">
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+              {uploadProgress < 100 ? "Uploading to Vercel..." : "Gemini AI Analyzing..."}
+            </h3>
+            <p className="text-slate-400 font-bold leading-relaxed italic break-keep text-xs">
+              {uploadProgress < 100 
+                ? "브라우저에서 Vercel Blob으로 대용량 데이터를 직접 전송 중입니다." 
+                : "파일 업로드 완료. Gemini File API가 소리 인텔리전스를 추출하고 있습니다."}
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+             <div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1">
+                <span>Network Status: {uploadProgress < 100 ? 'Uploading' : 'Processing'}</span>
+                <span>{uploadProgress.toFixed(1)}%</span>
+             </div>
+             <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner">
+                <motion.div 
+                   className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" 
+                   initial={{ width: 0 }} 
+                   animate={{ width: `${uploadProgress}%` }} 
+                   transition={{ duration: 0.5 }} 
+                />
+             </div>
           </div>
        </div>
     </div>
   );
 
-  /** [Result Section] */
   const renderResult = () => {
     if (analysisType === 'Speech') {
        return <SpeechReport analysisResult={analysisResult} audioFile={selectedFile || undefined} onBack={() => setStep('upload')} />;
@@ -353,7 +370,6 @@ export const AudioLab: React.FC = () => {
 
   return (
     <div className="bg-[#F8FAFC] min-h-screen">
-      {/* Dynamic Header for Results View */}
       {step !== 'result' && (
         <nav className="w-full h-24 border-b border-slate-100 bg-white flex items-center justify-between px-16 sticky top-0 z-[100] backdrop-blur-md">
             <div className="flex items-center gap-4">
@@ -364,7 +380,7 @@ export const AudioLab: React.FC = () => {
             </div>
             <div className="flex items-center gap-10">
                 <div className="flex gap-6">
-                    {['Engine 2.5', '10MB Limit', 'Trace Active'].map(item => (
+                    {['Blob Tier', '500MB Enabled', 'File API Active'].map(item => (
                         <span key={item} className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{item}</span>
                     ))}
                 </div>
@@ -391,7 +407,7 @@ export const AudioLab: React.FC = () => {
         <footer className="p-20 text-center border-t border-slate-100 flex flex-col items-center gap-6 grayscale opacity-30 select-none">
             <div className="flex items-center gap-3">
                 <Sparkles size={20} className="text-[#0D9488]" />
-                <p className="text-[10px] font-black uppercase tracking-[0.8em]">End-to-End Encryption Strategy Active</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.8em]">Massive File Architecture 2.0 Active</p>
             </div>
             <p className="text-[9px] font-bold text-slate-400">© 2026 AI AUDIO LOGISTICS CENTER. ALL RIGHTS RESERVED.</p>
         </footer>
