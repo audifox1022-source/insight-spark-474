@@ -2,14 +2,13 @@
 // src/services/ai/geminiService.ts
 // [ENTERPRISE UPGRADE] Strategic Chat Executor & Aspect Ratio Sync
 // [Phase 45] AI 'Executor' Persona - No Questions, Just Action.
-// [LLM WIKI] 지식 베이스(Wiki) 및 Hot Cache 연동 강화
+// [CLEANUP] 기존 Option 1 지능형 위키(knowledgeStore) 연동 제거 (v2.1.0)
 // [FIX] models/gemini-1.5-flash -> gemini-2.5-flash 전면 교체 (404 방어)
 // ============================================================
 import { callGeminiAPI } from './api-client';
 import * as prompts from './prompts';
 import { SpeechAnalysis, MusicAnalysis, AudioType } from '@/types/audio';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { knowledgeStore } from './knowledgeStore';
 import { useSlideStore } from '@/store/useSlideStore';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
@@ -50,69 +49,6 @@ export function extractJson(text: string): any {
     } catch (innerError) {
       return null;
     }
-  }
-}
-
-/**
- * [LLM WIKI Extension] 지식 인제스트 및 핫 캐시 관리
- */
-
-// 1. 위키 인제스트 서브 에이전트: 소스 데이터에서 위키 노트 추출 및 저장
-async function ingestToWiki(title: string, rawContent: string, category: string = 'general') {
-  console.log(`🧠 [LLM Wiki] Ingesting source to wiki: ${title}`);
-  
-  const systemPrompt = `
-    당신은 지식 정리 전문가입니다. 제공된 텍스트에서 주요 개념, 엔티티, 비즈니스 통찰력을 추출하여 구조화된 위키 노트를 작성하십시오.
-    반드시 다음 JSON 형식을 갖춰야 합니다:
-    {
-      "title": "노트 제목",
-      "content": "마크다운 형식의 상세 지식 내용",
-      "tags": ["태그1", "태그2"],
-      "category": "${category}"
-    }
-  `;
-
-  const response = await callGeminiAPI(systemPrompt, rawContent.substring(0, 30000), 8192, "application/json");
-  const result = extractJson(response);
-
-  if (result && result.title && result.content) {
-    knowledgeStore.saveNote({
-      id: `wiki-${Date.now()}`,
-      title: result.title,
-      content: result.content,
-      tags: result.tags || [],
-      category: result.category || category
-    });
-    console.log(`✅ [LLM Wiki] Wiki note saved: ${result.title}`);
-    
-    // UI 상태 동기화
-    useSlideStore.getState().setWikiNotes(knowledgeStore.getAllNotes());
-  }
-}
-
-// 2. 핫 캐시 업데이트: 세션의 핵심 맥락을 요약하여 저장
-async function updateHotCache(actionDescription: string, data: any) {
-  const currentHot = useSlideStore.getState().hotContext || "";
-  
-  const systemPrompt = `
-    당신은 기억 관리 에이전트입니다. 최근의 작업 내용과 사용자 선호도를 분석하여 'Hot Cache'를 업데이트하십시오.
-    기존 캐시 내용을 참고하여 가장 중요하고 최신인 정보 위주로 500자 내외로 요약하십시오.
-    디자인 스타일, 특정 용어 선호도, 이전 피드백을 반드시 포함하십시오.
-  `;
-
-  const userPrompt = `
-    [기존 캐시]
-    ${currentHot}
-    
-    [최근 작업]
-    내용: ${actionDescription}
-    데이터: ${JSON.stringify(data).substring(0, 5000)}
-  `;
-
-  const newCache = await callGeminiAPI(systemPrompt, userPrompt, 2048, "text");
-  if (newCache) {
-    useSlideStore.getState().setHotContext(newCache);
-    console.log("💾 [Hot Cache] Persistent memory updated.");
   }
 }
 
@@ -199,17 +135,12 @@ export const aiService = {
   runDocumentationSubAgent,
   runDiagnosisSubAgent,
   runReaderSubAgent,
-  ingestToWiki,
-  updateHotCache,
 
   async processStrategicChat(message: string, currentSlide: any) {
     return withTimeout(async (signal) => {
       const userPrompt = `[명령] ${message}\n[현재 데이터] ${JSON.stringify(currentSlide)}`;
       const response = await callGeminiAPI(prompts.GEMINI_STRATEGIC_CHAT_EXECUTOR_PROMPT, userPrompt, 8192, "application/json", false, signal);
       const result = extractJson(response);
-      
-      // 실행 성공 시 핫 캐시 업데이트
-      if (result) await updateHotCache(`전략 채팅 실행: ${message}`, result);
       return result;
     });
   },
@@ -219,9 +150,6 @@ export const aiService = {
       let refinedRequest = userRequest;
       if (userRequest.length > 5000) refinedRequest = await runReaderSubAgent("요구사항 요약", userRequest);
       const plan = await generateExecutionPlan(refinedRequest, settings);
-      
-      // 플랜 생성 시 핫 캐시 반영
-      if (plan) await updateHotCache("프로젝트 실행 계획 수립", plan);
       return plan;
     });
   },
@@ -230,10 +158,6 @@ export const aiService = {
     return withTimeout(async (signal) => {
       let finalBody = body;
       
-      // [LLM WIKI] 위키 지식 인덱스 주입
-      const wikiContext = knowledgeStore.getWikiIndex();
-      finalBody = { ...finalBody, globalKnowledgeWiki: wikiContext };
-
       if (JSON.stringify(body).length > 8000) {
         const distilled = await runReaderSubAgent("핵심 슬라이드 구성 성격 파악", JSON.stringify(body));
         finalBody = { ...finalBody, distilledContext: distilled };
@@ -245,15 +169,7 @@ export const aiService = {
   async generatePresentation(body: any) {
     return withTimeout(async (signal) => {
       const systemPrompt = prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium');
-      
-      // [LLM WIKI] 위키 지식 주입
-      const wikiContext = knowledgeStore.getWikiIndex();
-      const enrichedBody = { ...body, globalKnowledgeWiki: wikiContext };
-
-      const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(enrichedBody), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
-      
-      // 생성 직후 핫 캐시에 프로젝트 정보 저장
-      if (result) await updateHotCache("전체 발표자료 생성 완료", { title: body.title, slidesCount: result.length });
+      const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(body), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
       return result;
     });
   },
@@ -262,8 +178,6 @@ export const aiService = {
     return withTimeout(async (signal) => {
       const systemPrompt = prompts.GEMINI_SLIDE_REGEN_PROMPT;
       const result = await withSelfAnnealing("Regenerate Slide", () => callGeminiAPI(systemPrompt, `[수정] ${userInstruction}\n[데이터] ${JSON.stringify(currentSlide)}`, 8192, "application/json", false, signal), "SINGLE_SLIDE_SCHEMA");
-      
-      if (result) await updateHotCache(`슬라이드 개별 수정: ${userInstruction}`, result);
       return { slide: { ...result, title: result?.title || currentSlide?.title || '제목 없음', type: result?.type || currentSlide?.type || 'content' } };
     });
   },
@@ -281,14 +195,8 @@ export const aiService = {
   async analyzeReferenceStructure(content: any) {
     return withTimeout(async (signal) => {
       let promptBody = Array.isArray(content) ? content.join('\n') : String(content || '');
-      
-      // [LLM WIKI] 참조 문서 분석 시 위키에도 자동 기록 시도 하도록 설정 가능
       const response = await callGeminiAPI("당신은 문서 구조 분석 전문가입니다.", promptBody.substring(0, 30000), 8192, "application/json", false, signal);
       const result = extractJson(response);
-
-      // 분석된 구조를 위키 전문 지식으로 인제스트
-      if (result) await ingestToWiki("참조 문서 구조 분석 결과", promptBody, "architecture");
-      
       return result;
     });
   },
@@ -297,10 +205,6 @@ export const aiService = {
     return withTimeout(async (signal) => {
       let targetData = JSON.stringify(jsonData).substring(0, 50000);
       const response = await callGeminiAPI("당신은 비즈니스 데이터 분석가입니다.", targetData, 8192, "text", false, signal);
-      
-      // 데이터 분석 결과를 지식 위키에 저장
-      if (response) await ingestToWiki(`데이터 분석 인사이트 (${new Date().toLocaleDateString()})`, response, "business-intelligence");
-      
       return response;
     });
   }

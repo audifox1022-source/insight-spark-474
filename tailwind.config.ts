@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
+  // [ARCHITECT] darkMode: 'class' 전략을 활성화하여 전역 상태 기반의 테마 제어권을 확보합니다.
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",

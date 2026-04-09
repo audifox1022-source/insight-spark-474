@@ -1,14 +1,13 @@
 // ============================================================
 // src/hooks/usePresentation.ts (Work AI 고성능 발표자료 엔진)
 // [ENTERPRISE UPGRADE] AI 아키텍처 연동 및 UI 상태 복구
-// [Phase 38] HITL(Human-In-The-Loop) 실행 계획 워크플로우 통합
-// [FIX] Silent Failure 해결을 위한 방어적 결과 매핑 로직 강화 (김현 님 원칙 준수)
-// [FIX] 슬라이드 0장 생성 버그 해결을 위한 명시적 에러 핸들링 및 비동기 체인 점검
+// [THEME MIGRATION] 전역 useThemeStore 시스템으로 테마 제어권 이관 (v1.2.0)
 // ============================================================
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Presentation, MeetingInfo, PresentationSettings, Slide } from '@/types/presentation';
-import { aiService } from '@/services/ai/geminiService'; // [UPGRADE] 고도화된 서비스로 변경
+import { aiService } from '@/services/ai/geminiService';
 import { useSlideStore } from '@/store/useSlideStore';
+import { useThemeStore } from '@/store/useThemeStore'; // [NEW] 전역 테마 스토어
 import { toast } from 'sonner';
 import { parseFile } from '@/utils/fileParser';
 
@@ -28,11 +27,10 @@ export interface DataFileState {
 }
 
 export const usePresentation = () => {
-  // ── [UI & Theme State] ───────────────────────────────────
-  const [isDark, setIsDark] = useState(false);
-  const [appTheme, setAppTheme] = useState<'blue' | 'navy' | 'purple' | 'green' | 'orange'>('blue');
-  const toggleDark = () => setIsDark(!isDark);
-  const changeTheme = (theme: 'blue' | 'navy' | 'purple' | 'green' | 'orange') => setAppTheme(theme);
+  // ── [UI & Theme State MIGRATED to useThemeStore] ───────────
+  // 기존 로컬 state 제거 후 전역 스토어 구독
+  const { theme, toggleTheme, appTheme, setAppTheme } = useThemeStore();
+  const isDark = theme === 'dark';
   
   // ── [Core Flow State] ────────────────────────────────────
   const [step, setStep] = useState<'upload' | 'info' | 'outline' | 'preview'>('upload');
@@ -87,7 +85,7 @@ export const usePresentation = () => {
       type === 'regen' ? '해당 슬라이드를 정교하게 다시 쓰고 있습니다...' :
       type === 'review' ? '자가 담금질 엔진이 전체 디자인 밸런스를 조정하고 있습니다...' :
       type === 'analyze' ? '데이터 분석 서브 에이전트가 로우 데이터를 심층 분석 중입니다...' :
-      '슬라이드 콘텐츠를 생성 중입니다...' // [FIX] 사용자의 요구에 맞춰 문구 명확화
+      '슬라이드 콘텐츠를 생성 중입니다...'
     );
   };
 
@@ -155,7 +153,6 @@ export const usePresentation = () => {
   // ── [AI 생성 로직 - ENTERPRISE UPGRADE] ──────────────────────────
   
   const handleGenerateOutline = async (onPlanReady?: () => void) => {
-    // [HITL] 계획서가 생성되지 않았거나 승인되지 않은 경우 계획서부터 생성
     if (!executionPlan || !executionPlan.isApproved) {
       setIsGenerating(true);
       startLoadingTimer('plan');
@@ -163,7 +160,6 @@ export const usePresentation = () => {
         const userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
         const plan = await aiService.createProjectPlan(userRequest, settings);
         if (plan) {
-          // [FIX] 배열과 객체를 모두 고려하여 실질적인 데이터 배열을 추출 (맵핑 방어)
           let tasksData: any[] = [];
           if (Array.isArray(plan)) {
             tasksData = plan;
@@ -175,14 +171,12 @@ export const usePresentation = () => {
             else if (Array.isArray(plan.steps)) tasksData = plan.steps;
             else if (Array.isArray(plan.items)) tasksData = plan.items;
             else {
-              // [지능형 Fallback] 객체 내부의 모든 키를 순회하며 첫 번째 배열을 찾아냅니다.
               for (const key in plan) {
                 if (Array.isArray(plan[key]) && plan[key].length > 0) {
                   tasksData = plan[key];
                   break;
                 }
               }
-              // 만약 배열이 전혀 없다면 plan 자체를 강제로 배열에 넣습니다.
               if (tasksData.length === 0) tasksData = [plan];
             }
           } else {
@@ -251,25 +245,20 @@ export const usePresentation = () => {
   };
 
   const handleGenerateFull = async (approvedOutline: any, onSuccess?: () => void) => {
-    // [FIX] 비동기 파이프라인의 연속성 보장을 위해 즉시 Generating 상태 활성화
     setIsGenerating(true);
     startLoadingTimer('full'); 
     
     try {
-      // 1-Step: 파싱 성공
       console.log("[Step 1] 구성안 데이터 수신 및 파싱 성공");
       const combinedInput = aiParts.length > 0 ? [...aiParts, { text: sourceFileData }] : sourceFileData;
       
-      // 2-Step: 생성 API 호출
       console.log("[Step 2] 슬라이드 콘텐츠 생성 API 호출 시작");
       const result = await aiService.generatePresentation({
         fileData: combinedInput, template, meetingInfo: info, settings, approvedOutline
       });
       
-      // [FIX] 방어적 데이터 매핑: Dual-JSON 구조(slides 래퍼 등)를 모두 고려하여 최종 배열 추출
       const slideData = Array.isArray(result) ? result : (result?.slides || result?.presentation?.slides || []);
       
-      // [CRITICAL FIX] 조용한 실패(Silent Failure) 방지 - 슬라이드가 0장이면 명시적 에러 발생
       if (!Array.isArray(slideData) || slideData.length === 0) {
         console.error("❌ [Engine] 슬라이드 데이터 생성 실패 (0장):", result);
         throw new Error("데이터 형식이 올바르지 않습니다");
@@ -284,7 +273,6 @@ export const usePresentation = () => {
       setPresentationState(presentationWithBrand);
       setStorePresentation(presentationWithBrand);
       
-      // 3-Step: Zustand 반영
       console.log("[Step 3] 최종 슬라이드 데이터 스토어(Zustand) 반영 완료");
       
       setStep('preview');
@@ -292,10 +280,8 @@ export const usePresentation = () => {
       if (onSuccess) onSuccess();
     } catch (err: any) { 
       console.error("Full Slides Generation Error:", err);
-      // [UX] 에러 메시지 알림 명시화
       toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `발표자료 생성 실패: ${err.message || "알 수 없는 에러"}`);
     } finally { 
-      // 4-Step: 종료
       setIsGenerating(false);
     }
   };
@@ -364,7 +350,7 @@ export const usePresentation = () => {
     setDataFiles([]);
     setDataSummary('');
     setIsGenerating(false);
-    setExecutionPlan(null); // 계획서 리셋
+    setExecutionPlan(null);
     toast.info('플랫폼 초기화 완료');
   };
 
@@ -379,7 +365,7 @@ export const usePresentation = () => {
     dataSummary, setDataSummary, sourceFileData, setSourceFileData,
     referenceFileName, isAnalyzingReference, handleReferenceFileUpload,
     handleClearReferenceFile: () => { setReferenceFileName(''); setReferenceStructure(null); },
-    isDark, toggleDark, appTheme, changeTheme,
+    isDark, toggleDark, appTheme, changeTheme: setAppTheme, // 전역 스토어 액션으로 매핑
     openHistory: () => setIsHistoryOpen(true),
     isChatOpen, setChatOpen: setIsChatOpen,
     isReviewOpen, setReviewOpen: setIsReviewOpen,

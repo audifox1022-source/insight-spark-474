@@ -3,12 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { WorkAIGenerator } from "./components/ai/WorkAIGenerator";
 import { useSlideStore } from "@/store/useSlideStore";
+import { useThemeStore } from "@/store/useThemeStore";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,37 @@ const GlobalErrorOverlay = () => {
   );
 };
 
+/**
+ * [ARCHITECT] ThemeObserver
+ * Zustand의 테마 상태를 HTML Root 요소에 동기화하는 컴포넌트입니다.
+ */
+const ThemeObserver = () => {
+  const { theme, appTheme } = useThemeStore();
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    
+    // 1. 다크 모드 클래스 동기화
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+
+    // 2. 브랜드 컬러 테마 클래스 동기화
+    // 기존 테마 클래스 제거
+    const themes = ['theme-blue', 'theme-navy', 'theme-purple', 'theme-green', 'theme-orange'];
+    root.classList.remove(...themes);
+    
+    // 신규 테마 클래스 추가
+    root.classList.add(`theme-${appTheme}`);
+
+    console.log(`[Theme System] Applied: mode=${theme}, brand=${appTheme}`);
+  }, [theme, appTheme]);
+
+  return null;
+};
+
 const App = () => {
   if (!isSupabaseConfigured) {
     return (
@@ -54,6 +87,7 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
+        <ThemeObserver /> {/* 테마 동기화 엔진 활성화 */}
         <GlobalErrorOverlay />
         <Toaster />
         <Sonner />

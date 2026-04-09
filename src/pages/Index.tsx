@@ -1,7 +1,7 @@
 // ============================================================
 // src/pages/Index.tsx (Work AI 통합 플랫폼 메인 - Ultimate Hardened)
-// [Phase 35] Deep Multimodal Data Transformation Pipeline integration
-// [LLM WIKI] Knowledge Hub workspace integration
+// [SYSTEM-LEVEL DARK MODE] 전역 useThemeStore 통합 및 UI 최적화 (v2.0.0)
+// [CLEANUP] 기존 Option 1 지능형 위키 기능 완전 제거 (v2.1.0)
 // ============================================================
 import { useState, useRef, Suspense, useEffect } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
@@ -12,13 +12,13 @@ import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
 import { SlideEditor } from '@/components/designer/SlideEditor'
 import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
 import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
-import { KnowledgeHub } from '@/components/designer/KnowledgeHub'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { useThemeStore } from '@/store/useThemeStore' // [NEW] 전역 테마 스토어
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2,
   HelpCircle, LogOut, Palette, Globe, CheckCircle2, 
   ChevronLeft, Headphones, FileDigit, BookOpen, X, BarChart3,
-  Library, Brain
+  Brain
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -35,11 +35,15 @@ const Index = () => {
   // ── [Debug Tracker] ──
   console.log('Rendering [Index] Component Startup Check');
 
-  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor' | 'knowledge'
+  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
   const translatorRef = useRef<{ handleBack: () => boolean }>(null)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+
+  // ── [Theme System Integration] ──
+  const { theme, toggleTheme, appTheme, setAppTheme } = useThemeStore();
+  const isDark = theme === 'dark';
 
   // ── [Safe Guard for Visitor Stats] ──
   const visitorCountHook = useVisitorCount();
@@ -61,10 +65,10 @@ const Index = () => {
   
   // ── [Debug Tracker] ──
   useEffect(() => {
-    console.log('Index Mounted. activeApp:', activeApp, 'visitorStats:', !!visitorStats);
+    console.log('Index Mounted. activeApp:', activeApp, 'theme:', theme);
   }, []);
 
-  // ── [Rendering Guard: Physically preventing crash if hooks are missing] ──
+  // ── [Rendering Guard] ──
   if (!presentationHooks) {
     console.warn('Index.tsx: presentationHooks is null, rendering LoadingScreen');
     return <AppLoadingScreen />;
@@ -72,10 +76,6 @@ const Index = () => {
 
   // ── [Mandatory Fallback & Safe Destructuring] ──
   const step = presentationHooks.step || 'upload';
-  const isDark = presentationHooks.isDark || false;
-  const toggleDark = presentationHooks.toggleDark || (() => {});
-  const appTheme = presentationHooks.appTheme || 'blue';
-  const changeTheme = presentationHooks.changeTheme || (() => {});
   const openHistory = presentationHooks.openHistory || (() => {});
   const presentationData = presentationHooks.presentation || null;
   const currentSlideIndex = presentationHooks.currentSlideIndex || 0;
@@ -91,15 +91,7 @@ const Index = () => {
   const guide = getStepGuide(step);
 
   const handleBack = () => {
-    if (activeApp === 'knowledge') {
-      setActiveApp('presentation');
-      return;
-    }
-    if (activeApp === 'designer') {
-      setActiveApp('presentation');
-      return;
-    }
-    if (activeApp === 'pdfeditor') {
+    if (activeApp === 'designer' || activeApp === 'pdfeditor') {
       setActiveApp('presentation');
       return;
     }
@@ -110,12 +102,10 @@ const Index = () => {
       presentationHooks.reset?.();
       return;
     }
-    
     navigate('/');
   };
 
   const headerIcon = () => {
-    if (activeApp === 'knowledge') return <Library className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'pdfeditor') return <FileDigit className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'audiolab') return <Headphones className="w-[18px] h-[18px] text-primary-foreground" />
     if (activeApp === 'translator') return <Globe className="w-[18px] h-[18px] text-primary-foreground" />
@@ -125,10 +115,11 @@ const Index = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen gradient-surface transition-colors duration-300 flex flex-col">
+      {/* [DESIGN] bg-background 및 text-foreground 적용으로 다크모드 대응 완료 */}
+      <div className="min-h-screen bg-background text-foreground transition-colors duration-500 ease-in-out flex flex-col">
 
         {/* ── HEADER ───────────────────────────────────────────── */}
-        <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm">
+        <header className="border-b border-border/60 bg-card/90 backdrop-blur-md sticky top-0 z-50 shadow-sm transition-colors duration-300">
           <div className="max-w-[1700px] mx-auto px-5 h-14 flex items-center justify-between gap-4">
 
             <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
@@ -148,8 +139,8 @@ const Index = () => {
                   {headerIcon()}
                 </motion.div>
                 <div className="min-w-0 text-left">
-                  <h1 className="text-[15px] font-extrabold leading-tight tracking-tight text-foreground">
-                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v1.2.0</span>
+                  <h1 className="text-[15px] font-extrabold leading-tight tracking-tight">
+                    WorkAI <span className="text-[9px] font-medium opacity-50 ml-1">v2.1.0</span>
                   </h1>
                   <p className="text-[11px] text-muted-foreground font-medium leading-none mt-0.5 hidden sm:block">
                     AI 업무 자동화 플랫폼
@@ -159,17 +150,15 @@ const Index = () => {
             </div>
 
             <div className="hidden md:flex items-center bg-muted/60 p-1 rounded-xl border border-border/60 flex-shrink-0">
-              {(['presentation', 'knowledge', 'translator', 'audiolab', 'pdfeditor'] as AppMode[]).map((mode) => {
+              {(['presentation', 'translator', 'audiolab', 'pdfeditor'] as AppMode[]).map((mode) => {
                 const labels: Record<string, string> = { 
                   presentation: '발표자료', 
-                  knowledge: '지식 허브',
                   translator: 'AI 번역', 
                   audiolab: 'Audio Lab', 
                   pdfeditor: 'PDF 편집' 
                 };
                 const Icons: Record<string, any> = { 
                   presentation: Sparkles, 
-                  knowledge: Library,
                   translator: Globe, 
                   audiolab: Headphones, 
                   pdfeditor: FileDigit 
@@ -187,9 +176,6 @@ const Index = () => {
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {labels[mode] || mode}
-                    {mode === 'knowledge' && (
-                      <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
-                    )}
                   </button>
                 )
               })}
@@ -206,13 +192,16 @@ const Index = () => {
                 <FolderOpen className="w-3.5 h-3.5" /> 저장 목록
               </Button>
               <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-8 h-8 text-muted-foreground hover:text-foreground"><HelpCircle className="w-4 h-4" /></Button>
+              
               <div className="relative">
-                <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-8 h-8 text-muted-foreground hover:text-foreground"><Palette className="w-4 h-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-8 h-8 text-muted-foreground hover:text-foreground">
+                  <Palette className="w-4 h-4" />
+                </Button>
                 <AnimatePresence>
                   {themeMenuOpen && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="absolute right-0 mt-2 w-44 bg-card border border-border rounded-xl shadow-elevated z-50 py-1">
                       {(['blue', 'navy', 'purple', 'green', 'orange'] as const).map(t => (
-                        <button key={t} onClick={() => { changeTheme(t); setThemeMenuOpen(false) }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-3">
+                        <button key={t} onClick={() => { setAppTheme(t); setThemeMenuOpen(false) }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-muted flex items-center gap-3">
                           <div className={['w-3.5 h-3.5 rounded-full', t === 'blue' ? 'bg-blue-500' : t === 'navy' ? 'bg-slate-700' : t === 'purple' ? 'bg-purple-500' : t === 'green' ? 'bg-emerald-500' : 'bg-orange-500'].join(' ')} />
                           <span className={appTheme === t ? 'font-bold text-primary' : 'text-foreground'}>{t}</span>
                         </button>
@@ -221,8 +210,15 @@ const Index = () => {
                   )}
                 </AnimatePresence>
               </div>
-              <Button variant="ghost" size="icon" onClick={toggleDark} className="w-8 h-8 text-muted-foreground">{isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="w-8 h-8 text-muted-foreground hover:text-destructive"><LogOut className="w-4 h-4" /></Button>
+
+              {/* [SYSTEM] 테마 토글 버튼 - useThemeStore 연동 */}
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="w-8 h-8 text-muted-foreground transition-transform hover:scale-110 active:rotate-12">
+                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-400" />}
+              </Button>
+
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors">
+                <LogOut className="w-4 h-4" />
+              </Button>
             </div>
           </div>
         </header>
@@ -231,9 +227,6 @@ const Index = () => {
 
         <Suspense fallback={<AppLoadingScreen />}>
           <div className="flex-1 flex flex-col relative overflow-hidden">
-            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-0 flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'knowledge' ? 'hidden' : ''}`}>
-              <KnowledgeHub />
-            </main>
             <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
               <TranslatorWorkspace ref={translatorRef} />
             </main>
@@ -253,7 +246,6 @@ const Index = () => {
                 onOpenChat={() => presentationHooks.setChatOpen?.(true)}
                 onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
                 onAutoDesign={presentationHooks.reviewAndFixPresentation}
-                // [Phase 35] 데이터 파이프라인 관련 Props 전달
                 dataFiles={presentationHooks.dataFiles}
                 onDataFileUpload={presentationHooks.handleDataFileUpload}
                 onRemoveDataFile={presentationHooks.handleRemoveDataFile}
@@ -269,13 +261,11 @@ const Index = () => {
                 dataSummary={dataSummary} 
                 currentSlideIndex={currentSlideIndex}
                 setCurrentSlideIndex={setCurrentSlideIndex}
-                /** [Phase 38] 구성안 생성(계획 포함) 시 디자이너로 전환 */
                 handleGenerateOutline={() => {
                   presentationHooks.handleGenerateOutline(() => {
                     setActiveApp('designer');
                   });
                 }}
-                /** [FIX] 생성 완료 콜백 시 즉시 디자이너로 전환 */
                 handleGenerateFull={(outline: any) => {
                   presentationHooks.handleGenerateFull(outline, () => {
                     setActiveApp('designer');
@@ -289,11 +279,11 @@ const Index = () => {
           </div>
         </Suspense>
 
-        <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto">
+        <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto transition-colors duration-300">
           <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">Made with ❤️ by <span className="font-semibold text-foreground">Hyeon</span></p>
+            <p className="text-xs text-muted-foreground">Made with ❤️ by <span className="font-semibold">Hyeon</span></p>
             {visitorStats && (
-              <div className="flex items-center gap-4 text-[10px]">
+              <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
                 <span>누적 방문 <span className="font-bold">{(visitorStats.total_visits || 0).toLocaleString()}</span></span>
                 <div className="w-px h-3 bg-border" />
                 <span>오늘 <span className="font-bold">{(visitorStats.today_visits || 0).toLocaleString()}</span></span>
@@ -310,12 +300,12 @@ const HelpPopup = ({ open, onClose }: { open: boolean, onClose: () => void }) =>
   <AnimatePresence>
     {open && (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-3xl bg-card rounded-[32px] shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh]">
+        <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="relative w-full max-w-3xl bg-card rounded-[32px] shadow-2xl border border-border overflow-hidden flex flex-col max-h-[90vh] transition-colors duration-300">
           <div className="flex items-center justify-between px-8 py-6 border-b border-border bg-muted/30">
             <h2 className="text-xl font-bold flex items-center gap-3 italic"><BookOpen className="w-6 h-6 text-primary" /> WorkAI Guide & Pricing</h2>
             <Button variant="ghost" size="icon" onClick={onClose} className="w-10 h-10 rounded-full"><X className="w-6 h-6" /></Button>
           </div>
-          <div className="p-8 space-y-12 overflow-y-auto text-foreground custom-scrollbar">
+          <div className="p-8 space-y-12 overflow-y-auto custom-scrollbar">
              <div className="space-y-4">
                <h3 className="text-lg font-black flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> WorkAI 플랫폼 유의사항</h3>
                <p className="text-sm leading-relaxed text-muted-foreground font-medium">WorkAI는 AI 기술로 발표 자료 제작, 번역, 오디오 분석 등 복잡한 업무를 자동화합니다.</p>
