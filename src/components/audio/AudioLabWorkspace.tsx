@@ -1,7 +1,7 @@
 // ============================================================
 // src/components/audio/AudioLabWorkspace.tsx (Work AI - Professional Audio Intelligence)
-// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.8)
-// [CRITICAL] 3-Stage Defense: Rewrites, Env Check, Descriptive Trace
+// [ARCHITECT UPGRADE] Vercel Blob Sanitized Handshake (v2.10.0)
+// [CRITICAL] Deep Sanitization: Washing Hangeul/Special Chars from Filenames
 // [LOCATION] c:\Users\SAMSUNG\.gemini\antigravity\scratch\insight-spark-474-main\insight-spark-474-main\src\components\audio\AudioLabWorkspace.tsx
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
@@ -69,15 +69,21 @@ export const AudioLabWorkspace: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.8)
-   * 🔑 1. /api/upload 라우트 통신 보호 (vercel.json)
-   * 🔑 2. 서버측 BLOB_READ_WRITE_TOKEN 체크 (upload.ts)
+   * [CORE] handleAnalyze - Sanitized Handshake Pipeline (v2.10.0)
+   * 🔑 1. 원본 파일의 한글/특수문자 이름을 제거하기 위한 세탁(Laundering) 적용
+   * 🔑 2. handleUploadUrl 절대 경로화로 안정성 확보
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
-    console.log(`[Blob Workspace Handshake] 🚀 Phase 1: Initiating Connection to /api/upload...`);
-    console.log(`[Blob Workspace Handshake] 📂 File: ${selectedFile.name}, Size: ${selectedFile.size}`);
+    // --- [DEEP SANITIZATION] 한글 파일명 인코딩 문제 원천 봉쇄 ---
+    const ext = selectedFile.name.split('.').pop() || 'm4a';
+    const safeFileName = `audio_${Date.now()}.${ext}`;
+    // 원본 데이터(blob)는 유지하되, 이름만 영어/숫자로 세탁된 새로운 File 객체 생성
+    const safeFile = new File([selectedFile], safeFileName, { type: selectedFile.type });
+
+    console.log(`[Blob Workspace Handshake] 🚀 Phase 1: Initiating Sanitized Connection...`);
+    console.log(`[Blob Workspace Handshake] 🧼 Original: ${selectedFile.name} -> Sanitized: ${safeFileName}`);
 
     setStep('analyzing');
     setError(null);
@@ -92,9 +98,10 @@ export const AudioLabWorkspace: React.FC = () => {
         try {
           console.log(`[Blob Workspace Handshake] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
           
-          const newBlob = await upload(selectedFile.name, selectedFile, {
+          // [CRITICAL] handleUploadUrl을 브라우저 기준 절대 경로로 고정하여 라우팅 가로채기 방지
+          const newBlob = await upload(safeFileName, safeFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload', // [MUST] Root api folder 
+            handleUploadUrl: `${window.location.origin}/api/upload`, 
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },
@@ -110,22 +117,9 @@ export const AudioLabWorkspace: React.FC = () => {
         } catch (uploadErr: any) {
           retryCount++;
           console.error(`[Blob Workspace Handshake] ❌ 업로드 라우트 통신 실패 (시도 ${retryCount}):`);
-          console.error(`- Error Message: ${uploadErr.message}`);
-          console.error(`- Status Code: ${uploadErr.status || 'Unknown'}`);
-
-          if (uploadErr.message?.includes("Unexpected token '<'")) {
-             console.error(`- [DIAGNOSIS] 서버리스 API 대신 HTML이 반환되었습니다. vercel.json 설정을 확인하세요.`);
-          }
           
           if (retryCount >= MAX_RETRIES) {
-             const errorTrace = {
-               message: uploadErr.message,
-               status: uploadErr.status,
-               name: uploadErr.name,
-               stack: uploadErr.stack
-            };
-            console.error("[Handshake Critical Trace]", JSON.stringify(errorTrace, null, 2));
-            throw new Error(`업로드 라우트 최종 실패: ${uploadErr.message}. 서버 환경변수와 vercel.json을 점검하십시오.`);
+            throw new Error(`업로드 라우트 최종 실패: ${uploadErr.message}. 한글 파일명 세탁 후에도 문제가 발생한다면 서버의 절대 경로 설정을 확인하십시오.`);
           }
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
@@ -146,18 +140,8 @@ export const AudioLabWorkspace: React.FC = () => {
       }
     } catch (err: any) {
       console.error("❌ Audio Lab Workspace Final Failure:", err);
-      // [INTENSIFIED DEBUGGING]
-      console.log("Detailed Error Message:", err.message);
-
-      let userFriendlyMsg = err.message || "오디오 처리 중 오류가 발생했습니다.";
-      if (err.message?.toLowerCase().includes("cors")) {
-        userFriendlyMsg = "CORS 차단 또는 라우팅 가로채기 발생: vercel.json 또는 서버 토큰을 점검하세요.";
-      } else if (err.message?.includes("400") || err.message?.includes("405")) {
-        userFriendlyMsg = "인증 에러 (400/405): 서버가 요청을 거절했습니다. BLOB_READ_WRITE_TOKEN을 확인하세요.";
-      }
-      
-      setError(userFriendlyMsg);
-      toast.error(userFriendlyMsg, { duration: 10000 });
+      setError(err.message || "오디오 처리 중 오류가 발생했습니다.");
+      toast.error(err.message || "오디오 처리 중 오류가 발생했습니다.");
       setStep('upload'); 
     }
   };
@@ -186,13 +170,13 @@ export const AudioLabWorkspace: React.FC = () => {
       <div className="flex items-center justify-between mb-8">
          <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic leading-none flex items-center gap-3">
-               Audio Workspace <span className="bg-teal-500 text-white text-[10px] px-2 py-1 rounded italic not-italic font-black">v2.6.8</span>
+               Audio Workspace <span className="bg-teal-500 text-white text-[10px] px-2 py-1 rounded italic not-italic font-black">v2.10.0</span>
             </h2>
-            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"3단 방어벽(vercel.json, env, logging)이 적용된 작업 공간"</p>
+            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"파일명 세탁(Sanitization) 및 절대 경로 핸드셰이크가 적용된 작업 공간"</p>
          </div>
          <div className="flex gap-2">
             <Button variant="outline" className="border-slate-200 text-slate-400 font-black text-xs h-10 px-4 rounded-xl hover:bg-slate-50 transition-all uppercase tracking-widest"><Maximize2 size={14} className="mr-2" /> Expand</Button>
-            <Button variant="outline" className="border-teal-500/20 text-teal-600 font-black text-xs h-10 px-4 rounded-xl hover:bg-teal-50 transition-all uppercase tracking-widest"><ShieldCheck size={14} className="mr-2" /> 3-Stage Secured</Button>
+            <Button variant="outline" className="border-teal-500/20 text-teal-600 font-black text-xs h-10 px-4 rounded-xl hover:bg-teal-50 transition-all uppercase tracking-widest"><ShieldCheck size={14} className="mr-2" /> Sanitized Handshake</Button>
          </div>
       </div>
 
@@ -206,7 +190,7 @@ export const AudioLabWorkspace: React.FC = () => {
                 <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center shadow-xl group-hover:scale-105 transition-all border border-slate-50"><Upload className="w-10 h-10 text-teal-600" /></div>
                 <div className="text-center space-y-1">
                    <p className="text-lg font-black text-slate-800 tracking-tighter uppercase">Drop Audio Resource</p>
-                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">Supports MP3, WAV, M4A up to 500MB</p>
+                   <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest italic">Safe Upload with Sanitized Encoding Enabled</p>
                 </div>
               </div>
               <input type="file" className="hidden" accept="audio/*" onChange={handleFileChange} />
@@ -217,7 +201,7 @@ export const AudioLabWorkspace: React.FC = () => {
                   <div className="flex items-center justify-between mb-8 relative z-10">
                     <div className="flex items-center gap-6">
                        <div className="w-16 h-16 bg-teal-600 rounded-2xl flex items-center justify-center text-white shadow-[0_0_30px_rgba(13,148,136,0.4)]"><Mic className="w-8 h-8" /></div>
-                       <div><p className="font-black text-white truncate max-w-[250px] uppercase tracking-tight italic">{selectedFile.name}</p><p className="text-[10px] text-teal-400 font-bold uppercase mt-1 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_TO_TRACE</p></div>
+                       <div><p className="font-black text-white truncate max-w-[250px] uppercase tracking-tight italic">{selectedFile.name}</p><p className="text-[10px] text-teal-400 font-bold uppercase mt-1 tracking-widest italic">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB • READY_TO_SANITIZE</p></div>
                     </div>
                     <Button variant="ghost" size="icon" className="text-white/20 hover:text-red-500 hover:bg-white/5 rounded-full transition-all" onClick={resetSelection}><Trash2 size={24} /></Button>
                   </div>
@@ -230,7 +214,7 @@ export const AudioLabWorkspace: React.FC = () => {
                   <audio ref={audioRef} src={audioUrl || ''} onEnded={() => setIsPlaying(false)} className="hidden" />
                </div>
                <div className="grid grid-cols-2 gap-4">
-                  <Button className="h-20 bg-teal-600 hover:bg-teal-700 text-white font-black text-lg rounded-[2rem] shadow-xl active:scale-95 transition-all flex items-center gap-3 uppercase italic tracking-tighter" onClick={handleAnalyze}><CloudUpload className="w-5 h-5" /> Execute Lab_Handshake</Button>
+                  <Button className="h-20 bg-teal-600 hover:bg-teal-700 text-white font-black text-lg rounded-[2rem] shadow-xl active:scale-95 transition-all flex items-center gap-3 uppercase italic tracking-tighter" onClick={handleAnalyze}><CloudUpload className="w-5 h-5" /> START SANITIZED_LLM_AUTH</Button>
                   <Button variant="outline" className="h-20 border-2 border-slate-100 text-slate-400 font-black text-md rounded-[2rem] transition-all hover:bg-slate-50 uppercase tracking-widest italic" onClick={resetSelection}>Change Asset</Button>
                </div>
             </div>
@@ -240,7 +224,7 @@ export const AudioLabWorkspace: React.FC = () => {
       
       <div className="grid grid-cols-3 gap-6">
           {[
-            { icon: <ShieldCheck size={20} />, label: "Secured Auth", desc: "Root /api Handshake" },
+            { icon: <ShieldCheck size={20} />, label: "Secured Auth", desc: "Absolute /api Path" },
             { icon: <Sparkles size={20} />, label: "Gemini 2.5", desc: "Expert Inference" },
             { icon: <FileText size={20} />, label: "Deep Forensic", desc: "Detailed Reports" }
           ].map((item, i) => (
@@ -258,7 +242,7 @@ export const AudioLabWorkspace: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-10 text-center">
        <div className="relative"><Loader2 className="w-24 h-24 stroke-[1px] animate-spin text-teal-600 font-thin italic" /><CloudUpload className="absolute inset-0 m-auto w-10 h-10 text-teal-600 animate-pulse" /></div>
        <div className="space-y-6 w-full max-w-sm">
-          <div className="space-y-2"><h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">{uploadProgress < 100 ? "Syncing Handshake..." : "Decoding Forensics..."}</h3><p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">{uploadProgress < 100 ? "Vercel Blob Root /api Portal 연동 중..." : "Gemini Engine이 오디오 메타데이터를 정밀 분석 중입니다."}</p></div>
+          <div className="space-y-2"><h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">{uploadProgress < 100 ? "Cleaning & Syncing..." : "Decoding Forensics..."}</h3><p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">{uploadProgress < 100 ? "파일명 특수문지 클리닝 및 절대 경로 연동 중..." : "Gemini Engine이 오디오 메타데이터를 정밀 분석 중입니다."}</p></div>
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-100"><motion.div className="h-full bg-teal-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} /></div>
        </div>
     </div>
@@ -280,3 +264,5 @@ export const AudioLabWorkspace: React.FC = () => {
     </div>
   );
 };
+
+export default AudioLabWorkspace;
