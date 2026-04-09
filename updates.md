@@ -104,3 +104,19 @@
 - **적용 파일**: `AudioLab.tsx`, `AudioLabWorkspace.tsx` 전체 코드 반영 완료.
 - **Vercel Deployment**: `vercel.json`의 라우팅 우선순위를 조정하여 API 요청이 서버리스 함수로 정확히 라우팅되도록 실시간 모니터링 체계 구축.
 - **결과**: 한글 파일명 및 경로 간섭 조건에서도 100% 업로드 성공률 확보.
+
+---
+
+# [Client-Only Upload 파이프라인 정형화 보고] 하극상(?) 버그 박멸 및 최적화
+
+## 1. 발생 문제 및 교정 원인 (v2.11.0 ~ v2.12.0)
+- **현상**: 임포트 실수로 인해 클라이언트 컴포넌트에서 서버 전용인 `@vercel/blob`의 `put` 함수가 호출되어 Vercel 내부 API(CORS 차단)로 직접 통신하는 치명적 하극상 버그 발생.
+- **조치 내역**:
+    - **패키지 전면 교체**: `AudioLab.tsx` 상단에서 `@vercel/blob` 임포트를 완전히 제거하고, 브라우저 환경 전용 패키지인 `import { upload } from '@vercel/blob/client';`로 확정.
+    - **함수 호출부 통일**: `put()` 호출부를 `upload()`로 전면 교체하여 `/api/upload` 핸드셰이크를 통한 보안 업로드 흐름(Token based)을 정형화함.
+    - **Health Check 코드 제거**: 진단 완료 후 불필요해진 `/api/upload` 사전 심문 로직을 삭제하여 코드를 슬림화하고 로딩 속도 최적화.
+
+## 2. 최종 아키텍처 (v2.12.0)
+- **Frontend**: 오직 `@vercel/blob/client`의 `upload`만을 사용하여 업로드 수행. (명시적 `handleUploadUrl` 포함)
+- **Backend**: `/api/upload.ts` (Node.js 18+)를 통해 클라이언트 토큰 서명 및 오디오 포맷 필터링 수행.
+- **Security**: 파일명 세탁(Deep Sanitization)을 통한 URL 인코딩 안정성 확보.
