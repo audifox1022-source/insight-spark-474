@@ -1,9 +1,8 @@
 // ============================================================
 // src/components/audio/AudioLab.tsx (Work AI - Professional Audio Intelligence)
-// [ARCHITECT UPGRADE] Vercel Blob + Gemini File API 통합 (Max 500MB)
-// [CRITICAL FIX] Vercel Serverless Handshake Hardcoded (/api/upload)
-// [VERSION] v2.6.4 Standard Handshake
-// [DEBUG] Handshake Step-by-Step Logging & Error Handling
+// [ARCHITECT UPGRADE] Vercel Blob Perfect Handshake (v2.6.5)
+// [CRITICAL] Intensified Catch Block & Full Error Details
+// [DEBUG] Handshake Step-by-Step Logging
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import { 
@@ -114,17 +113,14 @@ export const AudioLab: React.FC = () => {
   };
 
   /**
-   * [CORE] handleAnalyze - Robust Handshake Pipeline (v2.6.4)
-   * [CRITICAL] handleUploadUrl: '/api/upload' 하드코딩 적용
-   * 1. 🔑 Token Handshake: Client requests upload token from /api/upload
-   * 2. 📤 Direct Portal: After handshake, upload directly to Vercel with token
-   * 3. 💎 Strategic Analysis: Pass URL to Gemini for analysis
+   * [CORE] handleAnalyze - Perfect Handshake Pipeline (v2.6.5)
+   * 1. 🔑 Token Handshake: /api/upload (Root Folder)
    */
   const handleAnalyze = async () => {
     if (!selectedFile) return;
 
-    console.log(`[Blob Handshake] 🚀 Phase 1: Vercel Serverless Handshake Initiated...`);
-    console.log(`[Blob Handshake] 📂 Target File: ${selectedFile.name} (${selectedFile.type})`);
+    console.log(`[Blob Handshake] 🚀 Phase 1: Initiating Connection to /api/upload...`);
+    console.log(`[Blob Handshake] 📂 File: ${selectedFile.name}, Size: ${selectedFile.size}`);
 
     setStep('analyzing');
     setError(null);
@@ -137,65 +133,72 @@ export const AudioLab: React.FC = () => {
     try {
       while (retryCount < MAX_RETRIES) {
         try {
-          console.log(`[Blob Handshake] ☁️ Attempting Connection to /api/upload (${retryCount + 1}/${MAX_RETRIES})...`);
+          console.log(`[Blob Handshake] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
           
-          /**
-           * [@vercel/blob upload() 핵심 설정]
-           * handleUploadUrl: Vercel 서버리스 함수 경로 (/api/upload.js) 와 매핑됩니다.
-           * 이 경로를 통해 BLOB_READ_WRITE_TOKEN을 안전하게 관리하고 토큰을 발급받습니다.
-           */
           const newBlob = await upload(selectedFile.name, selectedFile, {
             access: 'public',
-            handleUploadUrl: '/api/upload', // [CRITICAL] 서버리스 핸드셰이크 엔드포인트 강제 매핑
+            handleUploadUrl: '/api/upload', // [MUST] Root api folder mapping
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },
           });
 
           if (!newBlob || !newBlob.url) {
-            throw new Error("Handshake successful but final secure URL is missing.");
+            throw new Error("Blob conversion yielded null response or missing URL.");
           }
           
           finalBlobUrl = newBlob.url;
-          console.log(`[Blob Handshake] 🤝 Phase 2: Handshake Success! Secured URL -> ${finalBlobUrl}`);
+          console.log(`[Blob Handshake] ✅ Success! Secure Portal URL: ${finalBlobUrl}`);
           break; 
         } catch (uploadErr: any) {
           retryCount++;
-          console.error(`[Blob Handshake] ❌ Handshake Failure (Attempt ${retryCount}):`, uploadErr.message);
+          console.error(`[Blob Handshake] ❌ Auth Attempt Failed (Attempt ${retryCount}):`);
+          console.dir(uploadErr); // [DEBUG] Intensified Console Trace
           
           if (retryCount >= MAX_RETRIES) {
-            throw new Error(`핸드셰이크 최종 실패: ${uploadErr.message}. Vercel 대시보드 환경 변수 및 /api/upload 라우트를 확인하십시오.`);
+            // [CORS & 400 Trace] 에러 객체 내부를 문자열화하여 명확히 로깅
+            const errorTrace = {
+               message: uploadErr.message,
+               status: uploadErr.status,
+               name: uploadErr.name,
+               stack: uploadErr.stack
+            };
+            console.error("[Handshake Critical Trace]", JSON.stringify(errorTrace, null, 2));
+            throw new Error(`핸드셰이크 최종 실패: ${uploadErr.message}. /api/upload 경로와 BLOB_READ_WRITE_TOKEN을 점검하십시오.`);
           }
-          // Exponential Backoff
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
       }
 
-      if (!finalBlobUrl) throw new Error("업로드 인증 파이프라인 무결성 오류");
+      if (!finalBlobUrl) throw new Error("최종 업로드 URL 인가 실패");
       
-      console.log("[Blob Handshake] 💎 Phase 3: Passing to Gemini Forensic Analysis Engine...");
+      console.log("[Blob Handshake] 💎 Phase 2: Passing to Gemini Forensic Engine...");
       const result = await geminiAudioService.analyzeAudioDeep(finalBlobUrl, selectedFile.type);
       
       if (result && result.type) {
         setAnalysisType(result.type);
         setAnalysisResult(result.data);
         setStep('result');
-        toast.success(`오디오 분석이 완벽하게 완료되었습니다.`);
+        toast.success(`오디오 분석 보고서가 생성되었습니다.`);
       } else {
-        throw new Error("Gemini 분석 결과 구조가 유효하지 않습니다.");
+        throw new Error("Gemini 분석 결과 구조가 비정상적입니다.");
       }
     } catch (err: any) {
-      console.error("❌ Audio Lab Lifecycle Failure:", err);
-      let userFriendlyMsg = err.message || "오디오 처리 중 알 수 없는 장애가 발생했습니다.";
+      console.error("❌ Audio Lab Final Failure:", err);
+      // [INTENSIFIED DEBUGGING] 김현 님 요청에 따른 에러 상세 출력
+      console.log("Error Message:", err.message);
+      console.log("Error Status:", err.status || "N/A");
+      
+      let userFriendlyMsg = err.message || "오디오 처리 중 오류가 발생했습니다.";
       
       if (err.message?.toLowerCase().includes("cors")) {
-        userFriendlyMsg = "CORS 차단: 서버(/api/upload)가 올바른 응답 헤더를 반환하지 않았거나, 전송 권한이 없습니다.";
+        userFriendlyMsg = "CORS 차단: 서버(/api/upload)가 올바른 Access-Control-Allow-Origin 헤더를 반환하지 않았습니다.";
       } else if (err.message?.includes("400")) {
-        userFriendlyMsg = "핸드셰이크 400 에러: 서버리스 함수가 요청 데이터 형식을 거부했습니다. api/upload.js 상태를 확인하세요.";
+        userFriendlyMsg = "인증 에러 (400): 서버리스 함수가 요청을 거부했습니다. 루트 /api 폴더 및 토큰 유효성을 확인하세요.";
       }
 
       setError(userFriendlyMsg);
-      toast.error(userFriendlyMsg, { duration: 8000 });
+      toast.error(userFriendlyMsg, { duration: 10000 });
       setStep('upload'); 
     }
   };
@@ -231,9 +234,9 @@ export const AudioLab: React.FC = () => {
   const renderUpload = () => (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-4xl mx-auto space-y-10">
       <header className="text-center space-y-6">
-        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">Vercel Serverless Handshake v2.6.4</span></div>
+        <div className="flex justify-center mb-4"><span className="bg-teal-100 text-teal-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-teal-200 shadow-sm">Perfect Serverless Auth v2.6.5</span></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase leading-tight">Audio Forensic <br/><span className="text-[#0D9488]">& Strategic Lab</span></h2>
-        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"서버리스 핸드셰이크 인증을 통해 대용량 오디오 데이터를 <br/>안전하게 클라우드에 배치하고 인공지능으로 분석합니다."</p>
+        <p className="text-slate-500 font-bold text-lg max-w-xl mx-auto italic break-keep leading-relaxed border-l-4 border-[#0D9488]/30 pl-6">"최상위 루틴 /api/upload 핸드셰이크를 통해 <br/>안전하고 완벽한 오디오 분석 파이프라인을 구축합니다."</p>
       </header>
 
       {error && <div className="p-6 bg-red-50 border border-red-200 rounded-[2rem] flex items-center gap-4 animate-in fade-in slide-in-from-top-4"><AlertCircle className="text-red-500 shrink-0" size={24} /><p className="text-sm font-bold text-red-700 break-keep">{error}</p></div>}
@@ -285,7 +288,7 @@ export const AudioLab: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-12 text-center animate-in fade-in duration-700">
        <div className="relative"><Loader2 className="w-32 h-32 stroke-[1px] animate-spin text-[#0D9488]" /><CloudUpload className="absolute inset-0 m-auto w-12 h-12 text-[#0D9488] animate-bounce" /></div>
        <div className="space-y-8 w-full max-w-md">
-          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "Vercel 서버리스 인증을 통해 임시 업로드 토큰을 생성하고 있습니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
+          <div className="space-y-2"><h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">{uploadProgress < 100 ? "Securing Handshake..." : "Forensic Decoding..."}</h3><p className="text-slate-400 font-bold leading-relaxed italic break-keep text-[11px] uppercase tracking-wider">{uploadProgress < 100 ? "루트 /api 인증을 통해 임시 업로드 토큰을 생성하고 있습니다." : "파일 업로드 완료. Gemini 2.5 Flash가 오디오 지문을 분석 중입니다."}</p></div>
           <div className="space-y-3"><div className="flex justify-between text-[10px] font-black text-[#0D9488] uppercase tracking-widest px-1"><span>{uploadProgress < 100 ? 'Authenticating' : 'Decoding'}</span><span>{uploadProgress.toFixed(1)}%</span></div><div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden p-1 border border-slate-200/50 shadow-inner"><motion.div className="h-full bg-gradient-to-r from-[#0D9488] to-[#2DD4BF] rounded-full shadow-[0_0_10px_rgba(13,148,136,0.5)]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.5 }} /></div></div>
        </div>
     </div>
