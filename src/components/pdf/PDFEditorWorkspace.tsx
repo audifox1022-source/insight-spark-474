@@ -342,6 +342,28 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
             newSelection.push(newEl.id);
           });
           
+          // 3. 캔버스 영역 원본 스냅샷 (이미지/도형) 추출
+          if (canvasRef.current && tempRect.w > 10 && tempRect.h > 10) {
+            const canvas = canvasRef.current;
+            const offscreen = document.createElement('canvas');
+            offscreen.width = tempRect.w;
+            offscreen.height = tempRect.h;
+            const ctx = offscreen.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(canvas, tempRect.x, tempRect.y, tempRect.w, tempRect.h, 0, 0, tempRect.w, tempRect.h);
+              const dataUrl = offscreen.toDataURL('image/png');
+              const imgEl: PdfElement = {
+                id: `image-${Date.now()}`, type: 'image',
+                x: tempRect.x, y: tempRect.y,
+                width: tempRect.w, height: tempRect.h,
+                src: dataUrl, color: 'transparent', page: currentPage
+              };
+              // 이미지가 배경이 되도록 텍스트 추출물보다 먼저 삽입 (Z-index 로직상 뒤로감)
+              extractedElements.unshift(imgEl);
+              newSelection.push(imgEl.id);
+            }
+          }
+
           if (extractedElements.length > 0) {
             addElements(extractedElements);
             setPdfTextItems(prev => prev.filter(t => !toExtract.includes(t)));
@@ -601,15 +623,17 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                        onContextMenu={(e: any) => { if(!isPreview) { if (!selectedElementIds.includes(el.id)) setSelection([el.id]); handleObjectContextMenu(e, el.id); } }}
                      >
                        <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
-                         {el.type === 'text' && (
+                         {(el.type === 'text' || el.type === 'shape') && (
                            <textarea 
                              disabled={isPreview}
-                             className="w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold" 
-                             value={el.content} 
+                             placeholder={el.type === 'shape' ? "도형 텍스트 입력 (선택)" : ""}
+                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center", el.type === 'shape' && "placeholder:text-center text-center")} 
+                             value={el.content || ''} 
                              onChange={(e) => updateElement(el.id, { content: e.target.value })} 
-                             style={{ color: el.color, fontSize: el.fontSize + 'px', fontFamily: el.fontFamily, fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || 'left' }} 
+                             style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left') }} 
                            />
                          )}
+                         {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none" alt="extracted-region" draggable={false} />}
                          {el.type === 'mask' && <div className="w-full h-full bg-white" />}
                       </div>
                     </Rnd>
