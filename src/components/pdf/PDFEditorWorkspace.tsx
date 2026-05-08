@@ -67,6 +67,8 @@ const ColorSwatch = ({ color, active, onClick }: { color: string, active: boolea
   );
 };
 
+interface ContextMenuState { visible: boolean; x: number; y: number; targetId: string | null; }
+
 // --- Main Engine Component ---
 export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }) => {
   const { 
@@ -77,6 +79,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
     moveToFront, moveToBack,
+    clipboard, copyElement, pasteElement, duplicateElement,
     undo, redo, pushHistory, reset 
   } = usePdfEditorStore();
 
@@ -97,6 +100,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
   const [isCreating, setIsCreating] = useState(false);
   const [creationStart, setCreationStart] = useState({ x: 0, y: 0 });
   const [tempRect, setTempRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, targetId: null });
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -145,6 +149,37 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
 
   useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile]);
 
+  // ── 전역 키보드 단축키
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (!ctrl) {
+        if (e.key === 'v' || e.key === 'V') { setActiveTool('select'); return; }
+        if (e.key === 't' || e.key === 'T') { setActiveTool('text'); return; }
+        if (e.key === 's' || e.key === 'S') { setActiveTool('shape'); return; }
+        if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); return; }
+        if (e.key === 'h' || e.key === 'H' || e.key === ' ') { e.preventDefault(); setActiveTool('pan'); return; }
+      }
+      if (ctrl && e.key === 'c') { e.preventDefault(); if (selectedElementId) { copyElement(selectedElementId); toast.success('복사 완료', { duration: 1200 }); } }
+      else if (ctrl && e.key === 'v') { e.preventDefault(); if (clipboard) { pasteElement(currentPage); toast.success('붙여넣기 완료', { duration: 1200 }); } }
+      else if (ctrl && e.key === 'd') { e.preventDefault(); if (selectedElementId) { duplicateElement(selectedElementId); toast.success('복제 완료', { duration: 1200 }); } }
+      else if (ctrl && e.key === 'z') { e.preventDefault(); undo(); }
+      else if (ctrl && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedElementId) { e.preventDefault(); deleteElement(selectedElementId); toast.success('삭제했습니다', { duration: 1200 }); } }
+      else if (e.key === 'Escape') { setSelectedElementId(null); setContextMenu({ visible: false, x: 0, y: 0, targetId: null }); setActiveTool('select'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedElementId, clipboard, currentPage, copyElement, pasteElement, duplicateElement, undo, redo, deleteElement, setSelectedElementId, setActiveTool]);
+
+  useEffect(() => {
+    const close = () => setContextMenu(p => ({ ...p, visible: false }));
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, []);
+
   // --- interaction Handlers ---
   const getPos = (e: React.MouseEvent) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -165,8 +200,8 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       return;
     }
 
-    // [Select/Move Tool] Selection
-    if (['select', 'move-object'].includes(activeTool)) {
+    // [Select Tool] 빈 캔버스 클릭 시 선택 해제
+    if (activeTool === 'select') {
       if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
         setSelectedElementId(null);
       }
@@ -225,9 +260,29 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       };
       addElement(newEl);
       pushHistory();
-      setActiveTool('move-object');
+      setActiveTool('select'); // 생성 후 select로 자동 전환
     }
     setIsCreating(false); setTempRect(null);
+  };
+
+  // ── 우클릭 컨텍스트 메뉴 핸들러
+  const handleObjectContextMenu = (e: React.MouseEvent, elId: string) => {
+    e.preventDefault(); e.stopPropagation();
+    setSelectedElementId(elId);
+    const menuW = 200, menuH = 280;
+    const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
+    const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
+    setContextMenu({ visible: true, x, y, targetId: elId });
+  };
+
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).tagName === 'CANVAS' || e.target === e.currentTarget) {
+      e.preventDefault();
+      if (!clipboard) return;
+      const x = e.clientX + 200 > window.innerWidth ? e.clientX - 200 : e.clientX;
+      const y = e.clientY + 100 > window.innerHeight ? e.clientY - 100 : e.clientY;
+      setContextMenu({ visible: true, x, y, targetId: null });
+    }
   };
 
   // --- Business Logic ---
@@ -300,17 +355,16 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
           </div>
         </div>
 
-        {/* MAIN TOOLBAR - Center Floating Style */}
+        {/* MAIN TOOLBAR */}
         <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-2xl border border-border/60 shadow-sm">
            <div className="flex gap-1 pr-1 border-r border-border/60">
-              <TooltipBtn tool="select" icon={MousePointer2} label="Selection" />
-              <TooltipBtn tool="move-object" icon={Move} label="Move Object" />
-              <TooltipBtn tool="pan" icon={Hand} label="Pan (Space)" />
+              <TooltipBtn tool="select" icon={MousePointer2} label="선택·이동·리사이즈 (V)" />
+              <TooltipBtn tool="pan" icon={Hand} label="화면 스크롤 (H)" />
            </div>
            <div className="flex gap-1 px-1">
-              <TooltipBtn tool="text" icon={Type} label="Add Text" />
-              <TooltipBtn tool="shape" icon={Square} label="Add Shape" />
-              <TooltipBtn tool="eraser" icon={Eraser} label="Whiteout" />
+              <TooltipBtn tool="text" icon={Type} label="텍스트 추가 (T)" />
+              <TooltipBtn tool="shape" icon={Square} label="도형 그리기 (S)" />
+              <TooltipBtn tool="eraser" icon={Eraser} label="화이트아웃 (E)" />
            </div>
         </div>
 
@@ -368,7 +422,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         </aside>
 
         {/* CENTRAL WORKSPACE */}
-        <main ref={scrollContainerRef} className={cn("flex-1 bg-slate-100 dark:bg-slate-900 overflow-auto flex flex-col items-center custom-scrollbar p-12 lg:p-20 transition-all relative select-none", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default")}>
+        <main ref={scrollContainerRef} onContextMenu={handleCanvasContextMenu} className={cn("flex-1 bg-slate-100 dark:bg-slate-900 overflow-auto flex flex-col items-center custom-scrollbar p-12 lg:p-20 transition-all relative select-none", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default")}>
           {pdfFile ? (
             <div ref={containerRef} className="relative bg-white shadow-[0_48px_80px_-32px_rgba(0,0,0,0.15)] transition-all rounded-sm border border-border/40">
               <canvas ref={canvasRef} className="block" />
@@ -378,19 +432,20 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                  <div className={cn("absolute border-2 z-40 transition-shadow rounded-sm", activeTool === 'eraser' ? "bg-white border-none shadow-2xl ring-4 ring-primary/5" : "bg-primary/5 border-primary shadow-lg ring-4 ring-primary/10")} style={{ left: tempRect.x, top: tempRect.y, width: tempRect.w, height: tempRect.h }} />
               )}
 
-              {/* OBJECT LAYER */}
+              {/* OBJECT LAYER - overflow 제거로 경계 밖 객체도 표시 */}
               <div className="absolute inset-0 z-20 pointer-events-none">
                  {objects.filter(el => el.page === currentPage).map((el) => (
                     <Rnd
                       key={el.id}
-                      disableDragging={isPreview || activeTool !== 'move-object'}
-                      enableResizing={!isPreview && activeTool === 'move-object' && selectedElementId === el.id}
+                      disableDragging={isPreview || ['pan', 'text', 'shape', 'eraser'].includes(activeTool)}
+                      enableResizing={!isPreview && activeTool === 'select' && selectedElementId === el.id}
                       resizeHandleComponent={{ topLeft: <ResizeHandle direction="topLeft"/>, topRight: <ResizeHandle direction="topRight"/>, bottomLeft: <ResizeHandle direction="bottomLeft"/>, bottomRight: <ResizeHandle direction="bottomRight"/> }}
                       position={{ x: el.x, y: el.y }} size={{ width: el.width, height: el.height }}
                       onDragStop={(e, d) => { updateElement(el.id, { x: d.x, y: d.y }); pushHistory(); }}
                       onResizeStop={(e, dir, ref, delta, pos) => { updateElement(el.id, { width: parseInt(ref.style.width), height: parseInt(ref.style.height), ...pos }); pushHistory(); }}
-                      className={cn("pointer-events-auto", selectedElementId === el.id ? "z-50" : "z-10")}
-                      onMouseDown={(e: any) => { if(!isPreview) { e.stopPropagation(); setSelectedElementId(el.id); } }}
+                      className={cn("pointer-events-auto cursor-pointer", selectedElementId === el.id ? "z-50" : "z-10")}
+                      onMouseDown={(e: any) => { if(!isPreview) { e.stopPropagation(); setSelectedElementId(el.id); setActiveTool('select'); } }}
+                      onContextMenu={(e: any) => { if(!isPreview) handleObjectContextMenu(e, el.id); }}
                     >
                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && selectedElementId === el.id ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
                          {el.type === 'text' && (
@@ -516,11 +571,29 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                          <div className="flex justify-between items-end mb-1"><label className="text-[10px] font-black uppercase text-muted-foreground break-keep">Stroke Width</label><span className="text-primary text-xs font-black">{selectedElement.strokeWidth || 0}PX</span></div>
                          <input type="range" min="0" max="20" step="1" value={selectedElement.strokeWidth || 0} onChange={(e) => updateElement(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
                       </div>
-                   </div>
+                      
+                      {/* 복사 / 복제 / 붙여넣기 */}
+                      <div className="pt-6 space-y-3 border-t border-border/40">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">클립보드</label>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl" onClick={() => { copyElement(selectedElement.id); toast.success('복사 완료', { duration: 1000 }); }}>
+                            <Scissors className="w-3.5 h-3.5 text-primary" /> 복사
+                          </Button>
+                          <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl" onClick={() => duplicateElement(selectedElement.id)}>
+                            <Layers className="w-3.5 h-3.5 text-primary" /> 복제
+                          </Button>
+                        </div>
+                        {clipboard && (
+                          <Button variant="outline" className="w-full h-10 text-xs font-black gap-2 rounded-xl border-primary/30 text-primary hover:bg-primary/5" onClick={() => pasteElement(currentPage)}>
+                            붙여넣기 (클립보드에 있음)
+                          </Button>
+                        )}
+                      </div>
 
-                   <div className="pt-12 flex flex-col gap-4 border-t border-border/40">
-                      <Button variant="outline" className="w-full h-12 text-xs font-black gap-3 rounded-2xl border-border/60" onClick={() => handleExportAction('PPT')}><MonitorPlay className="w-4 h-4 text-muted-foreground"/> PPT 내보내기</Button>
-                      <Button variant="ghost" className="w-full h-12 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="w-4 h-4 mr-3"/> Delete Object</Button>
+                      <div className="pt-6 flex flex-col gap-4 border-t border-border/40">
+                         <Button variant="outline" className="w-full h-12 text-xs font-black gap-3 rounded-2xl border-border/60" onClick={() => handleExportAction('PPT')}><MonitorPlay className="w-4 h-4 text-muted-foreground"/> PPT 내보내기</Button>
+                         <Button variant="ghost" className="w-full h-12 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all" onClick={() => deleteElement(selectedElement.id)}><Trash2 className="w-4 h-4 mr-3"/> Delete Object</Button>
+                      </div>
                    </div>
                 </div>
              ) : (
@@ -536,6 +609,53 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       </div>
 
       <input type="file" ref={fileInputRef} className="hidden" accept="application/pdf" onChange={handleFileChange} />
+
+      {/* 우클릭 컨텍스트 메뉴 */}
+      {contextMenu.visible && (
+        <div
+          className="fixed z-[9999] bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl py-1.5 min-w-[200px] overflow-hidden"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          {contextMenu.targetId && (
+            <>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors"
+                onClick={() => { copyElement(contextMenu.targetId!); toast.success('복사 완료', { duration: 1000 }); setContextMenu(p => ({...p, visible: false})); }}>
+                <Scissors className="w-3.5 h-3.5" /><span className="flex-1 text-left">복사하기</span><span className="text-[10px] text-slate-500">Ctrl+C</span>
+              </button>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors"
+                onClick={() => { duplicateElement(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <Layers className="w-3.5 h-3.5" /><span className="flex-1 text-left">복제하기</span><span className="text-[10px] text-slate-500">Ctrl+D</span>
+              </button>
+            </>
+          )}
+          {clipboard && (
+            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-primary/20 hover:text-primary transition-colors"
+              onClick={() => { pasteElement(currentPage); setContextMenu(p => ({...p, visible: false})); }}>
+              <CheckCircle2 className="w-3.5 h-3.5" /><span className="flex-1 text-left">붙여넣기</span><span className="text-[10px] text-slate-500">Ctrl+V</span>
+            </button>
+          )}
+          {contextMenu.targetId && (
+            <>
+              <div className="w-full h-px bg-slate-700/60 my-1.5" />
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/5 transition-colors"
+                onClick={() => { moveToFront(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <ArrowUpToLine className="w-3.5 h-3.5 text-slate-400" /><span className="flex-1 text-left">맨 앞으로</span>
+              </button>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/5 transition-colors"
+                onClick={() => { moveToBack(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <ArrowDownToLine className="w-3.5 h-3.5 text-slate-400" /><span className="flex-1 text-left">맨 뒤로</span>
+              </button>
+              <div className="w-full h-px bg-slate-700/60 my-1.5" />
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors"
+                onClick={() => { deleteElement(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <Trash2 className="w-3.5 h-3.5" /><span className="flex-1 text-left">삭제하기</span><span className="text-[10px] text-slate-500">Delete</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 12px; } 
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
