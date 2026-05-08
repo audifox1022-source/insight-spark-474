@@ -12,7 +12,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Sparkles, PanelRightClose, PanelLeftClose, PanelLeftOpen,
   Layers, Check, Move, Eye, EyeOff, ArrowUpToLine, ArrowDownToLine, 
-  FileDown, Download, Monitor
+  FileDown, Download, Monitor, Copy, Clipboard, Scissors, CopyCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -60,6 +60,14 @@ const ColorSwatch = ({ color, active, onClick }: { color: string, active: boolea
   );
 };
 
+// ── Context Menu Component ──────────────────────────────────
+interface ContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  targetId: string | null;
+}
+
 // --- Main Engine Component ---
 export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
   const { 
@@ -70,6 +78,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
     moveToFront, moveToBack,
+    clipboard, copyElement, pasteElement, duplicateElement,
     undo, redo, pushHistory, reset 
   } = usePdfEditorStore();
 
@@ -91,11 +100,15 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
   const [creationStart, setCreationStart] = useState({ x: 0, y: 0 });
   const [tempRect, setTempRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
 
+  // Context Menu State
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, targetId: null });
+
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
 
   // --- PDF Loading & Rendering ---
   const loadPdf = useCallback(async (file: File) => {
@@ -137,6 +150,62 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
   }, [pdfDocument, currentPage, renderScale]);
 
   useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile]);
+
+  // ── 전역 키보드 단축키 ────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // textarea / input 포커스 중이면 단축키 무시
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+      const ctrl = e.ctrlKey || e.metaKey;
+
+      if (ctrl && e.key === 'c') {
+        e.preventDefault();
+        if (selectedElementId) {
+          copyElement(selectedElementId);
+          toast.success('객체를 복사했습니다', { duration: 1200 });
+        }
+      } else if (ctrl && e.key === 'v') {
+        e.preventDefault();
+        if (clipboard) {
+          pasteElement(currentPage);
+          toast.success('객체를 붙여넣었습니다', { duration: 1200 });
+        }
+      } else if (ctrl && e.key === 'd') {
+        e.preventDefault();
+        if (selectedElementId) {
+          duplicateElement(selectedElementId);
+          toast.success('객체를 복제했습니다', { duration: 1200 });
+        }
+      } else if (ctrl && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      } else if (ctrl && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        e.preventDefault();
+        redo();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedElementId) {
+          e.preventDefault();
+          deleteElement(selectedElementId);
+          toast.success('객체를 삭제했습니다', { duration: 1200 });
+        }
+      } else if (e.key === 'Escape') {
+        setSelectedElementId(null);
+        setContextMenu({ visible: false, x: 0, y: 0, targetId: null });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElementId, clipboard, currentPage, copyElement, pasteElement, duplicateElement, undo, redo, deleteElement, setSelectedElementId]);
+
+  // ── 컨텍스트 메뉴 닫기 (바깥 클릭) ───────────────────────────
+  useEffect(() => {
+    const handleClick = () => setContextMenu(prev => ({ ...prev, visible: false }));
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
 
   // --- Interaction Handlers ---
   const getPos = (e: React.MouseEvent) => {
@@ -218,6 +287,29 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
       setActiveTool('move-object');
     }
     setIsCreating(false); setTempRect(null);
+  };
+
+  // ── 우클릭 컨텍스트 메뉴 핸들러 ─────────────────────────────
+  const handleObjectContextMenu = (e: React.MouseEvent, elId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedElementId(elId);
+    // 화면 밖으로 나가지 않도록 위치 조정
+    const menuW = 220, menuH = 280;
+    const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
+    const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
+    setContextMenu({ visible: true, x, y, targetId: elId });
+  };
+
+  const handleCanvasContextMenu = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).tagName === 'CANVAS' || e.target === e.currentTarget) {
+      e.preventDefault();
+      if (!clipboard) return;
+      const menuW = 220, menuH = 100;
+      const x = e.clientX + menuW > window.innerWidth ? e.clientX - menuW : e.clientX;
+      const y = e.clientY + menuH > window.innerHeight ? e.clientY - menuH : e.clientY;
+      setContextMenu({ visible: true, x, y, targetId: null });
+    }
   };
 
   // --- Production Level Export Engine ---
@@ -389,14 +481,19 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
            </div>
         </aside>
 
-        <main ref={scrollContainerRef} className={cn("flex-1 bg-[#1E293B] overflow-auto flex flex-col items-center custom-scrollbar p-16 transition-all", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default", isPreview && "p-8")}>
+        <main ref={scrollContainerRef} className={cn("flex-1 bg-[#1E293B] overflow-auto flex flex-col items-center custom-scrollbar p-16 transition-all", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default", isPreview && "p-8")} onContextMenu={handleCanvasContextMenu}>
           {pdfFile ? (
-            <div ref={containerRef} className={cn("relative bg-[#FFFFFF] shadow-[0_64px_128px_-32px_rgba(0,0,0,0.7)] transition-all select-none rounded-[1px]", isPreview ? "border-none" : "border border-slate-700")}>
+            <div ref={containerRef} className={cn("relative bg-[#FFFFFF] shadow-[0_64px_128px_-32px_rgba(0,0,0,0.7)] transition-all select-none rounded-[1px]", isPreview ? "border-none" : "border border-slate-700")}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+            >
               <canvas ref={canvasRef} className="block" />
               {!isPreview && isCreating && tempRect && (
                  <div className={cn("absolute border-2 z-40 transition-shadow", activeTool === 'eraser' ? "bg-white border-none shadow-2xl" : "bg-[#0D9488]/5 border-[#0D9488] shadow-lg")} style={{ left: tempRect.x, top: tempRect.y, width: tempRect.w, height: tempRect.h }} />
               )}
-              <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+              {/* overflow-hidden 제거: 경계 밖 객체도 보이도록 */}
+              <div className="absolute inset-0 z-20 pointer-events-none">
                  {objects.filter(el => el.page === currentPage).map((el) => (
                     <Rnd
                       key={el.id}
@@ -408,6 +505,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
                       onResizeStop={(e, dir, ref, delta, pos) => { updateElement(el.id, { width: parseInt(ref.style.width), height: parseInt(ref.style.height), ...pos }); pushHistory(); }}
                       className={cn("pointer-events-auto", selectedElementId === el.id ? "z-50" : "z-10")}
                       onMouseDown={(e: any) => { if(!isPreview) { e.stopPropagation(); setSelectedElementId(el.id); } }}
+                      onContextMenu={(e: any) => { if(!isPreview) handleObjectContextMenu(e, el.id); }}
                     >
                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && selectedElementId === el.id ? "ring-2 ring-[#0D9488] shadow-2xl" : (!isPreview && "hover:ring-1 hover:ring-[#0D9488]/30"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
                          {el.type === 'text' && (
@@ -436,15 +534,55 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
 
         <aside className={cn("shrink-0 bg-[#FFFFFF] border-l border-[#E2E8F0] transition-all duration-300 overflow-hidden flex flex-col", rightSidebarOpen ? "w-80" : "w-0 shadow-none", isPreview && "w-0 border-none")}>
            <div className="h-10 px-4 flex items-center justify-between border-b border-[#E2E8F0] bg-slate-50/50">
-              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">속성 검사기 (Inspector)</span>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">속성 검사기</span>
               <button onClick={() => setRightSidebarOpen(false)} className="p-1 hover:bg-slate-100 rounded text-slate-400 transition-colors"><PanelRightClose className="w-3.5 h-3.5" /></button>
            </div>
            
            <ScrollArea className="flex-1 bg-white">
              {selectedElement ? (
-                <div className="p-6 space-y-10 animate-in slide-in-from-right duration-300">
-                   <div className="space-y-4">
-                      <label className="text-[11px] font-black uppercase text-slate-400 tracking-widest leading-none">계층 및 순서 조정</label>
+                <div className="p-6 space-y-8 animate-in slide-in-from-right duration-300">
+                   {/* 좌표 및 크기 정보 */}
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">위치 및 크기</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-slate-50 rounded-lg px-3 py-2">
+                          <p className="text-[9px] text-slate-400 font-black uppercase">X</p>
+                          <p className="text-xs font-black text-slate-700">{Math.round(selectedElement.x)}px</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg px-3 py-2">
+                          <p className="text-[9px] text-slate-400 font-black uppercase">Y</p>
+                          <p className="text-xs font-black text-slate-700">{Math.round(selectedElement.y)}px</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg px-3 py-2">
+                          <p className="text-[9px] text-slate-400 font-black uppercase">너비</p>
+                          <p className="text-xs font-black text-slate-700">{Math.round(selectedElement.width)}px</p>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg px-3 py-2">
+                          <p className="text-[9px] text-slate-400 font-black uppercase">높이</p>
+                          <p className="text-xs font-black text-slate-700">{Math.round(selectedElement.height)}px</p>
+                        </div>
+                      </div>
+                   </div>
+                   {/* 복사 / 복제 버튼 */}
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">클립보드</label>
+                      <div className="flex gap-2">
+                        <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl border-slate-200" onClick={() => { copyElement(selectedElement.id); toast.success('복사 완료', { duration: 1000 }); }}>
+                          <Copy className="w-3.5 h-3.5 text-[#0D9488]" /> 복사
+                        </Button>
+                        <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl border-slate-200" onClick={() => duplicateElement(selectedElement.id)}>
+                          <CopyCheck className="w-3.5 h-3.5 text-[#0D9488]" /> 복제
+                        </Button>
+                      </div>
+                      {clipboard && (
+                        <Button variant="outline" className="w-full h-10 text-xs font-black gap-2 rounded-xl border-[#0D9488]/30 text-[#0D9488] hover:bg-[#0D9488]/5" onClick={() => pasteElement(currentPage)}>
+                          <Clipboard className="w-3.5 h-3.5" /> 붙여넣기 (클립보드에 있음)
+                        </Button>
+                      )}
+                   </div>
+                   {/* 계층 순서 */}
+                   <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none">계층 순서</label>
                       <div className="flex gap-2">
                         <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl" onClick={() => moveToFront(selectedElement.id)}><ArrowUpToLine className="w-4 h-4 text-[#0D9488]" /> 맨 앞으로</Button>
                         <Button variant="outline" className="flex-1 h-10 text-xs font-black gap-2 rounded-xl" onClick={() => moveToBack(selectedElement.id)}><ArrowDownToLine className="w-4 h-4 text-[#0D9488]" /> 맨 뒤로</Button>
@@ -528,6 +666,63 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
            </ScrollArea>
         </aside>
       </div>
+
+      {/* ── 우클릭 컨텍스트 메뉴 ── */}
+      {contextMenu.visible && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-[9999] bg-[#0F172A] border border-slate-700/60 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] py-1.5 min-w-[200px] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.targetId && (
+            <>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-colors"
+                onClick={() => { copyElement(contextMenu.targetId!); toast.success('복사 완료', { duration: 1000 }); setContextMenu(p => ({...p, visible: false})); }}>
+                <Copy className="w-3.5 h-3.5" />
+                <span className="flex-1 text-left">복사하기</span>
+                <span className="text-[10px] text-slate-500 font-black">Ctrl+C</span>
+              </button>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-colors"
+                onClick={() => { duplicateElement(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <CopyCheck className="w-3.5 h-3.5" />
+                <span className="flex-1 text-left">복제하기</span>
+                <span className="text-[10px] text-slate-500 font-black">Ctrl+D</span>
+              </button>
+            </>
+          )}
+          {clipboard && (
+            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-[#0D9488]/20 hover:text-[#0D9488] transition-colors"
+              onClick={() => { pasteElement(currentPage); setContextMenu(p => ({...p, visible: false})); }}>
+              <Clipboard className="w-3.5 h-3.5" />
+              <span className="flex-1 text-left">붙여넣기</span>
+              <span className="text-[10px] text-slate-500 font-black">Ctrl+V</span>
+            </button>
+          )}
+          {contextMenu.targetId && (
+            <>
+              <div className="w-full h-px bg-slate-700/60 my-1.5" />
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/5 transition-colors"
+                onClick={() => { moveToFront(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <ArrowUpToLine className="w-3.5 h-3.5 text-slate-400" />
+                <span className="flex-1 text-left">맨 앞으로</span>
+              </button>
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-white/5 transition-colors"
+                onClick={() => { moveToBack(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <ArrowDownToLine className="w-3.5 h-3.5 text-slate-400" />
+                <span className="flex-1 text-left">맨 뒤로</span>
+              </button>
+              <div className="w-full h-px bg-slate-700/60 my-1.5" />
+              <button className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-red-400 hover:bg-red-500/10 transition-colors"
+                onClick={() => { deleteElement(contextMenu.targetId!); setContextMenu(p => ({...p, visible: false})); }}>
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="flex-1 text-left">삭제하기</span>
+                <span className="text-[10px] text-slate-500 font-black">Delete</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <input type="file" ref={fileInputRef} className="hidden" accept="application/pdf" onChange={handleFileChange} />
       <style>{`

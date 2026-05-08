@@ -1,7 +1,7 @@
 // ============================================================
 // src/store/usePdfEditorStore.ts (Work AI - Pure PDF Editor Store)
-// [Enterprise] Undo/Redo & Object State Management (v1.3)
-// [Update] Added Advanced Tooling & Sidebar State for 4-Panel Layout
+// [Enterprise] Undo/Redo & Object State Management (v2.0)
+// [Update] Added Clipboard (Copy/Paste/Duplicate) System
 // ============================================================
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -39,6 +39,9 @@ interface PdfEditorState {
   activeFontSize: number; 
   activeFontFamily: string; 
   
+  // 클립보드 (복사/붙여넣기)
+  clipboard: PdfElement | null;
+  
   // Layout Navigation State
   leftSidebarOpen: boolean;
   rightSidebarOpen: boolean;
@@ -64,6 +67,11 @@ interface PdfEditorState {
   moveToFront: (id: string) => void;
   moveToBack: (id: string) => void;
 
+  // 클립보드 액션
+  copyElement: (id: string) => void;
+  pasteElement: (currentPage: number) => void;
+  duplicateElement: (id: string) => void;
+
   // History Control
   pushHistory: () => void;
   undo: () => void;
@@ -80,6 +88,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       activeColor: '#0D9488',
       activeFontSize: 16,
       activeFontFamily: 'Noto Sans KR', 
+      clipboard: null,
       
       leftSidebarOpen: true,
       rightSidebarOpen: true,
@@ -111,15 +120,13 @@ export const usePdfEditorStore = create<PdfEditorState>()(
 
       setSelectedElementId: (id) => {
         set({ selectedElementId: id });
-        // 요소가 선택되면 우측 패널을 열어 속성을 보여주도록 유도
         if (id) {
-            set({ rightSidebarOpen: true });
+          set({ rightSidebarOpen: true });
         }
       },
 
       setActiveTool: (tool) => {
         set({ activeTool: tool, selectedElementId: null });
-        // 특정 도구 (텍스트, AI 추출 등) 선택 시 우측 패널 활성화
         if (['text', 'ai-extract', 'table-select', 'shape', 'highlight', 'pen'].includes(tool)) {
           set({ rightSidebarOpen: true });
         }
@@ -152,6 +159,55 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       setLeftSidebarOpen: (open) => set({ leftSidebarOpen: open }),
       setRightSidebarOpen: (open) => set({ rightSidebarOpen: open }),
       setActiveLeftTab: (tab) => set({ activeLeftTab: tab, leftSidebarOpen: true }),
+
+      // ── 복사 (Ctrl+C) ─────────────────────────────────────────
+      copyElement: (id) => {
+        const element = get().elements.find(el => el.id === id);
+        if (element) {
+          set({ clipboard: JSON.parse(JSON.stringify(element)) });
+        }
+      },
+
+      // ── 붙여넣기 (Ctrl+V) ─────────────────────────────────────
+      pasteElement: (currentPage) => {
+        const { clipboard } = get();
+        if (!clipboard) return;
+
+        // 기존 붙여넣기 횟수에 따라 오프셋 누적 (20px 간격)
+        const existingCopies = get().elements.filter(
+          el => el.id.startsWith('paste-')
+        ).length;
+        const offset = (existingCopies % 10 + 1) * 20;
+
+        const pastedElement: PdfElement = {
+          ...JSON.parse(JSON.stringify(clipboard)),
+          id: `paste-${Date.now()}`,
+          x: clipboard.x + offset,
+          y: clipboard.y + offset,
+          page: currentPage,
+        };
+
+        const nextElements = [...get().elements, pastedElement];
+        set({ elements: nextElements, selectedElementId: pastedElement.id });
+        get().pushHistory();
+      },
+
+      // ── 복제 (Ctrl+D) ─────────────────────────────────────────
+      duplicateElement: (id) => {
+        const element = get().elements.find(el => el.id === id);
+        if (!element) return;
+
+        const duplicated: PdfElement = {
+          ...JSON.parse(JSON.stringify(element)),
+          id: `dup-${Date.now()}`,
+          x: element.x + 20,
+          y: element.y + 20,
+        };
+
+        const nextElements = [...get().elements, duplicated];
+        set({ elements: nextElements, selectedElementId: duplicated.id });
+        get().pushHistory();
+      },
 
       pushHistory: () => {
         const { elements, history, historyIndex } = get();
@@ -212,7 +268,8 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         selectedElementId: null, 
         activeTool: 'select', 
         history: [[]], 
-        historyIndex: 0 
+        historyIndex: 0,
+        clipboard: null,
       })
     }),
     {
