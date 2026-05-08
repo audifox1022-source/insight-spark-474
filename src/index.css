@@ -188,6 +188,13 @@
   .font-mono {
     font-family: var(--font-mono);
   }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 /* ─── 인쇄 최적화 ─────────────────────────────── */

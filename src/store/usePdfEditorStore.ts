@@ -22,6 +22,7 @@ export interface PdfElement {
   fontWeight?: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
   lineHeight?: number;
+  textPadding?: number;
   page: number;
   points?: { x: number, y: number }[]; // For drawings
   src?: string; // For images

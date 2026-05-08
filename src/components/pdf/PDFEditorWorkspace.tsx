@@ -697,14 +697,45 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                            </div>
                          )}
                          {(el.type === 'text' || el.type === 'shape') && (
-                           <textarea 
-                             disabled={isPreview}
-                             placeholder={el.type === 'shape' ? "도형 텍스트 입력 (선택)" : ""}
-                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center relative z-10 overflow-hidden", el.type === 'shape' && "placeholder:text-center text-center")} 
-                             value={el.content || ''} 
-                             onChange={(e) => updateElement(el.id, { content: e.target.value })} 
-                             style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), lineHeight: el.lineHeight || 1.5 }} 
-                           />
+                            <div 
+                              className="absolute inset-0 flex items-center justify-center z-10"
+                              style={{ padding: (el.textPadding ?? (el.type === 'shape' ? 10 : 0)) + 'px' }}
+                            >
+                              <textarea 
+                                disabled={isPreview}
+                                placeholder={el.type === 'shape' ? "도형 텍스트 입력" : ""}
+                                className={cn(
+                                  "w-full bg-transparent border-none outline-none resize-none focus:ring-0 leading-normal font-bold relative scrollbar-hide",
+                                  el.type === 'shape' ? "text-center" : "h-full"
+                                )} 
+                                value={el.content || ''} 
+                                onChange={(e) => updateElement(el.id, { content: e.target.value })} 
+                                onInput={(e) => {
+                                  if (el.type === 'shape') {
+                                    const target = e.currentTarget;
+                                    target.style.height = 'auto';
+                                    target.style.height = target.scrollHeight + 'px';
+                                  }
+                                }}
+                                ref={(ref) => {
+                                  if (ref && el.type === 'shape') {
+                                    ref.style.height = 'auto';
+                                    ref.style.height = ref.scrollHeight + 'px';
+                                  }
+                                }}
+                                style={{ 
+                                  color: el.color, 
+                                  fontSize: (el.fontSize || 16) + 'px', 
+                                  fontFamily: el.fontFamily || 'Inter', 
+                                  fontWeight: el.fontWeight || 'bold', 
+                                  textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), 
+                                  lineHeight: el.lineHeight || 1.5,
+                                  height: el.type === 'shape' ? 'auto' : '100%',
+                                  maxHeight: '100%',
+                                  overflowY: 'auto'
+                                }} 
+                              />
+                            </div>
                          )}
                          {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none relative z-10" alt="extracted-region" draggable={false} />}
                          {el.type === 'mask' && <div className="w-full h-full bg-white relative z-10" />}
@@ -838,9 +869,16 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                         </div>
                       </div>
                       <div className="space-y-5">
-                         <div className="flex justify-between items-end mb-1"><label className="text-[10px] font-black uppercase text-muted-foreground break-keep">Stroke Width</label><span className="text-primary text-xs font-black">{selectedElement.strokeWidth || 0}PX</span></div>
-                         <input type="range" min="0" max="20" step="1" value={selectedElement.strokeWidth || 0} onChange={(e) => updateElement(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
+                      <div className="flex justify-between items-end mb-1"><label className="text-[10px] font-black uppercase text-muted-foreground break-keep">Stroke Width</label><span className="text-primary text-xs font-black">{selectedElement.strokeWidth || 0}PX</span></div>
+                      <input type="range" min="0" max="20" step="1" value={selectedElement.strokeWidth || 0} onChange={(e) => updateElement(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
                       </div>
+
+                       {selectedElement.type === 'shape' && (
+                         <div className="space-y-5">
+                            <div className="flex justify-between items-end mb-1"><label className="text-[10px] font-black uppercase text-muted-foreground break-keep">Text Box Inset (Padding)</label><span className="text-primary text-xs font-black">{selectedElement.textPadding ?? 10}PX</span></div>
+                            <input type="range" min="0" max="80" step="1" value={selectedElement.textPadding ?? 10} onChange={(e) => updateElement(selectedElement.id, { textPadding: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
+                         </div>
+                       )}
                       
                       {/* 복사 / 복제 / 붙여넣기 */}
                       <div className="pt-6 space-y-3 border-t border-border/40">
