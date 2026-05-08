@@ -83,14 +83,14 @@ interface PdfTextItem {
 // --- Main Engine Component ---
 export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }) => {
   const { 
-    elements: objects, addElement, updateElement, deleteElement, 
-    selectedElementId, setSelectedElementId, 
+    elements: objects, addElement, addElements, updateElement, updateElements, deleteElement, deleteElements,
+    selectedElementId, selectedElementIds, setSelectedElementId, setSelection, clearSelection,
     activeTool, setActiveTool,
     activeColor, setActiveColor,
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
     moveToFront, moveToBack,
-    clipboard, copyElement, pasteElement, duplicateElement,
+    clipboard, copyElement, copyElements, pasteElement, duplicateElement, duplicateElements,
     undo, redo, pushHistory, reset 
   } = usePdfEditorStore();
 
@@ -203,17 +203,17 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); return; }
         if (e.key === 'h' || e.key === 'H' || e.key === ' ') { e.preventDefault(); setActiveTool('pan'); return; }
       }
-      if (ctrl && e.key === 'c') { e.preventDefault(); if (selectedElementId) { copyElement(selectedElementId); toast.success('복사 완료', { duration: 1200 }); } }
-      else if (ctrl && e.key === 'v') { e.preventDefault(); if (clipboard) { pasteElement(currentPage); toast.success('붙여넣기 완료', { duration: 1200 }); } }
-      else if (ctrl && e.key === 'd') { e.preventDefault(); if (selectedElementId) { duplicateElement(selectedElementId); toast.success('복제 완료', { duration: 1200 }); } }
+      if (ctrl && e.key === 'c') { e.preventDefault(); if (selectedElementIds.length > 0) { copyElements(selectedElementIds); toast.success('복사 완료', { duration: 1200 }); } }
+      else if (ctrl && e.key === 'v') { e.preventDefault(); if (clipboard && clipboard.length > 0) { pasteElement(currentPage); toast.success('붙여넣기 완료', { duration: 1200 }); } }
+      else if (ctrl && e.key === 'd') { e.preventDefault(); if (selectedElementIds.length > 0) { duplicateElements(selectedElementIds); toast.success('복제 완료', { duration: 1200 }); } }
       else if (ctrl && e.key === 'z') { e.preventDefault(); undo(); }
       else if (ctrl && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
-      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedElementId) { e.preventDefault(); deleteElement(selectedElementId); toast.success('삭제했습니다', { duration: 1200 }); } }
-      else if (e.key === 'Escape') { setSelectedElementId(null); setContextMenu({ visible: false, x: 0, y: 0, targetId: null }); setActiveTool('select'); }
+      else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedElementIds.length > 0) { e.preventDefault(); deleteElements(selectedElementIds); toast.success('삭제했습니다', { duration: 1200 }); } }
+      else if (e.key === 'Escape') { clearSelection(); setContextMenu({ visible: false, x: 0, y: 0, targetId: null }); setActiveTool('select'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedElementId, clipboard, currentPage, copyElement, pasteElement, duplicateElement, undo, redo, deleteElement, setSelectedElementId, setActiveTool]);
+  }, [selectedElementIds, clipboard, currentPage, copyElements, pasteElement, duplicateElements, undo, redo, deleteElements, clearSelection, setActiveTool]);
 
   useEffect(() => {
     const close = () => setContextMenu(p => ({ ...p, visible: false }));
@@ -241,55 +241,12 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       return;
     }
 
-    // [Select Tool] 빈 캔버스 클릭 시 선택 해제 또는 원본 텍스트 추출
+    // [Select Tool] 마우스 드래그를 통한 다중 선택 박스 시작
     if (activeTool === 'select') {
       if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
-        let extracted = false;
-        
-        // 클릭한 위치에 원본 PDF 텍스트가 있는지 확인
-        for (let i = 0; i < pdfTextItems.length; i++) {
-          const item = pdfTextItems[i];
-          const padding = 5; // 클릭 보정
-          
-          if (
-            pos.x >= item.x - padding &&
-            pos.x <= item.x + item.width + padding &&
-            pos.y >= item.y - padding &&
-            pos.y <= item.y + item.height + padding
-          ) {
-            // 원본 텍스트를 편집 가능한 객체(PdfElement)로 변환
-            const newEl: PdfElement = {
-              id: `text-${Date.now()}`,
-              type: 'text',
-              x: item.x,
-              y: item.y,
-              width: Math.max(item.width + 10, 50),
-              height: Math.max(item.height + 10, 20),
-              content: item.str,
-              color: '#000000',
-              fillColor: '#FFFFFF', // 원본 텍스트를 가리기 위해 흰색 배경 사용
-              strokeWidth: 0,
-              fontSize: item.fontSize,
-              fontFamily: 'Inter',
-              fontWeight: 'normal',
-              textAlign: 'left',
-              page: currentPage
-            };
-            
-            addElement(newEl);
-            pushHistory();
-            setSelectedElementId(newEl.id);
-            // 한 번 추출한 텍스트는 다시 중복 추출되지 않도록 목록에서 제거
-            setPdfTextItems(prev => prev.filter(t => t.id !== item.id));
-            extracted = true;
-            toast.success("원본 텍스트를 편집 가능한 객체로 추출했습니다.", { duration: 1500 });
-            break;
-          }
-        }
-
-        if (!extracted) {
-          setSelectedElementId(null);
-        }
+        setIsCreating(true);
+        setCreationStart(pos);
+        setTempRect({ x: pos.x, y: pos.y, w: 0, h: 0 });
       }
       return;
     }
@@ -323,7 +280,81 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
 
   const handleMouseUp = () => {
     setIsPanning(false);
+    
     if (isCreating && tempRect) {
+      if (activeTool === 'select') {
+        setIsCreating(false);
+        const isClick = tempRect.w < 5 && tempRect.h < 5;
+        
+        if (isClick) {
+          // 단일 클릭 추출 또는 선택 해제
+          let extracted = false;
+          for (let i = 0; i < pdfTextItems.length; i++) {
+            const item = pdfTextItems[i];
+            const padding = 5;
+            if (
+              tempRect.x >= item.x - padding && tempRect.x <= item.x + item.width + padding &&
+              tempRect.y >= item.y - padding && tempRect.y <= item.y + item.height + padding
+            ) {
+              const newEl: PdfElement = {
+                id: `text-${Date.now()}`, type: 'text',
+                x: item.x, y: item.y,
+                width: Math.max(item.width + 10, 50), height: Math.max(item.height + 10, 20),
+                content: item.str, color: '#000000', fillColor: '#FFFFFF',
+                strokeWidth: 0, fontSize: item.fontSize, fontFamily: 'Inter',
+                fontWeight: 'normal', textAlign: 'left', page: currentPage
+              };
+              addElement(newEl);
+              setPdfTextItems(prev => prev.filter(t => t.id !== item.id));
+              extracted = true;
+              break;
+            }
+          }
+          if (!extracted) clearSelection();
+        } else {
+          // 영역 드래그 일괄 추출 및 다중 선택
+          let newSelection: string[] = [];
+          let extractedElements: PdfElement[] = [];
+          
+          objects.forEach(el => {
+            if (el.page === currentPage &&
+                el.x < tempRect.x + tempRect.w && el.x + el.width > tempRect.x &&
+                el.y < tempRect.y + tempRect.h && el.y + el.height > tempRect.y) {
+              newSelection.push(el.id);
+            }
+          });
+          
+          const toExtract = pdfTextItems.filter(item => (
+            item.x < tempRect.x + tempRect.w && item.x + item.width > tempRect.x &&
+            item.y < tempRect.y + tempRect.h && item.y + item.height > tempRect.y
+          ));
+          
+          toExtract.forEach((item, idx) => {
+            const newEl: PdfElement = {
+              id: `text-${Date.now()}-${idx}`, type: 'text',
+              x: item.x, y: item.y,
+              width: Math.max(item.width + 10, 50), height: Math.max(item.height + 10, 20),
+              content: item.str, color: '#000000', fillColor: '#FFFFFF',
+              strokeWidth: 0, fontSize: item.fontSize, fontFamily: 'Inter',
+              fontWeight: 'normal', textAlign: 'left', page: currentPage
+            };
+            extractedElements.push(newEl);
+            newSelection.push(newEl.id);
+          });
+          
+          if (extractedElements.length > 0) {
+            addElements(extractedElements);
+            setPdfTextItems(prev => prev.filter(t => !toExtract.includes(t)));
+            toast.success(`${extractedElements.length}개의 텍스트를 추출했습니다.`, { duration: 1500 });
+          }
+          
+          setSelection(newSelection);
+        }
+        setTempRect(null);
+        return;
+      }
+
+      // [Edit Tools] Creation
       const isEraser = activeTool === 'eraser';
       const isText = activeTool === 'text';
       const isShape = activeTool === 'shape';
@@ -346,7 +377,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       };
       addElement(newEl);
       pushHistory();
-      setActiveTool('select'); // 생성 후 select로 자동 전환
+      setActiveTool('select'); 
     }
     setIsCreating(false); setTempRect(null);
   };
@@ -527,20 +558,49 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
 
               {/* OBJECT LAYER - overflow 제거로 경계 밖 객체도 표시 */}
               <div className="absolute inset-0 z-20 pointer-events-none">
-                 {objects.filter(el => el.page === currentPage).map((el) => (
-                    <Rnd
-                      key={el.id}
-                      disableDragging={isPreview || ['pan', 'text', 'shape', 'eraser'].includes(activeTool)}
-                      enableResizing={!isPreview && activeTool === 'select' && selectedElementId === el.id}
-                      resizeHandleComponent={{ topLeft: <ResizeHandle direction="topLeft"/>, topRight: <ResizeHandle direction="topRight"/>, bottomLeft: <ResizeHandle direction="bottomLeft"/>, bottomRight: <ResizeHandle direction="bottomRight"/> }}
-                      position={{ x: el.x, y: el.y }} size={{ width: el.width, height: el.height }}
-                      onDragStop={(e, d) => { updateElement(el.id, { x: d.x, y: d.y }); pushHistory(); }}
-                      onResizeStop={(e, dir, ref, delta, pos) => { updateElement(el.id, { width: parseInt(ref.style.width), height: parseInt(ref.style.height), ...pos }); pushHistory(); }}
-                      className={cn("pointer-events-auto cursor-pointer", selectedElementId === el.id ? "z-50" : "z-10")}
-                      onMouseDown={(e: any) => { if(!isPreview) { e.stopPropagation(); setSelectedElementId(el.id); setActiveTool('select'); } }}
-                      onContextMenu={(e: any) => { if(!isPreview) handleObjectContextMenu(e, el.id); }}
-                    >
-                      <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && selectedElementId === el.id ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
+                  {objects.filter(el => el.page === currentPage).map((el) => {
+                     const isSelected = selectedElementIds.includes(el.id);
+                     return (
+                     <Rnd
+                       key={el.id}
+                       disableDragging={isPreview || ['pan', 'text', 'shape', 'eraser'].includes(activeTool)}
+                       enableResizing={!isPreview && activeTool === 'select' && selectedElementId === el.id}
+                       resizeHandleComponent={{ topLeft: <ResizeHandle direction="topLeft"/>, topRight: <ResizeHandle direction="topRight"/>, bottomLeft: <ResizeHandle direction="bottomLeft"/>, bottomRight: <ResizeHandle direction="bottomRight"/> }}
+                       position={{ x: el.x, y: el.y }} size={{ width: el.width, height: el.height }}
+                       onDragStop={(e, d) => { 
+                         if (isSelected && selectedElementIds.length > 1) {
+                           const dx = d.x - el.x;
+                           const dy = d.y - el.y;
+                           const updates = selectedElementIds.map(id => {
+                             const target = objects.find(o => o.id === id);
+                             return target ? { id, changes: { x: target.x + dx, y: target.y + dy } } : null;
+                           }).filter(Boolean) as any;
+                           updateElements(updates);
+                         } else {
+                           updateElement(el.id, { x: d.x, y: d.y }); 
+                         }
+                         pushHistory(); 
+                       }}
+                       onResizeStop={(e, dir, ref, delta, pos) => { updateElement(el.id, { width: parseInt(ref.style.width), height: parseInt(ref.style.height), ...pos }); pushHistory(); }}
+                       className={cn("pointer-events-auto cursor-pointer", isSelected ? "z-50" : "z-10")}
+                       onMouseDown={(e: any) => { 
+                         if(!isPreview) { 
+                           e.stopPropagation(); 
+                           // 만약 이미 다중 선택된 그룹 중 하나를 클릭한 것이라면 그룹 선택을 유지
+                           if (!selectedElementIds.includes(el.id)) {
+                             // Shift 키 누르면 다중 선택 추가, 아니면 단일 선택으로 변경 (기본 구현)
+                             if (e.shiftKey) {
+                               setSelection([...selectedElementIds, el.id]);
+                             } else {
+                               setSelection([el.id]);
+                             }
+                           }
+                           setActiveTool('select'); 
+                         } 
+                       }}
+                       onContextMenu={(e: any) => { if(!isPreview) { if (!selectedElementIds.includes(el.id)) setSelection([el.id]); handleObjectContextMenu(e, el.id); } }}
+                     >
+                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
                          {el.type === 'text' && (
                            <textarea 
                              disabled={isPreview}

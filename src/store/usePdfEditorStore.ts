@@ -33,14 +33,15 @@ export type LeftTabType = 'thumbnails' | 'outline' | 'bookmarks' | 'annotations'
 
 interface PdfEditorState {
   elements: PdfElement[];
-  selectedElementId: string | null;
+  selectedElementId: string | null; // Primary selected element for properties
+  selectedElementIds: string[]; // All selected elements
   activeTool: EditorTool; 
   activeColor: string; 
   activeFontSize: number; 
   activeFontFamily: string; 
   
   // 클립보드 (복사/붙여넣기)
-  clipboard: PdfElement | null;
+  clipboard: PdfElement[];
   
   // Layout Navigation State
   leftSidebarOpen: boolean;
@@ -53,9 +54,14 @@ interface PdfEditorState {
   // Actions
   setElements: (elements: PdfElement[]) => void;
   addElement: (element: PdfElement) => void;
+  addElements: (elements: PdfElement[]) => void;
   updateElement: (id: string, updates: Partial<PdfElement>) => void;
+  updateElements: (updates: { id: string, changes: Partial<PdfElement> }[]) => void;
   deleteElement: (id: string) => void;
+  deleteElements: (ids: string[]) => void;
   setSelectedElementId: (id: string | null) => void;
+  setSelection: (ids: string[]) => void;
+  clearSelection: () => void;
   setActiveTool: (tool: EditorTool) => void;
   setActiveColor: (color: string) => void;
   setActiveFontSize: (size: number) => void;
@@ -69,8 +75,10 @@ interface PdfEditorState {
 
   // 클립보드 액션
   copyElement: (id: string) => void;
+  copyElements: (ids: string[]) => void;
   pasteElement: (currentPage: number) => void;
   duplicateElement: (id: string) => void;
+  duplicateElements: (ids: string[]) => void;
 
   // History Control
   pushHistory: () => void;
@@ -84,11 +92,12 @@ export const usePdfEditorStore = create<PdfEditorState>()(
     (set, get) => ({
       elements: [],
       selectedElementId: null,
+      selectedElementIds: [],
       activeTool: 'select',
       activeColor: '#0D9488',
       activeFontSize: 16,
       activeFontFamily: 'Noto Sans KR', 
-      clipboard: null,
+      clipboard: [],
       
       leftSidebarOpen: true,
       rightSidebarOpen: true,
@@ -101,7 +110,14 @@ export const usePdfEditorStore = create<PdfEditorState>()(
 
       addElement: (element) => {
         const nextElements = [...get().elements, element];
-        set({ elements: nextElements, selectedElementId: element.id });
+        set({ elements: nextElements, selectedElementId: element.id, selectedElementIds: [element.id] });
+        get().pushHistory();
+      },
+
+      addElements: (newElements) => {
+        const nextElements = [...get().elements, ...newElements];
+        const newIds = newElements.map(e => e.id);
+        set({ elements: nextElements, selectedElementId: newIds[0] || null, selectedElementIds: newIds });
         get().pushHistory();
       },
 
@@ -112,25 +128,60 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         set({ elements: nextElements });
       },
 
+      updateElements: (updates) => {
+        const updateMap = new Map(updates.map(u => [u.id, u.changes]));
+        const nextElements = get().elements.map(el => {
+          if (updateMap.has(el.id)) return { ...el, ...updateMap.get(el.id) };
+          return el;
+        });
+        set({ elements: nextElements });
+      },
+
       deleteElement: (id) => {
         const nextElements = get().elements.filter(el => el.id !== id);
-        set({ elements: nextElements, selectedElementId: null });
+        set({ 
+          elements: nextElements, 
+          selectedElementId: get().selectedElementId === id ? null : get().selectedElementId,
+          selectedElementIds: get().selectedElementIds.filter(selId => selId !== id)
+        });
+        get().pushHistory();
+      },
+
+      deleteElements: (ids) => {
+        const idSet = new Set(ids);
+        const nextElements = get().elements.filter(el => !idSet.has(el.id));
+        set({ 
+          elements: nextElements, 
+          selectedElementId: null,
+          selectedElementIds: []
+        });
         get().pushHistory();
       },
 
       setSelectedElementId: (id) => {
-        set({ selectedElementId: id });
+        set({ selectedElementId: id, selectedElementIds: id ? [id] : [] });
         if (id) {
           set({ rightSidebarOpen: true });
         }
       },
 
+      setSelection: (ids) => {
+        set({ selectedElementIds: ids, selectedElementId: ids[0] || null });
+        if (ids.length > 0) {
+          set({ rightSidebarOpen: true });
+        }
+      },
+
+      clearSelection: () => {
+        set({ selectedElementId: null, selectedElementIds: [] });
+      },
+
       setActiveTool: (tool) => {
-        // select로 전환 시에는 기존 선택 유지 (선택+이동 통합을 위해)
+        // select로 전환 시에는 기존 선택 유지
         if (tool === 'select') {
           set({ activeTool: tool });
         } else {
-          set({ activeTool: tool, selectedElementId: null });
+          set({ activeTool: tool, selectedElementId: null, selectedElementIds: [] });
         }
         if (['text', 'ai-extract', 'table-select', 'shape', 'highlight', 'pen'].includes(tool)) {
           set({ rightSidebarOpen: true });
@@ -169,14 +220,21 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       copyElement: (id) => {
         const element = get().elements.find(el => el.id === id);
         if (element) {
-          set({ clipboard: JSON.parse(JSON.stringify(element)) });
+          set({ clipboard: [JSON.parse(JSON.stringify(element))] });
+        }
+      },
+
+      copyElements: (ids) => {
+        const elements = get().elements.filter(el => ids.includes(el.id));
+        if (elements.length > 0) {
+          set({ clipboard: JSON.parse(JSON.stringify(elements)) });
         }
       },
 
       // ── 붙여넣기 (Ctrl+V) ─────────────────────────────────────
       pasteElement: (currentPage) => {
         const { clipboard } = get();
-        if (!clipboard) return;
+        if (!clipboard || clipboard.length === 0) return;
 
         // 기존 붙여넣기 횟수에 따라 오프셋 누적 (20px 간격)
         const existingCopies = get().elements.filter(
@@ -184,16 +242,17 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         ).length;
         const offset = (existingCopies % 10 + 1) * 20;
 
-        const pastedElement: PdfElement = {
-          ...JSON.parse(JSON.stringify(clipboard)),
-          id: `paste-${Date.now()}`,
-          x: clipboard.x + offset,
-          y: clipboard.y + offset,
+        const pastedElements: PdfElement[] = clipboard.map((clip, index) => ({
+          ...JSON.parse(JSON.stringify(clip)),
+          id: `paste-${Date.now()}-${index}`,
+          x: clip.x + offset,
+          y: clip.y + offset,
           page: currentPage,
-        };
+        }));
 
-        const nextElements = [...get().elements, pastedElement];
-        set({ elements: nextElements, selectedElementId: pastedElement.id });
+        const nextElements = [...get().elements, ...pastedElements];
+        const newIds = pastedElements.map(e => e.id);
+        set({ elements: nextElements, selectedElementId: newIds[0], selectedElementIds: newIds });
         get().pushHistory();
       },
 
@@ -210,8 +269,24 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         };
 
         const nextElements = [...get().elements, duplicated];
-        set({ elements: nextElements, selectedElementId: duplicated.id });
+        set({ elements: nextElements, selectedElementId: duplicated.id, selectedElementIds: [duplicated.id] });
         get().pushHistory();
+      },
+
+      duplicateElements: (ids) => {
+        const elements = get().elements.filter(el => ids.includes(el.id));
+        if (elements.length > 0) {
+          const duplicated = elements.map((el, index) => ({
+            ...JSON.parse(JSON.stringify(el)),
+            id: `dup-${Date.now()}-${index}`,
+            x: el.x + 20,
+            y: el.y + 20,
+          }));
+          const nextElements = [...get().elements, ...duplicated];
+          const newIds = duplicated.map(e => e.id);
+          set({ elements: nextElements, selectedElementId: newIds[0], selectedElementIds: newIds });
+          get().pushHistory();
+        }
       },
 
       pushHistory: () => {
