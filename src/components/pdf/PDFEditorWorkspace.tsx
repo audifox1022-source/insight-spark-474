@@ -88,6 +88,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     activeTool, setActiveTool,
     activeShapeType, setActiveShapeType,
     activeColor, setActiveColor,
+    activeLineHeight, setActiveLineHeight,
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
     moveToFront, moveToBack,
@@ -396,6 +397,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         fontFamily: isText ? 'Inter' : undefined,
         fontWeight: isText ? 'bold' : undefined,
         textAlign: isText ? 'left' : undefined,
+        lineHeight: (isText || isShape) ? 1.5 : undefined,
         shapeType: isShape ? activeShapeType : undefined,
         page: currentPage
       };
@@ -653,7 +655,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                              className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center relative z-10", el.type === 'shape' && "placeholder:text-center text-center")} 
                              value={el.content || ''} 
                              onChange={(e) => updateElement(el.id, { content: e.target.value })} 
-                             style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left') }} 
+                             style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), lineHeight: el.lineHeight || 1.5 }} 
                            />
                          )}
                          {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none relative z-10" alt="extracted-region" draggable={false} />}
@@ -726,7 +728,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                    )}
 
                    {/* TYPOGRAPHY CONTROLS */}
-                   {selectedElement.type === 'text' && (
+                   {(selectedElement.type === 'text' || selectedElement.type === 'shape') && (
                      <div className="space-y-8 pt-8 border-t border-border/40">
                         <div className="space-y-5">
                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Typography Kit</label>

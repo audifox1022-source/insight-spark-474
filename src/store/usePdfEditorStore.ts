@@ -21,6 +21,7 @@ export interface PdfElement {
   fontFamily?: string; 
   fontWeight?: string;
   textAlign?: 'left' | 'center' | 'right' | 'justify';
+  lineHeight?: number;
   page: number;
   points?: { x: number, y: number }[]; // For drawings
   src?: string; // For images
@@ -40,6 +41,7 @@ interface PdfEditorState {
   activeShapeType: 'rectangle' | 'circle' | 'triangle' | 'line';
   activeColor: string; 
   activeFontSize: number; 
+  activeLineHeight: number;
   activeFontFamily: string; 
   
   // 클립보드 (복사/붙여넣기)
@@ -68,6 +70,7 @@ interface PdfEditorState {
   setActiveShapeType: (type: 'rectangle' | 'circle' | 'triangle' | 'line') => void;
   setActiveColor: (color: string) => void;
   setActiveFontSize: (size: number) => void;
+  setActiveLineHeight: (height: number) => void;
   setActiveFontFamily: (font: string) => void; 
   
   setLeftSidebarOpen: (open: boolean) => void;
@@ -100,6 +103,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       activeShapeType: 'rectangle',
       activeColor: '#0D9488',
       activeFontSize: 16,
+      activeLineHeight: 1.5,
       activeFontFamily: 'Noto Sans KR', 
       clipboard: [],
       
@@ -213,6 +217,14 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         const { selectedElementId } = get();
         if (selectedElementId) {
           get().updateElement(selectedElementId, { fontSize: size });
+        }
+      },
+
+      setActiveLineHeight: (height) => {
+        set({ activeLineHeight: height });
+        const { selectedElementId } = get();
+        if (selectedElementId) {
+          get().updateElement(selectedElementId, { lineHeight: height });
         }
       },
 
