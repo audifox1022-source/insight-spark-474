@@ -613,7 +613,8 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                          {el.type === 'mask' && <div className="w-full h-full bg-white" />}
                       </div>
                     </Rnd>
-                 ))}
+                    );
+                 })}
               </div>
             </div>
           ) : (
