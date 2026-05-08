@@ -126,7 +126,12 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       },
 
       setActiveTool: (tool) => {
-        set({ activeTool: tool, selectedElementId: null });
+        // select로 전환 시에는 기존 선택 유지 (선택+이동 통합을 위해)
+        if (tool === 'select') {
+          set({ activeTool: tool });
+        } else {
+          set({ activeTool: tool, selectedElementId: null });
+        }
         if (['text', 'ai-extract', 'table-select', 'shape', 'highlight', 'pen'].includes(tool)) {
           set({ rightSidebarOpen: true });
         }

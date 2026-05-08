@@ -154,11 +154,19 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
   // ── 전역 키보드 단축키 ────────────────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // textarea / input 포커스 중이면 단축키 무시
       const tag = (document.activeElement as HTMLElement)?.tagName;
       if (tag === 'TEXTAREA' || tag === 'INPUT') return;
 
       const ctrl = e.ctrlKey || e.metaKey;
+
+      // 도구 전환 단축키 (Ctrl 없이)
+      if (!ctrl) {
+        if (e.key === 'v' || e.key === 'V') { setActiveTool('select'); return; }
+        if (e.key === 't' || e.key === 'T') { setActiveTool('text'); return; }
+        if (e.key === 's' || e.key === 'S') { setActiveTool('shape'); return; }
+        if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); return; }
+        if (e.key === 'h' || e.key === 'H' || e.key === ' ') { e.preventDefault(); setActiveTool('pan'); return; }
+      }
 
       if (ctrl && e.key === 'c') {
         e.preventDefault();
@@ -193,12 +201,14 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
       } else if (e.key === 'Escape') {
         setSelectedElementId(null);
         setContextMenu({ visible: false, x: 0, y: 0, targetId: null });
+        setActiveTool('select');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementId, clipboard, currentPage, copyElement, pasteElement, duplicateElement, undo, redo, deleteElement, setSelectedElementId]);
+  }, [selectedElementId, clipboard, currentPage, copyElement, pasteElement, duplicateElement, undo, redo, deleteElement, setSelectedElementId, setActiveTool]);
+
 
   // ── 컨텍스트 메뉴 닫기 (바깥 클릭) ───────────────────────────
   useEffect(() => {
@@ -226,7 +236,8 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
       return;
     }
 
-    if (['select', 'move-object'].includes(activeTool)) {
+    if (activeTool === 'select') {
+      // 빈 캔버스 클릭 시 선택 해제
       if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
         setSelectedElementId(null);
       }
@@ -284,7 +295,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
       };
       addElement(newEl);
       pushHistory();
-      setActiveTool('move-object');
+      setActiveTool('select'); // 생성 후 select로 자동 전환
     }
     setIsCreating(false); setTempRect(null);
   };
@@ -420,14 +431,13 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
 
         <div className="flex items-center gap-1.5 bg-[#FFFFFF] p-1 rounded-xl border border-[#E2E8F0] shadow-sm">
            <div className="flex gap-1 pr-1 border-r border-[#E2E8F0]">
-              <TooltipBtn tool="select" icon={MousePointer2} label="개체 선택" />
-              <TooltipBtn tool="move-object" icon={Move} label="위치 이동" />
-              <TooltipBtn tool="pan" icon={Hand} label="화면 스크롤" />
+              <TooltipBtn tool="select" icon={MousePointer2} label="선택·이동·리사이즈 (V)" />
+              <TooltipBtn tool="pan" icon={Hand} label="화면 스크롤 (Space)" />
            </div>
            <div className="flex gap-1 px-1">
-              <TooltipBtn tool="text" icon={Type} label="텍스트 추가" />
-              <TooltipBtn tool="shape" icon={Square} label="도형 그리기" />
-              <TooltipBtn tool="eraser" icon={Eraser} label="화이트아웃 지우개" />
+              <TooltipBtn tool="text" icon={Type} label="텍스트 추가 (T)" />
+              <TooltipBtn tool="shape" icon={Square} label="도형 그리기 (S)" />
+              <TooltipBtn tool="eraser" icon={Eraser} label="화이트아웃 (E)" />
            </div>
         </div>
 
@@ -481,7 +491,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
            </div>
         </aside>
 
-        <main ref={scrollContainerRef} className={cn("flex-1 bg-[#1E293B] overflow-auto flex flex-col items-center custom-scrollbar p-16 transition-all", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default", isPreview && "p-8")} onContextMenu={handleCanvasContextMenu}>
+        <main ref={scrollContainerRef} className={cn("flex-1 bg-[#1E293B] overflow-auto flex flex-col items-center custom-scrollbar p-16 transition-all", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default", isPreview && "p-8")} onContextMenu={handleCanvasContextMenu} onClick={() => { if(activeTool === 'select') setSelectedElementId(null); }}>
           {pdfFile ? (
             <div ref={containerRef} className={cn("relative bg-[#FFFFFF] shadow-[0_64px_128px_-32px_rgba(0,0,0,0.7)] transition-all select-none rounded-[1px]", isPreview ? "border-none" : "border border-slate-700")}
               onMouseDown={handleMouseDown}
@@ -497,8 +507,8 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
                  {objects.filter(el => el.page === currentPage).map((el) => (
                     <Rnd
                       key={el.id}
-                      disableDragging={isPreview || activeTool !== 'move-object'}
-                      enableResizing={!isPreview && activeTool === 'move-object' && selectedElementId === el.id}
+                      disableDragging={isPreview || ['pan', 'text', 'shape', 'eraser'].includes(activeTool)}
+                      enableResizing={!isPreview && activeTool === 'select' && selectedElementId === el.id}
                       resizeHandleComponent={{ topLeft: <ResizeHandle direction="topLeft"/>, topRight: <ResizeHandle direction="topRight"/>, bottomLeft: <ResizeHandle direction="bottomLeft"/>, bottomRight: <ResizeHandle direction="bottomRight"/> }}
                       position={{ x: el.x, y: el.y }} size={{ width: el.width, height: el.height }}
                       onDragStop={(e, d) => { updateElement(el.id, { x: d.x, y: d.y }); pushHistory(); }}
