@@ -86,6 +86,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     elements: objects, addElement, addElements, updateElement, updateElements, deleteElement, deleteElements,
     selectedElementId, selectedElementIds, setSelectedElementId, setSelection, clearSelection,
     activeTool, setActiveTool,
+    activeShapeType, setActiveShapeType,
     activeColor, setActiveColor,
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
@@ -395,6 +396,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         fontFamily: isText ? 'Inter' : undefined,
         fontWeight: isText ? 'bold' : undefined,
         textAlign: isText ? 'left' : undefined,
+        shapeType: isShape ? activeShapeType : undefined,
         page: currentPage
       };
       addElement(newEl);
@@ -622,19 +624,40 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                        }}
                        onContextMenu={(e: any) => { if(!isPreview) { if (!selectedElementIds.includes(el.id)) setSelection([el.id]); handleObjectContextMenu(e, el.id); } }}
                      >
-                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={{ backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : (el.type === 'shape' && !isPreview ? `1px solid ${el.color}` : 'none') }}>
+                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={el.type !== 'shape' ? { backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : 'none' } : {}}>
+                         {/* SHAPE BACKGROUND RENDERING */}
+                         {el.type === 'shape' && (
+                           <div className="absolute inset-0 pointer-events-none">
+                             {el.shapeType === 'circle' && (
+                               <div className="w-full h-full" style={{ borderRadius: '50%', backgroundColor: el.fillColor || 'transparent', border: `${el.strokeWidth || 1}px solid ${el.color}` }} />
+                             )}
+                             {el.shapeType === 'triangle' && (
+                               <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                 <polygon points="50,0 100,100 0,100" vectorEffect="non-scaling-stroke" fill={el.fillColor || 'transparent'} stroke={el.color} strokeWidth={el.strokeWidth || 1} strokeLinejoin="round" />
+                               </svg>
+                             )}
+                             {el.shapeType === 'line' && (
+                               <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                                 <line x1="0" y1="50%" x2="100%" y2="50%" vectorEffect="non-scaling-stroke" stroke={el.color} strokeWidth={el.strokeWidth || 2} />
+                               </svg>
+                             )}
+                             {(!el.shapeType || el.shapeType === 'rectangle') && (
+                               <div className="w-full h-full" style={{ backgroundColor: el.fillColor || 'transparent', border: `${el.strokeWidth || 1}px solid ${el.color}` }} />
+                             )}
+                           </div>
+                         )}
                          {(el.type === 'text' || el.type === 'shape') && (
                            <textarea 
                              disabled={isPreview}
                              placeholder={el.type === 'shape' ? "도형 텍스트 입력 (선택)" : ""}
-                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center", el.type === 'shape' && "placeholder:text-center text-center")} 
+                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center relative z-10", el.type === 'shape' && "placeholder:text-center text-center")} 
                              value={el.content || ''} 
                              onChange={(e) => updateElement(el.id, { content: e.target.value })} 
                              style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left') }} 
                            />
                          )}
-                         {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none" alt="extracted-region" draggable={false} />}
-                         {el.type === 'mask' && <div className="w-full h-full bg-white" />}
+                         {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none relative z-10" alt="extracted-region" draggable={false} />}
+                         {el.type === 'mask' && <div className="w-full h-full bg-white relative z-10" />}
                       </div>
                     </Rnd>
                     );
@@ -682,6 +705,25 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                         <Button variant="outline" className="flex-1 h-11 text-xs font-black gap-2 rounded-xl border-border/60 hover:bg-muted" onClick={() => moveToBack(selectedElement.id)}><ArrowDownToLine className="w-4 h-4 text-primary" /> Back</Button>
                       </div>
                    </div>
+
+                   {/* SHAPE CONTROLS */}
+                   {selectedElement.type === 'shape' && (
+                     <div className="space-y-4 pt-8 border-t border-border/40">
+                       <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Shape Type</label>
+                       <div className="grid grid-cols-2 gap-3">
+                         {['rectangle', 'circle', 'triangle', 'line'].map(type => (
+                           <Button 
+                             key={`change-${type}`}
+                             variant={selectedElement.shapeType === type || (!selectedElement.shapeType && type === 'rectangle') ? 'default' : 'outline'}
+                             className={cn("h-10 font-black text-xs capitalize", (selectedElement.shapeType === type || (!selectedElement.shapeType && type === 'rectangle')) ? "shadow-glow" : "")}
+                             onClick={() => updateElement(selectedElement.id, { shapeType: type as any })}
+                           >
+                             {type}
+                           </Button>
+                         ))}
+                       </div>
+                     </div>
+                   )}
 
                    {/* TYPOGRAPHY CONTROLS */}
                    {selectedElement.type === 'text' && (
@@ -775,11 +817,31 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                    </div>
                 </div>
              ) : (
-                <div className="py-60 text-center animate-in fade-in zoom-in duration-700">
-                   <div className="w-20 h-20 bg-muted/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
-                      <Focus className="w-8 h-8 text-muted-foreground/30"/>
-                   </div>
-                   <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground leading-relaxed opacity-40">Select Target Instance<br/>To Inspect</p>
+                <div className="p-8 space-y-12 animate-in fade-in zoom-in duration-300">
+                   {activeTool === 'shape' ? (
+                     <div className="space-y-4">
+                       <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Shape Type</label>
+                       <div className="grid grid-cols-2 gap-3">
+                         {['rectangle', 'circle', 'triangle', 'line'].map(type => (
+                           <Button 
+                             key={`create-${type}`}
+                             variant={activeShapeType === type ? 'default' : 'outline'}
+                             className={cn("h-12 font-black text-xs capitalize", activeShapeType === type ? "shadow-glow" : "")}
+                             onClick={() => setActiveShapeType(type as any)}
+                           >
+                             {type}
+                           </Button>
+                         ))}
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="py-40 text-center">
+                        <div className="w-20 h-20 bg-muted/40 rounded-[2.5rem] flex items-center justify-center mx-auto mb-6">
+                           <Focus className="w-8 h-8 text-muted-foreground/30"/>
+                        </div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-muted-foreground leading-relaxed opacity-40">Select Target Instance<br/>To Inspect</p>
+                     </div>
+                   )}
                 </div>
              )}
            </ScrollArea>

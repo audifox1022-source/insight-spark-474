@@ -24,6 +24,7 @@ export interface PdfElement {
   page: number;
   points?: { x: number, y: number }[]; // For drawings
   src?: string; // For images
+  shapeType?: 'rectangle' | 'circle' | 'triangle' | 'line';
 }
 
 // 4-Panel Grid를 위한 확장된 툴
@@ -36,6 +37,7 @@ interface PdfEditorState {
   selectedElementId: string | null; // Primary selected element for properties
   selectedElementIds: string[]; // All selected elements
   activeTool: EditorTool; 
+  activeShapeType: 'rectangle' | 'circle' | 'triangle' | 'line';
   activeColor: string; 
   activeFontSize: number; 
   activeFontFamily: string; 
@@ -63,6 +65,7 @@ interface PdfEditorState {
   setSelection: (ids: string[]) => void;
   clearSelection: () => void;
   setActiveTool: (tool: EditorTool) => void;
+  setActiveShapeType: (type: 'rectangle' | 'circle' | 'triangle' | 'line') => void;
   setActiveColor: (color: string) => void;
   setActiveFontSize: (size: number) => void;
   setActiveFontFamily: (font: string) => void; 
@@ -94,6 +97,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       selectedElementId: null,
       selectedElementIds: [],
       activeTool: 'select',
+      activeShapeType: 'rectangle',
       activeColor: '#0D9488',
       activeFontSize: 16,
       activeFontFamily: 'Noto Sans KR', 
@@ -185,6 +189,14 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         }
         if (['text', 'ai-extract', 'table-select', 'shape', 'highlight', 'pen'].includes(tool)) {
           set({ rightSidebarOpen: true });
+        }
+      },
+
+      setActiveShapeType: (type) => {
+        set({ activeShapeType: type });
+        const { selectedElementId } = get();
+        if (selectedElementId) {
+          get().updateElement(selectedElementId, { shapeType: type });
         }
       },
 
