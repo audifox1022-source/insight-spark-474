@@ -424,8 +424,15 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         {/* CENTRAL WORKSPACE */}
         <main ref={scrollContainerRef} onContextMenu={handleCanvasContextMenu} className={cn("flex-1 bg-slate-100 dark:bg-slate-900 overflow-auto flex flex-col items-center custom-scrollbar p-12 lg:p-20 transition-all relative select-none", activeTool === 'pan' ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-default")}>
           {pdfFile ? (
-            <div ref={containerRef} className="relative bg-white shadow-[0_48px_80px_-32px_rgba(0,0,0,0.15)] transition-all rounded-sm border border-border/40">
+            <div
+              ref={containerRef}
+              className="relative bg-white shadow-[0_48px_80px_-32px_rgba(0,0,0,0.15)] transition-all rounded-sm border border-border/40"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+            >
               <canvas ref={canvasRef} className="block" />
+
               
               {/* CREATION MASK */}
               {!isPreview && isCreating && tempRect && (
