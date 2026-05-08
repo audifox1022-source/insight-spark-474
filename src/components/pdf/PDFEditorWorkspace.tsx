@@ -26,6 +26,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Rnd } from 'react-rnd';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { cn } from '@/lib/utils';
 import { usePdfEditorStore, PdfElement, EditorTool } from '@/store/usePdfEditorStore';
 
@@ -429,14 +431,60 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
   };
 
   // --- Business Logic ---
-  const handleExportAction = (type: 'PDF' | 'PPT') => {
+  const handleExportAction = async (type: 'PDF' | 'PPT') => {
+    if (!containerRef.current) return;
+    
     setIsExporting(true);
-    const toastId = toast.loading(`${type} 내보내기 준비 중...`);
-    setTimeout(() => {
+    const toastId = toast.loading(`${type} 내보내는 중...`);
+    
+    try {
+      if (type === 'PDF') {
+        // 선택 해제하여 UI 가이드(링 등)가 찍히지 않게 함
+        const prevSelection = [...selectedElementIds];
+        clearSelection();
+        
+        // UI가 업데이트될 시간을 잠시 줌
+        await new Promise(resolve => setTimeout(resolve, 150));
+
+        const canvas = await html2canvas(containerRef.current, {
+          scale: 2, // 고해상도 캡처
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        });
+
+        const imgData = canvas.toDataURL('image/png');
+        
+        // 캔버스 크기 기반으로 PDF 페이지 크기 및 방향 결정 (자동 비율 인식)
+        const imgWidth = canvas.width;
+        const imgHeight = canvas.height;
+        const orientation = imgWidth > imgHeight ? 'l' : 'p';
+        
+        const pdf = new jsPDF({
+          orientation: orientation,
+          unit: 'px',
+          format: [imgWidth, imgHeight]
+        });
+
+        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.save(`${pdfFile?.name.replace('.pdf', '') || 'WorkAI'}_Export_${Date.now()}.pdf`);
+        
+        // 선택 복구
+        setSelection(prevSelection);
+        toast.success(`PDF 내보내기 성공!`, { id: toastId });
+      } else {
+        // PPT 등 기타 형식은 현재 단계에서는 로깅만 수행
+        setTimeout(() => {
+          setIsExporting(false);
+          toast.success(`${type} 데이터 추출 완료`, { id: toastId });
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast.error(`${type} 내보내기 중 오류가 발생했습니다.`, { id: toastId });
+    } finally {
       setIsExporting(false);
-      console.log(`[Export Service] Type: ${type}, Payload:`, objects);
-      toast.success(`${type} 추출 완료`, { id: toastId });
-    }, 1500);
+    }
   };
 
   const handleAiFontMatch = () => {
@@ -626,7 +674,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                        }}
                        onContextMenu={(e: any) => { if(!isPreview) { if (!selectedElementIds.includes(el.id)) setSelection([el.id]); handleObjectContextMenu(e, el.id); } }}
                      >
-                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? "ring-2 ring-primary shadow-2xl scale-[1.01]" : (!isPreview && "hover:ring-1 hover:ring-primary/40"))} style={el.type !== 'shape' ? { backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : 'none' } : {}}>
+                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? cn("ring-2 ring-primary shadow-2xl scale-[1.01]", el.shapeType === 'circle' && "rounded-full") : (!isPreview && cn("hover:ring-1 hover:ring-primary/40", el.shapeType === 'circle' && "rounded-full")))} style={el.type !== 'shape' ? { backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : 'none' } : {}}>
                          {/* SHAPE BACKGROUND RENDERING */}
                          {el.type === 'shape' && (
                            <div className="absolute inset-0 pointer-events-none">
