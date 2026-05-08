@@ -69,6 +69,17 @@ const ColorSwatch = ({ color, active, onClick }: { color: string, active: boolea
 
 interface ContextMenuState { visible: boolean; x: number; y: number; targetId: string | null; }
 
+interface PdfTextItem {
+  id: string;
+  str: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fontSize: number;
+  fontFamily: string;
+}
+
 // --- Main Engine Component ---
 export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }) => {
   const { 
@@ -101,6 +112,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
   const [creationStart, setCreationStart] = useState({ x: 0, y: 0 });
   const [tempRect, setTempRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, targetId: null });
+  const [pdfTextItems, setPdfTextItems] = useState<PdfTextItem[]>([]);
 
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -143,6 +155,35 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         canvasRef.current.height = viewport.height;
         canvasRef.current.width = viewport.width;
         await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+        // 원본 텍스트 추출 로직 (AI 객체화)
+        try {
+          const textContent = await page.getTextContent();
+          const extractedItems: PdfTextItem[] = [];
+          
+          textContent.items.forEach((item: any, index: number) => {
+            if (!item.str || item.str.trim() === '') return;
+            // PDF 좌표계를 Canvas(뷰포트) 좌표계로 변환
+            // item.transform: [scaleX, skewY, skewX, scaleY, translateX, translateY]
+            const [x, y] = viewport.convertToViewportPoint(item.transform[4], item.transform[5]);
+            // scaleY 값을 통해 폰트 크기 계산
+            const fontSize = Math.abs(item.transform[3]) * renderScale; 
+            
+            extractedItems.push({
+              id: `orig-text-${currentPage}-${index}`,
+              str: item.str,
+              x: x,
+              y: y - fontSize, // y는 baseline 기준이므로 top 좌표를 구하기 위해 fontSize만큼 뺌
+              width: item.width * renderScale,
+              height: fontSize * 1.2,
+              fontSize: fontSize,
+              fontFamily: item.fontName || 'sans-serif',
+            });
+          });
+          setPdfTextItems(extractedItems);
+        } catch (e) {
+          console.error("Text extraction failed", e);
+        }
       }
     } catch (error) { console.error("Renderer Error:", error); }
   }, [pdfDocument, currentPage, renderScale]);
@@ -200,10 +241,55 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       return;
     }
 
-    // [Select Tool] 빈 캔버스 클릭 시 선택 해제
+    // [Select Tool] 빈 캔버스 클릭 시 선택 해제 또는 원본 텍스트 추출
     if (activeTool === 'select') {
       if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'CANVAS') {
-        setSelectedElementId(null);
+        let extracted = false;
+        
+        // 클릭한 위치에 원본 PDF 텍스트가 있는지 확인
+        for (let i = 0; i < pdfTextItems.length; i++) {
+          const item = pdfTextItems[i];
+          const padding = 5; // 클릭 보정
+          
+          if (
+            pos.x >= item.x - padding &&
+            pos.x <= item.x + item.width + padding &&
+            pos.y >= item.y - padding &&
+            pos.y <= item.y + item.height + padding
+          ) {
+            // 원본 텍스트를 편집 가능한 객체(PdfElement)로 변환
+            const newEl: PdfElement = {
+              id: `text-${Date.now()}`,
+              type: 'text',
+              x: item.x,
+              y: item.y,
+              width: Math.max(item.width + 10, 50),
+              height: Math.max(item.height + 10, 20),
+              content: item.str,
+              color: '#000000',
+              fillColor: '#FFFFFF', // 원본 텍스트를 가리기 위해 흰색 배경 사용
+              strokeWidth: 0,
+              fontSize: item.fontSize,
+              fontFamily: 'Inter',
+              fontWeight: 'normal',
+              textAlign: 'left',
+              page: currentPage
+            };
+            
+            addElement(newEl);
+            pushHistory();
+            setSelectedElementId(newEl.id);
+            // 한 번 추출한 텍스트는 다시 중복 추출되지 않도록 목록에서 제거
+            setPdfTextItems(prev => prev.filter(t => t.id !== item.id));
+            extracted = true;
+            toast.success("원본 텍스트를 편집 가능한 객체로 추출했습니다.", { duration: 1500 });
+            break;
+          }
+        }
+
+        if (!extracted) {
+          setSelectedElementId(null);
+        }
       }
       return;
     }
