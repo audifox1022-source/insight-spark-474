@@ -652,7 +652,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                            <textarea 
                              disabled={isPreview}
                              placeholder={el.type === 'shape' ? "도형 텍스트 입력 (선택)" : ""}
-                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center relative z-10", el.type === 'shape' && "placeholder:text-center text-center")} 
+                             className={cn("w-full h-full bg-transparent border-none outline-none resize-none p-2 focus:ring-0 leading-normal font-bold flex items-center justify-center relative z-10 overflow-hidden", el.type === 'shape' && "placeholder:text-center text-center")} 
                              value={el.content || ''} 
                              onChange={(e) => updateElement(el.id, { content: e.target.value })} 
                              style={{ color: el.color, fontSize: (el.fontSize || 16) + 'px', fontFamily: el.fontFamily || 'Inter', fontWeight: el.fontWeight || 'bold', textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), lineHeight: el.lineHeight || 1.5 }} 
