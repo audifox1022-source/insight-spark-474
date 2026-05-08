@@ -674,7 +674,16 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                        }}
                        onContextMenu={(e: any) => { if(!isPreview) { if (!selectedElementIds.includes(el.id)) setSelection([el.id]); handleObjectContextMenu(e, el.id); } }}
                      >
-                       <div className={cn("w-full h-full relative transition-all duration-200", !isPreview && isSelected ? cn("ring-2 ring-primary shadow-2xl scale-[1.01]", el.shapeType === 'circle' && "rounded-full") : (!isPreview && cn("hover:ring-1 hover:ring-primary/40", el.shapeType === 'circle' && "rounded-full")))} style={el.type !== 'shape' ? { backgroundColor: el.fillColor || 'transparent', border: el.strokeWidth && !isPreview ? `${el.strokeWidth}px solid ${el.color}` : 'none' } : {}}>
+                       <div 
+                          className={cn(
+                            "w-full h-full relative transition-all duration-200", 
+                            !isPreview && isSelected ? cn("ring-2 ring-primary shadow-2xl scale-[1.01]", el.shapeType === 'circle' && "rounded-full") : (!isPreview && cn("hover:ring-1 hover:ring-primary/40", el.shapeType === 'circle' && "rounded-full"))
+                          )} 
+                          style={el.type !== 'shape' ? { 
+                            backgroundColor: el.fillColor || 'transparent', 
+                            border: el.strokeWidth ? `${el.strokeWidth}px solid ${el.color}` : 'none',
+                            borderRadius: (el.borderRadius || 0) + 'px'
+                          } : {}}>
                          {/* SHAPE BACKGROUND RENDERING */}
                          {el.type === 'shape' && (
                            <div className="absolute inset-0 pointer-events-none">
@@ -854,19 +863,24 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                            </div>
 
                            <div className="grid grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                 <p className="text-[9px] font-black text-muted-foreground uppercase px-1">Weight</p>
-                                 <select value={selectedElement.fontWeight || 'bold'} onChange={(e) => updateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full h-11 bg-muted/40 border border-border/60 rounded-xl px-2 text-[11px] font-black outline-none cursor-pointer">
-                                    <option value="normal">Regular</option><option value="medium">Medium</option><option value="bold">Bold</option><option value="black">Black</option>
-                                 </select>
-                              </div>
-                              <div className="space-y-2">
-                                 <p className="text-[9px] font-black text-muted-foreground uppercase px-1">Size (PT)</p>
-                                 <input type="number" value={selectedElement.fontSize || 18} onChange={(e) => updateElement(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full h-11 bg-muted/40 border border-border/60 rounded-xl px-4 text-xs font-black focus:ring-2 focus:ring-primary/20 transition-all" />
-                              </div>
+                           <div className="space-y-2">
+                           <p className="text-[9px] font-black text-muted-foreground uppercase px-1">Weight</p>
+                           <select value={selectedElement.fontWeight || 'bold'} onChange={(e) => updateElement(selectedElement.id, { fontWeight: e.target.value })} className="w-full h-11 bg-muted/40 border border-border/60 rounded-xl px-2 text-[11px] font-black outline-none cursor-pointer">
+                           <option value="normal">Regular</option><option value="medium">Medium</option><option value="bold">Bold</option><option value="black">Black</option>
+                           </select>
                            </div>
-                        </div>
-                     </div>
+                           <div className="space-y-2">
+                           <p className="text-[9px] font-black text-muted-foreground uppercase px-1">Size (PT)</p>
+                           <input type="number" value={selectedElement.fontSize || 18} onChange={(e) => updateElement(selectedElement.id, { fontSize: Number(e.target.value) })} className="w-full h-11 bg-muted/40 border border-border/60 rounded-xl px-4 text-xs font-black focus:ring-2 focus:ring-primary/20 transition-all" />
+                           </div>
+                           </div>
+
+                                 <div className="space-y-5">
+                               <div className="flex justify-between items-end mb-1"><label className="text-[9px] font-black uppercase text-muted-foreground break-keep">Line Height (행간)</label><span className="text-primary text-xs font-black">{selectedElement.lineHeight || 1.5}</span></div>
+                               <input type="range" min="1" max="3" step="0.1" value={selectedElement.lineHeight || 1.5} onChange={(e) => updateElement(selectedElement.id, { lineHeight: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
+                            </div>
+                         </div>
+                      </div>
                    )}
 
                    {/* STYLE SWATCHES */}
@@ -879,17 +893,29 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                            ))}
                         </div>
                       </div>
+                      
                       <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Main Stroke & Color</label>
+                         <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Border & Shape Style</label>
+                         <div className="space-y-5">
+                            <div className="flex justify-between items-end mb-1"><label className="text-[9px] font-black uppercase text-muted-foreground break-keep">Stroke Width</label><span className="text-primary text-xs font-black">{selectedElement.strokeWidth || 0}PX</span></div>
+                            <input type="range" min="0" max="20" step="1" value={selectedElement.strokeWidth || 0} onChange={(e) => updateElement(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
+                         </div>
+                         
+                         {selectedElement.type !== 'shape' && (
+                           <div className="space-y-5">
+                              <div className="flex justify-between items-end mb-1"><label className="text-[9px] font-black uppercase text-muted-foreground break-keep">Corner Radius</label><span className="text-primary text-xs font-black">{selectedElement.borderRadius || 0}PX</span></div>
+                              <input type="range" min="0" max="50" step="1" value={selectedElement.borderRadius || 0} onChange={(e) => updateElement(selectedElement.id, { borderRadius: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
+                           </div>
+                         )}
+                       </div>
+
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest break-keep">Main Color</label>
                         <div className="grid grid-cols-4 gap-3">
                            {QUICK_COLORS.filter(c => c !== 'transparent').map(c => (
                              <ColorSwatch key={`s-${c}`} color={c} active={selectedElement.color === c} onClick={() => updateElement(selectedElement.id, { color: c })} />
                            ))}
                         </div>
-                      </div>
-                      <div className="space-y-5">
-                      <div className="flex justify-between items-end mb-1"><label className="text-[10px] font-black uppercase text-muted-foreground break-keep">Stroke Width</label><span className="text-primary text-xs font-black">{selectedElement.strokeWidth || 0}PX</span></div>
-                      <input type="range" min="0" max="20" step="1" value={selectedElement.strokeWidth || 0} onChange={(e) => updateElement(selectedElement.id, { strokeWidth: Number(e.target.value) })} className="w-full accent-primary cursor-pointer h-2 rounded-full bg-muted appearance-none" />
                       </div>
 
                        {selectedElement.type === 'shape' && (
