@@ -18,7 +18,7 @@ import {
   Layers, List, Bookmark, MessageSquare, GripVertical, Focus,
   HelpCircle, MoreHorizontal, Check, MonitorPlay, Move, 
   Eye, EyeOff, ArrowUpToLine, ArrowDownToLine, FileDown,
-  LetterText, Scissors, Headphones
+  LetterText, Scissors, Headphones, Printer
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -576,10 +576,25 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       </header>
 
       {isPreview && (
-        <div className="fixed top-8 right-8 z-[1000] animate-in fade-in duration-300">
-           <Button variant="secondary" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur shadow-2xl rounded-full h-12 px-8 font-black border-border/60" onClick={() => setIsPreview(false)}>
-              <EyeOff className="w-4 h-4 text-primary mr-3" /> Exit Preview
-           </Button>
+        <div className="fixed top-8 right-8 z-[1000] flex gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+           <div className="flex bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] rounded-3xl p-2 border border-white/20 dark:border-slate-800/60 gap-2 items-center">
+              <Button 
+                disabled={isExporting} 
+                onClick={() => handleExportAction('PDF')} 
+                className="h-12 px-7 bg-primary hover:bg-primary/90 text-white font-black text-xs gap-3 rounded-2xl shadow-glow transition-all active:scale-95 group"
+              >
+                 {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4 group-hover:scale-110 transition-transform" />}
+                 PDF 출력 / 내보내기
+              </Button>
+              <div className="w-px h-8 bg-border/40 mx-2" />
+              <Button 
+                variant="ghost" 
+                className="h-12 px-7 font-black text-xs gap-3 rounded-2xl hover:bg-primary/10 text-primary transition-all" 
+                onClick={() => setIsPreview(false)}
+              >
+                 <EyeOff className="w-4 h-4" /> 편집 모드
+              </Button>
+           </div>
         </div>
       )}
 
