@@ -697,46 +697,65 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                            </div>
                          )}
                          {(el.type === 'text' || el.type === 'shape') && (
-                            <div 
-                              className="absolute inset-0 flex items-center justify-center z-10"
-                              style={{ padding: (el.textPadding ?? (el.type === 'shape' ? 10 : 0)) + 'px' }}
-                            >
-                              <textarea 
-                                disabled={isPreview}
-                                placeholder={el.type === 'shape' ? "도형 텍스트 입력" : ""}
-                                className={cn(
-                                  "w-full bg-transparent border-none outline-none resize-none focus:ring-0 leading-normal font-bold relative scrollbar-hide",
-                                  el.type === 'shape' ? "text-center" : "h-full"
-                                )} 
-                                value={el.content || ''} 
-                                onChange={(e) => updateElement(el.id, { content: e.target.value })} 
-                                onInput={(e) => {
-                                  if (el.type === 'shape') {
-                                    const target = e.currentTarget;
-                                    target.style.height = 'auto';
-                                    target.style.height = target.scrollHeight + 'px';
-                                  }
-                                }}
-                                ref={(ref) => {
-                                  if (ref && el.type === 'shape') {
-                                    ref.style.height = 'auto';
-                                    ref.style.height = ref.scrollHeight + 'px';
-                                  }
-                                }}
-                                style={{ 
-                                  color: el.color, 
-                                  fontSize: (el.fontSize || 16) + 'px', 
-                                  fontFamily: el.fontFamily || 'Inter', 
-                                  fontWeight: el.fontWeight || 'bold', 
-                                  textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), 
-                                  lineHeight: el.lineHeight || 1.5,
-                                  height: el.type === 'shape' ? 'auto' : '100%',
-                                  maxHeight: '100%',
-                                  overflowY: 'auto'
-                                }} 
-                              />
+                         <div 
+                         className="absolute inset-0 flex items-center justify-center z-10"
+                         style={{ padding: (el.textPadding ?? (el.type === 'shape' ? 10 : 0)) + 'px' }}
+                         >
+                         {isExporting ? (
+                         <div 
+                           style={{ 
+                             color: el.color, 
+                           fontSize: (el.fontSize || 16) + 'px', 
+                           fontFamily: el.fontFamily || 'Inter', 
+                             fontWeight: el.fontWeight || 'bold', 
+                             textAlign: (el.textAlign || (el.type === 'shape' ? 'center' : 'left')) as any, 
+                             lineHeight: el.lineHeight || 1.5,
+                             whiteSpace: 'pre-wrap',
+                           wordBreak: 'break-word',
+                         width: '100%',
+                         height: 'auto'
+                         }}
+                         >
+                           {el.content}
+                         </div>
+                         ) : (
+                         <textarea 
+                         disabled={isPreview}
+                         placeholder={el.type === 'shape' ? "도형 텍스트 입력" : ""}
+                           className={cn(
+                             "w-full bg-transparent border-none outline-none resize-none focus:ring-0 leading-normal font-bold relative scrollbar-hide",
+                           el.type === 'shape' ? "text-center" : "h-full"
+                         )} 
+                         value={el.content || ''} 
+                         onChange={(e) => updateElement(el.id, { content: e.target.value })} 
+                         onInput={(e) => {
+                           if (el.type === 'shape') {
+                             const target = e.currentTarget;
+                             target.style.height = 'auto';
+                             target.style.height = target.scrollHeight + 'px';
+                             }
+                             }}
+                               ref={(ref) => {
+                                   if (ref && el.type === 'shape') {
+                                      ref.style.height = 'auto';
+                                      ref.style.height = ref.scrollHeight + 'px';
+                                    }
+                                  }}
+                                  style={{ 
+                                    color: el.color, 
+                                    fontSize: (el.fontSize || 16) + 'px', 
+                                    fontFamily: el.fontFamily || 'Inter', 
+                                    fontWeight: el.fontWeight || 'bold', 
+                                    textAlign: el.textAlign || (el.type === 'shape' ? 'center' : 'left'), 
+                                    lineHeight: el.lineHeight || 1.5,
+                                    height: el.type === 'shape' ? 'auto' : '100%',
+                                    maxHeight: '100%',
+                                    overflowY: 'auto'
+                                  }} 
+                                />
+                              )}
                             </div>
-                         )}
+                          )}
                          {el.type === 'image' && el.src && <img src={el.src} className="w-full h-full object-fill pointer-events-none relative z-10" alt="extracted-region" draggable={false} />}
                          {el.type === 'mask' && <div className="w-full h-full bg-white relative z-10" />}
                       </div>
