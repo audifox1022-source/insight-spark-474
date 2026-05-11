@@ -33,8 +33,7 @@ import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
 const Index = () => {
   const navigate = useNavigate()
 
-  // ── [Debug Tracker] ──
-  console.log('Rendering [Index] Component Startup Check');
+
 
   type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
@@ -69,14 +68,9 @@ const Index = () => {
   // ── [Safe Guard for usePresentation] ──
   const presentationHooks = usePresentation();
   
-  // ── [Debug Tracker] ──
-  useEffect(() => {
-    console.log('Index Mounted. activeApp:', activeApp, 'theme:', theme);
-  }, []);
 
   // ── [Rendering Guard] ──
   if (!presentationHooks) {
-    console.warn('Index.tsx: presentationHooks is null, rendering LoadingScreen');
     return <AppLoadingScreen />;
   }
 

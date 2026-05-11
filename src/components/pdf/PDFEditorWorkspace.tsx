@@ -473,11 +473,8 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         setSelection(prevSelection);
         toast.success(`PDF 내보내기 성공!`, { id: toastId });
       } else {
-        // PPT 등 기타 형식은 현재 단계에서는 로깅만 수행
-        setTimeout(() => {
-          setIsExporting(false);
-          toast.success(`${type} 데이터 추출 완료`, { id: toastId });
-        }, 1500);
+        // PPT 내보내기는 현재 준비 중인 기능
+        toast.info('PPT 내보내기 기능은 곧 지원될 예정입니다.', { id: toastId, duration: 4000 });
       }
     } catch (error) {
       console.error('Export Error:', error);
@@ -560,6 +557,30 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         </div>
 
         <div className="flex items-center gap-3 min-w-[240px] justify-end">
+          {/* 페이지 이동 UI */}
+          {pdfFile && numPages > 0 && (
+            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
+              <Button
+                variant="ghost" size="icon"
+                className="w-7 h-7 rounded-lg hover:bg-muted"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </Button>
+              <span className="text-[11px] font-black text-muted-foreground px-2 min-w-[60px] text-center">
+                {currentPage} / {numPages}
+              </span>
+              <Button
+                variant="ghost" size="icon"
+                className="w-7 h-7 rounded-lg hover:bg-muted"
+                disabled={currentPage >= numPages}
+                onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+          )}
           <Button variant="ghost" size="sm" className="h-8 text-muted-foreground font-black text-[11px] gap-2 rounded-xl hover:bg-muted" onClick={() => setIsPreview(!isPreview)}>
              {isPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
              {isPreview ? '편집' : '미리보기'}
@@ -568,9 +589,20 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={undo}><Undo2 className="w-3.5 h-3.5" /></Button>
              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={redo}><RotateCw className="w-3.5 h-3.5" /></Button>
           </div>
+          {/* 우측 사이드바 재열기 버튼 - 닫힌 상태일 때만 표시 */}
+          {!rightSidebarOpen && !isPreview && (
+            <Button
+              variant="ghost" size="icon"
+              className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground"
+              onClick={() => setRightSidebarOpen(true)}
+              title="속성 패널 열기"
+            >
+              <PanelRightOpen className="w-3.5 h-3.5" />
+            </Button>
+          )}
           <Button disabled={isExporting} onClick={() => handleExportAction('PDF')} className="h-9 px-5 bg-primary hover:bg-primary/90 text-white font-black text-xs gap-2 rounded-xl shadow-glow transition-all active:scale-95">
              {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-             내보내기
+             PDF 내보내기
           </Button>
         </div>
       </header>

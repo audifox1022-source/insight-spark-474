@@ -9,8 +9,9 @@ import {
   Mic, Music, FileAudio, Upload, Loader2, Sparkles, 
   CheckCircle2, AlertCircle, Play, Pause, Trash2, Headphones,
   BarChart3, FileText, Download, Share2, ArrowLeft, History, Settings,
-  CloudUpload, Maximize2, ShieldCheck
+  CloudUpload
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
@@ -167,16 +168,12 @@ export const AudioLabWorkspace: React.FC = () => {
 
   const renderUpload = () => (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8">
          <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic leading-none flex items-center gap-3">
                Audio Workspace <span className="bg-teal-500 text-white text-[10px] px-2 py-1 rounded italic not-italic font-black">v2.10.0</span>
             </h2>
-            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"파일명 세탁(Sanitization) 및 절대 경로 핸드셰이크가 적용된 작업 공간"</p>
-         </div>
-         <div className="flex gap-2">
-            <Button variant="outline" className="border-slate-200 text-slate-400 font-black text-xs h-10 px-4 rounded-xl hover:bg-slate-50 transition-all uppercase tracking-widest"><Maximize2 size={14} className="mr-2" /> Expand</Button>
-            <Button variant="outline" className="border-teal-500/20 text-teal-600 font-black text-xs h-10 px-4 rounded-xl hover:bg-teal-50 transition-all uppercase tracking-widest"><ShieldCheck size={14} className="mr-2" /> Sanitized Handshake</Button>
+            <p className="text-slate-400 font-bold text-sm tracking-tight italic border-l-2 border-teal-500 pl-3">"오디오 파일을 AI가 분석하여 심층 리포트를 생성하는 작업 공간"</p>
          </div>
       </div>
 
@@ -214,9 +211,9 @@ export const AudioLabWorkspace: React.FC = () => {
                   <audio ref={audioRef} src={audioUrl || ''} onEnded={() => setIsPlaying(false)} className="hidden" />
                </div>
                <div className="grid grid-cols-2 gap-4">
-                  <Button className="h-20 bg-teal-600 hover:bg-teal-700 text-white font-black text-lg rounded-[2rem] shadow-xl active:scale-95 transition-all flex items-center gap-3 uppercase italic tracking-tighter" onClick={handleAnalyze}><CloudUpload className="w-5 h-5" /> START SANITIZED_LLM_AUTH</Button>
-                  <Button variant="outline" className="h-20 border-2 border-slate-100 text-slate-400 font-black text-md rounded-[2rem] transition-all hover:bg-slate-50 uppercase tracking-widest italic" onClick={resetSelection}>Change Asset</Button>
-               </div>
+                   <Button className="h-20 bg-teal-600 hover:bg-teal-700 text-white font-black text-lg rounded-[2rem] shadow-xl active:scale-95 transition-all flex items-center gap-3" onClick={handleAnalyze}><CloudUpload className="w-5 h-5" /> AI 분석 시작</Button>
+                   <Button variant="outline" className="h-20 border-2 border-slate-100 text-slate-400 font-black text-md rounded-[2rem] transition-all hover:bg-slate-50" onClick={resetSelection}>다른 파일 선택</Button>
+                </div>
             </div>
           )}
         </CardContent>
@@ -242,7 +239,7 @@ export const AudioLabWorkspace: React.FC = () => {
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-10 text-center">
        <div className="relative"><Loader2 className="w-24 h-24 stroke-[1px] animate-spin text-teal-600 font-thin italic" /><CloudUpload className="absolute inset-0 m-auto w-10 h-10 text-teal-600 animate-pulse" /></div>
        <div className="space-y-6 w-full max-w-sm">
-          <div className="space-y-2"><h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">{uploadProgress < 100 ? "Cleaning & Syncing..." : "Decoding Forensics..."}</h3><p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">{uploadProgress < 100 ? "파일명 특수문지 클리닝 및 절대 경로 연동 중..." : "Gemini Engine이 오디오 메타데이터를 정밀 분석 중입니다."}</p></div>
+           <div className="space-y-2"><h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">{uploadProgress < 100 ? "업로드 중..." : "AI 분석 중..."}</h3><p className="text-slate-400 font-bold italic text-[10px] uppercase tracking-widest">{uploadProgress < 100 ? "파일을 안전하게 업로드하고 있습니다..." : "Gemini AI가 오디오를 정밀 분석하고 있습니다."}</p></div>
           <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-100"><motion.div className="h-full bg-teal-500 rounded-full" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} /></div>
        </div>
     </div>

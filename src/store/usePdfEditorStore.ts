@@ -371,11 +371,12 @@ export const usePdfEditorStore = create<PdfEditorState>()(
 
       reset: () => set({ 
         elements: [], 
-        selectedElementId: null, 
+        selectedElementId: null,
+        selectedElementIds: [],
         activeTool: 'select', 
         history: [[]], 
         historyIndex: 0,
-        clipboard: null,
+        clipboard: [], // [FIX] null → [] : PdfElement[] 타입 준수, 런타임 크래시 방지
       })
     }),
     {

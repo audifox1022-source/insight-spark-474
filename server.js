@@ -2,8 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleAIFileManager } from '@google/generative-ai/server';
 import { handleUpload } from '@vercel/blob/client';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 // Load environment variables
 dotenv.config();
@@ -27,12 +31,21 @@ const upload = multer({
 });
 
 // Initialize Gemini with server-side API key
-const apiKey = process.env.GEMINI_API_KEY;
-console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : "키 없음(UNDEFINED)");
+const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", apiKey ? apiKey.substring(0, 5) : "키 없음(UNDEFINED)");
 if (!apiKey) {
   console.warn('WARNING: VITE_GEMINI_API_KEY or GEMINI_API_KEY is not set in environment variables.');
 }
 const genAI = new GoogleGenerativeAI(apiKey || '');
+const fileManager = new GoogleAIFileManager(apiKey || '');
+
+// [Phase 17 - Stability] 완화된 보안 설정 (분석 차단 방지)
+const safetySettings = [
+  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+];
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -91,10 +104,15 @@ app.post('/api/identify-audio', upload.single('file'), async (req, res) => {
     const base64Data = req.file.buffer.toString('base64');
     const mimeType = req.file.mimetype || 'audio/mp3';
 
-    const response = await model.generateContent([
-      { text: '이 오디오 파일을 듣고, 주로 사람들이 말하는 회의/음성 녹음(Speech)인지, 아니면 악기 연주와 노래가 포함된 음악(Music)인지 식별해. "Speech" 또는 "Music" 중 하나의 단어로만 대답해.' },
-      { inlineData: { data: base64Data, mimeType } }
-    ]);
+    const response = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [
+          { text: '이 오디오 파일을 듣고, 주로 사람들이 말하는 회의/음성 녹음(Speech)인지, 아니면 악기 연주와 노래가 포함된 음악(Music)인지 식별해. "Speech" 또는 "Music" 중 하나의 단어로만 대답해.' },
+          { inlineData: { data: base64Data, mimeType } }
+        ]}
+      ],
+      safetySettings
+    });
 
     const text = response.response.text()?.trim().toLowerCase() || '';
     let resultType = 'Unknown';
@@ -122,10 +140,15 @@ app.post('/api/analyze-speech', upload.single('file'), async (req, res) => {
 
     const prompt = `당신은 최고 수준의 AI 회의록 분석가입니다. 첨부된 오디오(음성/회의 녹음)를 듣고 다음 사항들을 분석하여 반드시 제공된 JSON 스키마에 정확히 맞춰서 응답하세요.`;
 
-    const response = await model.generateContent([
-      { text: prompt },
-      { inlineData: { data: base64Data, mimeType } }
-    ]);
+    const response = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [
+          { text: prompt },
+          { inlineData: { data: base64Data, mimeType } }
+        ]}
+      ],
+      safetySettings
+    });
 
     const text = response.response.text();
     const jsonStr = text.replace(/```json|```/g, '').trim();
@@ -170,10 +193,15 @@ ROLE: 당신은 실시간 동시통역 전문가입니다.
 }
 `;
 
-    const result = await model.generateContent([
-      { text: prompt },
-      { inlineData: { data: base64Data, mimeType } }
-    ]);
+    const result = await model.generateContent({
+      contents: [
+        { role: 'user', parts: [
+          { text: prompt },
+          { inlineData: { data: base64Data, mimeType } }
+        ]}
+      ],
+      safetySettings
+    });
 
     const text = result.response.text();
     const jsonStr = text.replace(/```json|```/g, '').trim();
@@ -188,30 +216,100 @@ ROLE: 당신은 실시간 동시통역 전문가입니다.
 /**
  * Generic Gemini Proxy
  */
+/**
+ * [CRITICAL] Generic Gemini Proxy (Local Sync with Production)
+ * 대용량 오디오 분석을 위한 File API 지원 및 120초 타임아웃 추가
+ */
 app.post('/api/gemini-proxy', async (req, res) => {
+  let tempFilePath = null;
+  let fileUri = null;
+  let fileName = null;
+
   try {
-    const { model = 'gemini-2.5-flash', contents, system_instruction, generationConfig, tools } = req.body;
-    const fetchUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
-    const bodyPayload = { system_instruction, contents, generationConfig };
-    if (tools) bodyPayload.tools = tools;
+    const { 
+      model: modelName = 'gemini-2.5-flash', 
+      contents, 
+      system_instruction, 
+      generationConfig, 
+      tools,
+      blobUrl 
+    } = req.body;
 
-    const response = await fetch(fetchUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bodyPayload),
-    });
+    console.log(`[Proxy] 🤖 RPC Request: ${modelName}, BlobUrl: ${!!blobUrl}`);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json(errorData);
+    let finalContents = contents;
+
+    // 1. [Local Logic] Blob URL이 있으면 Gemini File API로 전환하여 업로드
+    if (blobUrl) {
+      console.log(`[Proxy] 📥 Downloading from Blob URL: ${blobUrl}`);
+      const response = await fetch(blobUrl);
+      if (!response.ok) throw new Error(`Blob 다운로드 실패: ${response.statusText}`);
+      
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const tempDir = os.tmpdir();
+      fileName = `audio_${Date.now()}.mp4`;
+      tempFilePath = path.join(tempDir, fileName);
+      
+      fs.writeFileSync(tempFilePath, buffer);
+      console.log(`[Proxy] 💾 Temp file saved: ${tempFilePath}`);
+
+      // Gemini File API 업로드
+      const uploadResult = await fileManager.uploadFile(tempFilePath, {
+        mimeType: "audio/mp4",
+        displayName: fileName,
+      });
+      fileUri = uploadResult.file.uri;
+      console.log(`[Proxy] ☁️ Gemini File API Uploaded: ${fileUri}`);
+
+      // 기존 content의 inlineData를 fileData로 교체
+      finalContents = contents.map(content => ({
+        ...content,
+        parts: content.parts.map(part => {
+          if (part.inlineData) {
+            return { fileData: { mimeType: "audio/mp4", fileUri } };
+          }
+          return part;
+        })
+      }));
     }
 
-    const data = await response.json();
+    // 2. Gemini 요청 수행 (120초 타임아웃 적용)
+    const model = genAI.getGenerativeModel({ 
+      model: modelName,
+      systemInstruction: system_instruction,
+      safetySettings
+    });
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("AI 분석 시간 초과 (120초)")), 120000)
+    );
+
+    console.log("[Proxy] 🚀 Sending request to Gemini...");
+    const result = await Promise.race([
+      model.generateContent({
+        contents: finalContents,
+        generationConfig,
+        tools
+      }),
+      timeoutPromise
+    ]);
+
+    const data = result.response;
     res.json(data);
+
   } catch (error) {
-    console.error('Proxy request failed:', error);
-    res.status(500).json({ error: '내부 서버 통신 오류', details: error.message });
+    console.error('❌ [Proxy Error]:', error);
+    res.status(500).json({ 
+      error: '분석 중 오류가 발생했습니다.', 
+      details: error.message,
+      code: error.code || 'UNKNOWN'
+    });
+  } finally {
+    // 3. 임시 파일 및 파일 API 자원 정리
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) {}
+    }
+    // Note: Gemini File API의 파일은 48시간 후 자동 삭제되지만 필요시 수동 삭제 가능
   }
 });
 

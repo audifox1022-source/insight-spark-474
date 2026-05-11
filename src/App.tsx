@@ -75,7 +75,8 @@ const ThemeObserver = () => {
         root.classList.add(`theme-${appTheme}`);
       }
 
-      console.log(`[Theme System] Applied: mode=${theme}, brand=${appTheme}`);
+
+
     } catch (err) {
       console.error("[Critical] Theme synchronization failed:", err);
     }
