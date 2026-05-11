@@ -9,7 +9,7 @@ import {
   Mic, Music, FileAudio, Upload, Loader2, Sparkles, 
   CheckCircle2, AlertCircle, Play, Pause, Trash2, Headphones,
   BarChart3, FileText, Download, Share2, ArrowLeft, History, Settings,
-  CloudUpload
+  CloudUpload, ShieldCheck
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
