@@ -82,6 +82,43 @@ interface PdfTextItem {
   fontFamily: string;
 }
 
+// ── [UX 개선] 좌측 패널용 PDF 페이지 썸네일 컴포넌트 ──
+const PageThumbnail = ({ pdfDoc, pageNum }: { pdfDoc: pdfjsLib.PDFDocumentProxy, pageNum: number }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let renderTask: any = null;
+    let isCancelled = false;
+
+    const renderThumbnail = async () => {
+      if (!canvasRef.current || !pdfDoc) return;
+      try {
+        const page = await pdfDoc.getPage(pageNum);
+        // 썸네일이므로 해상도를 낮춰 렌더링 속도 최적화
+        const viewport = page.getViewport({ scale: 0.3 }); 
+        const context = canvasRef.current.getContext('2d');
+        if (context) {
+          canvasRef.current.height = viewport.height;
+          canvasRef.current.width = viewport.width;
+          renderTask = page.render({ canvasContext: context, viewport });
+          await renderTask.promise;
+        }
+      } catch (error) {
+        if (!isCancelled) console.error(`Thumbnail render error for page ${pageNum}:`, error);
+      }
+    };
+
+    renderThumbnail();
+
+    return () => {
+      isCancelled = true;
+      if (renderTask) renderTask.cancel();
+    };
+  }, [pdfDoc, pageNum]);
+
+  return <canvas ref={canvasRef} className="w-full h-full object-contain pointer-events-none" />;
+};
+
 // --- Main Engine Component ---
 export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }) => {
   const { 
@@ -136,6 +173,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       setNumPages(pdf.numPages);
       setCurrentPage(1);
       reset(); 
+      setRightSidebarOpen(true); // [UX 개선] 파일 오픈 시 우측 속성 패널 자동 열림
       toast.success("PDF 엔진 로드 완료", { id: toastId });
     } catch (error) {
       toast.error("PDF 파일 로드 실패", { id: toastId });
@@ -649,7 +687,11 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
                         <div key={i} className="mb-6 group">
                            <p className="text-[10px] font-black text-muted-foreground mb-2 px-1">PAGE {i+1}</p>
                            <div className={cn("aspect-[1/1.41] w-full bg-white dark:bg-slate-900 border-2 relative cursor-pointer rounded-xl transition-all shadow-sm group-hover:shadow-md overflow-hidden", currentPage === i+1 ? "border-primary ring-4 ring-primary/10 scale-[1.02]" : "border-border/40 hover:border-primary/40")} onClick={() => setCurrentPage(i+1)}>
-                              <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-slate-100 group-hover:text-primary/20 transition-colors">{i+1}</div>
+                              {pdfDocument ? (
+                                <PageThumbnail pdfDoc={pdfDocument} pageNum={i + 1} />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-slate-100 group-hover:text-primary/20 transition-colors">{i+1}</div>
+                              )}
                            </div>
                         </div>
                       ))}
