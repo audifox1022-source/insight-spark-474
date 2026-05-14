@@ -18,7 +18,7 @@ import {
   Layers, List, Bookmark, MessageSquare, GripVertical, Focus,
   HelpCircle, MoreHorizontal, Check, MonitorPlay, Move, 
   Eye, EyeOff, ArrowUpToLine, ArrowDownToLine, FileDown,
-  LetterText, Scissors, Headphones, Printer
+  LetterText, Scissors, Headphones, Printer, Redo2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -130,9 +130,9 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     activeLineHeight, setActiveLineHeight,
     leftSidebarOpen, setLeftSidebarOpen,
     rightSidebarOpen, setRightSidebarOpen,
-    moveToFront, moveToBack,
+    moveToFront, moveToBack, rotatePage,
     clipboard, copyElement, copyElements, pasteElement, duplicateElement, duplicateElements,
-    undo, redo, pushHistory, reset 
+    undo, redo, pushHistory, reset, pageRotations 
   } = usePdfEditorStore();
 
   // PDF Docs State
@@ -191,7 +191,8 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     if (!pdfDocument || !canvasRef.current) return;
     try {
       const page = await pdfDocument.getPage(currentPage);
-      const viewport = page.getViewport({ scale: renderScale });
+      const rotation = pageRotations[currentPage] || 0;
+      const viewport = page.getViewport({ scale: renderScale, rotation });
       const context = canvasRef.current.getContext('2d');
       if (context) {
         canvasRef.current.height = viewport.height;
@@ -230,7 +231,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     } catch (error) { console.error("Renderer Error:", error); }
   }, [pdfDocument, currentPage, renderScale]);
 
-  useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile]);
+  useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile, pageRotations]);
 
   // ── 전역 키보드 단축키
   useEffect(() => {
@@ -624,8 +625,14 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
              {isPreview ? '편집' : '미리보기'}
           </Button>
           <div className="flex items-center border-r border-border/60 pr-2 mr-1 gap-1">
-             <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={undo}><Undo2 className="w-3.5 h-3.5" /></Button>
-             <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={redo}><RotateCw className="w-3.5 h-3.5" /></Button>
+             <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={undo} title="실행 취소 (Ctrl+Z)"><Undo2 className="w-3.5 h-3.5" /></Button>
+             <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted" onClick={redo} title="다시 실행 (Ctrl+Y)"><Redo2 className="w-3.5 h-3.5" /></Button>
+             <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg hover:bg-muted ml-1" onClick={() => {
+               if (canvasRef.current) {
+                 rotatePage(currentPage, canvasRef.current.width, canvasRef.current.height);
+                 toast.success("페이지를 90도 회전했습니다.");
+               }
+             }} title="페이지 90도 회전"><RotateCw className="w-3.5 h-3.5 text-primary" /></Button>
           </div>
           {/* 우측 사이드바 재열기 버튼 - 닫힌 상태일 때만 표시 */}
           {!rightSidebarOpen && !isPreview && (

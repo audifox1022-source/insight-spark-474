@@ -57,6 +57,8 @@ interface PdfEditorState {
   history: PdfElement[][];
   historyIndex: number;
   
+  pageRotations: Record<number, number>; // 페이지별 회전 각도 (0, 90, 180, 270)
+  
   // Actions
   setElements: (elements: PdfElement[]) => void;
   addElement: (element: PdfElement) => void;
@@ -80,6 +82,7 @@ interface PdfEditorState {
   setActiveLeftTab: (tab: LeftTabType) => void;
   moveToFront: (id: string) => void;
   moveToBack: (id: string) => void;
+  rotatePage: (pageNumber: number, pageWidth: number, pageHeight: number) => void;
 
   // 클립보드 액션
   copyElement: (id: string) => void;
@@ -115,6 +118,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
 
       history: [[]],
       historyIndex: 0,
+      pageRotations: {},
 
       setElements: (elements) => set({ elements }),
 
@@ -358,7 +362,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         }
       },
 
-      moveToBack: (id) => {
+      moveToBack: (id: string) => {
         const { elements } = get();
         const element = elements.find(el => el.id === id);
         if (element) {
@@ -369,6 +373,34 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         }
       },
 
+      rotatePage: (pageNumber, pageWidth, pageHeight) => {
+        const { elements, pageRotations } = get();
+        const currentRotation = pageRotations[pageNumber] || 0;
+        const newRotation = (currentRotation + 90) % 360;
+
+        // 1. 회전 상태 업데이트
+        const nextRotations = { ...pageRotations, [pageNumber]: newRotation };
+
+        // 2. 해당 페이지의 모든 요소 좌표 변환 (90도 시계방향 회전)
+        // x' = H - (y + h)
+        // y' = x
+        // w' = h
+        // h' = w
+        const nextElements = elements.map(el => {
+          if (el.page !== pageNumber) return el;
+          return {
+            ...el,
+            x: pageHeight - (el.y + el.height),
+            y: el.x,
+            width: el.height,
+            height: el.width
+          };
+        });
+
+        set({ elements: nextElements, pageRotations: nextRotations });
+        get().pushHistory();
+      },
+
       reset: () => set({ 
         elements: [], 
         selectedElementId: null,
@@ -377,6 +409,7 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         history: [[]], 
         historyIndex: 0,
         clipboard: [], // [FIX] null → [] : PdfElement[] 타입 준수, 런타임 크래시 방지
+        pageRotations: {},
       })
     }),
     {

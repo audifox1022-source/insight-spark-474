@@ -12,7 +12,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Sparkles, PanelRightClose, PanelLeftClose, PanelLeftOpen,
   Layers, Check, Move, Eye, EyeOff, ArrowUpToLine, ArrowDownToLine, 
-  FileDown, Download, Monitor, Copy, Clipboard, Scissors, CopyCheck
+  FileDown, Download, Monitor, Copy, Clipboard, Scissors, CopyCheck, Redo2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -79,7 +79,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
     rightSidebarOpen, setRightSidebarOpen,
     moveToFront, moveToBack,
     clipboard, copyElement, pasteElement, duplicateElement,
-    undo, redo, pushHistory, reset 
+    undo, redo, pushHistory, reset, pageRotations, rotatePage 
   } = usePdfEditorStore();
 
   // PDF Docs State
@@ -139,7 +139,8 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
     if (!pdfDocument || !canvasRef.current) return;
     try {
       const page = await pdfDocument.getPage(currentPage);
-      const viewport = page.getViewport({ scale: renderScale });
+      const rotation = pageRotations[currentPage] || 0;
+      const viewport = page.getViewport({ scale: renderScale, rotation });
       const context = canvasRef.current.getContext('2d');
       if (context) {
         canvasRef.current.height = viewport.height;
@@ -149,7 +150,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
     } catch (error) { console.error("Renderer Error:", error); }
   }, [pdfDocument, currentPage, renderScale]);
 
-  useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile]);
+  useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile, pageRotations]);
 
   // ── 전역 키보드 단축키 ────────────────────────────────────────
   useEffect(() => {
@@ -447,9 +448,15 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
              {isPreview ? '편집 재개' : '미리보기'}
           </Button>
           <div className="flex items-center border-r border-[#E2E8F0] pr-2 mr-1 gap-1">
-             <Button variant="ghost" size="icon" className="w-7 h-7" onClick={undo}><Undo2 className="w-3.5 h-3.5" /></Button>
-             <Button variant="ghost" size="icon" className="w-7 h-7" onClick={redo}><RotateCw className="w-3.5 h-3.5" /></Button>
-          </div>
+              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg" onClick={undo} title="실행 취소"><Undo2 className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg" onClick={redo} title="다시 실행"><Redo2 className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg ml-1" onClick={() => {
+                if (canvasRef.current) {
+                  rotatePage(currentPage, canvasRef.current.width, canvasRef.current.height);
+                  toast.success("페이지를 90도 회전했습니다.");
+                }
+              }} title="페이지 90도 회전"><RotateCw className="w-4 h-4 text-[#0D9488]" /></Button>
+            </div>
           <Button 
             disabled={isExporting} 
             onClick={() => handleExport('pdf')} 
