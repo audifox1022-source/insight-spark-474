@@ -229,7 +229,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
         }
       }
     } catch (error) { console.error("Renderer Error:", error); }
-  }, [pdfDocument, currentPage, renderScale]);
+  }, [pdfDocument, currentPage, renderScale, pageRotations]);
 
   useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile, pageRotations]);
 

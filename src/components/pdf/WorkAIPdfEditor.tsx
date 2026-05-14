@@ -148,7 +148,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
         await page.render({ canvasContext: context, viewport: viewport }).promise;
       }
     } catch (error) { console.error("Renderer Error:", error); }
-  }, [pdfDocument, currentPage, renderScale]);
+  }, [pdfDocument, currentPage, renderScale, pageRotations]);
 
   useEffect(() => { if (pdfFile) renderPage(); }, [renderPage, pdfFile, pageRotations]);
 
