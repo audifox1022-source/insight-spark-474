@@ -1,424 +1,849 @@
 // ============================================================
-// src/store/usePdfEditorStore.ts (Work AI - Pure PDF Editor Store)
-// [Enterprise] Undo/Redo & Object State Management (v2.0)
-// [Update] Added Clipboard (Copy/Paste/Duplicate) System
+// src/store/usePdfEditorStore.ts
+// Work AI - Enterprise PDF Editor Store (Refactored v3)
 // ============================================================
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+// ============================================================
+// TYPES
+// ============================================================
+
 export interface PdfElement {
   id: string;
-  type: 'text' | 'image' | 'drawing' | 'highlighter' | 'eraser-path' | 'mask' | 'shape' | 'ai-extract' | 'table';
+
+  type:
+    | 'text'
+    | 'image'
+    | 'drawing'
+    | 'highlighter'
+    | 'eraser-path'
+    | 'mask'
+    | 'shape'
+    | 'ai-extract'
+    | 'table';
+
   x: number;
   y: number;
+
   width: number;
   height: number;
-  content?: string;
-  color: string;
-  fillColor?: string;
-  strokeWidth?: number;
-  fontSize?: number;
-  fontFamily?: string; 
-  fontWeight?: string;
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
-  lineHeight?: number;
-  textPadding?: number;
-  borderRadius?: number;
+
+  zIndex: number;
+
   page: number;
-  points?: { x: number, y: number }[]; // For drawings
-  src?: string; // For images
+
+  content?: string;
+
+  color: string;
+
+  fillColor?: string;
+
+  strokeWidth?: number;
+
+  fontSize?: number;
+
+  fontFamily?: string;
+
+  fontWeight?: string;
+
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+
+  lineHeight?: number;
+
+  textPadding?: number;
+
+  borderRadius?: number;
+
+  points?: { x: number; y: number }[];
+
+  src?: string;
+
   shapeType?: 'rectangle' | 'circle' | 'triangle' | 'line';
 }
 
-// 4-Panel Grid를 위한 확장된 툴
-export type EditorTool = 'select' | 'move-object' | 'pan' | 'text' | 'image' | 'shape' | 'highlight' | 'underline' | 'strikethrough' | 'pen' | 'eraser' | 'mask' | 'ai-extract' | 'table-select';
+export type EditorTool =
+  | 'select'
+  | 'move-object'
+  | 'pan'
+  | 'text'
+  | 'image'
+  | 'shape'
+  | 'highlight'
+  | 'underline'
+  | 'strikethrough'
+  | 'pen'
+  | 'eraser'
+  | 'mask'
+  | 'ai-extract'
+  | 'table-select';
 
-export type LeftTabType = 'thumbnails' | 'outline' | 'bookmarks' | 'annotations';
+export type LeftTabType =
+  | 'thumbnails'
+  | 'outline'
+  | 'bookmarks'
+  | 'annotations';
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+const deepClone = <T>(value: T): T => {
+  return structuredClone(value);
+};
+
+const generateId = () => crypto.randomUUID();
+
+const getMaxZIndex = (elements: PdfElement[]) => {
+  if (elements.length === 0) return 1;
+  return Math.max(...elements.map((e) => e.zIndex || 1)) + 1;
+};
+
+// ============================================================
+// STATE
+// ============================================================
 
 interface PdfEditorState {
+  // ----------------------------------------------------------
+  // DATA
+  // ----------------------------------------------------------
+
   elements: PdfElement[];
-  selectedElementId: string | null; // Primary selected element for properties
-  selectedElementIds: string[]; // All selected elements
-  activeTool: EditorTool; 
-  activeShapeType: 'rectangle' | 'circle' | 'triangle' | 'line';
-  activeColor: string; 
-  activeFontSize: number; 
-  activeLineHeight: number;
-  activeFontFamily: string; 
-  
-  // 클립보드 (복사/붙여넣기)
+
+  selectedIds: string[];
+
   clipboard: PdfElement[];
-  
-  // Layout Navigation State
+
+  // ----------------------------------------------------------
+  // TOOLBAR
+  // ----------------------------------------------------------
+
+  activeTool: EditorTool;
+
+  activeShapeType: 'rectangle' | 'circle' | 'triangle' | 'line';
+
+  activeColor: string;
+
+  activeFontSize: number;
+
+  activeLineHeight: number;
+
+  activeFontFamily: string;
+
+  // ----------------------------------------------------------
+  // LAYOUT
+  // ----------------------------------------------------------
+
   leftSidebarOpen: boolean;
+
   rightSidebarOpen: boolean;
+
   activeLeftTab: LeftTabType;
 
-  history: PdfElement[][];
-  historyIndex: number;
-  
-  pageRotations: Record<number, number>; // 페이지별 회전 각도 (0, 90, 180, 270)
-  
-  // Actions
-  setElements: (elements: PdfElement[]) => void;
-  addElement: (element: PdfElement) => void;
-  addElements: (elements: PdfElement[]) => void;
-  updateElement: (id: string, updates: Partial<PdfElement>) => void;
-  updateElements: (updates: { id: string, changes: Partial<PdfElement> }[]) => void;
-  deleteElement: (id: string) => void;
-  deleteElements: (ids: string[]) => void;
-  setSelectedElementId: (id: string | null) => void;
-  setSelection: (ids: string[]) => void;
-  clearSelection: () => void;
-  setActiveTool: (tool: EditorTool) => void;
-  setActiveShapeType: (type: 'rectangle' | 'circle' | 'triangle' | 'line') => void;
-  setActiveColor: (color: string) => void;
-  setActiveFontSize: (size: number) => void;
-  setActiveLineHeight: (height: number) => void;
-  setActiveFontFamily: (font: string) => void; 
-  
-  setLeftSidebarOpen: (open: boolean) => void;
-  setRightSidebarOpen: (open: boolean) => void;
-  setActiveLeftTab: (tab: LeftTabType) => void;
-  moveToFront: (id: string) => void;
-  moveToBack: (id: string) => void;
-  rotatePage: (pageNumber: number, pageWidth: number, pageHeight: number) => void;
+  // ----------------------------------------------------------
+  // VIEW
+  // ----------------------------------------------------------
 
-  // 클립보드 액션
-  copyElement: (id: string) => void;
+  pageRotations: Record<number, number>;
+
+  // ----------------------------------------------------------
+  // HISTORY
+  // ----------------------------------------------------------
+
+  history: PdfElement[][];
+
+  historyIndex: number;
+
+  // ==========================================================
+  // ACTIONS
+  // ==========================================================
+
+  setElements: (elements: PdfElement[]) => void;
+
+  addElement: (element: PdfElement) => void;
+
+  addElements: (elements: PdfElement[]) => void;
+
+  updateElement: (
+    id: string,
+    updates: Partial<PdfElement>,
+    pushHistory?: boolean
+  ) => void;
+
+  updateElements: (
+    updates: {
+      id: string;
+      changes: Partial<PdfElement>;
+    }[],
+    pushHistory?: boolean
+  ) => void;
+
+  deleteElement: (id: string) => void;
+
+  deleteElements: (ids: string[]) => void;
+
+  // ----------------------------------------------------------
+  // Selection
+  // ----------------------------------------------------------
+
+  setSelection: (ids: string[]) => void;
+
+  clearSelection: () => void;
+
+  // ----------------------------------------------------------
+  // Tool
+  // ----------------------------------------------------------
+
+  setActiveTool: (tool: EditorTool) => void;
+
+  setActiveShapeType: (
+    type: 'rectangle' | 'circle' | 'triangle' | 'line'
+  ) => void;
+
+  setToolbarColor: (color: string) => void;
+
+  applyColorToSelection: (color: string) => void;
+
+  setToolbarFontSize: (size: number) => void;
+
+  applyFontSizeToSelection: (size: number) => void;
+
+  setToolbarFontFamily: (font: string) => void;
+
+  applyFontFamilyToSelection: (font: string) => void;
+
+  setToolbarLineHeight: (height: number) => void;
+
+  applyLineHeightToSelection: (height: number) => void;
+
+  // ----------------------------------------------------------
+  // Layout
+  // ----------------------------------------------------------
+
+  setLeftSidebarOpen: (open: boolean) => void;
+
+  setRightSidebarOpen: (open: boolean) => void;
+
+  setActiveLeftTab: (tab: LeftTabType) => void;
+
+  // ----------------------------------------------------------
+  // Layer
+  // ----------------------------------------------------------
+
+  moveToFront: (id: string) => void;
+
+  moveToBack: (id: string) => void;
+
+  // ----------------------------------------------------------
+  // Rotation
+  // ----------------------------------------------------------
+
+  rotatePage: (pageNumber: number) => void;
+
+  // ----------------------------------------------------------
+  // Clipboard
+  // ----------------------------------------------------------
+
   copyElements: (ids: string[]) => void;
-  pasteElement: (currentPage: number) => void;
-  duplicateElement: (id: string) => void;
+
+  pasteElements: (currentPage: number) => void;
+
   duplicateElements: (ids: string[]) => void;
 
-  // History Control
-  pushHistory: () => void;
+  // ----------------------------------------------------------
+  // History
+  // ----------------------------------------------------------
+
+  pushHistory: (snapshot?: PdfElement[]) => void;
+
   undo: () => void;
+
   redo: () => void;
+
+  // ----------------------------------------------------------
+  // Reset
+  // ----------------------------------------------------------
+
   reset: () => void;
 }
+
+// ============================================================
+// STORE
+// ============================================================
 
 export const usePdfEditorStore = create<PdfEditorState>()(
   persist(
     (set, get) => ({
+      // ======================================================
+      // INITIAL STATE
+      // ======================================================
+
       elements: [],
-      selectedElementId: null,
-      selectedElementIds: [],
-      activeTool: 'select',
-      activeShapeType: 'rectangle',
-      activeColor: '#0D9488',
-      activeFontSize: 16,
-      activeLineHeight: 1.5,
-      activeFontFamily: 'Noto Sans KR', 
+
+      selectedIds: [],
+
       clipboard: [],
-      
+
+      activeTool: 'select',
+
+      activeShapeType: 'rectangle',
+
+      activeColor: '#0D9488',
+
+      activeFontSize: 16,
+
+      activeLineHeight: 1.5,
+
+      activeFontFamily: 'Noto Sans KR',
+
       leftSidebarOpen: true,
+
       rightSidebarOpen: true,
+
       activeLeftTab: 'thumbnails',
 
-      history: [[]],
-      historyIndex: 0,
       pageRotations: {},
 
-      setElements: (elements) => set({ elements }),
+      history: [[]],
+
+      historyIndex: 0,
+
+      // ======================================================
+      // ELEMENTS
+      // ======================================================
+
+      setElements: (elements) => {
+        set({ elements });
+      },
 
       addElement: (element) => {
-        const nextElements = [...get().elements, element];
-        set({ elements: nextElements, selectedElementId: element.id, selectedElementIds: [element.id] });
-        get().pushHistory();
+        const nextElements = [
+          ...get().elements,
+          {
+            ...element,
+            zIndex: getMaxZIndex(get().elements),
+          },
+        ];
+
+        set({
+          elements: nextElements,
+          selectedIds: [element.id],
+        });
+
+        get().pushHistory(nextElements);
       },
 
       addElements: (newElements) => {
-        const nextElements = [...get().elements, ...newElements];
-        const newIds = newElements.map(e => e.id);
-        set({ elements: nextElements, selectedElementId: newIds[0] || null, selectedElementIds: newIds });
-        get().pushHistory();
+        const current = get().elements;
+
+        let nextZ = getMaxZIndex(current);
+
+        const prepared = newElements.map((el) => ({
+          ...el,
+          zIndex: nextZ++,
+        }));
+
+        const nextElements = [...current, ...prepared];
+
+        set({
+          elements: nextElements,
+          selectedIds: prepared.map((e) => e.id),
+        });
+
+        get().pushHistory(nextElements);
       },
 
-      updateElement: (id, updates) => {
-        const nextElements = get().elements.map(el => 
+      updateElement: (id, updates, pushHistory = false) => {
+        const nextElements = get().elements.map((el) =>
           el.id === id ? { ...el, ...updates } : el
         );
+
         set({ elements: nextElements });
-      },
 
-      updateElements: (updates) => {
-        const updateMap = new Map(updates.map(u => [u.id, u.changes]));
-        const nextElements = get().elements.map(el => {
-          if (updateMap.has(el.id)) return { ...el, ...updateMap.get(el.id) };
-          return el;
-        });
-        set({ elements: nextElements });
-      },
-
-      deleteElement: (id) => {
-        const nextElements = get().elements.filter(el => el.id !== id);
-        set({ 
-          elements: nextElements, 
-          selectedElementId: get().selectedElementId === id ? null : get().selectedElementId,
-          selectedElementIds: get().selectedElementIds.filter(selId => selId !== id)
-        });
-        get().pushHistory();
-      },
-
-      deleteElements: (ids) => {
-        const idSet = new Set(ids);
-        const nextElements = get().elements.filter(el => !idSet.has(el.id));
-        set({ 
-          elements: nextElements, 
-          selectedElementId: null,
-          selectedElementIds: []
-        });
-        get().pushHistory();
-      },
-
-      setSelectedElementId: (id) => {
-        set({ selectedElementId: id, selectedElementIds: id ? [id] : [] });
-        if (id) {
-          set({ rightSidebarOpen: true });
+        if (pushHistory) {
+          get().pushHistory(nextElements);
         }
       },
 
+      updateElements: (updates, pushHistory = false) => {
+        const map = new Map(
+          updates.map((u) => [u.id, u.changes])
+        );
+
+        const nextElements = get().elements.map((el) => {
+          if (!map.has(el.id)) return el;
+
+          return {
+            ...el,
+            ...map.get(el.id),
+          };
+        });
+
+        set({ elements: nextElements });
+
+        if (pushHistory) {
+          get().pushHistory(nextElements);
+        }
+      },
+
+      deleteElement: (id) => {
+        const nextElements = get().elements.filter(
+          (el) => el.id !== id
+        );
+
+        set({
+          elements: nextElements,
+          selectedIds: get().selectedIds.filter(
+            (x) => x !== id
+          ),
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      deleteElements: (ids) => {
+        const setIds = new Set(ids);
+
+        const nextElements = get().elements.filter(
+          (el) => !setIds.has(el.id)
+        );
+
+        set({
+          elements: nextElements,
+          selectedIds: [],
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      // ======================================================
+      // SELECTION
+      // ======================================================
+
       setSelection: (ids) => {
-        set({ selectedElementIds: ids, selectedElementId: ids[0] || null });
+        set({
+          selectedIds: ids,
+        });
+
         if (ids.length > 0) {
-          set({ rightSidebarOpen: true });
+          set({
+            rightSidebarOpen: true,
+          });
         }
       },
 
       clearSelection: () => {
-        set({ selectedElementId: null, selectedElementIds: [] });
+        set({
+          selectedIds: [],
+        });
       },
 
+      // ======================================================
+      // TOOL
+      // ======================================================
+
       setActiveTool: (tool) => {
-        // select로 전환 시에는 기존 선택 유지
         if (tool === 'select') {
           set({ activeTool: tool });
-        } else {
-          set({ activeTool: tool, selectedElementId: null, selectedElementIds: [] });
+          return;
         }
-        if (['text', 'ai-extract', 'table-select', 'shape', 'highlight', 'pen'].includes(tool)) {
-          set({ rightSidebarOpen: true });
+
+        set({
+          activeTool: tool,
+          selectedIds: [],
+        });
+
+        if (
+          [
+            'text',
+            'shape',
+            'highlight',
+            'pen',
+            'ai-extract',
+            'table-select',
+          ].includes(tool)
+        ) {
+          set({
+            rightSidebarOpen: true,
+          });
         }
       },
 
       setActiveShapeType: (type) => {
-        set({ activeShapeType: type });
-        const { selectedElementId } = get();
-        if (selectedElementId) {
-          get().updateElement(selectedElementId, { shapeType: type });
-        }
+        set({
+          activeShapeType: type,
+        });
       },
 
-      setActiveColor: (color) => {
-        set({ activeColor: color });
-        const { selectedElementId } = get();
-        if (selectedElementId) {
-          get().updateElement(selectedElementId, { color });
-        }
+      // ======================================================
+      // TOOLBAR STATE
+      // ======================================================
+
+      setToolbarColor: (color) => {
+        set({
+          activeColor: color,
+        });
       },
 
-      setActiveFontSize: (size) => {
-        set({ activeFontSize: size });
-        const { selectedElementId } = get();
-        if (selectedElementId) {
-          get().updateElement(selectedElementId, { fontSize: size });
-        }
+      applyColorToSelection: (color) => {
+        const ids = get().selectedIds;
+
+        const nextElements = get().elements.map((el) =>
+          ids.includes(el.id)
+            ? {
+                ...el,
+                color,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+          activeColor: color,
+        });
+
+        get().pushHistory(nextElements);
       },
 
-      setActiveLineHeight: (height) => {
-        set({ activeLineHeight: height });
-        const { selectedElementId } = get();
-        if (selectedElementId) {
-          get().updateElement(selectedElementId, { lineHeight: height });
-        }
+      setToolbarFontSize: (size) => {
+        set({
+          activeFontSize: size,
+        });
       },
 
-      setActiveFontFamily: (font) => {
-        set({ activeFontFamily: font });
-        const { selectedElementId } = get();
-        if (selectedElementId) {
-          get().updateElement(selectedElementId, { fontFamily: font });
-        }
+      applyFontSizeToSelection: (size) => {
+        const ids = get().selectedIds;
+
+        const nextElements = get().elements.map((el) =>
+          ids.includes(el.id)
+            ? {
+                ...el,
+                fontSize: size,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+          activeFontSize: size,
+        });
+
+        get().pushHistory(nextElements);
       },
 
-      setLeftSidebarOpen: (open) => set({ leftSidebarOpen: open }),
-      setRightSidebarOpen: (open) => set({ rightSidebarOpen: open }),
-      setActiveLeftTab: (tab) => set({ activeLeftTab: tab, leftSidebarOpen: true }),
-
-      // ── 복사 (Ctrl+C) ─────────────────────────────────────────
-      copyElement: (id) => {
-        const element = get().elements.find(el => el.id === id);
-        if (element) {
-          set({ clipboard: [JSON.parse(JSON.stringify(element))] });
-        }
+      setToolbarFontFamily: (font) => {
+        set({
+          activeFontFamily: font,
+        });
       },
+
+      applyFontFamilyToSelection: (font) => {
+        const ids = get().selectedIds;
+
+        const nextElements = get().elements.map((el) =>
+          ids.includes(el.id)
+            ? {
+                ...el,
+                fontFamily: font,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+          activeFontFamily: font,
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      setToolbarLineHeight: (height) => {
+        set({
+          activeLineHeight: height,
+        });
+      },
+
+      applyLineHeightToSelection: (height) => {
+        const ids = get().selectedIds;
+
+        const nextElements = get().elements.map((el) =>
+          ids.includes(el.id)
+            ? {
+                ...el,
+                lineHeight: height,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+          activeLineHeight: height,
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      // ======================================================
+      // LAYOUT
+      // ======================================================
+
+      setLeftSidebarOpen: (open) => {
+        set({
+          leftSidebarOpen: open,
+        });
+      },
+
+      setRightSidebarOpen: (open) => {
+        set({
+          rightSidebarOpen: open,
+        });
+      },
+
+      setActiveLeftTab: (tab) => {
+        set({
+          activeLeftTab: tab,
+          leftSidebarOpen: true,
+        });
+      },
+
+      // ======================================================
+      // LAYER
+      // ======================================================
+
+      moveToFront: (id) => {
+        const maxZ = getMaxZIndex(get().elements);
+
+        const nextElements = get().elements.map((el) =>
+          el.id === id
+            ? {
+                ...el,
+                zIndex: maxZ,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      moveToBack: (id) => {
+        const minZ = Math.min(
+          ...get().elements.map((e) => e.zIndex)
+        );
+
+        const nextElements = get().elements.map((el) =>
+          el.id === id
+            ? {
+                ...el,
+                zIndex: minZ - 1,
+              }
+            : el
+        );
+
+        set({
+          elements: nextElements,
+        });
+
+        get().pushHistory(nextElements);
+      },
+
+      // ======================================================
+      // ROTATION
+      // ======================================================
+
+      rotatePage: (pageNumber) => {
+        const current =
+          get().pageRotations[pageNumber] || 0;
+
+        const nextRotation = (current + 90) % 360;
+
+        set({
+          pageRotations: {
+            ...get().pageRotations,
+            [pageNumber]: nextRotation,
+          },
+        });
+      },
+
+      // ======================================================
+      // CLIPBOARD
+      // ======================================================
 
       copyElements: (ids) => {
-        const elements = get().elements.filter(el => ids.includes(el.id));
-        if (elements.length > 0) {
-          set({ clipboard: JSON.parse(JSON.stringify(elements)) });
-        }
+        const copied = get().elements.filter((el) =>
+          ids.includes(el.id)
+        );
+
+        set({
+          clipboard: deepClone(copied),
+        });
       },
 
-      // ── 붙여넣기 (Ctrl+V) ─────────────────────────────────────
-      pasteElement: (currentPage) => {
-        const { clipboard } = get();
-        if (!clipboard || clipboard.length === 0) return;
+      pasteElements: (currentPage) => {
+        const clipboard = get().clipboard;
 
-        // 기존 붙여넣기 횟수에 따라 오프셋 누적 (20px 간격)
-        const existingCopies = get().elements.filter(
-          el => el.id.startsWith('paste-')
-        ).length;
-        const offset = (existingCopies % 10 + 1) * 20;
+        if (clipboard.length === 0) return;
 
-        const pastedElements: PdfElement[] = clipboard.map((clip, index) => ({
-          ...JSON.parse(JSON.stringify(clip)),
-          id: `paste-${Date.now()}-${index}`,
-          x: clip.x + offset,
-          y: clip.y + offset,
+        const pasted = clipboard.map((el) => ({
+          ...deepClone(el),
+
+          id: generateId(),
+
+          x: el.x + 20,
+
+          y: el.y + 20,
+
           page: currentPage,
+
+          zIndex: getMaxZIndex(get().elements),
         }));
 
-        const nextElements = [...get().elements, ...pastedElements];
-        const newIds = pastedElements.map(e => e.id);
-        set({ elements: nextElements, selectedElementId: newIds[0], selectedElementIds: newIds });
-        get().pushHistory();
-      },
+        const nextElements = [
+          ...get().elements,
+          ...pasted,
+        ];
 
-      // ── 복제 (Ctrl+D) ─────────────────────────────────────────
-      duplicateElement: (id) => {
-        const element = get().elements.find(el => el.id === id);
-        if (!element) return;
+        set({
+          elements: nextElements,
+          selectedIds: pasted.map((e) => e.id),
+        });
 
-        const duplicated: PdfElement = {
-          ...JSON.parse(JSON.stringify(element)),
-          id: `dup-${Date.now()}`,
-          x: element.x + 20,
-          y: element.y + 20,
-        };
-
-        const nextElements = [...get().elements, duplicated];
-        set({ elements: nextElements, selectedElementId: duplicated.id, selectedElementIds: [duplicated.id] });
-        get().pushHistory();
+        get().pushHistory(nextElements);
       },
 
       duplicateElements: (ids) => {
-        const elements = get().elements.filter(el => ids.includes(el.id));
-        if (elements.length > 0) {
-          const duplicated = elements.map((el, index) => ({
-            ...JSON.parse(JSON.stringify(el)),
-            id: `dup-${Date.now()}-${index}`,
-            x: el.x + 20,
-            y: el.y + 20,
-          }));
-          const nextElements = [...get().elements, ...duplicated];
-          const newIds = duplicated.map(e => e.id);
-          set({ elements: nextElements, selectedElementId: newIds[0], selectedElementIds: newIds });
-          get().pushHistory();
-        }
+        const targets = get().elements.filter((el) =>
+          ids.includes(el.id)
+        );
+
+        if (targets.length === 0) return;
+
+        let nextZ = getMaxZIndex(get().elements);
+
+        const duplicated = targets.map((el) => ({
+          ...deepClone(el),
+
+          id: generateId(),
+
+          x: el.x + 20,
+
+          y: el.y + 20,
+
+          zIndex: nextZ++,
+        }));
+
+        const nextElements = [
+          ...get().elements,
+          ...duplicated,
+        ];
+
+        set({
+          elements: nextElements,
+          selectedIds: duplicated.map((e) => e.id),
+        });
+
+        get().pushHistory(nextElements);
       },
 
-      pushHistory: () => {
+      // ======================================================
+      // HISTORY
+      // ======================================================
+
+      pushHistory: (snapshot) => {
         const { elements, history, historyIndex } = get();
-        const nextHistory = history.slice(0, historyIndex + 1);
-        nextHistory.push(JSON.parse(JSON.stringify(elements)));
-        if (nextHistory.length > 50) nextHistory.shift();
-        set({ history: nextHistory, historyIndex: nextHistory.length - 1 });
+
+        const target = snapshot ?? elements;
+
+        const nextHistory = history.slice(
+          0,
+          historyIndex + 1
+        );
+
+        nextHistory.push(deepClone(target));
+
+        if (nextHistory.length > 50) {
+          nextHistory.shift();
+        }
+
+        set({
+          history: nextHistory,
+          historyIndex: nextHistory.length - 1,
+        });
       },
 
       undo: () => {
         const { history, historyIndex } = get();
-        if (historyIndex > 0) {
-          const prevIndex = historyIndex - 1;
-          set({ 
-            elements: JSON.parse(JSON.stringify(history[prevIndex])), 
-            historyIndex: prevIndex,
-            selectedElementId: null
-          });
-        }
+
+        if (historyIndex <= 0) return;
+
+        const prevIndex = historyIndex - 1;
+
+        set({
+          elements: deepClone(history[prevIndex]),
+          historyIndex: prevIndex,
+          selectedIds: [],
+        });
       },
 
       redo: () => {
         const { history, historyIndex } = get();
-        if (historyIndex < history.length - 1) {
-          const nextIndex = historyIndex + 1;
-          set({ 
-            elements: JSON.parse(JSON.stringify(history[nextIndex])), 
-            historyIndex: nextIndex,
-            selectedElementId: null
-          });
-        }
-      },
 
-      moveToFront: (id) => {
-        const { elements } = get();
-        const element = elements.find(el => el.id === id);
-        if (element) {
-          const nextElements = elements.filter(el => el.id !== id);
-          nextElements.push(element);
-          set({ elements: nextElements });
-          get().pushHistory();
-        }
-      },
+        if (historyIndex >= history.length - 1) return;
 
-      moveToBack: (id: string) => {
-        const { elements } = get();
-        const element = elements.find(el => el.id === id);
-        if (element) {
-          const nextElements = elements.filter(el => el.id !== id);
-          nextElements.unshift(element);
-          set({ elements: nextElements });
-          get().pushHistory();
-        }
-      },
+        const nextIndex = historyIndex + 1;
 
-      rotatePage: (pageNumber, pageWidth, pageHeight) => {
-        const { elements, pageRotations } = get();
-        const currentRotation = pageRotations[pageNumber] || 0;
-        const newRotation = (currentRotation + 90) % 360;
-
-        // 1. 회전 상태 업데이트
-        const nextRotations = { ...pageRotations, [pageNumber]: newRotation };
-
-        // 2. 해당 페이지의 모든 요소 좌표 변환 (90도 시계방향 회전)
-        // x' = H - (y + h)
-        // y' = x
-        // w' = h
-        // h' = w
-        const nextElements = elements.map(el => {
-          if (el.page !== pageNumber) return el;
-          return {
-            ...el,
-            x: pageHeight - (el.y + el.height),
-            y: el.x,
-            width: el.height,
-            height: el.width
-          };
+        set({
+          elements: deepClone(history[nextIndex]),
+          historyIndex: nextIndex,
+          selectedIds: [],
         });
-
-        set({ elements: nextElements, pageRotations: nextRotations });
-        get().pushHistory();
       },
 
-      reset: () => set({ 
-        elements: [], 
-        selectedElementId: null,
-        selectedElementIds: [],
-        activeTool: 'select', 
-        history: [[]], 
-        historyIndex: 0,
-        clipboard: [], // [FIX] null → [] : PdfElement[] 타입 준수, 런타임 크래시 방지
-        pageRotations: {},
-      })
+      // ======================================================
+      // RESET
+      // ======================================================
+
+      reset: () => {
+        set({
+          elements: [],
+
+          selectedIds: [],
+
+          clipboard: [],
+
+          activeTool: 'select',
+
+          history: [[]],
+
+          historyIndex: 0,
+
+          pageRotations: {},
+        });
+      },
     }),
+
+    // ========================================================
+    // PERSIST
+    // ========================================================
+
     {
       name: 'work-ai-pdf-editor-storage',
-      partialize: (state) => ({ 
-        elements: state.elements, 
-        leftSidebarOpen: state.leftSidebarOpen, 
-        rightSidebarOpen: state.rightSidebarOpen 
-      })
+
+      partialize: (state) => ({
+        elements: state.elements,
+
+        pageRotations: state.pageRotations,
+
+        leftSidebarOpen: state.leftSidebarOpen,
+
+        rightSidebarOpen: state.rightSidebarOpen,
+
+        activeLeftTab: state.activeLeftTab,
+      }),
     }
   )
 );
