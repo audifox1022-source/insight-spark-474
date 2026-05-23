@@ -103,7 +103,7 @@ export function PresentationSetupForm({
   fileNames, dataSummary, template, setTemplate,
   referenceFileName, isAnalyzingReference, referenceStructure,
   onReferenceFileUpload, onClearReferenceFile,
-  onDataFileUpload, dataFiles, onRemoveDataFile
+  onDataFileUpload, dataFiles = [], onRemoveDataFile
 }: PresentationSetupFormProps) {
   const [favorites, setFavorites] = useState<FavoriteTemplate[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);

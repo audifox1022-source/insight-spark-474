@@ -299,10 +299,24 @@ app.post('/api/gemini-proxy', async (req, res) => {
 
   } catch (error) {
     console.error('❌ [Proxy Error]:', error);
+    
+    let userFriendlyMessage = '분석 중 오류가 발생했습니다.';
+    let isKeyError = false;
+    
+    if (error.message && (
+      error.message.includes('API_KEY_INVALID') || 
+      error.message.includes('API key expired') || 
+      error.message.includes('API key') ||
+      error.message.includes('key expired')
+    )) {
+      userFriendlyMessage = '구글 Gemini API 키가 만료되었거나 올바르지 않습니다. 최신 토큰 키로 교체해 주세요.';
+      isKeyError = true;
+    }
+
     res.status(500).json({ 
-      error: '분석 중 오류가 발생했습니다.', 
+      error: userFriendlyMessage, 
       details: error.message,
-      code: error.code || 'UNKNOWN'
+      code: isKeyError ? 'API_KEY_INVALID' : (error.code || 'UNKNOWN')
     });
   } finally {
     // 3. 임시 파일 및 파일 API 자원 정리

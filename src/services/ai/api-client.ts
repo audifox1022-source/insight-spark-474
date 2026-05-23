@@ -139,7 +139,7 @@ export async function callGeminiAPI(
         throw new DOMException('Aborted by User', 'AbortError');
       }
 
-      const useDirect = isLocal && apiKey;
+      const useDirect = false; // CORS 방지를 위해 로컬 환경에서도 항상 백엔드 프록시 서버를 경유하도록 설정합니다.
       const url = useDirect 
         ? `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
         : PROXY_URL;
@@ -175,15 +175,16 @@ export async function callGeminiAPI(
         }
 
         // 투명 에러 릴레이 형식 파싱
-        if (errorData?.proxyError) {
+        if (errorData?.proxyError || errorData?.error || errorData?.code === 'API_KEY_INVALID') {
           const googleStatus = errorData.googleStatus || response.status;
-          const msg = errorData.message || '프록시에서 원인 불명의 에러 반환';
-          console.error(`[Proxy Relay Error] Status: ${googleStatus}, Message: ${msg}`, errorData);
+          const msg = errorData.error || errorData.message || '프록시에서 원인 불명의 에러 반환';
+          const code = errorData.code || 'UNKNOWN';
+          console.error(`[Proxy Relay Error] Status: ${googleStatus}, Code: ${code}, Message: ${msg}`, errorData);
           
-          if (googleStatus === 403 || googleStatus === 401 || msg.toLowerCase().includes('api key')) {
+          if (googleStatus === 403 || googleStatus === 401 || code === 'API_KEY_INVALID' || msg.toLowerCase().includes('api key') || msg.includes('API 키가 만료')) {
             useSlideStore.getState().resetAllLoadingStates();
-            useSlideStore.getState().setCriticalError("시스템 설정 오류: 구글 API 키가 만료되었거나 유효하지 않습니다. Vercel 환경 변수를 확인하고 서버를 재배포해 주세요.");
-            throw new Error(`[Proxy 403 Error] 구글 API에서 거부: ${msg}`);
+            useSlideStore.getState().setCriticalError("구글 Gemini API 키가 만료되었거나 유효하지 않습니다. 최신 토큰 키로 교체해 주세요.");
+            throw new Error(`구글 Gemini API 키가 만료되었거나 유효하지 않습니다. 최신 토큰 키로 교체해 주세요.`);
           }
           
           if (googleStatus === 503 || googleStatus === 429) {

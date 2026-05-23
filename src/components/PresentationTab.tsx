@@ -131,8 +131,12 @@ export const PresentationTab = (props: PresentationTabProps) => {
     referenceStructure, handleReferenceFileUpload, handleClearReferenceFile,
     sourceFileData, setSourceFileData,
     forceAbort,
-    dataFiles, onDataFileUpload, onRemoveDataFile 
+    dataFiles = [], onDataFileUpload, onRemoveDataFile 
   } = props
+
+  // [인터페이스 미스매치 방어] usePresentation 훅에서 제공하는 handleDataFileUpload와 handleRemoveDataFile 이름을 유연하게 바인딩합니다.
+  const finalOnDataFileUpload = onDataFileUpload || (props as any).handleDataFileUpload || (() => {});
+  const finalOnRemoveDataFile = onRemoveDataFile || (props as any).handleRemoveDataFile || (() => {});
 
   const [activePresetId, setActivePresetId] = useState<string>('manual')
   const [presetData, setPresetData] = useState<Record<string, string>>({})
@@ -298,7 +302,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
 
         {step === 'info' && (
           <motion.div key="info" className="flex-1 overflow-y-auto p-6 w-full max-w-[1400px] mx-auto">
-            <PresentationSetupForm info={info} onChange={setInfo} settings={settings} onSettingsChange={setSettings} onGenerate={handleGenerateOutline} onBack={reset} isGenerating={isGenerating} fileNames={fileNames} dataSummary={dataSummary} template={template} setTemplate={setTemplate} referenceFileName={referenceFileName} isAnalyzingReference={isAnalyzingReference} referenceStructure={referenceStructure} onReferenceFileUpload={handleReferenceFileUpload} onClearReferenceFile={handleClearReferenceFile} onDataFileUpload={onDataFileUpload} dataFiles={dataFiles} onRemoveDataFile={onRemoveDataFile} />
+            <PresentationSetupForm info={info} onChange={setInfo} settings={settings} onSettingsChange={setSettings} onGenerate={handleGenerateOutline} onBack={reset} isGenerating={isGenerating} fileNames={fileNames} dataSummary={dataSummary} template={template} setTemplate={setTemplate} referenceFileName={referenceFileName} isAnalyzingReference={isAnalyzingReference} referenceStructure={referenceStructure} onReferenceFileUpload={handleReferenceFileUpload} onClearReferenceFile={handleClearReferenceFile} onDataFileUpload={finalOnDataFileUpload} dataFiles={dataFiles} onRemoveDataFile={finalOnRemoveDataFile} />
           </motion.div>
         )}
 
