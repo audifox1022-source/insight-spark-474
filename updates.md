@@ -1,93 +1,36 @@
-# AI Audio Lab 작업 업데이트 (2026-04-09)
+# Work AI 업데이트 일지
 
-## 1. 실패 사례 및 시도한 해결책
-- **이슈**: AI Audio Lab 모듈에서 파일 업로드 후 분석 시 무한 로딩 발생.
-- **원인 분석**: 
-    - `gemini-1.5-flash` 모델명 사용 시 간헐적 404 에러.
-    - AI 라이브러리 미설치 및 Vercel Blob SDK 누락으로 인한 빌드 에러.
-    - 백엔드(프록시) 응답 지연 시 클라이언트 대기 상태 무한 지속.
-- **시도**:
-    - 모델명 하드코딩 수정.
-    - 프론트엔드 에러 핸들링 보강 (`try-catch` 및 상태 리셋).
-    - 프록시 서버에 타임아웃 레이터(`Promise.race`) 도입.
+## 2026-05-23: 파일 업로드 기반 발표자료 생성 버그 수정
 
-## 2. 최종 성공 내역
-- **모델 전면 교체**: `gemini-2.5-flash` 모델을 전사적으로 적용 (환경 변수 우선 참조).
-- **의존성 해결**: `@vercel/blob`, `@google/generative-ai` 설치 및 `dependencies`로 관리.
-- **안정성 확보**: 
-    - 프록시 서버 60초 타임아웃 적용.
-    - 분석 실패 시 `upload` 단계로 자동 복구 로직 구현.
-    - AI 응답 데이터 구조(`{ type, data }`) 표준화.
+### 🐛 문제
+- 파일을 업로드해도 파일 내용과 **무관한** 발표자료가 생성됨
 
-## 3. 적용 파일
-- `.env`
-- `src/services/ai/geminiAudioService.ts`
-- `api/gemini-proxy.js`
-- `src/components/audio/AudioLab.tsx`
-- `package.json`
-- `src/lib/gemini.ts`
-- `src/services/ai/api-client.ts`
-- `src/services/ai/geminiService.ts`
+### 🔍 근본 원인 (3단계 데이터 유실)
 
----
+| 단계 | 파일 | 문제점 |
+|------|------|--------|
+| 1 | `PresentationTab.tsx` (L149) | `info.notes`에 메타 텍스트만 저장 (`[파일 분석됨: 파일명]`), 실제 파일 내용은 `sourceFileData`에 저장 |
+| 2 | `usePresentation.ts` (L167) | **Plan 생성 시** `info.title`, `info.objective`, `info.notes`만 사용 → `sourceFileData` (실제 파일 내용) **누락** |
+| 3 | `prompts.ts` | AI 프롬프트에 업로드 문서 내용을 우선 반영하라는 지시 없음 |
 
-# 전체 기능 감사 및 개선 작업 (2026-05-11)
+**결과**: AI가 `info.notes`의 짧은 메타 텍스트만 보고 일반적인 발표자료를 생성
 
-## 발견 및 수정된 문제 목록
+### ✅ 수정 사항
 
-### 🔴 심각 버그 수정
+#### 1. `usePresentation.ts` - Plan 생성에 sourceFileData 주입
+- `handleGenerateOutline`에서 Plan 생성 시 `sourceFileData`를 `userRequest`에 포함 (최대 15,000자)
+- Outline 생성 시에도 `sourceFileData`를 `integratedText`에 명시적으로 포함
 
-1. **`usePdfEditorStore.ts` - clipboard null 타입 버그**
-   - `reset()` 함수에서 `clipboard: null`이 타입 선언(`PdfElement[]`)과 불일치
-   - → `clipboard: []`로 수정하여 런타임 크래시 방지
+#### 2. `prompts.ts` - AI 프롬프트 3개 강화
+- `GEMINI_SYSTEM_PROMPT_STANDARD`: "업로드 문서 기반 생성 강제" 규칙 추가
+- `GEMINI_OUTLINE_PROMPT`: "업로드 문서 기반 생성 강제" 규칙 추가
+- `GEMINI_HITL_PLANNER_SYSTEM_PROMPT`: 문서 기반 계획 수립 강제 지시 추가
 
-2. **`Index.tsx` / `App.tsx` - 프로덕션 디버그 로그 제거**
-   - 렌더링마다 출력되던 `console.log` 3개 및 `useEffect` 마운트 로그 제거
-   - `App.tsx`의 테마 동기화 로그 제거
-
-3. **`AudioLabWorkspace.tsx` - 내부 개발 용어 UI 노출 수정**
-   - 버튼 텍스트: `"START SANITIZED_LLM_AUTH"` → `"AI 분석 시작"`
-   - 버튼 텍스트: `"Change Asset"` → `"다른 파일 선택"`
-   - 서브타이틀: 파일명 세탁/핸드셰이크 개발 용어 → 사용자 친화적 한국어
-   - 비동작 버튼(`Expand`, `Sanitized Handshake`) 제거
-   - 업로드 상태 텍스트 한국어 정리
-
-4. **`PDFEditorWorkspace.tsx` - PDF 에디터 UI 개선**
-   - 헤더에 **페이지 이동 UI** 추가 (이전/다음 버튼 + `현재/전체` 페이지 표시)
-   - 우측 사이드바 닫힘 시 **재열기 버튼** 헤더에 추가
-   - 내보내기 버튼 텍스트 `"내보내기"` → `"PDF 내보내기"` 명확화
-   - **PPT 내보내기** 더미 구현(setTimeout + 가짜 성공 toast) → `"곧 지원 예정"` 안내로 교체
-
-## 검증
-- `npm run build` 성공 (오류 0건)
-- TypeScript 타입 오류 없음
-
-
-## 1. 실패 사례 및 시도한 해결책
-- **이슈**: AI Audio Lab 모듈에서 파일 업로드 후 분석 시 무한 로딩 발생.
-- **원인 분석**: 
-    - `gemini-1.5-flash` 모델명 사용 시 간헐적 404 에러.
-    - AI 라이브러리 미설치 및 Vercel Blob SDK 누락으로 인한 빌드 에러.
-    - 백엔드(프록시) 응답 지연 시 클라이언트 대기 상태 무한 지속.
-- **시도**:
-    - 모델명 하드코딩 수정.
-    - 프론트엔드 에러 핸들링 보강 (`try-catch` 및 상태 리셋).
-    - 프록시 서버에 타임아웃 레이터(`Promise.race`) 도입.
-
-## 2. 최종 성공 내역
-- **모델 전면 교체**: `gemini-2.5-flash` 모델을 전사적으로 적용 (환경 변수 우선 참조).
-- **의존성 해결**: `@vercel/blob`, `@google/generative-ai` 설치 및 `dependencies`로 관리.
-- **안정성 확보**: 
-    - 프록시 서버 60초 타임아웃 적용.
-    - 분석 실패 시 `upload` 단계로 자동 복구 로직 구현.
-    - AI 응답 데이터 구조(`{ type, data }`) 표준화.
-
-## 3. 적용 파일
-- `.env`
-- `src/services/ai/geminiAudioService.ts`
-- `api/gemini-proxy.js`
-- `src/components/audio/AudioLab.tsx`
-- `package.json`
-- `src/lib/gemini.ts`
-- `src/services/ai/api-client.ts`
-- `src/services/ai/geminiService.ts`
+### 📊 데이터 흐름 (수정 후)
+```
+파일 업로드
+  → parseFile() → sourceFileData에 저장 (max 20,000자)
+  → Plan 생성: sourceFileData 포함된 userRequest 전달 ✅ (기존: 누락)
+  → Outline 생성: integratedText에 sourceFileData 포함 ✅ (기존: 누락)
+  → Slide 생성: combinedInput에 sourceFileData 포함 ✅ (기존부터 정상)
+```

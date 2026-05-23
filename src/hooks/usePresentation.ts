@@ -164,7 +164,11 @@ export const usePresentation = () => {
       setIsGenerating(true);
       startLoadingTimer('plan');
       try {
-        const userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
+        // [FIX] 업로드된 파일 내용(sourceFileData)을 Plan 생성에 반드시 포함
+        let userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
+        if (sourceFileData && sourceFileData.trim().length > 0) {
+          userRequest += `\n\n[업로드된 원본 문서 내용]\n${sourceFileData.substring(0, 15000)}`;
+        }
         const plan = await aiService.createProjectPlan(userRequest, settings);
         if (plan) {
           let tasksData: any[] = [];
@@ -211,6 +215,11 @@ export const usePresentation = () => {
     const parsedFiles = dataFiles.filter(f => f.status === 'success');
     const multimodalParts: any[] = [];
     let integratedText = `[추가 지침/메모]\n${info.notes || '없음'}\n\n`;
+
+    // [FIX] 업로드 파일 원본 내용(sourceFileData)을 반드시 통합 텍스트에 포함
+    if (sourceFileData && sourceFileData.trim().length > 0) {
+      integratedText += `[업로드된 원본 문서 내용]\n${sourceFileData}\n\n`;
+    }
 
     if (dataSummary) {
       integratedText = `[데이터 심층 분석 보고서]\n${dataSummary}\n\n` + integratedText;

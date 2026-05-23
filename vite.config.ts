@@ -6,6 +6,10 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import fs from "fs";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // ✅ 빌드 시 pdf.worker.min.mjs 를 public 폴더에 자동 복사하는 플러그인
 function copyPdfWorkerPlugin() {
@@ -44,6 +48,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@/": path.resolve(__dirname, "./src/"),
     },
   },
   build: {

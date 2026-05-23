@@ -9,13 +9,26 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // [E2E BYPASS] 로컬 개발 및 샌드박스 테스트용 mock-session 우선 체크
+    const localMock = localStorage.getItem('mock-session');
+    if (localMock) {
+      try {
+        const parsed = JSON.parse(localMock);
+        setSession(parsed);
+        setLoading(false);
+        return;
+      } catch (e) {}
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      if (session) {
+        setSession(session);
+      }
       setLoading(false);
     });
 

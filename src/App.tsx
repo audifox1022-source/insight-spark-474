@@ -10,9 +10,9 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { Toaster as Sonner } from "./components/ui/sonner";
+import { TooltipProvider } from "./components/ui/tooltip";
 
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -21,8 +21,8 @@ import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { WorkAIGenerator } from "./components/ai/WorkAIGenerator";
 
-import { useSlideStore } from "@/store/useSlideStore";
-import { useThemeStore } from "@/store/useThemeStore";
+import { useSlideStore } from "./store/useSlideStore";
+import { useThemeStore } from "./store/useThemeStore";
 
 // ============================================================
 // QUERY CLIENT
