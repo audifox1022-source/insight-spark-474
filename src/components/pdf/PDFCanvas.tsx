@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as pdfjs from 'pdfjs-dist';
 import { cn } from '@/lib/utils';
-import { Trash2, Move, Type, MousePointer2 } from 'lucide-react';
+import { ImageIcon, Pencil, Trash2, Move, Type, MousePointer2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface PDFCanvasProps {
@@ -51,6 +51,7 @@ export const PDFCanvas: React.FC<PDFCanvasProps> = ({
       canvas.width = viewport.width;
       
       const renderContext = {
+        canvas,
         canvasContext: context,
         viewport: viewport,
       };

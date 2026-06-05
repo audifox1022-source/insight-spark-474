@@ -55,7 +55,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
       // 3.1 Draw Background
       page.drawRectangle({
         x: 0, y: 0, width, height,
-        fill: hexToRgb(bgColorHex)
+        color: hexToRgb(bgColorHex)
       });
 
       const textColor = hexToRgb(textColorHex);
@@ -73,7 +73,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
 
       page.drawRectangle({
         x: 60, y: height - 120, width: 80, height: 4,
-        fill: accentColor
+        color: accentColor
       });
 
       if (subtitle) {
@@ -96,7 +96,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
 
            page.drawRectangle({
              x: xPos, y: yPos, width: 540, height: 200,
-             fill: rgb(0.97, 0.98, 1.0),
+             color: rgb(0.97, 0.98, 1.0),
              opacity: 0.5
            });
 
@@ -115,12 +115,12 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
           const timelineY = height * 0.4;
           page.drawRectangle({
             x: 60, y: timelineY, width: width - 120, height: 2,
-            fill: rgb(0.9, 0.9, 0.9)
+            color: rgb(0.9, 0.9, 0.9)
           });
           
           contentList.slice(0, 4).forEach((item, idx) => {
             const xPos = 60 + (idx * (width - 120) / 3);
-            page.drawCircle({ x: xPos, y: timelineY + 1, size: 8, fill: accentColor });
+            page.drawCircle({ x: xPos, y: timelineY + 1, size: 8, color: accentColor });
             page.drawText(item.heading || '', {
                 x: xPos - 50, y: timelineY + 40, size: 16, font: customFont, color: textColor
             });
@@ -131,7 +131,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
              const boxHeight = height - 350;
              page.drawRectangle({
                x: xPos, y: 100, width: 560, height: boxHeight,
-               fill: idx === 0 ? rgb(0.95, 0.96, 1.0) : rgb(1.0, 0.95, 0.96)
+               color: idx === 0 ? rgb(0.95, 0.96, 1.0) : rgb(1.0, 0.95, 0.96)
              });
              page.drawText(item.heading || '', {
                  x: xPos + 30, y: 100 + boxHeight - 40, size: 32, font: customFont, color: textColor
@@ -158,7 +158,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
         // Default Layout (List)
         contentList.slice(0, 6).forEach((item, idx) => {
           const yPos = height - 280 - (idx * 100);
-          page.drawCircle({ x: 75, y: yPos + 10, size: 6, fill: accentColor });
+          page.drawCircle({ x: 75, y: yPos + 10, size: 6, color: accentColor });
           page.drawText(item.heading || '', {
             x: 100, y: yPos,
             size: 26, font: customFont, color: textColor

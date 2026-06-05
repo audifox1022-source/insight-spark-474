@@ -17,7 +17,9 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
         setSession(parsed);
         setLoading(false);
         return;
-      } catch (e) {}
+      } catch {
+        localStorage.removeItem('mock-session');
+      }
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

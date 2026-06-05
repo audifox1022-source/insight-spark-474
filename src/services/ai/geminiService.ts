@@ -43,7 +43,7 @@ export function extractJson(text: string): any {
   } catch (parseErr: any) {
     console.error("❌ [AI Service] JSON 파싱 에러 발생!", parseErr.message);
     try {
-      const repaired = targetText.replace(/,\s*([\}\]])/g, '$1');
+      const repaired = targetText.replace(/,\s*([}\]])/g, '$1');
       const parsedRepaired = JSON.parse(repaired);
       return parsedRepaired;
     } catch (innerError) {

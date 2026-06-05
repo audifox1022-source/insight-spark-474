@@ -30,7 +30,7 @@ export interface PdfElement {
   width: number;
   height: number;
 
-  zIndex: number;
+  zIndex?: number;
 
   page: number;
 
@@ -112,6 +112,8 @@ interface PdfEditorState {
   elements: PdfElement[];
 
   selectedIds: string[];
+  readonly selectedElementId: string | null;
+  readonly selectedElementIds: string[];
 
   clipboard: PdfElement[];
 
@@ -188,6 +190,7 @@ interface PdfEditorState {
   // ----------------------------------------------------------
 
   setSelection: (ids: string[]) => void;
+  setSelectedElementId: (id: string | null) => void;
 
   clearSelection: () => void;
 
@@ -202,6 +205,7 @@ interface PdfEditorState {
   ) => void;
 
   setToolbarColor: (color: string) => void;
+  setActiveColor: (color: string) => void;
 
   applyColorToSelection: (color: string) => void;
 
@@ -214,6 +218,7 @@ interface PdfEditorState {
   applyFontFamilyToSelection: (font: string) => void;
 
   setToolbarLineHeight: (height: number) => void;
+  setActiveLineHeight: (height: number) => void;
 
   applyLineHeightToSelection: (height: number) => void;
 
@@ -239,17 +244,20 @@ interface PdfEditorState {
   // Rotation
   // ----------------------------------------------------------
 
-  rotatePage: (pageNumber: number) => void;
+  rotatePage: (pageNumber: number, width?: number, height?: number) => void;
 
   // ----------------------------------------------------------
   // Clipboard
   // ----------------------------------------------------------
 
   copyElements: (ids: string[]) => void;
+  copyElement: (id: string) => void;
 
   pasteElements: (currentPage: number) => void;
+  pasteElement: (currentPage: number) => void;
 
   duplicateElements: (ids: string[]) => void;
+  duplicateElement: (id: string) => void;
 
   // ----------------------------------------------------------
   // History
@@ -282,6 +290,13 @@ export const usePdfEditorStore = create<PdfEditorState>()(
       elements: [],
 
       selectedIds: [],
+      get selectedElementId() {
+        return get().selectedIds[0] ?? null;
+      },
+
+      get selectedElementIds() {
+        return get().selectedIds;
+      },
 
       clipboard: [],
 
@@ -433,6 +448,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         }
       },
 
+      setSelectedElementId: (id) => {
+        get().setSelection(id ? [id] : []);
+      },
+
       clearSelection: () => {
         set({
           selectedIds: [],
@@ -484,6 +503,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         set({
           activeColor: color,
         });
+      },
+
+      setActiveColor: (color) => {
+        get().setToolbarColor(color);
       },
 
       applyColorToSelection: (color) => {
@@ -562,6 +585,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         set({
           activeLineHeight: height,
         });
+      },
+
+      setActiveLineHeight: (height) => {
+        get().setToolbarLineHeight(height);
       },
 
       applyLineHeightToSelection: (height) => {
@@ -683,6 +710,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         });
       },
 
+      copyElement: (id) => {
+        get().copyElements([id]);
+      },
+
       pasteElements: (currentPage) => {
         const clipboard = get().clipboard;
 
@@ -713,6 +744,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         });
 
         get().pushHistory(nextElements);
+      },
+
+      pasteElement: (currentPage) => {
+        get().pasteElements(currentPage);
       },
 
       duplicateElements: (ids) => {
@@ -747,6 +782,10 @@ export const usePdfEditorStore = create<PdfEditorState>()(
         });
 
         get().pushHistory(nextElements);
+      },
+
+      duplicateElement: (id) => {
+        get().duplicateElements([id]);
       },
 
       // ======================================================

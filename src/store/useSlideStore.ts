@@ -13,6 +13,8 @@ import {
   SlideElement 
 } from '@/types/presentation';
 
+export type { SlideElement } from '@/types/presentation';
+
 export interface PlanTask {
   id: string;
   title: string;
@@ -33,6 +35,7 @@ interface SlideState {
   presentation: Presentation | null;
   currentSlideIndex: number;
   selectedElementId: string | null;
+  hotContext: string;
   history: Presentation[];
   historyIndex: number;
   
@@ -82,12 +85,15 @@ interface SlideState {
   isGenerating: boolean;
   isSyncing: boolean;
   isLoading: boolean;
+  isSaving: boolean;
   error: string | null;
   criticalError: string | null;
   
   setIsGenerating: (generating: boolean) => void;
   setIsSyncing: (syncing: boolean) => void;
   setIsLoading: (loading: boolean) => void;
+  setIsSaving: (saving: boolean) => void;
+  setHotContext: (context: string) => void;
   setError: (err: string | null) => void;
   setCriticalError: (err: string | null) => void;
   resetAllLoadingStates: () => void;
@@ -118,6 +124,7 @@ export const useSlideStore = create<SlideState>()(
       presentation: null,
       currentSlideIndex: 0,
       selectedElementId: null,
+      hotContext: '',
       history: [],
       historyIndex: -1,
       isEditMode: false,
@@ -152,6 +159,7 @@ export const useSlideStore = create<SlideState>()(
       isGenerating: false,
       isSyncing: false,
       isLoading: false,
+      isSaving: false,
       error: null,
       criticalError: null,
 
@@ -159,6 +167,8 @@ export const useSlideStore = create<SlideState>()(
       setIsGenerating: (val) => set({ isGenerating: val }),
       setIsSyncing: (val) => set({ isSyncing: val }),
       setIsLoading: (val) => set({ isLoading: val }),
+      setIsSaving: (val) => set({ isSaving: val }),
+      setHotContext: (context) => set({ hotContext: context }),
       setError: (err) => set({ error: err }),
       setCriticalError: (err) => set({ criticalError: err }),
       
@@ -315,9 +325,6 @@ export const useSlideStore = create<SlideState>()(
           if (typeof list[itemIndex] === 'object') {
             if (list[itemIndex][field] === value) return;
             list[itemIndex] = { ...list[itemIndex], [field]: value };
-          } else if (field === 'heading') {
-            if (list[itemIndex] === value) return;
-            list[itemIndex] = value;
           }
         }
         

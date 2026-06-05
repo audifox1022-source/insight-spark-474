@@ -100,7 +100,7 @@ const PageThumbnail = ({ pdfDoc, pageNum }: { pdfDoc: pdfjsLib.PDFDocumentProxy,
         if (context) {
           canvasRef.current.height = viewport.height;
           canvasRef.current.width = viewport.width;
-          renderTask = page.render({ canvasContext: context, viewport });
+          renderTask = page.render({ canvas: canvasRef.current, canvasContext: context, viewport });
           await renderTask.promise;
         }
       } catch (error) {
@@ -197,7 +197,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
       if (context) {
         canvasRef.current.height = viewport.height;
         canvasRef.current.width = viewport.width;
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        await page.render({ canvas: canvasRef.current, canvasContext: context, viewport: viewport }).promise;
 
         // 원본 텍스트 추출 로직 (AI 객체화)
         try {

@@ -197,7 +197,7 @@ export const WorkAIPresentationApp: React.FC = () => {
     const renderLayout = () => {
       switch (layout) {
         case 'Split_Left':
-        case 'Split_Right':
+        case 'Split_Right': {
           const isLeft = layout === 'Split_Left';
           return (
             <div className={cn("flex w-full h-full gap-16 items-center", isLeft ? "flex-row" : "flex-row-reverse")}>
@@ -225,6 +225,7 @@ export const WorkAIPresentationApp: React.FC = () => {
               </div>
             </div>
           );
+        }
 
         case 'Grid':
           return (

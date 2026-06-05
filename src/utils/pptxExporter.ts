@@ -72,7 +72,7 @@ export async function exportToPptx(presentation: Presentation) {
         // 배경 데코 (큰 원형)
         pptSlide.addShape('ELLIPSE' as any, {
             x: 7.5, y: -1.5, w: 4, h: 4,
-            fill: { color: accentColor, opacity: 20 }
+            fill: { color: accentColor, transparency: 80 }
         });
 
         pptSlide.addText(slide.title || 'Untitled Presentation', {
@@ -98,7 +98,7 @@ export async function exportToPptx(presentation: Presentation) {
         });
         break;
 
-      case 'grid':
+      case 'grid': {
         // 제목 바인딩
         pptSlide.addText(slide.title || '', {
             x: 0.5, y: 0.4, w: 9, h: 0.8,
@@ -169,6 +169,7 @@ export async function exportToPptx(presentation: Presentation) {
             });
         });
         break;
+      }
 
       case 'split':
         pptSlide.addText(slide.title || '', {
@@ -233,10 +234,10 @@ export async function exportToPptx(presentation: Presentation) {
         });
         break;
 
-      case 'quote':
+      case 'quote': {
         pptSlide.addShape('RECTANGLE' as any, {
             x: 0, y: 1.5, w: '100%', h: 2.5,
-            fill: { color: accentColor, opacity: 5 }
+            fill: { color: accentColor, transparency: 95 }
         });
 
         const quoteText = contentList[0]?.heading || slide.title || '';
@@ -245,6 +246,7 @@ export async function exportToPptx(presentation: Presentation) {
             fontSize: 36, italic: true, bold: true, color: accentColor, align: 'center', valign: 'middle'
         });
         break;
+      }
 
       default:
         pptSlide.addText(slide.title || '', {

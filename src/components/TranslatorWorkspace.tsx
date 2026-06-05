@@ -252,7 +252,7 @@ export const TranslatorWorkspace = React.forwardRef((props, ref) => {
         } else if (file.type === 'application/pdf') {
           fileTypeForPrompt = 'pdf';
           const buf = await file.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument(buf).promise;
+          const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
           let text = '';
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);

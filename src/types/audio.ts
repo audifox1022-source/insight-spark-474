@@ -81,11 +81,13 @@ export interface MusicAnalysis {
     instruments: string[];
     aiDetected: string;
     audioQuality: string;
+    stems?: Record<string, number>;
   };
   lyrics?: {
     section: string;
     text: string;
   }[];
+  styleTags?: string[];
 }
 
 export interface AnalysisResult {

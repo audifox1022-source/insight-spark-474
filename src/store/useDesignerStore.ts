@@ -33,11 +33,13 @@ interface DesignerState {
   slides: DesignerSlide[];
   activeSlideId: string | null;
   selectedObjectId: string | null;
+  canvas: any | null;
   
   // Actions
   setSlides: (slides: DesignerSlide[]) => void;
   setActiveSlide: (id: string) => void;
   setSelectedObject: (id: string | null) => void;
+  setCanvas: (canvas: any | null) => void;
   addSlide: () => void;
   deleteSlide: (id: string) => void;
 
@@ -59,10 +61,12 @@ export const useDesignerStore = create<DesignerState>((set) => ({
   ],
   activeSlideId: 'slide-1',
   selectedObjectId: null,
+  canvas: null,
 
   setSlides: (slides) => set({ slides }),
   setActiveSlide: (id) => set({ activeSlideId: id }),
   setSelectedObject: (id) => set({ selectedObjectId: id }),
+  setCanvas: (canvas) => set({ canvas }),
   
   addSlide: () => set((state) => {
     const newId = `slide-${state.slides.length + 1}`;

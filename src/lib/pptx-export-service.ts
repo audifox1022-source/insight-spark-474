@@ -103,7 +103,7 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
 
       // Layout Switcher (Scaled for dynamic height)
       switch (layout) {
-        case 'cover':
+        case 'cover': {
             const coverY = ratio === '16:9' ? 2.5 : 3.2; 
             pptSlide.addShape(pres.ShapeType.rect, { x: 4.5, y: coverY - 0.3, w: 1, h: 0.1, fill: { color: accentColor } });
             pptSlide.addText(slide.title || "Untitled", {
@@ -111,8 +111,9 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 fontSize: 48, bold: true, align: 'center', color: textColor, fontFace: 'Arial'
             });
             break;
+        }
 
-        case 'timeline':
+        case 'timeline': {
             const tlY = ratio === '16:9' ? 3.2 : 4.0;
             pptSlide.addShape(pres.ShapeType.line, { x: 0.5, y: tlY, w: 9, h: 0, line: { color: 'E2E8F0', width: 2 } });
             normalizedContent.slice(0, 4).forEach((item, cIdx) => {
@@ -121,8 +122,9 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.heading, { x: xPos, y: tlY - 0.8, w: 2.2, fontSize: 13, bold: true, align: 'center', color: textColor });
             });
             break;
+        }
 
-        case 'comparison':
+        case 'comparison': {
             const boxH = ratio === '16:9' ? 3.5 : 5.0;
             normalizedContent.slice(0, 2).forEach((item, cIdx) => {
                 const xPos = cIdx === 0 ? 0.5 : 5.25;
@@ -135,8 +137,9 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.description, { x: xPos + 0.3, y: 2.4, w: 3.6, fontSize: 11, color: '475569' });
             });
             break;
+        }
 
-        case 'matrix':
+        case 'matrix': {
             const matH = ratio === '16:9' ? 1.6 : 2.4;
             normalizedContent.slice(0, 4).forEach((item, cIdx) => {
                 const col = cIdx % 2;
@@ -148,8 +151,9 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.description, { x: xPos + 0.2, y: yPos + 0.6, w: 4, fontSize: 9, color: '64748B' });
             });
             break;
+        }
 
-        default:
+        default: {
             const spacing = ratio === '16:9' ? 0.7 : 0.9;
             normalizedContent.slice(0, 6).forEach((item, cIdx) => {
                 const yPos = 1.6 + (cIdx * spacing);
@@ -157,6 +161,7 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.heading, { x: 0.7, y: yPos, w: 8.8, fontSize: 16, bold: true, color: textColor });
                 pptSlide.addText(item.description, { x: 0.7, y: yPos + 0.35, w: 8.8, fontSize: 10, color: '64748B' });
             });
+        }
       }
     });
 

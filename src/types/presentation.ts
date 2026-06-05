@@ -12,6 +12,8 @@ export interface Presentation {
   watermark?: string;  // [NEW] 발표 모드용 워터마크 텍스트
 }
 
+export type AppStep = 'upload' | 'info' | 'outline' | 'generating' | 'preview';
+
 export interface Slide {
   id: string;
   title: string;
@@ -29,9 +31,10 @@ export interface Slide {
   citation_url?: string;
   content_data?: any; // 차트나 표를 위한 로우 데이터 리스트
   theme?: {
-    bgColor: string;
-    textColor: string;
-    accentColor: string;
+    bgColor?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    accentColor?: string;
   };
   style?: any; // 전역 슬라이드 스타일 (Title 등)
   [key: string]: any;
@@ -59,7 +62,8 @@ export interface SlideElement {
   color?: string;
   backgroundColor?: string;
   fontWeight?: string;
-  textAlign?: 'left' | 'center' | 'right';
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  fill?: string;
   zIndex: number;
   borderRadius?: number;
   opacity?: number;      // [NEW] 투명도 지원

@@ -145,7 +145,7 @@ export const WorkAIPdfEditor: React.FC<WorkAIPdfEditorProps> = ({ onBack }) => {
       if (context) {
         canvasRef.current.height = viewport.height;
         canvasRef.current.width = viewport.width;
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        await page.render({ canvas: canvasRef.current, canvasContext: context, viewport: viewport }).promise;
       }
     } catch (error) { console.error("Renderer Error:", error); }
   }, [pdfDocument, currentPage, renderScale, pageRotations]);

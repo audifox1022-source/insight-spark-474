@@ -1,4 +1,4 @@
-import { Slide } from '@/types/presentation';
+import { Slide, SlideContent } from '@/types/presentation';
 
 const MAX_BODY_ITEMS = 6;
 const MAX_CHAR_COUNT = 300;
@@ -14,15 +14,29 @@ export function processAndSplitSlides(slides: Slide[]): Slide[] {
 
   for (const slide of slides) {
     const rawContent = slide.content || slide.points || slide.bullets || [];
-    const content = Array.isArray(rawContent) ? rawContent : [];
-    const totalChars = content.join('').length;
+    const rawItems = Array.isArray(rawContent) ? rawContent : [];
+    const contentText = rawItems.map((item: any) =>
+      typeof item === 'object'
+        ? String(item.heading || item.title || item.text || item.description || '')
+        : String(item)
+    );
+    const totalChars = contentText.join('').length;
     
     // 분할이 필요한지 확인
-    if (content.length > MAX_BODY_ITEMS || totalChars > MAX_CHAR_COUNT) {
+    if (rawItems.length > MAX_BODY_ITEMS || totalChars > MAX_CHAR_COUNT) {
       // 본문 내용을 묶음으로 나눔
-      const chunks: string[][] = [];
-      for (let i = 0; i < content.length; i += MAX_BODY_ITEMS) {
-        chunks.push(content.slice(i, i + MAX_BODY_ITEMS));
+      const chunks: SlideContent[][] = [];
+      for (let i = 0; i < rawItems.length; i += MAX_BODY_ITEMS) {
+        chunks.push(rawItems.slice(i, i + MAX_BODY_ITEMS).map((item: any) => {
+          if (typeof item === 'object') {
+            return {
+              heading: String(item.heading || item.title || item.text || ''),
+              description: String(item.description || item.content || item.body || ''),
+            };
+          }
+
+          return { heading: String(item), description: '' };
+        }));
       }
 
       chunks.forEach((chunk, index) => {
@@ -65,9 +79,16 @@ export function sanitizeSlideFragment(fragment: any): Partial<Slide> {
   const contentKeys = ['content_bullets', 'points', 'bullets', 'items', 'list', 'body'];
   for (const key of contentKeys) {
     if (fragment[key] && Array.isArray(fragment[key]) && !sanitized.content) {
-      sanitized.content = fragment[key].map((item: any) => 
-        typeof item === 'object' ? (item.text || item.title || JSON.stringify(item)) : String(item)
-      );
+      sanitized.content = fragment[key].map((item: any) => {
+        if (typeof item === 'object') {
+          return {
+            heading: String(item.heading || item.text || item.title || ''),
+            description: String(item.description || item.content || item.body || ''),
+          };
+        }
+
+        return { heading: String(item), description: '' };
+      });
       break; 
     }
   }
