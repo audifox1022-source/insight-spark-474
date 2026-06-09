@@ -46,6 +46,8 @@ The app requires Supabase configuration before the React UI can enter the authen
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 
+This repository's Supabase config points to project ref `enbbfidgbylvhoivkvkj`, so the matching URL is `https://enbbfidgbylvhoivkvkj.supabase.co`. If a deployed bundle references another project ref and the browser reports `ERR_NAME_NOT_RESOLVED`, update the deployment environment variables and redeploy.
+
 AI generation and audio analysis run through server-side routes and require:
 
 - `GEMINI_API_KEY`
