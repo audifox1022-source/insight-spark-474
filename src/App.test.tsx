@@ -118,6 +118,7 @@ describe('App routing', () => {
 
     expect(screen.getByText(/VITE_SUPABASE_URL/)).toBeInTheDocument();
     expect(screen.getByText(/VITE_SUPABASE_ANON_KEY/)).toBeInTheDocument();
+    expect(screen.getByText(/enbbfidgbylvhoivkvkj\.supabase\.co/)).toBeInTheDocument();
   });
 
   it('renders /generator for authenticated users', async () => {
