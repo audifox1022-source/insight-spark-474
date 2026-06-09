@@ -63,7 +63,7 @@ Optional runtime variables:
 - `KV_REST_API_URL`
 - `KV_REST_API_TOKEN`
 
-For local smoke checks, start the app with `npm run dev`, open `http://localhost:8080/`, and verify the backend with `http://localhost:3001/api/health`. The same `/api/health` path is available as a Vercel serverless function and returns a safe runtime configuration summary without secret values.
+For local smoke checks, start the app with `npm run dev`, open `http://localhost:8080/`, and verify the backend with `http://localhost:3001/api/health`. The same `/api/health` path is available as a Vercel serverless function and returns a safe runtime configuration summary without secret values. `ready: true` means the required Supabase, Gemini, and Blob runtime settings are present and the Supabase project ref matches this repo.
 
 Before deploying, run `npm run verify:runtime`. It checks required environment variables, Supabase project ref consistency, Supabase DNS resolution, and Supabase anon key project ref matching without printing secret values.
 
