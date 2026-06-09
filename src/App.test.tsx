@@ -110,6 +110,16 @@ describe('App routing', () => {
     expect(screen.queryByText('generator page')).not.toBeInTheDocument();
   });
 
+  it('renders a configuration screen when Supabase env vars are missing', async () => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+
+    await renderAppAt('/');
+
+    expect(screen.getByText(/VITE_SUPABASE_URL/)).toBeInTheDocument();
+    expect(screen.getByText(/VITE_SUPABASE_ANON_KEY/)).toBeInTheDocument();
+  });
+
   it('renders /generator for authenticated users', async () => {
     getSupabaseSessionSafely.mockResolvedValueOnce({
       access_token: 'token',

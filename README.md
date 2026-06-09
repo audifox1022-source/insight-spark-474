@@ -32,9 +32,36 @@ cd <YOUR_PROJECT_NAME>
 # Step 3: Install the necessary dependencies.
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Step 4: Create local environment variables.
+cp .env.example .env.local
+
+# Step 5: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+## Runtime configuration
+
+The app requires Supabase configuration before the React UI can enter the authenticated workspace:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+AI generation and audio analysis run through server-side routes and require:
+
+- `GEMINI_API_KEY`
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` for server-side auth verification
+- `BLOB_READ_WRITE_TOKEN` when using audio uploads through Vercel Blob
+
+Optional runtime variables:
+
+- `VITE_GEMINI_MODEL`
+- `ALLOWED_ORIGINS`
+- `API_RATE_LIMIT_WINDOW_MS`
+- `API_RATE_LIMIT_MAX_REQUESTS`
+- `KV_REST_API_URL`
+- `KV_REST_API_TOKEN`
+
+For local smoke checks, start the app with `npm run dev`, open `http://localhost:8080/`, and verify the backend with `http://localhost:3001/api/health`.
 
 **Edit a file directly in GitHub**
 
