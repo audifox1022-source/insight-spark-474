@@ -44,6 +44,7 @@ export const usePresentation = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('AI가 최신 gemini-2.5-flash 모델로 구성안을 설계하고 있습니다...');
+  const generationCancelledRef = useRef(false);
   
   // ── [Data State] ─────────────────────────────────────────
   const [info, setInfo] = useState<MeetingInfo>({ 
@@ -95,6 +96,12 @@ export const usePresentation = () => {
       '슬라이드 콘텐츠를 생성 중입니다...'
     );
   };
+
+  const forceAbort = useCallback(() => {
+    generationCancelledRef.current = true;
+    setIsGenerating(false);
+    toast.info('진행 중인 생성 작업을 중단했습니다.');
+  }, []);
 
   const handleDataFileUpload = async (files: File[]) => {
     const newFiles = files.map(f => ({ name: f.name, status: 'loading' as const }));
@@ -160,6 +167,8 @@ export const usePresentation = () => {
   // ── [AI 생성 로직 - ENTERPRISE UPGRADE] ──────────────────────────
   
   const handleGenerateOutline = async (onPlanReady?: () => void) => {
+    generationCancelledRef.current = false;
+
     if (!executionPlan || !executionPlan.isApproved) {
       setIsGenerating(true);
       startLoadingTimer('plan');
@@ -170,6 +179,7 @@ export const usePresentation = () => {
           userRequest += `\n\n[업로드된 원본 문서 내용]\n${sourceFileData.substring(0, 15000)}`;
         }
         const plan = await aiService.createProjectPlan(userRequest, settings);
+        if (generationCancelledRef.current) return;
         if (plan) {
           let tasksData: any[] = [];
           if (Array.isArray(plan)) {
@@ -205,7 +215,9 @@ export const usePresentation = () => {
           if (onPlanReady) onPlanReady();
         }
       } catch (err) {
-        toast.error('계획서 생성 실패');
+        if (!generationCancelledRef.current) {
+          toast.error('계획서 생성 실패');
+        }
       } finally {
         setIsGenerating(false);
       }
@@ -242,6 +254,7 @@ export const usePresentation = () => {
         settings: { ...settings, slideCount: settings.slideCount }, 
         template 
       });
+      if (generationCancelledRef.current) return;
 
       if (!result || (Array.isArray(result) && result.length === 0)) {
         throw new Error("데이터 형식이 올바르지 않습니다");
@@ -254,13 +267,16 @@ export const usePresentation = () => {
       toast.success('AI 목차 설계 및 품질 검증 완료 (Enterprise Engine)');
     } catch (err: any) { 
       console.error("Outline Generation Failure:", err);
-      toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `구성안 생성 실패: ${err.message}`);
+      if (!generationCancelledRef.current) {
+        toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `구성안 생성 실패: ${err.message}`);
+      }
     } finally { 
       setIsGenerating(false);
     }
   };
 
   const handleGenerateFull = async (approvedOutline: any, onSuccess?: () => void) => {
+    generationCancelledRef.current = false;
     setIsGenerating(true);
     startLoadingTimer('full'); 
     
@@ -272,6 +288,7 @@ export const usePresentation = () => {
       const result = await aiService.generatePresentation({
         fileData: combinedInput, template, meetingInfo: info, settings, approvedOutline
       });
+      if (generationCancelledRef.current) return;
       
       const slideData = Array.isArray(result) ? result : (result?.slides || result?.presentation?.slides || []);
       
@@ -296,7 +313,9 @@ export const usePresentation = () => {
       if (onSuccess) onSuccess();
     } catch (err: any) { 
       console.error("Full Slides Generation Error:", err);
-      toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `발표자료 생성 실패: ${err.message || "알 수 없는 에러"}`);
+      if (!generationCancelledRef.current) {
+        toast.error(err.message === "데이터 형식이 올바르지 않습니다" || err.message.includes("API 키가 만료되었거나") ? err.message : `발표자료 생성 실패: ${err.message || "알 수 없는 에러"}`);
+      }
     } finally { 
       setIsGenerating(false);
     }
@@ -304,6 +323,7 @@ export const usePresentation = () => {
 
   const regenerateSlide = async (slideIndex: number, userInstruction?: string) => {
     if (!presentation) return;
+    generationCancelledRef.current = false;
     setIsGenerating(true);
     startLoadingTimer('regen');
     
@@ -313,6 +333,7 @@ export const usePresentation = () => {
         slideIndex, currentSlide, presentation,
         userInstruction: userInstruction || '현재 내용을 다듬어줘.'
       });
+      if (generationCancelledRef.current) return;
 
       if (result && result.slide) {
         const newSlides = [...presentation.slides];
@@ -323,7 +344,9 @@ export const usePresentation = () => {
         toast.success(`${slideIndex + 1}번 슬라이드 재생성 완료`);
       }
     } catch (err: any) {
-        toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `슬라이드 재생성 실패: ${err.message}`);
+        if (!generationCancelledRef.current) {
+          toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `슬라이드 재생성 실패: ${err.message}`);
+        }
     } finally {
       setIsGenerating(false);
     }
@@ -331,17 +354,21 @@ export const usePresentation = () => {
 
   const reviewAndFixPresentation = async () => {
     if (!presentation) return;
+    generationCancelledRef.current = false;
     setIsGenerating(true);
     startLoadingTimer('review');
     try {
       const { result } = await aiService.reviewAndFix({ presentation });
+      if (generationCancelledRef.current) return;
       if (result?.presentation) {
         setPresentationState(result.presentation);
         setStorePresentation(result.presentation);
         toast.success('디자인 밸런스 자동 최적화 완료 (Self-annealing)');
       }
     } catch (err: any) {
-      toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `자동 디자인 실패: ${err.message}`);
+      if (!generationCancelledRef.current) {
+        toast.error(err.message.includes("API 키가 만료되었거나") ? err.message : `자동 디자인 실패: ${err.message}`);
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -360,6 +387,7 @@ export const usePresentation = () => {
   };
 
   const reset = () => {
+    generationCancelledRef.current = true;
     setStep('upload');
     setPresentationState(null);
     setOutline(null);
@@ -385,6 +413,7 @@ export const usePresentation = () => {
     openHistory: () => setIsHistoryOpen(true),
     isChatOpen, setChatOpen: setIsChatOpen,
     isReviewOpen, setReviewOpen: setIsReviewOpen,
-    executionPlan
+    executionPlan,
+    forceAbort
   };
 };

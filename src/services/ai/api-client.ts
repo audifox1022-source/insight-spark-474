@@ -1,25 +1,13 @@
 // ============================================================
-// src/services/ai/api-client.ts - Gemini 연동 (Hotfix: Engine Upgrade & Loading Defense)
-// [FIX] models/gemini-1.5-pro -> gemini-2.5-flash 전면 교체
-// [UPGRADE] MAX_TOKENS 한도 상황 대비 에러 핸들링 보강
-// [UPGRADE] Exponential Backoff 대기 시간 강화 (5s -> 10s -> 20s)
-// [LLM WIKI] Hot Context (Persistent Memory) 주입 로직 추가
+// src/services/ai/api-client.ts - Gemini 연동
+// [SECURITY] Browser-side Gemini key usage removed; all calls go through API proxy.
 // ============================================================
 
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { streamText } from 'ai';
 import { toast } from 'sonner';
 import { useSlideStore } from '@/store/useSlideStore';
+import { getApiAuthHeaders } from '@/lib/api-auth';
 
-// Vercel AI SDK를 위한 커스텀 Google Provider 생성
-export const googleProvider = createGoogleGenerativeAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-});
-
-// 프론트엔드의 aiService.ts에서 프록시 서버로 fetch 또는 axios 요청을 보낼 때, 환경에 따라 올바른 URL설정
-const PROXY_URL = import.meta.env.MODE === 'development' 
-  ? '/api/gemini-proxy' 
-  : 'https://twmakeppt.vercel.app/api/gemini-proxy';
+const PROXY_URL = '/api/gemini-proxy';
 
 // [STABILITY] 재시도 횟수 상향 및 지수 백오프 강화
 const MAX_RETRIES = 4; // 최초 1회 + 재시도 3회
@@ -33,35 +21,20 @@ export async function streamGeminiAPI(
   onChunk?: (text: string) => void,
   signal?: AbortSignal
 ) {
-  // [HOTFIX] gemini-2.5-flash로 엔진 업그레이드 (404 방어)
-  const modelName = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
-  
-  const hotContext = useSlideStore.getState().hotContext;
-  const combinedSystem = hotContext 
-    ? `${systemInstruction}\n\n[RECENT_CONTEXT_CACHE]\n${hotContext}`
-    : systemInstruction;
-
-  const userParts = typeof userContent === 'string' 
-    ? [{ text: userContent }] 
-    : userContent.map(p => {
-        if (p.inlineData) return { inlineData: p.inlineData };
-        if (p.text) return { text: p.text };
-        return p; 
-      });
-
   try {
-    const { textStream } = await streamText({
-      model: googleProvider(modelName),
-      system: combinedSystem,
-      prompt: typeof userContent === 'string' ? userContent : JSON.stringify(userParts),
-      abortSignal: signal,
-      temperature: 0.1,
-    });
+    const fullText = await callGeminiAPI(
+      systemInstruction,
+      userContent,
+      8192,
+      "application/json",
+      false,
+      signal
+    );
 
-    let fullText = '';
-    for await (const delta of textStream) {
-      fullText += delta;
-      if (onChunk) onChunk(delta);
+    if (onChunk) {
+      for (let i = 0; i < fullText.length; i += 240) {
+        onChunk(fullText.slice(i, i + 240));
+      }
     }
 
     return fullText;
@@ -89,8 +62,6 @@ export async function callGeminiAPI(
   signal?: AbortSignal
 ): Promise<string> {
   const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   const hotContext = useSlideStore.getState().hotContext;
   const combinedSystem = hotContext 
@@ -139,22 +110,18 @@ export async function callGeminiAPI(
         throw new DOMException('Aborted by User', 'AbortError');
       }
 
-      const useDirect = false; // CORS 방지를 위해 로컬 환경에서도 항상 백엔드 프록시 서버를 경유하도록 설정합니다.
-      const url = useDirect 
-        ? `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`
-        : PROXY_URL;
+      const url = PROXY_URL;
 
       // 요청 헤더 설정
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      const proxySecret = import.meta.env.VITE_PROXY_SECRET;
-      if (proxySecret) {
-        headers['x-proxy-secret'] = proxySecret;
-      }
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(await getApiAuthHeaders()),
+      };
 
       const response = await fetch(url, {
         method: "POST",
         headers,
-        body: JSON.stringify(universalPayload),
+        body: JSON.stringify({ ...universalPayload, model }),
         signal
       });
 
@@ -284,7 +251,10 @@ export async function generateSlideImage(title: string, content: string): Promis
   try {
     const response = await fetch('/api/generate-ai-image', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getApiAuthHeaders()),
+      },
       body: JSON.stringify({
         title: title,
         content: content ? [content] : [], 

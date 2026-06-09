@@ -3,9 +3,6 @@
  * [FIX] Hardcoded URL models/gemini-1.5-flash -> models/gemini-2.5-flash
  */
 
-// [HOTFIX] gemini-1.5-flash에서 2.5-flash로 URL 하드코딩 업데이트 (404 방어)
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
-
 const COMMON_RULES = `
 [절대 규칙: 오버플로우 방지]
 1. 각 불릿 포인트(Bullet point)는 공백 포함 **최대 60자**를 초과할 수 없습니다.

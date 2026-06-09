@@ -1,48 +1,79 @@
 // api/visitor.js
-import { kv } from '@vercel/kv'
+import { applyCorsHeaders } from './_auth.js';
 
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+
+async function kvPipeline(commands) {
+  if (!KV_URL || !KV_TOKEN) {
+    return [];
+  }
+
+  const response = await fetch(`${KV_URL}/pipeline`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${KV_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(commands),
+  });
+
+  if (!response.ok) {
+    throw new Error(`KV request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function resultAt(results, index, fallback = 0) {
+  return Number(results?.[index]?.result ?? fallback) || 0;
 }
 
 export default async function handler(req, res) {
-  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v))
-  if (req.method === 'OPTIONS') return res.status(200).end()
+  applyCorsHeaders(res, req, 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const today = new Date().toISOString().slice(0, 10)
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
 
   try {
+    const commands = [];
+
     if (req.method === 'POST') {
-      const { type } = req.body ?? {}
+      const { type } = req.body ?? {};
 
       if (type === 'visit') {
-        await kv.incr('total_visits')
-        await kv.incr(`today_visits:${today}`)
+        commands.push(['INCR', 'total_visits']);
+        commands.push(['INCR', `today_visits:${today}`]);
       }
+
       if (type === 'unique') {
-        await kv.incr('unique_users')
-        await kv.incr(`today_unique:${today}`)
+        commands.push(['INCR', 'unique_users']);
+        commands.push(['INCR', `today_unique:${today}`]);
       }
     }
 
-    // 통계 조회
-    const [total, unique, todayV, todayU] = await Promise.all([
-      kv.get('total_visits'),
-      kv.get('unique_users'),
-      kv.get(`today_visits:${today}`),
-      kv.get(`today_unique:${today}`),
-    ])
+    commands.push(
+      ['GET', 'total_visits'],
+      ['GET', 'unique_users'],
+      ['GET', `today_visits:${today}`],
+      ['GET', `today_unique:${today}`],
+    );
+
+    const results = await kvPipeline(commands);
+    const offset = commands.length - 4;
 
     return res.status(200).json({
-      total_visits: Number(total  ?? 0),
-      unique_users: Number(unique ?? 0),
-      today_visits: Number(todayV ?? 0),
-      today_unique: Number(todayU ?? 0),
-    })
+      total_visits: resultAt(results, offset),
+      unique_users: resultAt(results, offset + 1),
+      today_visits: resultAt(results, offset + 2),
+      today_unique: resultAt(results, offset + 3),
+    });
 
   } catch (err) {
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: err.message });
   }
 }

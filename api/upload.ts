@@ -6,6 +6,7 @@
 // ============================================================
 
 import { handleUpload } from '@vercel/blob/client';
+import { buildCorsHeaders, requireAuth } from './_auth.js';
 
 /**
  * [Vercel Serverless Configuration]
@@ -15,15 +16,13 @@ import { handleUpload } from '@vercel/blob/client';
  */
 
 export default async function handler(request: Request): Promise<Response> {
+  const corsHeaders = buildCorsHeaders(request);
+
   // --- [1] CORS 및 OPTIONS 요청 처리 ---
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
+      headers: corsHeaders,
     });
   }
 
@@ -31,7 +30,7 @@ export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -46,7 +45,9 @@ export default async function handler(request: Request): Promise<Response> {
       body: body,
       request: request, 
       
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        await requireAuth(request, { clientPayload });
+
         return {
           // [STABLE] 브라우저 가변성을 고려하여 허용 MIME 타입 극대화
           allowedContentTypes: [
@@ -81,7 +82,7 @@ export default async function handler(request: Request): Promise<Response> {
       status: 200,
       headers: { 
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' 
+        ...corsHeaders,
       },
     });
 
@@ -90,7 +91,7 @@ export default async function handler(request: Request): Promise<Response> {
     
     return new Response(JSON.stringify({ error: error.message || 'MIME-Aligned Handshake Failed' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 }

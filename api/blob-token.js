@@ -1,12 +1,10 @@
 // api/blob-token.js
 // @vercel/blob의 클라이언트 사이드 업로드를 위한 토큰 생성기
 import { handleUpload } from '@vercel/blob/client';
+import { applyCorsHeaders, requireAuth } from './_auth.js';
 
 export default async function handler(request, response) {
-  // CORS 설정
-  response.setHeader('Access-Control-Allow-Origin', '*');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  applyCorsHeaders(response, request);
 
   if (request.method === 'OPTIONS') {
     return response.status(200).end();
@@ -16,7 +14,9 @@ export default async function handler(request, response) {
     const jsonResponse = await handleUpload({
       body: request.body,
       request,
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        await requireAuth(request, { clientPayload });
+
         /*
          * 사용자가 업로드 권한을 제어할 수 있는 곳입니다.
          * 여기서는 모든 업로드를 허용하지만, 실제 서비스에서는 세션 체크 등을 수행할 수 있습니다.

@@ -1,14 +1,19 @@
 // api/generate-ai-image.js
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from "./_auth.js";
 
-module.exports = async (req, res) => {
-  // 1. CORS 헤더 설정
-  res.setHeader('Access-Control-Allow-Origin', '*'); // 프로덕션에서는 특정 도메인으로 제한 권장
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export default async function handler(req, res) {
+  applyCorsHeaders(res, req);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  try {
+    await requireAuth(req);
+  } catch (authError) {
+    const { status, body } = getAuthErrorPayload(authError);
+    return res.status(status).json(body);
+  }
 
   try {
     const { title, content, type, brandSettings } = req.body;
@@ -60,4 +65,4 @@ module.exports = async (req, res) => {
       imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1280&h=720&auto=format&fit=crop"
     });
   }
-};
+}

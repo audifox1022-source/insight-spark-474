@@ -1,6 +1,7 @@
 // api/identify-audio.js
 import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from './_auth.js';
 
 // Vercel 하드 리밋(4.5MB)이 존재하지만, 코드 레벨에서는 50MB까지 허용하도록 설정
 const upload = multer({
@@ -22,12 +23,17 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  applyCorsHeaders(res, req);
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+
+  try {
+    await requireAuth(req);
+  } catch (authError) {
+    const { status, body } = getAuthErrorPayload(authError);
+    return res.status(status).json(body);
+  }
 
   try {
     await runMiddleware(req, res, upload.single('file'));

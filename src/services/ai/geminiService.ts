@@ -7,12 +7,7 @@
 // ============================================================
 import { callGeminiAPI } from './api-client';
 import * as prompts from './prompts';
-import { SpeechAnalysis, MusicAnalysis, AudioType } from '@/types/audio';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { useSlideStore } from '@/store/useSlideStore';
-
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const MODEL_NAME = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'; 
 
 export type ProgressCallback = (message: string) => void;
 

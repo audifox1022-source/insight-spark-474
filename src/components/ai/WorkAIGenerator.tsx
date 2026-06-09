@@ -149,7 +149,6 @@ export const WorkAIGenerator: React.FC = () => {
 
     try {
       // API Simulation (WorkAI Internalized Logic)
-      // fetch('/api/banana-nl/generate')
       await new Promise(resolve => setTimeout(resolve, 1800));
 
       const mockResponse = {
