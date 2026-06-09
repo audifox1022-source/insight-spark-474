@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:runtime": "node scripts/verify-runtime-env.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",

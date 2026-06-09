@@ -65,6 +65,8 @@ Optional runtime variables:
 
 For local smoke checks, start the app with `npm run dev`, open `http://localhost:8080/`, and verify the backend with `http://localhost:3001/api/health`.
 
+Before deploying, run `npm run verify:runtime`. It checks required environment variables, Supabase project ref consistency, Supabase DNS resolution, and Supabase anon key project ref matching without printing secret values.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
