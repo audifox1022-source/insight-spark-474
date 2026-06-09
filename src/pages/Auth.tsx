@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabaseSessionSafely, supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,22 +18,36 @@ export default function Auth() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    // [E2E BYPASS] mock-session 체크
-    if (localStorage.getItem('mock-session')) {
-      navigate('/', { replace: true });
-      setCheckingAuth(false);
-      return;
-    }
+    let cancelled = false;
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    localStorage.removeItem('mock-session');
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
       if (session) navigate('/', { replace: true });
       setCheckingAuth(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/', { replace: true });
+    const checkSession = async () => {
+      const session = await getSupabaseSessionSafely({
+        context: 'auth page bootstrap',
+      });
+
+      if (cancelled) return;
+
+      if (session) {
+        navigate('/', { replace: true });
+      }
+
       setCheckingAuth(false);
-    });
+    };
+
+    checkSession();
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,60 +59,16 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isLogin) {
-        try {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) throw error;
-          toast.success('로그인 성공!');
-        } catch (dbError) {
-          // [E2E MOCK BYPASS] DB 통신 오류 또는 로컬 개발 환경일 때 우회 로그인
-          console.warn("[Auth Bypass] DB 로그인 실패, E2E Mock Session으로 우회 로그인 시도:", dbError);
-          const mockUser = {
-            id: 'mock-user-1234',
-            email: email,
-            role: 'authenticated',
-            aud: 'authenticated'
-          };
-          const mockSession = {
-            access_token: 'mock_token_xyz',
-            token_type: 'bearer',
-            expires_in: 3600,
-            user: mockUser
-          };
-          localStorage.setItem('mock-session', JSON.stringify(mockSession));
-          toast.success('로컬 E2E Mock 세션으로 임시 로그인 완료!');
-          navigate('/', { replace: true });
-          window.location.reload();
-          return;
-        }
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        toast.success('로그인 성공!');
       } else {
-        try {
-          const { error } = await supabase.auth.signUp({ 
-            email, password,
-            options: { emailRedirectTo: window.location.origin }
-          });
-          if (error) throw error;
-          toast.success('가입 완료! 이메일을 확인해주세요.');
-        } catch (dbError) {
-          // [E2E MOCK BYPASS] 회원가입 우회 처리
-          console.warn("[Auth Bypass] DB 회원가입 실패, E2E Mock Session으로 임시 가입 처리:", dbError);
-          const mockUser = {
-            id: 'mock-user-1234',
-            email: email,
-            role: 'authenticated',
-            aud: 'authenticated'
-          };
-          const mockSession = {
-            access_token: 'mock_token_xyz',
-            token_type: 'bearer',
-            expires_in: 3600,
-            user: mockUser
-          };
-          localStorage.setItem('mock-session', JSON.stringify(mockSession));
-          toast.success('로컬 E2E Mock 임시 회원 가입 및 로그인 성공!');
-          navigate('/', { replace: true });
-          window.location.reload();
-          return;
-        }
+        const { error } = await supabase.auth.signUp({
+          email, password,
+          options: { emailRedirectTo: window.location.origin }
+        });
+        if (error) throw error;
+        toast.success('가입 완료! 이메일을 확인해주세요.');
       }
     } catch (error: any) {
       toast.error(error.message || '오류가 발생했습니다.');

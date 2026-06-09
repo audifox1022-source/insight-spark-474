@@ -1,13 +1,81 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type Session } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_REQUEST_TIMEOUT_MS = 5000;
+const SUPABASE_AUTH_REFRESH_MARGIN_MS = 60 * 1000;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 let tempClient: any;
+
+function createTimeoutFetch(timeoutMs: number): typeof fetch {
+  return async (input, init = {}) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      controller.abort(new Error(`Supabase request timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    const upstreamSignal = init.signal;
+    const abortFromUpstream = () => {
+      controller.abort(upstreamSignal?.reason);
+    };
+
+    if (upstreamSignal?.aborted) {
+      controller.abort(upstreamSignal.reason);
+    } else {
+      upstreamSignal?.addEventListener('abort', abortFromUpstream, { once: true });
+    }
+
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
+      upstreamSignal?.removeEventListener('abort', abortFromUpstream);
+    }
+  };
+}
+
+export function isSupabaseSessionExpiring(session: Session | null, marginMs = SUPABASE_AUTH_REFRESH_MARGIN_MS) {
+  if (!session?.expires_at) return false;
+  return session.expires_at * 1000 <= Date.now() + marginMs;
+}
+
+function getSupabaseProjectRef() {
+  try {
+    return SUPABASE_URL ? new URL(SUPABASE_URL).hostname.split('.')[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearSupabaseAuthStorage() {
+  const projectRef = getSupabaseProjectRef();
+  if (!projectRef) return;
+
+  const keyPrefix = `sb-${projectRef}-auth-token`;
+  Object.keys(localStorage)
+    .filter((key) => key === keyPrefix || key.startsWith(`${keyPrefix}-`))
+    .forEach((key) => localStorage.removeItem(key));
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  let timeoutId: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) window.clearTimeout(timeoutId);
+  }
+}
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Supabase 환경변수가 누락되었습니다.");
@@ -45,9 +113,55 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     auth: {
       storage: localStorage,
       persistSession: true,
-      autoRefreshToken: true,
-    }
+      autoRefreshToken: false,
+      detectSessionInUrl: true,
+    },
+    global: {
+      fetch: createTimeoutFetch(SUPABASE_REQUEST_TIMEOUT_MS),
+    },
   });
 }
 
 export const supabase = tempClient as ReturnType<typeof createClient<Database>>;
+
+export async function getSupabaseSessionSafely(options: {
+  context?: string;
+  timeoutMs?: number;
+  refreshIfExpiring?: boolean;
+} = {}): Promise<Session | null> {
+  const {
+    context = 'auth bootstrap',
+    timeoutMs = SUPABASE_REQUEST_TIMEOUT_MS,
+    refreshIfExpiring = true,
+  } = options;
+
+  try {
+    const { data, error } = await withTimeout(
+      supabase.auth.getSession(),
+      timeoutMs,
+      `Supabase ${context} session check timed out`
+    );
+
+    if (error) throw error;
+
+    const session = data.session;
+    if (!session) return null;
+
+    if (!refreshIfExpiring || !isSupabaseSessionExpiring(session)) {
+      return session;
+    }
+
+    const refreshed = await withTimeout(
+      supabase.auth.refreshSession(),
+      timeoutMs,
+      `Supabase ${context} refresh timed out`
+    );
+
+    if (refreshed.error) throw refreshed.error;
+    return refreshed.data.session;
+  } catch (error) {
+    console.warn(`[Supabase Auth] ${context} failed; clearing stale local auth state.`, error);
+    clearSupabaseAuthStorage();
+    return null;
+  }
+}
