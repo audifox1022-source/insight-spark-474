@@ -5,6 +5,10 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_REQUEST_TIMEOUT_MS = 5000;
 const SUPABASE_AUTH_REFRESH_MARGIN_MS = 60 * 1000;
+const SUPABASE_PROJECT_REF = getSupabaseProjectRef(SUPABASE_URL);
+const SUPABASE_AUTH_STORAGE_KEY = SUPABASE_PROJECT_REF
+  ? `sb-${SUPABASE_PROJECT_REF}-auth-token`
+  : undefined;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -41,27 +45,65 @@ function createTimeoutFetch(timeoutMs: number): typeof fetch {
   };
 }
 
-export function isSupabaseSessionExpiring(session: Session | null, marginMs = SUPABASE_AUTH_REFRESH_MARGIN_MS) {
+export function isSupabaseSessionExpiring(session: Pick<Session, 'expires_at'> | null, marginMs = SUPABASE_AUTH_REFRESH_MARGIN_MS) {
   if (!session?.expires_at) return false;
   return session.expires_at * 1000 <= Date.now() + marginMs;
 }
 
-function getSupabaseProjectRef() {
+function getSupabaseProjectRef(supabaseUrl = SUPABASE_URL) {
   try {
-    return SUPABASE_URL ? new URL(SUPABASE_URL).hostname.split('.')[0] : null;
+    return supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseStoredSession(value: string | null) {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed?.currentSession || parsed;
   } catch {
     return null;
   }
 }
 
 export function clearSupabaseAuthStorage() {
-  const projectRef = getSupabaseProjectRef();
+  const projectRef = SUPABASE_PROJECT_REF;
   if (!projectRef) return;
 
   const keyPrefix = `sb-${projectRef}-auth-token`;
   Object.keys(localStorage)
     .filter((key) => key === keyPrefix || key.startsWith(`${keyPrefix}-`))
     .forEach((key) => localStorage.removeItem(key));
+}
+
+export function createSafeSupabaseStorage(storageKey?: string): Storage {
+  return {
+    get length() {
+      return localStorage.length;
+    },
+    clear: () => localStorage.clear(),
+    key: (index) => localStorage.key(index),
+    removeItem: (key) => localStorage.removeItem(key),
+    setItem: (key, value) => localStorage.setItem(key, value),
+    getItem: (key) => {
+      const value = localStorage.getItem(key);
+
+      if (!storageKey || key !== storageKey) {
+        return value;
+      }
+
+      const session = parseStoredSession(value);
+      if (!session || !isSupabaseSessionExpiring(session)) {
+        return value;
+      }
+
+      clearSupabaseAuthStorage();
+      return null;
+    },
+  };
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
@@ -111,7 +153,8 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 } else {
   tempClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-      storage: localStorage,
+      storage: createSafeSupabaseStorage(SUPABASE_AUTH_STORAGE_KEY),
+      storageKey: SUPABASE_AUTH_STORAGE_KEY,
       persistSession: true,
       autoRefreshToken: false,
       detectSessionInUrl: true,
