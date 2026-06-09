@@ -257,7 +257,11 @@ const App = () => {
 
             <Route
               path="/generator"
-              element={<WorkAIGenerator />}
+              element={
+                <ProtectedRoute>
+                  <WorkAIGenerator />
+                </ProtectedRoute>
+              }
             />
 
             {/* 404 */}
