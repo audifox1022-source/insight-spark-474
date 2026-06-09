@@ -1,5 +1,7 @@
 import { applyCorsHeaders } from './_auth.js';
 
+const EXPECTED_SUPABASE_PROJECT_REF = 'enbbfidgbylvhoivkvkj';
+
 function getSupabaseProjectRef(rawUrl) {
   try {
     return rawUrl ? new URL(rawUrl).hostname.split('.')[0] : null;
@@ -16,12 +18,15 @@ function getRuntimeStatus() {
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
     '';
 
+  const supabaseProjectRef = getSupabaseProjectRef(supabaseUrl);
+
   return {
     status: 'ok',
     message: 'Work AI Backend Server is running',
     runtime: {
       supabaseUrlConfigured: Boolean(supabaseUrl),
-      supabaseProjectRef: getSupabaseProjectRef(supabaseUrl),
+      supabaseProjectRef,
+      supabaseProjectRefMatchesRepo: supabaseProjectRef === EXPECTED_SUPABASE_PROJECT_REF,
       supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
       geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
       blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
