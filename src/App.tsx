@@ -23,6 +23,7 @@ import { WorkAIGenerator } from "./components/ai/WorkAIGenerator";
 
 import { useSlideStore } from "./store/useSlideStore";
 import { useThemeStore } from "./store/useThemeStore";
+import { EXPECTED_SUPABASE_PROJECT_REF, getSupabaseProjectRef } from "./integrations/supabase/config";
 
 // ============================================================
 // QUERY CLIENT
@@ -49,16 +50,6 @@ const queryClient = new QueryClient({
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY;
-const EXPECTED_SUPABASE_PROJECT_REF = "enbbfidgbylvhoivkvkj";
-
-function getSupabaseProjectRef(rawUrl: string | undefined) {
-  try {
-    return rawUrl ? new URL(rawUrl).hostname.split(".")[0] : null;
-  } catch {
-    return null;
-  }
-}
-
 const supabaseProjectRef = getSupabaseProjectRef(SUPABASE_URL);
 
 const isSupabaseConfigured = Boolean(
