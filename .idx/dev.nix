@@ -12,22 +12,17 @@
     pkgs.bun
   ];
 
-  # Sets environment variables in the workspace
+  # Do not commit real secret values here. Configure them in IDX, Vercel,
+  # Supabase, or a local .env file that is ignored by git.
   env = {
-    # Supabase connection details
-    SUPABASE_URL = "https://fjdngofojmsdixxduxuk.supabase.co";
-    SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZG5nb2Zvam1zZGl4eGR1eHVrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwNDA1MDAsImV4cCI6MjA4NDYxNjUwMH0.SYkcUmgsLq7UnBGrLupV93g3mabJJB0QYFVrCGMDiYg";
-
-    # Supabase MCP Server authentication token
-    # Required for @supabase/mcp-server-supabase to authenticate with Supabase Management API
-    SUPABASE_ACCESS_TOKEN = "sbp_7ff2ce82750c0b6da6e26877a0d77eccc4e1e7fc";
-
-    # Example placeholder for other AI services if needed
-    # GEMINI_API_KEY = "AIzaSyDA6yJzAaRA5NXqh48ut0sb2sVh88swe0Q";
+    SUPABASE_URL = "https://enbbfidgbylvhoivkvkj.supabase.co";
+    SUPABASE_SERVICE_ROLE_KEY = "";
+    SUPABASE_ACCESS_TOKEN = "";
+    GEMINI_API_KEY = "";
   };
 
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
+    # Search for the extensions you want on https://open-vsx.org/.
     extensions = [
       "dsznajder.es7-react-js-snippets"
       "dbaeumer.vscode-eslint"
