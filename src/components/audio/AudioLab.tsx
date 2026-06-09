@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { upload } from '@vercel/blob/client'; 
+import { getApiAuthHeaders, getUploadClientPayload } from '@/lib/api-auth';
 
 // components
 import { SpeechReport } from './SpeechReport';
@@ -140,6 +141,9 @@ export const AudioLab: React.FC = () => {
     let finalBlobUrl = "";
 
     try {
+      const authHeaders = await getApiAuthHeaders();
+      const clientPayload = await getUploadClientPayload();
+
       while (retryCount < MAX_RETRIES) {
         try {
           console.log(`[Blob Upload] ☁️ Attempting Handshake (${retryCount + 1}/${MAX_RETRIES})...`);
@@ -147,6 +151,8 @@ export const AudioLab: React.FC = () => {
           const newBlob = await upload(safeFileName, safeFile, {
             access: 'public',
             handleUploadUrl: `${window.location.origin}/api/upload`, 
+            headers: authHeaders,
+            clientPayload,
             onUploadProgress: (progressEvent) => {
               setUploadProgress(progressEvent.percentage);
             },

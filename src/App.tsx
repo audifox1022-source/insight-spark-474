@@ -197,6 +197,11 @@ const EnvErrorScreen = () => {
         VITE_SUPABASE_ANON_KEY 환경 변수를
         설정해주세요.
       </p>
+
+      <p className="max-w-xl rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
+        supabase/config.toml 기준 URL:{' '}
+        https://enbbfidgbylvhoivkvkj.supabase.co
+      </p>
     </div>
   );
 };
@@ -257,7 +262,11 @@ const App = () => {
 
             <Route
               path="/generator"
-              element={<WorkAIGenerator />}
+              element={
+                <ProtectedRoute>
+                  <WorkAIGenerator />
+                </ProtectedRoute>
+              }
             />
 
             {/* 404 */}

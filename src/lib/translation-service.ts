@@ -1,6 +1,7 @@
 // 경로: src/lib/translation-service.ts
 
 import type { TranslationAndAnalysisResponse } from '@/types/translation';
+import { callGeminiAPI, streamGeminiAPI } from '@/services/ai/api-client';
 
 // JSON Schema Definition for REST API
 const analysisSchema = {
@@ -49,43 +50,13 @@ const analysisSchema = {
 
 // 범용 Gemini API 호출 함수
 async function callGemini(prompt: string, useSchema: boolean = false) {
-  const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY가 설정되지 않았습니다.");
-
-  const payload: any = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 8192,
-    }
-  };
-
-  if (useSchema) {
-    payload.generationConfig.responseMimeType = "application/json";
-    payload.generationConfig.responseSchema = analysisSchema;
-  }
-
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) throw new Error("AI 서버 통신 오류");
-  const data = await response.json();
-  
-  // ── [Safe Nested Access] ──
-  if (!data?.candidates || data.candidates.length === 0) {
-    throw new Error("AI 대답 데이터가 비어 있습니다.");
-  }
-  const parts = data?.candidates?.[0]?.content?.parts;
-  if (!parts || parts.length === 0) {
-    throw new Error("AI 결과 파트가 비어 있습니다.");
-  }
-  return parts?.[0]?.text ?? "";
+  return callGeminiAPI(
+    "You are a precise language and document processing assistant.",
+    prompt,
+    8192,
+    useSchema ? "application/json" : "text"
+  );
 }
-
-import { streamGeminiAPI } from '@/services/ai/api-client';
 
 export const analyzeAndTranslate = async (
   text: string, 
@@ -156,42 +127,23 @@ ${content}
 
 export const extractTextFromImage = async (base64Data: string, mimeType: string): Promise<string> => {
   try {
-    const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!API_KEY) throw new Error('VITE_GEMINI_API_KEY가 설정되지 않았습니다.');
-
     const base64Content = base64Data.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
-    const payload = {
-      contents: [
+    const text = await callGeminiAPI(
+      "You are an expert OCR and text extractor.",
+      [
+        { text: "Extract all visible text accurately. Preserve paragraph structure, lists, and line breaks. Return only the pure text." },
         {
-          parts: [
-            { text: "You are an expert OCR and text extractor. Extract all text visible in this image accurately. Preserve paragraph structure, lists, and line breaks where appropriate. Do NOT add any markdown formatting like ``` or extra explanations. Just return the pure text." },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Content
-              }
-            }
-          ]
+          inlineData: {
+            mimeType,
+            data: base64Content
+          }
         }
       ],
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 8192,
-      }
-    };
+      8192,
+      "text"
+    );
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) throw new Error('AI Vision 서버 통신 오류');
-    const data = await response.json();
-
-    // ── [Safe Nested Access] ──
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error('이미지에서 텍스트를 감지하지 못했습니다.');
     
     return text.trim();

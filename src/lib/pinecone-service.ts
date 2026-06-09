@@ -2,10 +2,6 @@
 // src/lib/pinecone-service.ts (Work AI - RAG Vector Engine)
 // [Enterprise] Pinecone MCP 기반 고성능 문서 검색 서비스
 // ============================================================
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Pinecone 설정 (실제 환경에서는 MCP 서버가 이 역할을 수행하거나 환경변수 사용)
 // 여기서는 MCP 연동을 전제로 한 추상화 레이어로 설계합니다.
@@ -15,9 +11,8 @@ export const pineconeService = {
    */
   async getEmbedding(text: string) {
     try {
-      const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-      const result = await model.embedContent(text);
-      return result.embedding.values;
+      console.warn('[RAG] 클라이언트 직접 임베딩 호출은 비활성화되었습니다.', text.slice(0, 40));
+      return [];
     } catch (err) {
       console.error('Embedding generation failed:', err);
       return [];

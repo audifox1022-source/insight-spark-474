@@ -1,0 +1,7 @@
+interface:
+  display_name: "Autoresearch"
+  short_description: "Research, improve, verify, and resume work"
+  default_prompt: "Use $autoresearch to analyze this project, research comparable approaches, implement the highest-value verified improvement, and record the result."
+
+policy:
+  allow_implicit_invocation: true

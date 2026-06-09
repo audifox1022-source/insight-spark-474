@@ -1,16 +1,11 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 import { Presentation } from '@/types/presentation';
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(API_KEY);
+import { callGeminiAPI } from '@/services/ai/api-client';
 
 export const converterService = {
   async convertPdfToSlides(pdfName: string, fullText: string): Promise<Presentation> {
     console.log(`[Converter] Converting PDF to slides: ${pdfName}`);
 
     try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const prompt = `
 Analyze the following PDF text and convert it into a high-quality presentation JSON.
 Return only this shape:
@@ -25,8 +20,12 @@ PDF text:
 ${fullText.substring(0, 15000)}
 `;
 
-      const result = await model.generateContent(prompt);
-      const resText = result.response.text();
+      const resText = await callGeminiAPI(
+        'You convert source documents into presentation JSON. Return valid JSON only.',
+        prompt,
+        8192,
+        'application/json'
+      );
       const jsonMatch = resText.match(/\{[\s\S]*\}/);
 
       if (!jsonMatch) {

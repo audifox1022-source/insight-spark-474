@@ -8,6 +8,7 @@ import { handleUpload } from '@vercel/blob/client';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { getAuthErrorPayload, requireAuth } from './api/_auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -31,10 +32,10 @@ const upload = multer({
 });
 
 // Initialize Gemini with server-side API key
-const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY;
 console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", apiKey ? apiKey.substring(0, 5) : "키 없음(UNDEFINED)");
 if (!apiKey) {
-  console.warn('WARNING: VITE_GEMINI_API_KEY or GEMINI_API_KEY is not set in environment variables.');
+  console.warn('WARNING: GEMINI_API_KEY is not set in environment variables.');
 }
 const genAI = new GoogleGenerativeAI(apiKey || '');
 const fileManager = new GoogleAIFileManager(apiKey || '');
@@ -47,9 +48,54 @@ const safetySettings = [
   { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
 ];
 
+async function requireApiAuth(req, res) {
+  try {
+    await requireAuth(req);
+    return true;
+  } catch (authError) {
+    const { status, body } = getAuthErrorPayload(authError);
+    res.status(status).json(body);
+    return false;
+  }
+}
+
+async function authenticateApi(req, res, next) {
+  if (await requireApiAuth(req, res)) next();
+}
+
+function getSupabaseProjectRef(rawUrl) {
+  try {
+    return rawUrl ? new URL(rawUrl).hostname.split('.')[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRuntimeStatus() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const supabaseAnonKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    '';
+
+  return {
+    status: 'ok',
+    message: 'Work AI Backend Server is running',
+    runtime: {
+      supabaseUrlConfigured: Boolean(supabaseUrl),
+      supabaseProjectRef: getSupabaseProjectRef(supabaseUrl),
+      supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
+      geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
+      blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+    },
+  };
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Work AI Backend Server is running' });
+  res.json(getRuntimeStatus());
 });
 
 /**
@@ -63,7 +109,8 @@ app.post('/api/upload', async (req, res) => {
     const jsonResponse = await handleUpload({
       body: req.body,
       request: req,
-      onBeforeGenerateToken: async (pathname) => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
+        await requireAuth(req, { clientPayload });
         console.log(`[Blob Handshake] 🔑 Generating token for: ${pathname}`);
         return {
           allowedContentTypes: [
@@ -95,7 +142,7 @@ app.post('/api/upload', async (req, res) => {
 /**
  * Audio Type Identification Endpoint
  */
-app.post('/api/identify-audio', upload.single('file'), async (req, res) => {
+app.post('/api/identify-audio', authenticateApi, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
     
@@ -129,7 +176,7 @@ app.post('/api/identify-audio', upload.single('file'), async (req, res) => {
 /**
  * Speech Audio Analysis Endpoint
  */
-app.post('/api/analyze-speech', upload.single('file'), async (req, res) => {
+app.post('/api/analyze-speech', authenticateApi, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
     
@@ -163,7 +210,7 @@ app.post('/api/analyze-speech', upload.single('file'), async (req, res) => {
 /**
  * Live Audio Translation Endpoint
  */
-app.post('/api/translate-audio', upload.single('file'), async (req, res) => {
+app.post('/api/translate-audio', authenticateApi, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
     
@@ -221,6 +268,8 @@ ROLE: 당신은 실시간 동시통역 전문가입니다.
  * 대용량 오디오 분석을 위한 File API 지원 및 120초 타임아웃 추가
  */
 app.post('/api/gemini-proxy', async (req, res) => {
+  if (!(await requireApiAuth(req, res))) return;
+
   let tempFilePath = null;
   let fileUri = null;
   let fileName = null;

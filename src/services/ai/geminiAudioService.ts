@@ -3,6 +3,8 @@
 // [STABILITY] 데이터 타입 엄격 검증 및 에러 트래픽 방어
 // [ENGINE] Gemini 2.5 Flash Engine via Secure Proxy
 
+import { getApiAuthHeaders } from '@/lib/api-auth';
+
 /**
  * [Utility] JSON 추출기 (마크다운 블록 제거 및 파싱)
  */
@@ -39,7 +41,10 @@ export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promi
   try {
     const response = await fetch('/api/gemini-proxy', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(await getApiAuthHeaders()),
+      },
       body: JSON.stringify({
         blobUrl: blobUrl,
         mimeType: mimeType,
@@ -95,8 +100,59 @@ export const analyzeAudioDeep = async (blobUrl: string, mimeType: string): Promi
  * [UTILITY] translateLiveAudio - 실시간 통역은 기존 Base64 방식 유지 (작은 Buffer)
  */
 export const translateLiveAudio = async (audioBlob: Blob, targetLanguage: string): Promise<string> => {
-  // 실시간 통역은 통계적으로 데이터가 매우 작으므로 기존 인라인 방식을 권장할 수 있음
-  return "Live translation service is active."; 
+  const base64Audio = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || '');
+      resolve(value.replace(/^data:.*?;base64,/, ''));
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(audioBlob);
+  });
+
+  const response = await fetch('/api/gemini-proxy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(await getApiAuthHeaders()),
+    },
+    body: JSON.stringify({
+      model: (import.meta as any).env?.VITE_GEMINI_MODEL || "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 2048,
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Translate the attached speech audio into ${targetLanguage}. Return only the translated text.`
+            },
+            {
+              inlineData: {
+                mimeType: audioBlob.type || 'audio/webm',
+                data: base64Audio,
+              }
+            }
+          ]
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || '실시간 통역 프록시 호출 실패');
+  }
+
+  const data = await response.json();
+  const translatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!translatedText) {
+    throw new Error('AI 통역 결과가 비어 있습니다.');
+  }
+
+  return translatedText.trim();
 };
 
 export const geminiAudioService = {

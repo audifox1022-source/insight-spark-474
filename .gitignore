@@ -28,6 +28,7 @@ dist-sr
 .env.local
 .env.production
 .env.*
+!.env.example
 
 # next.js
 /.next/
@@ -46,3 +47,5 @@ dist-sr
 *.tsbuildinfo
 next-env.d.ts
 
+# autoresearch runtime coordination
+.autoresearch/

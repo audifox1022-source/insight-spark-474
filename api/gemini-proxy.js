@@ -6,12 +6,10 @@ import { GoogleAIFileManager } from "@google/generative-ai/server";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from "./_auth.js";
 
 export default async function handler(req, res) {
-  // 1. CORS 설정
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', '*');
-  res.setHeader('Access-Control-Allow-Headers', '*');
+  applyCorsHeaders(res, req);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -19,6 +17,13 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: '허용되지 않는 메서드' });
+  }
+
+  try {
+    await requireAuth(req);
+  } catch (authError) {
+    const { status, body } = getAuthErrorPayload(authError);
+    return res.status(status).json(body);
   }
 
   const API_KEY = process.env.GEMINI_API_KEY;

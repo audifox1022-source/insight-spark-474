@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { kvIncr, kvMGet, kvSet, kvGet } from '@/lib/kv'
 
 export interface VisitorStats {
   total_visits: number
@@ -14,28 +13,35 @@ export function useVisitorCount() {
   useEffect(() => {
     let cancelled = false
 
+    const updateVisitorStats = async (type?: 'visit' | 'unique') => {
+      const response = await fetch('/api/visitor', {
+        method: type ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: type ? JSON.stringify({ type }) : undefined,
+      })
+
+      if (!response.ok) {
+        throw new Error(`visitor API failed: ${response.status}`)
+      }
+
+      return response.json()
+    }
+
     const run = async () => {
       try {
         const today = new Date().toISOString().slice(0, 10) // "2026-03-04"
 
-        // 날짜 바뀌면 today 카운터 초기화
-        const storedDate = await kvGet('today_date')
-        if (storedDate !== today) {
-          await kvSet('today_visits', '0')
-          await kvSet('today_date', today)
-        }
-
         // 세션당 1회: 총방문 + 오늘방문 증가
+        let latestStats: any = null
         if (!sessionStorage.getItem('vt')) {
-          await kvIncr('total_visits')
-          await kvIncr('today_visits')
+          latestStats = await updateVisitorStats('visit')
           sessionStorage.setItem('vt', '1')
         }
 
         // 날짜별 브라우저당 1회: 순방문자 증가
         const uniqueKey = `uv_${today}`
         if (!localStorage.getItem(uniqueKey)) {
-          await kvIncr('unique_users')
+          latestStats = await updateVisitorStats('unique')
           localStorage.setItem(uniqueKey, '1')
           // 어제 키 정리
           const yesterday = new Date(Date.now() - 86400000)
@@ -43,18 +49,13 @@ export function useVisitorCount() {
           localStorage.removeItem(`uv_${yesterday}`)
         }
 
-        // 통계 한번에 조회
-        const [total, unique, todayV] = await kvMGet([
-          'total_visits',
-          'unique_users',
-          'today_visits',
-        ])
+        latestStats = latestStats || await updateVisitorStats()
 
         if (!cancelled) {
           setStats({
-            total_visits: Number(total)  || 0,
-            unique_users: Number(unique) || 0,
-            today_visits: Number(todayV) || 0,
+            total_visits: Number(latestStats.total_visits)  || 0,
+            unique_users: Number(latestStats.unique_users) || 0,
+            today_visits: Number(latestStats.today_visits) || 0,
           })
         }
       } catch (err) {
