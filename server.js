@@ -63,9 +63,39 @@ async function authenticateApi(req, res, next) {
   if (await requireApiAuth(req, res)) next();
 }
 
+function getSupabaseProjectRef(rawUrl) {
+  try {
+    return rawUrl ? new URL(rawUrl).hostname.split('.')[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+function getRuntimeStatus() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const supabaseAnonKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    '';
+
+  return {
+    status: 'ok',
+    message: 'Work AI Backend Server is running',
+    runtime: {
+      supabaseUrlConfigured: Boolean(supabaseUrl),
+      supabaseProjectRef: getSupabaseProjectRef(supabaseUrl),
+      supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
+      geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
+      blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+      kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+    },
+  };
+}
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Work AI Backend Server is running' });
+  res.json(getRuntimeStatus());
 });
 
 /**
