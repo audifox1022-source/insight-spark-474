@@ -1,6 +1,7 @@
 const DEFAULT_ALLOWED_METHODS = 'POST, OPTIONS';
 const RATE_LIMIT_WINDOW_MS = Number(process.env.API_RATE_LIMIT_WINDOW_MS || 60_000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.API_RATE_LIMIT_MAX_REQUESTS || 60);
+const EXPECTED_SUPABASE_PROJECT_REF = 'enbbfidgbylvhoivkvkj';
 const rateLimitBuckets = new Map();
 
 class AuthError extends Error {
@@ -100,6 +101,14 @@ function getRateLimitKey(request, user) {
   return `${user?.id || user?.sub || 'unknown-user'}:${ip}`;
 }
 
+function getSupabaseProjectRef(rawUrl) {
+  try {
+    return rawUrl ? new URL(rawUrl).hostname.split('.')[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 function enforceRateLimit(request, user) {
   if (!RATE_LIMIT_MAX_REQUESTS || RATE_LIMIT_MAX_REQUESTS < 1) return;
 
@@ -133,6 +142,14 @@ export async function requireAuth(request, options = {}) {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new AuthError(500, 'Supabase 인증 환경변수가 설정되지 않았습니다.');
+  }
+
+  const supabaseProjectRef = getSupabaseProjectRef(supabaseUrl);
+  if (supabaseProjectRef !== EXPECTED_SUPABASE_PROJECT_REF) {
+    throw new AuthError(
+      500,
+      `Supabase project ref mismatch: expected ${EXPECTED_SUPABASE_PROJECT_REF}, got ${supabaseProjectRef || 'unknown'}.`
+    );
   }
 
   const response = await fetch(`${supabaseUrl}/auth/v1/user`, {

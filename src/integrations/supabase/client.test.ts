@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSafeSupabaseStorage, isSupabaseSessionExpiring } from './client';
+import {
+  EXPECTED_SUPABASE_PROJECT_REF,
+  getSupabaseProjectRef,
+  isExpectedSupabaseProjectRef,
+} from './config';
 
 function installLocalStorageMock() {
   const storage = new Map<string, string>();
@@ -30,6 +35,36 @@ function installLocalStorageMock() {
 beforeEach(() => {
   vi.clearAllMocks();
   installLocalStorageMock();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
+
+describe('Supabase project configuration', () => {
+  it('extracts and validates the expected project ref', () => {
+    expect(getSupabaseProjectRef('https://enbbfidgbylvhoivkvkj.supabase.co')).toBe(
+      EXPECTED_SUPABASE_PROJECT_REF
+    );
+    expect(isExpectedSupabaseProjectRef('https://enbbfidgbylvhoivkvkj.supabase.co')).toBe(true);
+    expect(isExpectedSupabaseProjectRef('https://ikjdvyiqllnfpeaxfvfb.supabase.co')).toBe(false);
+  });
+
+  it('does not fetch Supabase when the configured project ref is unexpected', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://ikjdvyiqllnfpeaxfvfb.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    vi.stubGlobal('fetch', vi.fn());
+    installLocalStorageMock();
+
+    const { getSupabaseSessionSafely } = await import('./client');
+
+    await expect(
+      getSupabaseSessionSafely({ context: 'mismatch test' })
+    ).resolves.toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });
 
 describe('isSupabaseSessionExpiring', () => {

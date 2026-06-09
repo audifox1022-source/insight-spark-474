@@ -1,11 +1,13 @@
 import { createClient, type Session } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { getSupabaseProjectRef, isExpectedSupabaseProjectRef } from './config';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const SUPABASE_REQUEST_TIMEOUT_MS = 5000;
 const SUPABASE_AUTH_REFRESH_MARGIN_MS = 60 * 1000;
 const SUPABASE_PROJECT_REF = getSupabaseProjectRef(SUPABASE_URL);
+const SUPABASE_PROJECT_REF_MATCHES_REPO = isExpectedSupabaseProjectRef(SUPABASE_URL);
 const SUPABASE_AUTH_STORAGE_KEY = SUPABASE_PROJECT_REF
   ? `sb-${SUPABASE_PROJECT_REF}-auth-token`
   : undefined;
@@ -48,14 +50,6 @@ function createTimeoutFetch(timeoutMs: number): typeof fetch {
 export function isSupabaseSessionExpiring(session: Pick<Session, 'expires_at'> | null, marginMs = SUPABASE_AUTH_REFRESH_MARGIN_MS) {
   if (!session?.expires_at) return false;
   return session.expires_at * 1000 <= Date.now() + marginMs;
-}
-
-function getSupabaseProjectRef(supabaseUrl = SUPABASE_URL) {
-  try {
-    return supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : null;
-  } catch {
-    return null;
-  }
 }
 
 function parseStoredSession(value: string | null) {
@@ -119,8 +113,12 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   }
 }
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.error("Supabase 환경변수가 누락되었습니다.");
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_PROJECT_REF_MATCHES_REPO) {
+  console.error(
+    !SUPABASE_PROJECT_REF_MATCHES_REPO && SUPABASE_URL
+      ? `Supabase project ref mismatch: ${SUPABASE_PROJECT_REF || 'unknown'}`
+      : "Supabase 환경변수가 누락되었습니다."
+  );
   tempClient = {
     auth: {
       getSession: async () => ({ data: { session: null }, error: null }),
