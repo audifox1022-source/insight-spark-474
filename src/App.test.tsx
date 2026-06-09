@@ -56,7 +56,7 @@ describe('App routing', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://test.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://enbbfidgbylvhoivkvkj.supabase.co');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
 
     const storage = new Map<string, string>();
@@ -119,6 +119,18 @@ describe('App routing', () => {
     expect(screen.getByText(/VITE_SUPABASE_URL/)).toBeInTheDocument();
     expect(screen.getByText(/VITE_SUPABASE_ANON_KEY/)).toBeInTheDocument();
     expect(screen.getByText(/enbbfidgbylvhoivkvkj\.supabase\.co/)).toBeInTheDocument();
+  });
+
+  it('renders a configuration screen when Supabase project ref is unexpected', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://ikjdvyiqllnfpeaxfvfb.supabase.co');
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    vi.resetModules();
+
+    await renderAppAt('/');
+
+    expect(screen.getByText(/Supabase project ref/)).toBeInTheDocument();
+    expect(screen.getByText(/enbbfidgbylvhoivkvkj\.supabase\.co/)).toBeInTheDocument();
+    expect(screen.queryByText('index page')).not.toBeInTheDocument();
   });
 
   it('renders /generator for authenticated users', async () => {

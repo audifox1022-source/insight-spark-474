@@ -49,11 +49,23 @@ const queryClient = new QueryClient({
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY;
+const EXPECTED_SUPABASE_PROJECT_REF = "enbbfidgbylvhoivkvkj";
+
+function getSupabaseProjectRef(rawUrl: string | undefined) {
+  try {
+    return rawUrl ? new URL(rawUrl).hostname.split(".")[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+const supabaseProjectRef = getSupabaseProjectRef(SUPABASE_URL);
 
 const isSupabaseConfigured = Boolean(
   SUPABASE_URL &&
     SUPABASE_ANON_KEY &&
-    SUPABASE_URL.startsWith("https://")
+    SUPABASE_URL.startsWith("https://") &&
+    supabaseProjectRef === EXPECTED_SUPABASE_PROJECT_REF
 );
 
 // ============================================================
@@ -195,7 +207,8 @@ const EnvErrorScreen = () => {
       <p className="max-w-xl text-slate-600">
         VITE_SUPABASE_URL 및
         VITE_SUPABASE_ANON_KEY 환경 변수를
-        설정해주세요.
+        설정해주세요. 현재 배포 환경의 Supabase project ref가
+        앱 설정과 다르면 인증 요청을 시작하지 않습니다.
       </p>
 
       <p className="max-w-xl rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
