@@ -82,18 +82,28 @@ function getRuntimeStatus() {
 
   const supabaseProjectRef = getSupabaseProjectRef(supabaseUrl);
 
+  const runtime = {
+    supabaseUrlConfigured: Boolean(supabaseUrl),
+    supabaseProjectRef,
+    supabaseProjectRefMatchesRepo: supabaseProjectRef === EXPECTED_SUPABASE_PROJECT_REF,
+    supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
+    geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
+    blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+    kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+  };
+  const ready = Boolean(
+    runtime.supabaseUrlConfigured &&
+      runtime.supabaseProjectRefMatchesRepo &&
+      runtime.supabaseAnonKeyConfigured &&
+      runtime.geminiApiKeyConfigured &&
+      runtime.blobTokenConfigured
+  );
+
   return {
-    status: 'ok',
+    status: ready ? 'ok' : 'degraded',
+    ready,
     message: 'Work AI Backend Server is running',
-    runtime: {
-      supabaseUrlConfigured: Boolean(supabaseUrl),
-      supabaseProjectRef,
-      supabaseProjectRefMatchesRepo: supabaseProjectRef === EXPECTED_SUPABASE_PROJECT_REF,
-      supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
-      geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
-      blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
-      kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
-    },
+    runtime,
   };
 }
 
