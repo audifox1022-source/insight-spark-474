@@ -29,6 +29,7 @@ dist-sr
 .env.local
 .env.production
 .env.*
+.env*
 !.env.example
 
 # next.js
