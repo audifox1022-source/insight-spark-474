@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify:runtime": "node scripts/verify-runtime-env.mjs"
+    "verify:runtime": "node scripts/verify-runtime-env.mjs",
+    "verify:production": "node scripts/verify-production-health.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",

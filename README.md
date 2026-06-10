@@ -67,6 +67,17 @@ For local smoke checks, start the app with `npm run dev`, open `http://localhost
 
 Before deploying, run `npm run verify:runtime`. It checks required environment variables, Supabase project ref consistency, Supabase DNS resolution, and Supabase anon key project ref matching without printing secret values.
 
+For Vercel production, set these variables in the Vercel dashboard for both Production and Preview environments, then redeploy:
+
+- `VITE_SUPABASE_URL=https://enbbfidgbylvhoivkvkj.supabase.co`
+- `SUPABASE_URL=https://enbbfidgbylvhoivkvkj.supabase.co`
+- `VITE_SUPABASE_ANON_KEY` from the same Supabase project
+- `SUPABASE_ANON_KEY` from the same Supabase project
+- `GEMINI_API_KEY`
+- `BLOB_READ_WRITE_TOKEN`
+
+After redeploying, run `npm run verify:production`. It checks `https://twmakeppt.vercel.app/api/health` and fails unless production reports `ready: true`. To check a different deployment, pass the URL: `npm run verify:production -- https://your-deployment.vercel.app`.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
