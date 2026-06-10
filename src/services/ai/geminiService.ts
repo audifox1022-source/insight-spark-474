@@ -8,6 +8,7 @@
 import { callGeminiAPI } from './api-client';
 import * as prompts from './prompts';
 import { useSlideStore } from '@/store/useSlideStore';
+import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 
 export type ProgressCallback = (message: string) => void;
 
@@ -165,7 +166,7 @@ export const aiService = {
     return withTimeout(async (signal) => {
       const systemPrompt = prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium');
       const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(body), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
-      return result;
+      return normalizePresentationSlides(result);
     });
   },
 

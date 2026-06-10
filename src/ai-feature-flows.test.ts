@@ -93,6 +93,43 @@ describe('AI feature flows', () => {
 
     expect(Array.isArray(result)).toBe(true);
     expect(result[0].title).toBe('Overview');
+    expect(result[0].content).toEqual([{ heading: 'Result', description: 'Growth' }]);
+  });
+
+  it('normalizes alternate PPT content fields before slides reach the editor', async () => {
+    callGeminiAPIMock.mockResolvedValue(
+      JSON.stringify({
+        slides: [
+          {
+            title: 'Strategy Brief',
+            subhead: 'Executive summary',
+          },
+          {
+            title: 'Execution Priorities',
+            layout: 'split-right',
+            bullets: [
+              'Revenue: Expand enterprise pipeline',
+              { title: 'Efficiency', body: 'Reduce manual reporting effort' },
+            ],
+          },
+        ],
+      })
+    );
+    const { geminiService } = await import('@/services/ai/geminiService');
+
+    const result = await geminiService.generatePresentation({
+      fileData: 'strategy notes',
+      meetingInfo: {},
+      settings: { difficulty: 'medium', slideCount: 2 },
+    });
+
+    expect(result[0].layout).toBe('cover');
+    expect(result[0].subtitle).toBe('Executive summary');
+    expect(result[1].layout).toBe('split');
+    expect(result[1].content).toEqual([
+      { heading: 'Revenue', description: 'Expand enterprise pipeline' },
+      { heading: 'Efficiency', description: 'Reduce manual reporting effort' },
+    ]);
   });
 
   it('sends Audio Lab blob URLs through the authenticated Gemini proxy and parses the report JSON', async () => {

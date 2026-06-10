@@ -5,6 +5,7 @@
 // ============================================================
 import { callGeminiAPI, streamGeminiAPI } from '@/services/ai/api-client';
 import { extractJson } from '@/services/ai/geminiService';
+import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 
 const DEFAULT_SYSTEM_PROMPT = "당신은 실시간 업무 지원을 위한 최고의 AI 아키텍트입니다.";
 
@@ -131,10 +132,10 @@ export const aiService = {
     try {
       if (onChunk) {
         const response = await streamGeminiAPI(systemPrompt, prompt, onChunk, signal);
-        return extractJson(response);
+        return normalizePresentationSlides(extractJson(response));
       } else {
         const response = await callGeminiAPI(systemPrompt, prompt, 8192, "application/json", settings?.useWebSearch, signal);
-        return extractJson(response);
+        return normalizePresentationSlides(extractJson(response));
       }
     } catch (err) {
       console.error('Presentation Generation failed:', err);

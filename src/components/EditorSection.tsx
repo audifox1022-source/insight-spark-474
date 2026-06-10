@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { aiService } from '../lib/ai-service';
 import { parseFile } from '../utils/fileParser';
+import { normalizePresentationSlides } from '../utils/presentation-normalizer';
 import { toast } from 'sonner';
 import { HelpCircle, X } from 'lucide-react';
 
@@ -197,7 +198,7 @@ ${searchInstruction}
         }
       });
 
-      const slideArray = Array.isArray(res) ? res : (res?.presentation?.slides || res?.slides || []);
+      const slideArray = normalizePresentationSlides(res);
       if (!Array.isArray(slideArray) || slideArray.length === 0) {
         throw new Error('AI가 생성한 슬라이드 데이터가 비어 있습니다.');
       }

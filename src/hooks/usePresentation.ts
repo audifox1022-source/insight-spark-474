@@ -11,6 +11,7 @@ import { useSlideStore } from '@/store/useSlideStore';
 import { useThemeStore } from '@/store/useThemeStore'; // [NEW] 전역 테마 스토어
 import { toast } from 'sonner';
 import { parseFile } from '@/utils/fileParser';
+import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -290,7 +291,7 @@ export const usePresentation = () => {
       });
       if (generationCancelledRef.current) return;
       
-      const slideData = Array.isArray(result) ? result : (result?.slides || result?.presentation?.slides || []);
+      const slideData = normalizePresentationSlides(result);
       
       if (!Array.isArray(slideData) || slideData.length === 0) {
         console.error("❌ [Engine] 슬라이드 데이터 생성 실패 (0장):", result);

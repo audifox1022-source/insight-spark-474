@@ -12,6 +12,7 @@ import {
   LayoutGrid, Layers, Columns, Quote
 } from 'lucide-react';
 import { useSlideStore } from '@/store/useSlideStore';
+import { normalizeSlideContent, normalizeSlideLayout } from '@/utils/presentation-normalizer';
 
 interface SlideLayoutRendererProps {
   slide: any;
@@ -32,7 +33,9 @@ const getDynamicFontSize = (text: string, baseSize: number, minSize: number, rat
 
 export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide, slideIndex, thumbnailMode = false }) => {
   const { aspectRatio, updateSlideTitle, updateSlideSubtitle, updateContentItem } = useSlideStore();
-  const { layout = 'default', title, subtitle, content = [], theme = {}, style = {} } = slide;
+  const { title, subtitle, theme = {}, style = {} } = slide;
+  const layout = normalizeSlideLayout(slide, slideIndex);
+  const content = React.useMemo(() => normalizeSlideContent(slide), [slide]);
 
   // 공통 클래스: [CRITICAL] 4:3 비율에서도 레이아웃이 깨지지 않도록 강제 제약 조건 설정
   const containerClass = `w-full h-full relative overflow-hidden flex flex-col p-12 select-none pointer-events-auto ${aspectRatio === '4:3' ? 'p-10' : 'p-12'}`;

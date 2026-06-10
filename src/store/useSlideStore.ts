@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { processAllSlides } from '@/utils/smartSplitter';
+import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { 
   Presentation, 
   Slide, 
@@ -183,11 +184,15 @@ export const useSlideStore = create<SlideState>()(
 
       setPresentation: (presentation) => {
         if (!presentation) return;
+        const normalizedPresentation = {
+          ...presentation,
+          slides: normalizePresentationSlides(presentation.slides || []),
+        };
         const currentP = get().presentation;
-        const isNewCreation = !currentP || currentP.id !== presentation.id;
+        const isNewCreation = !currentP || currentP.id !== normalizedPresentation.id;
         
         if (isNewCreation) {
-          const clone = fastClone(presentation);
+          const clone = fastClone(normalizedPresentation);
           set({ 
             presentation: clone, 
             history: [clone], 
@@ -197,8 +202,8 @@ export const useSlideStore = create<SlideState>()(
           });
         } else {
           set({ 
-            presentation,
-            currentSlideIndex: Math.min(get().currentSlideIndex, (presentation.slides || []).length - 1)
+            presentation: normalizedPresentation,
+            currentSlideIndex: Math.min(get().currentSlideIndex, (normalizedPresentation.slides || []).length - 1)
           });
         }
       },
