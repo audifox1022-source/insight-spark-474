@@ -1,4 +1,4 @@
-export const EXPECTED_SUPABASE_PROJECT_REF = 'enbbfidgbylvhoivkvkj';
+export const EXPECTED_SUPABASE_PROJECT_REF = 'fjdngofojmsdixxduxuk';
 
 export function getSupabaseProjectRef(rawUrl: string | undefined) {
   try {
