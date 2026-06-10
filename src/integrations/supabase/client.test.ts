@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createSafeSupabaseStorage, isSupabaseSessionExpiring } from './client';
 import {
   EXPECTED_SUPABASE_PROJECT_REF,
   getSupabaseProjectRef,
@@ -33,7 +32,10 @@ function installLocalStorageMock() {
 }
 
 beforeEach(() => {
+  vi.resetModules();
   vi.clearAllMocks();
+  vi.stubEnv('VITE_SUPABASE_URL', 'https://ikjdvyiqllnfpeaxfvfb.supabase.co');
+  vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
   installLocalStorageMock();
 });
 
@@ -68,11 +70,14 @@ describe('Supabase project configuration', () => {
 });
 
 describe('isSupabaseSessionExpiring', () => {
-  it('returns false when there is no session', () => {
+  it('returns false when there is no session', async () => {
+    const { isSupabaseSessionExpiring } = await import('./client');
+
     expect(isSupabaseSessionExpiring(null)).toBe(false);
   });
 
-  it('returns true when the session expires inside the refresh margin', () => {
+  it('returns true when the session expires inside the refresh margin', async () => {
+    const { isSupabaseSessionExpiring } = await import('./client');
     const session = {
       expires_at: Math.floor((Date.now() + 30_000) / 1000),
     };
@@ -80,7 +85,8 @@ describe('isSupabaseSessionExpiring', () => {
     expect(isSupabaseSessionExpiring(session as any, 60_000)).toBe(true);
   });
 
-  it('returns false when the session remains valid beyond the refresh margin', () => {
+  it('returns false when the session remains valid beyond the refresh margin', async () => {
+    const { isSupabaseSessionExpiring } = await import('./client');
     const session = {
       expires_at: Math.floor((Date.now() + 120_000) / 1000),
     };
@@ -92,7 +98,8 @@ describe('isSupabaseSessionExpiring', () => {
 describe('createSafeSupabaseStorage', () => {
   const storageKey = 'sb-test-auth-token';
 
-  it('returns null for expired stored sessions before Supabase can refresh them', () => {
+  it('returns null for expired stored sessions before Supabase can refresh them', async () => {
+    const { createSafeSupabaseStorage } = await import('./client');
     const storage = createSafeSupabaseStorage(storageKey);
     const expiredSession = {
       currentSession: {
@@ -107,7 +114,8 @@ describe('createSafeSupabaseStorage', () => {
     expect(storage.getItem(storageKey)).toBeNull();
   });
 
-  it('keeps stored sessions that remain valid beyond the refresh margin', () => {
+  it('keeps stored sessions that remain valid beyond the refresh margin', async () => {
+    const { createSafeSupabaseStorage } = await import('./client');
     const storage = createSafeSupabaseStorage(storageKey);
     const validSession = {
       currentSession: {
