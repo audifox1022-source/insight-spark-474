@@ -8,6 +8,136 @@ import path from "path";
 import os from "os";
 import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from "./_auth.js";
 
+const DEFAULT_GENERATION_CONFIG = {
+  temperature: 0.1,
+  maxOutputTokens: 8192,
+  responseMimeType: "application/json",
+};
+const DEFAULT_FALLBACK_MODELS = [
+  'gemini-2.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+];
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 60_000);
+
+export function getGeminiModelFallbacks(primaryModel) {
+  const configuredFallbacks = (process.env.GEMINI_FALLBACK_MODELS || '')
+    .split(',')
+    .map((model) => model.trim())
+    .filter(Boolean);
+  const fallbackModels = configuredFallbacks.length > 0 ? configuredFallbacks : DEFAULT_FALLBACK_MODELS;
+
+  return [...new Set([primaryModel || 'gemini-2.5-flash', ...fallbackModels])];
+}
+
+function getErrorMessage(error) {
+  return error?.message || String(error || 'Unknown Gemini error');
+}
+
+function getProviderStatus(error) {
+  return Number(
+    error?.status ||
+      error?.statusCode ||
+      error?.response?.status ||
+      error?.cause?.status ||
+      0
+  );
+}
+
+export function isRetryableGeminiError(error) {
+  const status = getProviderStatus(error);
+  const message = getErrorMessage(error).toLowerCase();
+
+  return (
+    [429, 500, 502, 503, 504].includes(status) ||
+    message.includes('503') ||
+    message.includes('429') ||
+    message.includes('service unavailable') ||
+    message.includes('high demand') ||
+    message.includes('overload') ||
+    message.includes('unavailable') ||
+    message.includes('resource_exhausted') ||
+    message.includes('rate limit') ||
+    message.includes('timeout') ||
+    message.includes('초과')
+  );
+}
+
+function getGeminiStatusCode(error) {
+  const message = getErrorMessage(error);
+  if (message.includes('not found') || message.includes('non-existent')) return 404;
+  if (message.includes('API key')) return 403;
+  if (message.includes('초과') || message.toLowerCase().includes('timeout')) return 504;
+  if (error?.retryable || isRetryableGeminiError(error)) return 503;
+  return 500;
+}
+
+async function withGeminiTimeout(promise, modelName) {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(
+      () => reject(new Error(`AI 분석 시간이 초과되었습니다. (${Math.round(GEMINI_TIMEOUT_MS / 1000)}초 제한, model: ${modelName})`)),
+      GEMINI_TIMEOUT_MS
+    )
+  );
+
+  return Promise.race([promise, timeoutPromise]);
+}
+
+async function generateContentWithFallback({
+  genAI,
+  modelName,
+  systemInstruction,
+  contents,
+  generationConfig,
+}) {
+  const modelsToTry = getGeminiModelFallbacks(modelName);
+  const attemptedModels = [];
+  let lastError = null;
+
+  for (const currentModel of modelsToTry) {
+    attemptedModels.push(currentModel);
+    try {
+      console.log(
+        `[PROXY] 💎 Executing Gemini Inference (${currentModel}${currentModel === modelName ? '' : ' fallback'})...`
+      );
+
+      const model = genAI.getGenerativeModel({
+        model: currentModel,
+        systemInstruction,
+      });
+      const result = await withGeminiTimeout(
+        model.generateContent({
+          contents,
+          generationConfig: generationConfig || DEFAULT_GENERATION_CONFIG,
+        }),
+        currentModel
+      );
+
+      return {
+        aiResponse: await result.response,
+        usedModel: currentModel,
+        attemptedModels,
+      };
+    } catch (error) {
+      lastError = error;
+      const retryable = isRetryableGeminiError(error);
+      console.warn(
+        `[PROXY] Gemini model ${currentModel} failed (${retryable ? 'retryable' : 'fatal'}): ${getErrorMessage(error)}`
+      );
+
+      if (!retryable || currentModel === modelsToTry[modelsToTry.length - 1]) {
+        error.attemptedModels = [...attemptedModels];
+        error.retryable = retryable;
+        throw error;
+      }
+    }
+  }
+
+  lastError.attemptedModels = attemptedModels;
+  lastError.retryable = true;
+  throw lastError;
+}
+
 export default async function handler(req, res) {
   applyCorsHeaders(res, req);
 
@@ -107,48 +237,36 @@ export default async function handler(req, res) {
       ];
     }
 
-    // --- [EXECUTE] Gemini API 호출 ---
-    console.log(`[PROXY] 💎 Executing Gemini Inference (${modelName})...`);
-    
-    const model = genAI.getGenerativeModel({ 
-      model: modelName,
-      systemInstruction: system_instruction
-    });
-
-    // [STABILITY] 120초 타임아웃 레이어 추가 (AI 응답 지연 방기)
-    const inferencePromise = model.generateContent({
+    const { aiResponse, usedModel, attemptedModels } = await generateContentWithFallback({
+      genAI,
+      modelName,
+      systemInstruction: system_instruction,
       contents: finalContents,
-      generationConfig: generationConfig || { 
-        temperature: 0.1, 
-        maxOutputTokens: 8192,
-        responseMimeType: "application/json" 
-      }
+      generationConfig,
     });
 
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error("AI 분석 시간이 초과되었습니다. (60초 제한)")), 60000)
-    );
+    res.setHeader('X-Gemini-Model', usedModel);
+    if (usedModel !== modelName) {
+      res.setHeader('X-Gemini-Fallback-Model', usedModel);
+      res.setHeader('X-Gemini-Attempted-Models', attemptedModels.join(','));
+    }
 
-    const result = await Promise.race([inferencePromise, timeoutPromise]);
-    const aiResponse = await result.response;
-    
-    console.log(`[PROXY] ✅ AI Generation Success! Payload size: ${JSON.stringify(aiResponse).length}`);
+    console.log(
+      `[PROXY] ✅ AI Generation Success! Model: ${usedModel}. Payload size: ${JSON.stringify(aiResponse).length}`
+    );
     return res.status(200).json(aiResponse);
 
   } catch (err) {
     console.error("❌ [PROXY CRITICAL FAILURE]:", err);
-    
-    // 에러 상태 코드 분류
-    let statusCode = 500;
-    if (err.message.includes("not found") || err.message.includes("non-existent")) statusCode = 404;
-    if (err.message.includes("API key")) statusCode = 403;
-    if (err.message.includes("초과")) statusCode = 504;
+    const statusCode = getGeminiStatusCode(err);
 
     return res.status(statusCode).json({ 
       success: false,
       proxyError: true,
       message: err.message || "서버 내부 오류가 발생했습니다.",
       model: req.body?.model,
+      attemptedModels: err.attemptedModels || [req.body?.model].filter(Boolean),
+      retryable: statusCode === 503 || Boolean(err.retryable),
       errorDetails: err.stack
     });
   } finally {
