@@ -2,6 +2,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import handler from '../api/health.js';
 
+function stubRuntimeEnv(values: Record<string, string> = {}) {
+  const defaults = {
+    SUPABASE_URL: '',
+    VITE_SUPABASE_URL: '',
+    SUPABASE_ANON_KEY: '',
+    VITE_SUPABASE_ANON_KEY: '',
+    VITE_SUPABASE_PUBLISHABLE_KEY: '',
+    GEMINI_API_KEY: '',
+    BLOB_READ_WRITE_TOKEN: '',
+    KV_REST_API_URL: '',
+    KV_REST_API_TOKEN: '',
+  };
+
+  Object.entries({ ...defaults, ...values }).forEach(([key, value]) => {
+    vi.stubEnv(key, value);
+  });
+}
+
 function invokeHealth(method = 'GET') {
   const headers: Record<string, string> = {};
   let body: any = null;
@@ -39,6 +57,8 @@ describe('api/health', () => {
   });
 
   it('reports degraded when required runtime variables are missing', () => {
+    stubRuntimeEnv();
+
     const result = invokeHealth();
 
     expect(result.statusCode).toBe(200);
@@ -48,10 +68,12 @@ describe('api/health', () => {
   });
 
   it('reports degraded when Supabase project ref does not match the repo config', () => {
-    vi.stubEnv('SUPABASE_URL', 'https://ikjdvyiqllnfpeaxfvfb.supabase.co');
-    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key');
-    vi.stubEnv('GEMINI_API_KEY', 'gemini-key');
-    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'blob-token');
+    stubRuntimeEnv({
+      SUPABASE_URL: 'https://ikjdvyiqllnfpeaxfvfb.supabase.co',
+      SUPABASE_ANON_KEY: 'anon-key',
+      GEMINI_API_KEY: 'gemini-key',
+      BLOB_READ_WRITE_TOKEN: 'blob-token',
+    });
 
     const result = invokeHealth();
 
@@ -62,10 +84,12 @@ describe('api/health', () => {
   });
 
   it('reports ready when required runtime variables match the repo config', () => {
-    vi.stubEnv('SUPABASE_URL', 'https://enbbfidgbylvhoivkvkj.supabase.co');
-    vi.stubEnv('SUPABASE_ANON_KEY', 'anon-key');
-    vi.stubEnv('GEMINI_API_KEY', 'gemini-key');
-    vi.stubEnv('BLOB_READ_WRITE_TOKEN', 'blob-token');
+    stubRuntimeEnv({
+      SUPABASE_URL: 'https://enbbfidgbylvhoivkvkj.supabase.co',
+      SUPABASE_ANON_KEY: 'anon-key',
+      GEMINI_API_KEY: 'gemini-key',
+      BLOB_READ_WRITE_TOKEN: 'blob-token',
+    });
 
     const result = invokeHealth();
 

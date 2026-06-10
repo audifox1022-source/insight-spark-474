@@ -6,7 +6,7 @@
 // ============================================================
 
 import { handleUpload } from '@vercel/blob/client';
-import { buildCorsHeaders, requireAuth } from './_auth.js';
+import { applyCorsHeaders, requireAuth } from './_auth.js';
 
 /**
  * [Vercel Serverless Configuration]
@@ -15,23 +15,17 @@ import { buildCorsHeaders, requireAuth } from './_auth.js';
  * (runtime: 'edge' 설정을 의도적으로 제거함)
  */
 
-export default async function handler(request: Request): Promise<Response> {
-  const corsHeaders = buildCorsHeaders(request);
+export default async function handler(request, response) {
+  applyCorsHeaders(response, request);
 
   // --- [1] CORS 및 OPTIONS 요청 처리 ---
   if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return response.status(200).end();
   }
 
   // --- [2] POST 요청 체크 ---
   if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
-    });
+    return response.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
@@ -43,7 +37,7 @@ export default async function handler(request: Request): Promise<Response> {
     // --- [4] handleUpload 실행 ---
     const jsonResponse = await handleUpload({
       body: body,
-      request: request, 
+      request,
       
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         await requireAuth(request, { clientPayload });
@@ -77,21 +71,14 @@ export default async function handler(request: Request): Promise<Response> {
       },
     });
 
-    // --- [5] JSON 응답 반환 (Web API Response) ---
-    return new Response(JSON.stringify(jsonResponse), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        ...corsHeaders,
-      },
-    });
+    // --- [5] JSON 응답 반환 ---
+    return response.status(200).json(jsonResponse);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[Node.js Serverless Upload Error]:', error);
-    
-    return new Response(JSON.stringify({ error: error.message || 'MIME-Aligned Handshake Failed' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+
+    return response.status(400).json({
+      error: error.message || 'MIME-Aligned Handshake Failed',
     });
   }
 }
