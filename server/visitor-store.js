@@ -1,20 +1,51 @@
+import { createClient } from 'redis'
+
+let redisClientPromise = null
+
 function getRedisConfig() {
   return {
-    url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+    redisUrl: process.env.REDIS_URL || process.env.KV_URL || process.env.UPSTASH_REDIS_URL,
+    restUrl: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+    restToken: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
   }
 }
 
-async function kvPipeline(commands) {
-  const { url, token } = getRedisConfig()
-  if (!url || !token) {
+export function isVisitorStoreConfigured() {
+  const { redisUrl, restUrl, restToken } = getRedisConfig()
+  return Boolean(redisUrl || (restUrl && restToken))
+}
+
+async function getRedisClient() {
+  const { redisUrl } = getRedisConfig()
+  if (!redisUrl) return null
+
+  if (!redisClientPromise) {
+    redisClientPromise = (async () => {
+      const client = createClient({ url: redisUrl })
+      client.on('error', (error) => {
+        console.error('[Visitor Redis Error]:', error)
+      })
+      await client.connect()
+      return client
+    })().catch((error) => {
+      redisClientPromise = null
+      throw error
+    })
+  }
+
+  return redisClientPromise
+}
+
+async function restPipeline(commands) {
+  const { restUrl, restToken } = getRedisConfig()
+  if (!restUrl || !restToken) {
     return { configured: false, data: [] }
   }
 
-  const response = await fetch(`${url}/pipeline`, {
+  const response = await fetch(`${restUrl}/pipeline`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${restToken}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(commands),
@@ -27,36 +58,40 @@ async function kvPipeline(commands) {
   return { configured: true, data: await response.json() }
 }
 
-async function kvIncr(key) {
-  const { configured, data } = await kvPipeline([['INCR', key]])
+async function storeIncr(key) {
+  const client = await getRedisClient()
+  if (client) return Number(await client.incr(key))
+
+  const { configured, data } = await restPipeline([['INCR', key]])
   return configured ? Number(data?.[0]?.result ?? 0) : 0
 }
 
-async function kvGet(key) {
-  const { configured, data } = await kvPipeline([['GET', key]])
+async function storeGet(key) {
+  const client = await getRedisClient()
+  if (client) return await client.get(key)
+
+  const { configured, data } = await restPipeline([['GET', key]])
   return configured ? data?.[0]?.result ?? null : null
 }
 
 export async function trackVisitorEvent(type, today = new Date().toISOString().slice(0, 10)) {
-  const { url, token } = getRedisConfig()
-  if (!url || !token) return false
+  if (!isVisitorStoreConfigured()) return false
 
   if (type === 'visit') {
-    await kvIncr('total_visits')
-    await kvIncr(`today_visits:${today}`)
+    await storeIncr('total_visits')
+    await storeIncr(`today_visits:${today}`)
   }
 
   if (type === 'unique') {
-    await kvIncr('unique_users')
-    await kvIncr(`today_unique:${today}`)
+    await storeIncr('unique_users')
+    await storeIncr(`today_unique:${today}`)
   }
 
   return true
 }
 
 export async function getVisitorStats(today = new Date().toISOString().slice(0, 10)) {
-  const { url, token } = getRedisConfig()
-  if (!url || !token) {
+  if (!isVisitorStoreConfigured()) {
     return {
       total_visits: 0,
       unique_users: 0,
@@ -67,10 +102,10 @@ export async function getVisitorStats(today = new Date().toISOString().slice(0, 
   }
 
   const [total, unique, todayV, todayU] = await Promise.all([
-    kvGet('total_visits'),
-    kvGet('unique_users'),
-    kvGet(`today_visits:${today}`),
-    kvGet(`today_unique:${today}`),
+    storeGet('total_visits'),
+    storeGet('unique_users'),
+    storeGet(`today_visits:${today}`),
+    storeGet(`today_unique:${today}`),
   ])
 
   return {

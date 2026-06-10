@@ -27,7 +27,13 @@ function getRuntimeStatus() {
     supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
     geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
     blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
-    kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+    kvConfigured: Boolean(
+      process.env.REDIS_URL ||
+        process.env.KV_URL ||
+        process.env.UPSTASH_REDIS_URL ||
+        (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+        (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+    ),
   };
   const ready = Boolean(
     runtime.supabaseUrlConfigured &&

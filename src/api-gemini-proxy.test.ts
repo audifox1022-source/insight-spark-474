@@ -126,6 +126,21 @@ describe('api/gemini-proxy', () => {
     ]);
   });
 
+  it('forwards Gemini tools to the selected model', async () => {
+    generateContentMock.mockResolvedValue(createGeminiResponse());
+
+    const tools = [{ googleSearch: {} }];
+    const result = await invokeGeminiProxy({ tools });
+
+    expect(result.statusCode).toBe(200);
+    expect(generateContentMock).toHaveBeenCalledWith(
+      'gemini-2.5-flash',
+      expect.objectContaining({
+        tools,
+      })
+    );
+  });
+
   it('returns a retryable 503 when all Gemini fallback models are overloaded', async () => {
     generateContentMock.mockImplementation(async () => {
       const error = new Error('[503 Service Unavailable] This model is currently experiencing high demand.');

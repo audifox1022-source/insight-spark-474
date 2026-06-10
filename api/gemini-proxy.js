@@ -83,12 +83,14 @@ async function withGeminiTimeout(promise, modelName) {
   return Promise.race([promise, timeoutPromise]);
 }
 
-async function generateContentWithFallback({
+export async function generateContentWithFallback({
   genAI,
   modelName,
   systemInstruction,
   contents,
   generationConfig,
+  tools,
+  safetySettings,
 }) {
   const modelsToTry = getGeminiModelFallbacks(modelName);
   const attemptedModels = [];
@@ -104,12 +106,16 @@ async function generateContentWithFallback({
       const model = genAI.getGenerativeModel({
         model: currentModel,
         systemInstruction,
+        safetySettings,
       });
+      const payload = {
+        contents,
+        generationConfig: generationConfig || DEFAULT_GENERATION_CONFIG,
+      };
+      if (tools) payload.tools = tools;
+
       const result = await withGeminiTimeout(
-        model.generateContent({
-          contents,
-          generationConfig: generationConfig || DEFAULT_GENERATION_CONFIG,
-        }),
+        model.generateContent(payload),
         currentModel
       );
 
@@ -171,7 +177,7 @@ export default async function handler(req, res) {
   let tmpFilePath = null;
 
   try {
-    const { blobUrl, mimeType, contents, generationConfig, model: modelName = 'gemini-2.5-flash', system_instruction } = req.body;
+    const { blobUrl, mimeType, contents, generationConfig, model: modelName = 'gemini-2.5-flash', system_instruction, tools } = req.body;
 
     let finalContents = contents;
 
@@ -243,6 +249,7 @@ export default async function handler(req, res) {
       systemInstruction: system_instruction,
       contents: finalContents,
       generationConfig,
+      tools,
     });
 
     res.setHeader('X-Gemini-Model', usedModel);

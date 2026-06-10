@@ -11,8 +11,13 @@ function stubRuntimeEnv(values: Record<string, string> = {}) {
     VITE_SUPABASE_PUBLISHABLE_KEY: '',
     GEMINI_API_KEY: '',
     BLOB_READ_WRITE_TOKEN: '',
+    REDIS_URL: '',
+    KV_URL: '',
+    UPSTASH_REDIS_URL: '',
     KV_REST_API_URL: '',
     KV_REST_API_TOKEN: '',
+    UPSTASH_REDIS_REST_URL: '',
+    UPSTASH_REDIS_REST_TOKEN: '',
   };
 
   Object.entries({ ...defaults, ...values }).forEach(([key, value]) => {
@@ -96,5 +101,15 @@ describe('api/health', () => {
     expect(result.body.status).toBe('ok');
     expect(result.body.ready).toBe(true);
     expect(result.body.runtime.supabaseProjectRefMatchesRepo).toBe(true);
+  });
+
+  it('reports KV configured when a Redis connection URL is present', () => {
+    stubRuntimeEnv({
+      REDIS_URL: 'rediss://default:token@example.redis.test:6379',
+    });
+
+    const result = invokeHealth();
+
+    expect(result.body.runtime.kvConfigured).toBe(true);
   });
 });

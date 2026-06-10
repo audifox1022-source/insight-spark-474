@@ -9,6 +9,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getAuthErrorPayload, requireAuth } from './api/_auth.js';
+import { generateContentWithFallback } from './api/gemini-proxy.js';
 import { generateBananaPresentation } from './server/banana-nl.js';
 import { buildExport } from './server/export-renderer.js';
 import { getVisitorStats, trackVisitorEvent } from './server/visitor-store.js';
@@ -37,7 +38,6 @@ const upload = multer({
 
 // Initialize Gemini with server-side API key
 const apiKey = process.env.GEMINI_API_KEY;
-console.log("[PROXY DEBUG] 서버가 읽은 키 앞 5자리:", apiKey ? apiKey.substring(0, 5) : "키 없음(UNDEFINED)");
 if (!apiKey) {
   console.warn('WARNING: GEMINI_API_KEY is not set in environment variables.');
 }
@@ -92,7 +92,13 @@ function getRuntimeStatus() {
     supabaseAnonKeyConfigured: Boolean(supabaseAnonKey),
     geminiApiKeyConfigured: Boolean(process.env.GEMINI_API_KEY),
     blobTokenConfigured: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
-    kvConfigured: Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN),
+    kvConfigured: Boolean(
+      process.env.REDIS_URL ||
+        process.env.KV_URL ||
+        process.env.UPSTASH_REDIS_URL ||
+        (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) ||
+        (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+    ),
   };
   const ready = Boolean(
     runtime.supabaseUrlConfigured &&
@@ -370,7 +376,8 @@ app.post('/api/gemini-proxy', async (req, res) => {
       system_instruction, 
       generationConfig, 
       tools,
-      blobUrl 
+      blobUrl,
+      mimeType
     } = req.body;
 
     console.log(`[Proxy] 🤖 RPC Request: ${modelName}, BlobUrl: ${!!blobUrl}`);
@@ -379,6 +386,15 @@ app.post('/api/gemini-proxy', async (req, res) => {
 
     // 1. [Local Logic] Blob URL이 있으면 Gemini File API로 전환하여 업로드
     if (blobUrl) {
+      if (typeof blobUrl !== 'string' || !blobUrl.startsWith('http')) {
+        return res.status(400).json({
+          success: false,
+          proxyError: true,
+          message: '올바른 파일 URL이 전달되지 않았습니다.',
+          receivedType: typeof blobUrl,
+        });
+      }
+
       console.log(`[Proxy] 📥 Downloading from Blob URL: ${blobUrl}`);
       const response = await fetch(blobUrl);
       if (!response.ok) throw new Error(`Blob 다운로드 실패: ${response.statusText}`);
@@ -392,48 +408,58 @@ app.post('/api/gemini-proxy', async (req, res) => {
       console.log(`[Proxy] 💾 Temp file saved: ${tempFilePath}`);
 
       // Gemini File API 업로드
+      const uploadMimeType = mimeType || 'audio/mp4';
       const uploadResult = await fileManager.uploadFile(tempFilePath, {
-        mimeType: "audio/mp4",
+        mimeType: uploadMimeType,
         displayName: fileName,
       });
       fileUri = uploadResult.file.uri;
       console.log(`[Proxy] ☁️ Gemini File API Uploaded: ${fileUri}`);
 
-      // 기존 content의 inlineData를 fileData로 교체
-      finalContents = contents.map(content => ({
-        ...content,
-        parts: content.parts.map(part => {
-          if (part.inlineData) {
-            return { fileData: { mimeType: "audio/mp4", fileUri } };
-          }
-          return part;
-        })
-      }));
+      let file = await fileManager.getFile(uploadResult.file.name);
+      let retryCount = 0;
+      while (file.state === 'PROCESSING' && retryCount < 15) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        file = await fileManager.getFile(uploadResult.file.name);
+        retryCount++;
+      }
+
+      if (file.state !== 'ACTIVE') {
+        throw new Error(`Gemini 서버의 파일 분석 준비가 완료되지 않았습니다 (상태: ${file.state})`);
+      }
+
+      const promptText = contents?.[0]?.parts?.find((part) => typeof part.text === 'string')?.text ||
+        '이 오디오 내용을 정밀 분석해 주세요.';
+      finalContents = [
+        {
+          role: 'user',
+          parts: [
+            { text: promptText },
+            { fileData: { mimeType: file.mimeType || uploadResult.file.mimeType || uploadMimeType, fileUri } },
+          ],
+        },
+      ];
     }
 
-    // 2. Gemini 요청 수행 (120초 타임아웃 적용)
-    const model = genAI.getGenerativeModel({ 
-      model: modelName,
+    // 2. Gemini 요청 수행 (프로덕션과 동일 fallback 체인 사용)
+    console.log("[Proxy] 🚀 Sending request to Gemini...");
+    const { aiResponse, usedModel, attemptedModels } = await generateContentWithFallback({
+      genAI,
+      modelName,
       systemInstruction: system_instruction,
+      contents: finalContents,
+      generationConfig,
+      tools,
       safetySettings
     });
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("AI 분석 시간 초과 (120초)")), 120000)
-    );
+    res.setHeader('X-Gemini-Model', usedModel);
+    if (usedModel !== modelName) {
+      res.setHeader('X-Gemini-Fallback-Model', usedModel);
+      res.setHeader('X-Gemini-Attempted-Models', attemptedModels.join(','));
+    }
 
-    console.log("[Proxy] 🚀 Sending request to Gemini...");
-    const result = await Promise.race([
-      model.generateContent({
-        contents: finalContents,
-        generationConfig,
-        tools
-      }),
-      timeoutPromise
-    ]);
-
-    const data = result.response;
-    res.json(data);
+    res.json(aiResponse);
 
   } catch (error) {
     console.error('❌ [Proxy Error]:', error);
@@ -451,10 +477,14 @@ app.post('/api/gemini-proxy', async (req, res) => {
       isKeyError = true;
     }
 
-    res.status(500).json({ 
+    const statusCode = error.retryable ? 503 : 500;
+
+    res.status(statusCode).json({
       error: userFriendlyMessage, 
       details: error.message,
-      code: isKeyError ? 'API_KEY_INVALID' : (error.code || 'UNKNOWN')
+      code: isKeyError ? 'API_KEY_INVALID' : (error.code || 'UNKNOWN'),
+      attemptedModels: error.attemptedModels,
+      retryable: statusCode === 503
     });
   } finally {
     // 3. 임시 파일 및 파일 API 자원 정리

@@ -197,7 +197,10 @@ ${searchInstruction}
         }
       });
 
-      const slideArray = res?.presentation?.slides || res?.slides || [];
+      const slideArray = Array.isArray(res) ? res : (res?.presentation?.slides || res?.slides || []);
+      if (!Array.isArray(slideArray) || slideArray.length === 0) {
+        throw new Error('AI가 생성한 슬라이드 데이터가 비어 있습니다.');
+      }
       const formattedJson = JSON.stringify(slideArray || [], null, 2);
       setSlideData(formattedJson);
       if (onGenerateSuccess) onGenerateSuccess(slideArray || []);
