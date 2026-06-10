@@ -29,21 +29,19 @@ export function useVisitorCount() {
 
     const run = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10) // "2026-03-04"
+        const today = new Date().toISOString().slice(0, 10)
 
-        // 세션당 1회: 총방문 + 오늘방문 증가
         let latestStats: any = null
         if (!sessionStorage.getItem('vt')) {
           latestStats = await updateVisitorStats('visit')
           sessionStorage.setItem('vt', '1')
         }
 
-        // 날짜별 브라우저당 1회: 순방문자 증가
         const uniqueKey = `uv_${today}`
         if (!localStorage.getItem(uniqueKey)) {
           latestStats = await updateVisitorStats('unique')
           localStorage.setItem(uniqueKey, '1')
-          // 어제 키 정리
+
           const yesterday = new Date(Date.now() - 86400000)
             .toISOString().slice(0, 10)
           localStorage.removeItem(`uv_${yesterday}`)

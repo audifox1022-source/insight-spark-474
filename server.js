@@ -9,6 +9,9 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getAuthErrorPayload, requireAuth } from './api/_auth.js';
+import { generateBananaPresentation } from './server/banana-nl.js';
+import { buildExport } from './server/export-renderer.js';
+import { getVisitorStats, trackVisitorEvent } from './server/visitor-store.js';
 
 // Load environment variables
 dotenv.config();
@@ -110,6 +113,78 @@ function getRuntimeStatus() {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json(getRuntimeStatus());
+});
+
+app.all('/api/visitor', async (req, res) => {
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (!['GET', 'POST'].includes(req.method)) {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    if (req.method === 'POST') {
+      await trackVisitorEvent(req.body?.type, today);
+    }
+    res.json(await getVisitorStats(today));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/banana-nl/generate', async (req, res) => {
+  try {
+    const input = req.body?.documentText || req.body?.prompt;
+    const data = await generateBananaPresentation(apiKey, input);
+    res.json(data);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'AI generation failed',
+    });
+  }
+});
+
+app.post('/api/export/:type', async (req, res) => {
+  try {
+    const result = await buildExport(req.params.type, req.body);
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="work-ai-export.${result.extension}"`);
+    res.status(200).send(result.buffer);
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      error: error.message || 'Export failed',
+    });
+  }
+});
+
+app.post('/api/audio/analyze', async (req, res) => {
+  try {
+    const { base64Audio, mimeType } = req.body || {};
+    if (!base64Audio || !mimeType) {
+      return res.status(400).json({ error: 'Invalid audio payload' });
+    }
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const result = await model.generateContent([
+      '이 오디오가 음성인지 음악인지 판별하고 핵심 내용을 JSON으로 요약하라. 한국어로 답변할 것.',
+      {
+        inlineData: {
+          data: base64Audio,
+          mimeType,
+        },
+      },
+    ]);
+
+    res.json({
+      success: true,
+      analysis: result.response.text(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Audio analysis failed',
+      details: error.message,
+    });
+  }
 });
 
 /**
