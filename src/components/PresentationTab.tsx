@@ -142,6 +142,20 @@ export const PresentationTab = (props: PresentationTabProps) => {
   const [presetData, setPresetData] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<File[]>([])
   const fileNames = files.map(f => f.name)
+  const autoSwitchedToDesignerRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (step !== 'preview') {
+      autoSwitchedToDesignerRef.current = false;
+      return;
+    }
+
+    if (presentation?.slides?.length && !autoSwitchedToDesignerRef.current) {
+      autoSwitchedToDesignerRef.current = true;
+      const timeoutId = window.setTimeout(() => switchToDesigner(), 250);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [step, presentation?.slides?.length, switchToDesigner]);
 
   const handleFilesUpload = async (newFiles: File[]) => {
     setFiles(prev => [...prev, ...newFiles])
@@ -345,7 +359,22 @@ export const PresentationTab = (props: PresentationTabProps) => {
           </motion.div>
         )}
 
-        {/* [FIX] 불필요하고 손상된 Preview 단계를 완전히 제거하여 즉시 디자이너로 전환되도록 함 */}
+        {step === 'preview' && (
+          <motion.div key="preview" className="flex-1 w-full max-w-[960px] mx-auto p-8 flex flex-col items-center justify-center text-center gap-8">
+            <div className="w-24 h-24 rounded-[32px] bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 className="w-12 h-12 text-emerald-500" />
+            </div>
+            <div className="space-y-3">
+              <h2 className="text-4xl font-black tracking-tighter">발표자료 생성 완료</h2>
+              <p className="text-muted-foreground font-medium">
+                총 {presentation?.slides?.length || 0}장의 슬라이드가 생성되었습니다. 디자이너에서 최종 내용을 확인하세요.
+              </p>
+            </div>
+            <Button className="h-14 px-10 rounded-2xl font-black gap-2 gradient-primary text-white shadow-glow" onClick={switchToDesigner}>
+              <MonitorPlay className="w-5 h-5" /> 디자이너에서 슬라이드 확인
+            </Button>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   )

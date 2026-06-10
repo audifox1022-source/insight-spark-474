@@ -250,6 +250,18 @@ const Index = () => {
                 onDataFileUpload={presentationHooks.handleDataFileUpload}
                 onRemoveDataFile={presentationHooks.handleRemoveDataFile}
                 dataSummary={presentationHooks.dataSummary}
+                onGenerateFromPlan={(plan) => {
+                  setActiveApp('presentation');
+                  return presentationHooks.handleGenerateFull(
+                    {
+                      ...plan,
+                      outline: plan.tasks || [],
+                      presentation_title: plan.title || '발표자료',
+                      audience_focus: 'manager',
+                    },
+                    () => setActiveApp('designer')
+                  );
+                }}
               />
             </main>
             <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>
