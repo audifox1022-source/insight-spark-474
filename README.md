@@ -67,6 +67,10 @@ For local smoke checks, start the app with `npm run dev`, open `http://localhost
 
 Before deploying, run `npm run verify:runtime`. It checks required environment variables, Supabase project ref consistency, Supabase DNS resolution, and Supabase anon key project ref matching without printing secret values.
 
+## Codex MCP and skills
+
+The recommended MCP connector and Codex skill profile for maintaining this app is documented in [`mcp-skill-profile.md`](./mcp-skill-profile.md).
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
@@ -102,4 +106,3 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-
