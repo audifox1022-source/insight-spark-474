@@ -28,12 +28,13 @@
 2. `src/components/ai/WorkAIPresentationApp.tsx`의 `/api/banana-nl/generate` 호출은 이제 `api/banana-nl/generate.js`와 `server.js` 로컬 라우트가 처리합니다.
    - 현재 프로젝트는 `vercel.json`에서 `"framework": "vite"`이고 `package.json`에 `next`가 없습니다.
    - 해결: 기존 `app/api/banana-nl/generate/route.ts`는 제거했고, 새 Vercel Function은 `{ prompt }`와 `{ documentText }`를 모두 받도록 정합화했습니다.
-3. `src/components/pdf/WorkAIPdfEditor.tsx`의 `/api/export/${type}` 호출은 이제 `api/export/pdf.js`, `api/export/ppt.js`, `server.js` 로컬 라우트가 처리합니다.
+3. `src/components/pdf/WorkAIPdfEditor.tsx`의 `/api/export/${type}` 호출은 이제 `api/export/[type].js`, `server.js` 로컬 라우트가 처리합니다.
    - 해결: `server/export-renderer.js`에서 PDF/PPTX 버퍼를 생성하고, 프론트 다운로드 확장자도 `ppt` 요청 시 `.pptx`로 저장되도록 수정했습니다.
 4. `app/api/audio/analyze/route.ts`는 제거하고 `api/audio/analyze.js`로 이동했습니다.
 5. `src/lib/gemini.ts`의 미사용 `GEMINI_API_URL` 하드코딩 상수는 제거했습니다.
-6. 검증 결과:
-   - 새 API 파일 import 검증: `visitor route ok`, `audio route ok`, `pdf route ok`, `ppt route ok`
+6. Vercel Hobby 플랜의 Serverless Function 12개 제한에 맞추기 위해 중복 Blob 토큰 함수(`api/blob-token.js`)를 제거하고 export 함수를 동적 라우트 1개로 통합했습니다.
+7. 검증 결과:
+   - 새 API 파일 import 검증: `visitor route ok`, `audio route ok`, `export route ok`
    - export renderer 최소 버퍼 생성 검증: PDF/PPTX 버퍼 생성 성공
    - `npm run build`: 성공
 
@@ -104,7 +105,7 @@
 
 ### 현재 사용처
 
-- `api/upload.ts`, `api/blob-token.js`, `server.js`: `@vercel/blob/client`의 `handleUpload()` 사용
+- `api/upload.ts`, `server.js`: `@vercel/blob/client`의 `handleUpload()` 사용
 - `src/components/audio/AudioLab.tsx`, `src/components/audio/AudioLabWorkspace.tsx`: 브라우저에서 `upload(..., { handleUploadUrl: "/api/upload" })` 호출
 
 ### 지금 수정해야 할 점
@@ -267,7 +268,7 @@ PROXY_SECRET=...
 | 호출 위치 | 호출 URL | 현재 구현 상태 | 조치 |
 | --- | --- | --- | --- |
 | `src/components/ai/WorkAIPresentationApp.tsx` | `/api/banana-nl/generate` | `api/banana-nl/generate.js` 및 `server.js` 라우트 구현 완료 | 완료 |
-| `src/components/pdf/WorkAIPdfEditor.tsx` | `/api/export/${type}` | `api/export/pdf.js`, `api/export/ppt.js` 및 `server.js` 라우트 구현 완료 | 완료 |
+| `src/components/pdf/WorkAIPdfEditor.tsx` | `/api/export/${type}` | `api/export/[type].js` 및 `server.js` 라우트 구현 완료 | 완료 |
 | 기존 `app/api/audio/analyze/route.ts` | `/api/audio/analyze` | `api/audio/analyze.js`로 이동 완료 | 완료 |
 
 공식 문서:
@@ -341,12 +342,10 @@ ALLOWED_ORIGIN=https://your-domain.example
 - `src/hooks/useVisitorCount.ts`
 - `api/gemini-proxy.js`
 - `api/upload.ts`
-- `api/blob-token.js`
 - `api/visitor.js`
 - `api/banana-nl/generate.js`
 - `api/audio/analyze.js`
-- `api/export/pdf.js`
-- `api/export/ppt.js`
+- `api/export/[type].js`
 - `src/components/ai/WorkAIPresentationApp.tsx`
 - `src/components/pdf/WorkAIPdfEditor.tsx`
 - `package.json`

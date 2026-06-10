@@ -1,6 +1,7 @@
 {
   "framework": "vite",
   "rewrites": [
+    { "source": "/api/export/:type", "destination": "/api/export/[type]" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
