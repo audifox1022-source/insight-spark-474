@@ -6,6 +6,7 @@
 // ============================================================
 import pptxgen from 'pptxgenjs';
 import { Presentation } from '@/types/presentation';
+import { buildSlideExportNote } from '@/utils/exportNotes';
 
 /**
  * [Enterprise] Professional PPTX Export Service v3.5
@@ -162,6 +163,11 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.description, { x: 0.7, y: yPos + 0.35, w: 8.8, fontSize: 10, color: '64748B' });
             });
         }
+      }
+
+      const exportNote = buildSlideExportNote(slide, idx);
+      if (exportNote) {
+        pptSlide.addNotes(exportNote.text);
       }
     });
 

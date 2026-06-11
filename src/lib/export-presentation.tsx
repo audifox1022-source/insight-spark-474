@@ -4,12 +4,94 @@
 // [FIX] CJK Font Embedding & Adaptive Layout Sizing
 // [STABILITY] 전체 코드 출력 (김현 님 지침 준수)
 // ============================================================
-import { PDFDocument, rgb } from 'pdf-lib';
+import { PDFDocument, rgb, type PDFFont, type PDFPage, type RGB } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { Presentation } from '@/types/presentation';
 import { exportToPptx as exportProfessionalPptx } from './pptx-export-service';
 import { loadFont, NOTO_SANS_KR_URL } from '@/utils/fontLoader';
+import { buildPresentationExportNotes } from '@/utils/exportNotes';
 import { toast } from 'sonner';
+
+function splitLongPdfWord(word: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  const chunks: string[] = [];
+  let currentChunk = '';
+
+  Array.from(word).forEach((char) => {
+    const candidate = `${currentChunk}${char}`;
+    if (!currentChunk || font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      currentChunk = candidate;
+      return;
+    }
+
+    chunks.push(currentChunk);
+    currentChunk = char;
+  });
+
+  if (currentChunk) chunks.push(currentChunk);
+  return chunks;
+}
+
+function wrapPdfText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  return String(text || '')
+    .split('\n')
+    .flatMap((paragraph) => {
+      const words = paragraph.trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [''];
+
+      const lines: string[] = [];
+      let currentLine = '';
+
+      words.forEach((word) => {
+        const candidate = currentLine ? `${currentLine} ${word}` : word;
+        if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+          currentLine = candidate;
+          return;
+        }
+
+        if (currentLine) lines.push(currentLine);
+        const chunks = splitLongPdfWord(word, font, size, maxWidth);
+        lines.push(...chunks.slice(0, -1));
+        currentLine = chunks[chunks.length - 1] || '';
+      });
+
+      if (currentLine) lines.push(currentLine);
+      return lines;
+    });
+}
+
+function drawWrappedText(
+  page: PDFPage,
+  text: string,
+  options: {
+    x: number;
+    y: number;
+    maxWidth: number;
+    size: number;
+    lineHeight: number;
+    font: PDFFont;
+    color: RGB;
+    maxLines?: number;
+  }
+): number {
+  const maxLines = options.maxLines || 28;
+  const lines = wrapPdfText(text, options.font, options.size, options.maxWidth);
+  const visibleLines = lines.slice(0, maxLines);
+
+  if (lines.length > maxLines && visibleLines.length > 0) {
+    visibleLines[visibleLines.length - 1] = `${visibleLines[visibleLines.length - 1].replace(/\.*$/, '')}...`;
+  }
+
+  page.drawText(visibleLines.join('\n'), {
+    x: options.x,
+    y: options.y,
+    size: options.size,
+    font: options.font,
+    color: options.color,
+    lineHeight: options.lineHeight
+  });
+
+  return options.y - (visibleLines.length * options.lineHeight);
+}
 
 /**
  * [Enterprise] Professional PDF Export with Korean Font Embedding & Adaptive Ratio
@@ -35,6 +117,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
     // 4:3  = 1280 x 960 (or 1024 x 768, scaling to 1280 width for consistency)
     const width = 1280;
     const height = ratio === '16:9' ? 720 : 960;
+    const exportNotes = buildPresentationExportNotes(presentation);
 
     for (let i = 0; i < presentation.slides.length; i++) {
       const slide = presentation.slides[i];
@@ -178,6 +261,84 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
         size: 10, font: customFont, color: rgb(0.6, 0.6, 0.6)
       });
     }
+
+    exportNotes.forEach((note, noteIndex) => {
+      const page = pdfDoc.addPage([width, height]);
+      page.drawRectangle({ x: 0, y: 0, width, height, color: rgb(1, 1, 1) });
+
+      page.drawText('Speaker Notes and Source Evidence', {
+        x: 60,
+        y: height - 80,
+        size: 34,
+        font: customFont,
+        color: rgb(0.08, 0.1, 0.16)
+      });
+
+      page.drawRectangle({
+        x: 60,
+        y: height - 100,
+        width: 120,
+        height: 4,
+        color: rgb(0.39, 0.4, 0.95)
+      });
+
+      page.drawText(`Slide ${note.slideNumber}: ${note.title}`, {
+        x: 60,
+        y: height - 145,
+        size: 20,
+        font: customFont,
+        color: rgb(0.12, 0.15, 0.22)
+      });
+
+      let y = height - 195;
+      if (note.speakerNotes) {
+        page.drawText('Speaker notes', {
+          x: 60,
+          y,
+          size: 16,
+          font: customFont,
+          color: rgb(0.39, 0.4, 0.95)
+        });
+        y = drawWrappedText(page, note.speakerNotes, {
+          x: 60,
+          y: y - 28,
+          maxWidth: width - 120,
+          size: 15,
+          lineHeight: 22,
+          font: customFont,
+          color: rgb(0.24, 0.27, 0.34),
+          maxLines: ratio === '16:9' ? 10 : 16
+        }) - 20;
+      }
+
+      if (note.sourceEvidence && y > 110) {
+        page.drawText('Source evidence', {
+          x: 60,
+          y,
+          size: 16,
+          font: customFont,
+          color: rgb(0.39, 0.4, 0.95)
+        });
+        drawWrappedText(page, note.sourceEvidence, {
+          x: 60,
+          y: y - 28,
+          maxWidth: width - 120,
+          size: 15,
+          lineHeight: 22,
+          font: customFont,
+          color: rgb(0.24, 0.27, 0.34),
+          maxLines: ratio === '16:9' ? 10 : 18
+        });
+      }
+
+      page.drawText(`Work AI Review Appendix | Note ${noteIndex + 1}/${exportNotes.length} | ${ratio}`, {
+        x: 60,
+        y: 30,
+        size: 10,
+        font: customFont,
+        color: rgb(0.6, 0.6, 0.6)
+      });
+    });
 
     const pdfBytes = await pdfDoc.save();
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
