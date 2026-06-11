@@ -71,6 +71,8 @@ const strongDeck: Presentation = {
       layout: 'chart',
       visualization_type: 'chart',
       strategicGoal: '수치 근거로 투자 타당성 확인',
+      citation_url: 'https://online.hbs.edu/blog/post/data-storytelling',
+      source_label: 'Harvard Business School Online',
       content: [
         { heading: 'ROI', description: '3개월 PoC 이후 연환산 ROI 240% 예상' },
         { heading: 'NPS', description: '상담 대기 감소로 NPS 5점 상승 예상' },
@@ -125,5 +127,22 @@ describe('deck quality audit', () => {
     expect(actionableSignals).toBeGreaterThan(baselineSignal);
     expect(candidate.improvements.some((issue) => issue.category === 'Action')).toBe(true);
     expect(candidate.improvements.some((issue) => issue.category === 'Evidence')).toBe(true);
+  });
+
+  it('flags evidence-rich decks that lack verifiable source URLs', () => {
+    const sourced = auditPresentationQuality(strongDeck);
+    const unsourced = auditPresentationQuality({
+      ...strongDeck,
+      slides: strongDeck.slides.map((slide) => ({
+        ...slide,
+        citation_url: undefined,
+        source_label: undefined,
+      })),
+    });
+
+    expect(sourced.metrics.sourceSignals).toBe(1);
+    expect(unsourced.metrics.sourceSignals).toBe(0);
+    expect(unsourced.improvements.some((issue) => issue.category === 'Source' && issue.title === '근거 출처 누락')).toBe(true);
+    expect(sourced.improvements.some((issue) => issue.title === '근거 출처 누락')).toBe(false);
   });
 });

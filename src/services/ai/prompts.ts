@@ -35,7 +35,7 @@ export const GEMINI_SYSTEM_PROMPT_STANDARD = `
 - **【텍스트 밀도 제어 (Density Control)】**: 슬라이드 당 **핵심 불릿 포인트는 최대 3~4개**로 제한하십시오. 정보가 넘칠 경우 내용을 과감히 압축하거나 하위 슬라이드로 분할을 제안하십시오.
 - **【데이터 시각화 강제】**: 본문 내에 수치, 비교 통계, KPI 등이 포함될 경우 줄글 대신 반드시 차트(bar, line, pie), 표(table), 또는 비교(comparison) 레이아웃을 사용하도록 제안하십시오.
 - **【시각화 데이터 주입 (Design Composer)】**: 차트나 표 레이아웃 선택 시, 반드시 \`content_data\` 필드에 시각화에 사용할 정형 데이터(배열)를 함께 생성하십시오. (예: [ { 'label': '2023', 'value': 100 } ])
-- **【내용의 깊이 및 근거】**: 각 불릿 포인트는 단순 사실 정리가 아닌 구체적 근거와 기대 효과를 포함해야 하며, 외부 자료 인용 시 'citation_url'을 반드시 병기하십시오.
+- **【내용의 깊이 및 근거】**: 각 불릿 포인트는 단순 사실 정리가 아닌 구체적 근거와 기대 효과를 포함해야 하며, 외부 자료 인용 시 \`citation_url\`과 \`source_label\`을 반드시 병기하십시오. \`source_url\`, \`url\` 같은 임의 필드명 대신 \`citation_url\`을 사용하십시오.
 
 ## **3.5 INTENT CLASSIFICATON (의도 분류)**
 슬라이드의 핵심 정보를 분석하여 다음 의도 중 하나로 분류하고 최적의 레이아웃을 선택하십시오:
@@ -78,7 +78,9 @@ export const SLIDE_SCHEMA = `
       ],
       "visualization_type": "none | bar | line | pie | table | timeline",
       "speakerPersona": "발표 어조",
-      "strategicGoal": "슬라이드 목표"
+      "strategicGoal": "슬라이드 목표",
+      "citation_url": "외부 근거 URL(있는 경우)",
+      "source_label": "출처명 또는 기관명(있는 경우)"
     }
   ]
 }

@@ -29,6 +29,7 @@ export interface Slide {
   thumbnail?: string;
   background_image?: string;
   citation_url?: string;
+  source_label?: string;
   content_data?: any; // 차트나 표를 위한 로우 데이터 리스트
   theme?: {
     bgColor?: string;

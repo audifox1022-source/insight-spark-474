@@ -9,10 +9,11 @@ import { motion } from 'framer-motion';
 import { 
   Users, Target, Lightbulb, PieChart, TrendingUp, 
   Clock, ArrowRight, CheckCircle2, AlertCircle,
-  LayoutGrid, Layers, Columns, Quote
+  LayoutGrid, Layers, Columns, Quote, ExternalLink
 } from 'lucide-react';
 import { useSlideStore } from '@/store/useSlideStore';
 import { normalizeSlideContent, normalizeSlideLayout } from '@/utils/presentation-normalizer';
+import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 import { ChartRenderer } from './ChartRenderer';
 import { TableRenderer } from './TableRenderer';
 
@@ -37,6 +38,7 @@ export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide,
   const { aspectRatio, updateSlideTitle, updateSlideSubtitle, updateContentItem } = useSlideStore();
   const { title, subtitle, theme = {}, style = {} } = slide;
   const layout = normalizeSlideLayout(slide, slideIndex);
+  const citation = extractSlideCitation(slide);
   const content = React.useMemo(() => normalizeSlideContent(slide), [slide]);
 
   // 공통 클래스: [CRITICAL] 4:3 비율에서도 레이아웃이 깨지지 않도록 강제 제약 조건 설정
@@ -305,6 +307,20 @@ export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide,
   return (
     <div className="w-full h-full relative font-sans overflow-hidden bg-white text-slate-900 border-none rounded-none outline-none shadow-none ring-0">
       {renderLayout()}
+      {citation && !thumbnailMode && (
+        <div className="absolute bottom-10 left-10 max-w-[46%] z-30 pointer-events-auto">
+          <a
+            href={citation.url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex max-w-full items-center gap-2 rounded-full border border-slate-200/80 bg-white/85 px-3 py-2 text-[10px] font-black text-slate-500 shadow-lg shadow-slate-200/40 backdrop-blur-md transition-colors hover:text-primary"
+          >
+            <ExternalLink className="h-3 w-3 shrink-0" />
+            <span className="shrink-0 uppercase tracking-widest text-slate-400">Source</span>
+            <span className="truncate">{formatCitationDisplay(citation)}</span>
+          </a>
+        </div>
+      )}
       {!thumbnailMode && (
         <div className="absolute bottom-10 right-10 flex items-center gap-4 opacity-40 hover:opacity-100 transition-opacity pointer-events-none">
            <div className="h-0.5 w-12 bg-slate-300 rounded-full" />

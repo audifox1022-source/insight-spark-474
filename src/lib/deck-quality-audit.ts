@@ -1,7 +1,8 @@
 import type { Presentation, Slide, SlideContent } from '@/types/presentation';
+import { extractSlideCitation } from '@/lib/slide-citations';
 
 export type DeckQualitySeverity = 'high' | 'medium' | 'low';
-export type DeckQualityCategory = 'Logic' | 'Evidence' | 'Action' | 'Layout' | 'Risk' | 'Data';
+export type DeckQualityCategory = 'Logic' | 'Evidence' | 'Action' | 'Layout' | 'Risk' | 'Data' | 'Source';
 
 export interface DeckQualityIssue {
   slideIndex: number;
@@ -27,6 +28,7 @@ export interface DeckQualityAuditResult {
     evidenceSignals: number;
     actionSignals: number;
     riskSignals: number;
+    sourceSignals: number;
   };
 }
 
@@ -135,6 +137,7 @@ export function auditPresentationQuality(presentation: Presentation | null | und
         evidenceSignals: 0,
         actionSignals: 0,
         riskSignals: 0,
+        sourceSignals: 0,
       },
     };
   }
@@ -201,6 +204,7 @@ export function auditPresentationQuality(presentation: Presentation | null | und
   const evidenceSignals = (allText.match(NUMERIC_OR_KPI_PATTERN) ? 1 : 0) + slides.filter((slide) => hasVisualizationData(slide)).length;
   const actionSignals = (allText.match(ACTION_PATTERN) || []).length;
   const riskSignals = (allText.match(RISK_PATTERN) || []).length;
+  const sourceSignals = slides.filter((slide) => extractSlideCitation(slide)).length;
 
   if (evidenceSignals === 0) {
     issues.push(createIssue(0, 'high', 'Evidence', '수치/KPI 근거 부족', '덱 전체에서 수치, KPI, 정형 데이터 신호가 발견되지 않았습니다.', '매출, 비용, 전환율, 일정, 고객 수 등 핵심 근거를 최소 1개 이상 추가'));
@@ -214,6 +218,10 @@ export function auditPresentationQuality(presentation: Presentation | null | und
     issues.push(createIssue(slides.length - 1, 'low', 'Risk', '리스크/가정 부재', '의사결정자가 확인해야 할 리스크 또는 가정이 보이지 않습니다.', '리스크, 제약, 대응책을 별도 항목 또는 마지막 슬라이드에 추가'));
   }
 
+  if (evidenceSignals > 0 && sourceSignals === 0) {
+    issues.push(createIssue(0, 'medium', 'Source', '근거 출처 누락', '수치 또는 정형 데이터가 있지만 검증 가능한 출처 URL이 없습니다.', '핵심 수치가 나온 슬라이드에 citation_url과 source_label을 추가'));
+  }
+
   const rawScore = issues.reduce((score, issue) => score - severityPenalty(issue.severity), 100);
   const scoreValue = Math.max(0, Math.min(100, rawScore));
   const strengths: string[] = [];
@@ -222,6 +230,7 @@ export function auditPresentationQuality(presentation: Presentation | null | und
   if (slides.length >= 4 && slides.length <= 20) strengths.push('발표 흐름을 구성하기에 적절한 슬라이드 수');
   if (layoutSet.size >= 3) strengths.push('여러 레이아웃을 사용해 장표 리듬을 확보');
   if (evidenceSignals > 0) strengths.push('수치 또는 정형 데이터 기반 근거 신호 존재');
+  if (sourceSignals > 0) strengths.push('검증 가능한 출처 URL이 포함됨');
   if (actionSignals > 0) strengths.push('실행 또는 의사결정으로 이어지는 메시지 포함');
 
   return {
@@ -237,6 +246,7 @@ export function auditPresentationQuality(presentation: Presentation | null | und
       evidenceSignals,
       actionSignals,
       riskSignals,
+      sourceSignals,
     },
   };
 }

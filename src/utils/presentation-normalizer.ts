@@ -1,4 +1,5 @@
 import type { Slide, SlideContent } from '@/types/presentation';
+import { extractSlideCitation } from '@/lib/slide-citations';
 
 type AnyRecord = Record<string, any>;
 
@@ -221,6 +222,7 @@ export function normalizeSlideLayout(slide: any, index = 0): string {
 export function normalizePresentationSlide(slide: any, index = 0): Slide {
   const normalizedLayout = normalizeSlideLayout(slide, index);
   const normalizedContent = normalizeSlideContent(slide);
+  const citation = extractSlideCitation(slide);
   const title = firstText(slide?.title, slide?.header, slide?.heading, slide?.subject) || `Slide ${index + 1}`;
   const subtitle = firstText(slide?.subtitle, slide?.subhead, slide?.description, slide?.summary);
 
@@ -233,6 +235,7 @@ export function normalizePresentationSlide(slide: any, index = 0): Slide {
     type: firstText(slide?.type) || normalizedLayout,
     layout: normalizedLayout,
     content: normalizedContent,
+    ...(citation ? { citation_url: citation.url, source_label: citation.label } : {}),
     elements: Array.isArray(slide?.elements) ? slide.elements : [],
   } as Slide;
 }

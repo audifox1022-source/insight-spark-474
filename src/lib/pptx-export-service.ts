@@ -6,6 +6,7 @@
 // ============================================================
 import pptxgen from 'pptxgenjs';
 import { Presentation } from '@/types/presentation';
+import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 
 /**
  * [Enterprise] Professional PPTX Export Service v3.5
@@ -71,6 +72,7 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
     presentation.slides.forEach((slide, idx) => {
       const pptSlide = pres.addSlide({ masterName: (slide.layout === 'cover' ? undefined : 'MASTER_SLIDE') });
       const layout = slide.layout || 'default';
+      const citation = extractSlideCitation(slide);
       
       // Theme Sync
       const bgColor = cleanHex(slide.theme?.bgColor || slide.theme?.backgroundColor || (idx === 0 ? "#0f172a" : "#ffffff"));
@@ -162,6 +164,18 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addText(item.description, { x: 0.7, y: yPos + 0.35, w: 8.8, fontSize: 10, color: '64748B' });
             });
         }
+      }
+
+      if (citation) {
+        pptSlide.addText(`Source: ${formatCitationDisplay(citation)}`.slice(0, 150), {
+          x: 0.5,
+          y: masterY - 0.25,
+          w: 8.8,
+          h: 0.18,
+          fontSize: 7,
+          color: '64748B',
+          fontFace: 'Arial',
+        });
       }
     });
 

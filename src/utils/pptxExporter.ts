@@ -6,6 +6,7 @@
 // ============================================================
 import pptxgen from 'pptxgenjs';
 import { Presentation, SlideContent } from '@/types/presentation';
+import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 
 /**
  * 헥스 컬러값을 PPTX 호환 형식(앞의 # 제거)으로 변환
@@ -30,6 +31,7 @@ export async function exportToPptx(presentation: Presentation) {
     const pptSlide = pptx.addSlide();
     const isFirstSlide = index === 0;
     const layout = slide.layout || 'default';
+    const citation = extractSlideCitation(slide);
 
     // 슬라이드별 테마 설정
     const theme = slide.theme || {};
@@ -292,6 +294,13 @@ export async function exportToPptx(presentation: Presentation) {
         pptSlide.addText(`${index + 1}`, {
             x: 9.35, y: 5.3, w: 0.25, h: 0.25,
             fontSize: 9, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle'
+        });
+    }
+
+    if (citation) {
+        pptSlide.addText(`Source: ${formatCitationDisplay(citation)}`.slice(0, 150), {
+            x: 0.5, y: 5.08, w: 8.8, h: 0.2,
+            fontSize: 7, color: '64748B', fontFace: 'Arial'
         });
     }
   });

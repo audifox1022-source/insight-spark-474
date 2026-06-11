@@ -9,6 +9,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { Presentation } from '@/types/presentation';
 import { exportToPptx as exportProfessionalPptx } from './pptx-export-service';
 import { loadFont, NOTO_SANS_KR_URL } from '@/utils/fontLoader';
+import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 import { toast } from 'sonner';
 
 /**
@@ -169,6 +170,15 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
                 size: 15, font: customFont, color: rgb(0.4, 0.4, 0.4), maxWidth: 1000
             });
           }
+        });
+      }
+
+      const citation = extractSlideCitation(slide);
+      if (citation) {
+        page.drawText(`Source: ${formatCitationDisplay(citation)}`.slice(0, 160), {
+          x: 60, y: 52,
+          size: 9, font: customFont, color: rgb(0.45, 0.45, 0.5),
+          maxWidth: width - 120
         });
       }
 
