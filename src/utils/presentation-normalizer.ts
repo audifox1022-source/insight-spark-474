@@ -8,6 +8,8 @@ const SUPPORTED_LAYOUTS = new Set([
   'split',
   'grid',
   'timeline',
+  'table',
+  'chart',
   'comparison',
   'matrix',
   'quote',
@@ -205,6 +207,8 @@ export function normalizeSlideLayout(slide: any, index = 0): string {
 
   if (index === 0 || normalized.includes('cover') || normalized.includes('title')) return 'cover';
   if (normalized.includes('split')) return 'split';
+  if (normalized.includes('table')) return 'table';
+  if (normalized.includes('chart') || normalized.includes('graph')) return 'chart';
   if (normalized.includes('compare') || normalized.includes('comparison') || normalized.includes('versus')) return 'comparison';
   if (normalized.includes('matrix') || normalized.includes('swot') || normalized.includes('quadrant')) return 'matrix';
   if (normalized.includes('timeline') || normalized.includes('roadmap') || normalized.includes('process')) return 'timeline';

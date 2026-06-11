@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useSlideStore } from '@/store/useSlideStore';
 import { normalizeSlideContent, normalizeSlideLayout } from '@/utils/presentation-normalizer';
+import { ChartRenderer } from './ChartRenderer';
+import { TableRenderer } from './TableRenderer';
 
 interface SlideLayoutRendererProps {
   slide: any;
@@ -96,6 +98,84 @@ export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide,
             </div>
           </div>
         );
+
+      case 'chart': {
+        const chartData = slide.content_data_chart?.data || slide.content_data_chart || slide.chartData?.data || slide.chartData || slide.content_data?.data || slide.content_data;
+        const rawChartType = slide.visualization_type || slide.chartType || slide.chart_type || slide.type;
+        const chartTypeKey = String(rawChartType || '').toLowerCase().replace(/[\s-]+/g, '_');
+        const chartTypeAliases: Record<string, string> = {
+          bar: 'bar',
+          bar_chart: 'bar_chart',
+          barchart: 'bar_chart',
+          line: 'line',
+          line_chart: 'line_chart',
+          linechart: 'line_chart',
+          pie: 'pie',
+          pie_chart: 'pie_chart',
+          piechart: 'pie_chart',
+        };
+        const chartType = chartTypeAliases[chartTypeKey] || 'bar';
+
+        return (
+          <div className={containerClass}>
+            <div className="flex items-start justify-between gap-8 mb-8">
+              <div className="min-w-0">
+                <h2 onBlur={(e) => updateSlideTitle(slideIndex, e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className={`${titleClass} text-5xl`}>{title}</h2>
+                <p onBlur={(e) => updateSlideSubtitle(slideIndex, e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-lg font-bold text-primary truncate">{subtitle}</p>
+              </div>
+              <div className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest shrink-0">
+                Data Chart
+              </div>
+            </div>
+            <div className="flex-1 grid grid-cols-[1.35fr_0.65fr] gap-8 min-h-0">
+              <div className="min-h-0 rounded-[36px] bg-white border border-slate-100 p-6 shadow-xl shadow-slate-100">
+                <ChartRenderer data={Array.isArray(chartData) ? chartData : []} type={chartType} />
+              </div>
+              <div className="space-y-4 overflow-hidden">
+                {(Array.isArray(content) ? content : []).slice(0, 4).map((item: any, idx: number) => (
+                  <div key={idx} className="rounded-2xl bg-slate-50 border border-slate-100 p-5 min-w-0">
+                    <h3 onBlur={(e) => handleContentEdit(idx, 'heading', e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-base font-black text-slate-800 truncate">{item.heading}</h3>
+                    <p onBlur={(e) => handleContentEdit(idx, 'description', e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-xs font-semibold text-slate-500 leading-relaxed line-clamp-3 mt-2">{item.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      case 'table': {
+        const tableData = slide.content_data_table || slide.tableData || slide.content_data;
+
+        return (
+          <div className={containerClass}>
+            <div className="flex items-start justify-between gap-8 mb-8">
+              <div className="min-w-0">
+                <h2 onBlur={(e) => updateSlideTitle(slideIndex, e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className={`${titleClass} text-5xl`}>{title}</h2>
+                <p onBlur={(e) => updateSlideSubtitle(slideIndex, e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-lg font-bold text-primary truncate">{subtitle}</p>
+              </div>
+              <div className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest shrink-0">
+                Data Table
+              </div>
+            </div>
+            <div className="flex-1 grid grid-rows-[1fr_auto] gap-6 min-h-0">
+              <div className="min-h-0">
+                <TableRenderer data={tableData} />
+              </div>
+              {content.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  {(Array.isArray(content) ? content : []).slice(0, 3).map((item: any, idx: number) => (
+                    <div key={idx} className="rounded-2xl bg-slate-50 border border-slate-100 p-4 min-w-0">
+                      <h3 onBlur={(e) => handleContentEdit(idx, 'heading', e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-sm font-black text-slate-800 truncate">{item.heading}</h3>
+                      <p onBlur={(e) => handleContentEdit(idx, 'description', e.target.innerText)} contentEditable={!thumbnailMode} suppressContentEditableWarning className="text-[11px] font-semibold text-slate-500 leading-relaxed line-clamp-2 mt-1">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
 
       case 'comparison':
         return (

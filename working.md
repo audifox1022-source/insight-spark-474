@@ -32,7 +32,12 @@
 - Sixth Research: `12_research/2026-06-11-workai-presentation-result-normalization.md`에 AI 결과 정규화 리서치와 A/B 결과를 기록했다.
 - Sixth A/B Gate: `src/lib/presentation-result.test.ts`에서 기존 배열 spread 방식 대비 candidate의 데이터 무결성 점수가 더 높고 숫자 키가 생기지 않음을 확인했다.
 - Sixth Verification: `npx vitest run src/lib/presentation-result.test.ts` 통과(1파일/3테스트), `npm test` 통과(14파일/46테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: sixth loop git diff audit, commit, push.
+- Sixth Commit/Push: `371198b fix: normalize generated presentation results`를 `origin/main`에 푸시 완료.
+- Seventh Candidate Feature: `Chart/Table Visual Intent Preservation`을 추가했다. AI가 생성한 chart/table 레이아웃 의도를 정규화 단계에서 보존하고 기존 ChartRenderer/TableRenderer 렌더링 경로에 연결한다.
+- Seventh Research: `12_research/2026-06-11-workai-chart-table-visual-intent.md`에 데이터 스토리텔링, 차트 선택, 빠른 정량 이해 UX 리서치와 적용 결정을 기록했다.
+- Seventh A/B Gate: `src/presentation-normalizer.test.ts`에서 legacy normalizer baseline은 chart/table visual intent 0개 보존, candidate는 2개 보존을 확인한다.
+- Seventh Verification: `npx vitest run src/presentation-normalizer.test.ts` 통과(1파일/4테스트), `npm test` 통과(14파일/47테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: seventh loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
