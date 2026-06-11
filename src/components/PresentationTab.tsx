@@ -15,6 +15,7 @@ import { Presentation, MeetingInfo, PresentationSettings } from '@/types/present
 import { toast } from 'sonner'
 import { parseFile } from '@/utils/fileParser'
 import { FileUploadZone } from '@/components/FileUploadZone'
+import { GENERATE_SLIDES_BUTTON_LABEL } from '@/components/presentation-labels'
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
 type Preset = {
@@ -352,7 +353,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
               <div className="flex items-center gap-4 pt-4 shrink-0">
                 <Button variant="outline" className="flex-1 h-16 rounded-[24px] font-black" onClick={() => setStep('info')}>구성 재설정</Button>
                 <Button className="flex-[2] h-16 rounded-[24px] font-black gradient-primary text-white shadow-glow text-lg" onClick={() => handleGenerateFull({ ...outline, outline: localOutlineList, presentation_title: localOutlineMetadata.title, audience_focus: localOutlineMetadata.audience })}>
-                  {isGenerating ? <Loader2 className="animate-spin mr-2" /> : <MonitorPlay className="mr-2" />} 이 구성으로 16:9 슬라이드 생성
+                  {isGenerating ? <Loader2 className="animate-spin mr-2" /> : <MonitorPlay className="mr-2" />} {GENERATE_SLIDES_BUTTON_LABEL}
                 </Button>
               </div>
             </div>

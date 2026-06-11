@@ -102,7 +102,12 @@
 - Twentieth Research: `12_research/2026-06-12-workai-aspect-ratio-aware-filmstrip-thumbnails.md`에 slide size, 시각 디자인 원칙, aspect ratio 보존 리서치와 적용 결정을 기록했다.
 - Twentieth A/B Gate: `src/components/designer/slide-thumbnail-layout.test.ts`에서 legacy 4:3 thumbnail frame score 0 대비 candidate score 1을 확인하고, 16:9 active state 보존을 검증한다.
 - Twentieth Verification: `npx vitest run src/components/designer/slide-thumbnail-layout.test.ts src/components/designer/EditorHeader.test.tsx src/lib/presentation-storage.test.ts` 통과(3파일/5테스트), `npx tsc --noEmit` 통과, `npm test` 통과(25파일/72테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twentieth loop git diff audit, commit, push.
+- Twentieth Commit/Push: `68ab8de fix: match filmstrip thumbnails to deck ratio`를 `origin/main`에 푸시 완료.
+- Twenty-first Candidate Feature: `Ratio Neutral Generation Copy`를 추가했다. 목차 승인 버튼이 16:9 전용 생성처럼 말하지 않도록 비율 중립 CTA로 변경했다.
+- Twenty-first Research: `12_research/2026-06-12-workai-ratio-neutral-generation-copy.md`에 slide size, 제품 내 일관성, usability heuristics 리서치와 적용 결정을 기록했다.
+- Twenty-first A/B Gate: `src/components/presentation-labels.test.ts`에서 legacy ratio-neutral copy score 0 대비 candidate score 1을 확인한다.
+- Twenty-first Verification: `npx vitest run src/components/presentation-labels.test.ts src/components/designer/slide-thumbnail-layout.test.ts src/presentation-final-screen.test.tsx` 통과(3파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 단독 실행 통과(26파일/73테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-first loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
