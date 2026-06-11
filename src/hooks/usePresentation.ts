@@ -10,7 +10,12 @@ import { aiService } from '@/services/ai/geminiService';
 import { useSlideStore } from '@/store/useSlideStore';
 import { useThemeStore } from '@/store/useThemeStore'; // [NEW] 전역 테마 스토어
 import { toast } from 'sonner';
-import { parseFile } from '@/utils/fileParser';
+import {
+  extractInlinePartsFromContent,
+  formatParsedFileForPrompt,
+  parseFile,
+  ParsedFileData
+} from '@/utils/fileParser';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -25,6 +30,61 @@ export interface DataFileState {
   name: string;
   status: 'loading' | 'success' | 'error';
   content?: string | any[];
+  fileType?: ParsedFileData['fileType'];
+  summary?: string;
+  parseError?: string;
+}
+
+function normalizeContentItem(item: any) {
+  if (typeof item === 'string') {
+    return { heading: item, description: '' };
+  }
+
+  if (!item || typeof item !== 'object') {
+    return { heading: String(item || ''), description: '' };
+  }
+
+  const rawDescription = item.description || item.desc || item.body || item.content || item.value || '';
+  const description = Array.isArray(rawDescription)
+    ? rawDescription.map((value) => typeof value === 'string' ? value : JSON.stringify(value)).join('\n')
+    : (typeof rawDescription === 'object' && rawDescription !== null ? JSON.stringify(rawDescription) : String(rawDescription || ''));
+
+  return {
+    heading: item.heading || item.title || item.label || item.name || item.text || '',
+    description
+  };
+}
+
+function normalizeLayout(slide: any, index: number): string {
+  if (index === 0) return 'cover';
+  const raw = String(slide?.layout || slide?.type || 'default').toLowerCase();
+  if (raw.includes('timeline')) return 'timeline';
+  if (raw.includes('compare') || raw.includes('comparison')) return 'comparison';
+  if (raw.includes('matrix')) return 'matrix';
+  if (raw.includes('grid')) return 'grid';
+  if (raw.includes('split')) return 'split';
+  if (raw.includes('quote')) return 'quote';
+  return 'default';
+}
+
+function normalizeGeneratedSlides(slides: any[]) {
+  return slides.map((slide, index) => {
+    const content = Array.isArray(slide?.content)
+      ? slide.content.map(normalizeContentItem)
+      : (slide?.content ? [normalizeContentItem(slide.content)] : []);
+
+    return {
+      ...slide,
+      id: slide?.id || `slide-${Date.now()}-${index}`,
+      slideNumber: slide?.slideNumber || index + 1,
+      title: slide?.title || (index === 0 ? 'Presentation' : `Slide ${index + 1}`),
+      subtitle: slide?.subtitle || slide?.subhead || '',
+      type: slide?.type || (index === 0 ? 'cover' : 'content'),
+      layout: normalizeLayout(slide, index),
+      content,
+      elements: Array.isArray(slide?.elements) ? slide.elements : []
+    };
+  });
 }
 
 export const usePresentation = () => {
@@ -71,6 +131,7 @@ export const usePresentation = () => {
   
   const [aiParts, setAiParts] = useState<any[]>([]);
   const [sourceFileData, setSourceFileData] = useState<string>('');
+  const [generationContext, setGenerationContext] = useState<string>('');
   const [referenceFileName, setReferenceFileName] = useState<string>('');
   const [referenceStructure, setReferenceStructure] = useState<ReferenceStructure | null>(null);
   const [isAnalyzingReference, setIsAnalyzingReference] = useState<boolean>(false);
@@ -103,6 +164,37 @@ export const usePresentation = () => {
     toast.info('진행 중인 생성 작업을 중단했습니다.');
   }, []);
 
+  const buildUploadedContext = useCallback(() => {
+    const textSections: string[] = [];
+    const mediaParts: any[] = [];
+
+    if (sourceFileData && sourceFileData.trim()) {
+      textSections.push(`[Direct source text]\n${sourceFileData.trim()}`);
+    }
+
+    if (dataSummary && dataSummary.trim()) {
+      textSections.push(`[AI data analysis summary]\n${dataSummary.trim()}`);
+    }
+
+    dataFiles.forEach((file) => {
+      if (file.status !== 'success') return;
+      const content = file.content ?? '';
+      textSections.push(formatParsedFileForPrompt({
+        fileName: file.name,
+        fileType: file.fileType || 'unknown',
+        content,
+        summary: file.summary || '',
+        parseError: file.parseError
+      }));
+      mediaParts.push(...extractInlinePartsFromContent(content));
+    });
+
+    return {
+      text: textSections.filter((section) => section.trim()).join('\n\n'),
+      mediaParts
+    };
+  }, [dataFiles, dataSummary, sourceFileData]);
+
   const handleDataFileUpload = async (files: File[]) => {
     const newFiles = files.map(f => ({ name: f.name, status: 'loading' as const }));
     setDataFiles(prev => [...prev, ...newFiles]);
@@ -113,12 +205,21 @@ export const usePresentation = () => {
       try {
         const parsed = await parseFile(file);
         const isDataFile = file.name.match(/\.(xlsx|xls|csv)$/i);
+        if (parsed.parseError && !parsed.summary && (!parsed.content || (Array.isArray(parsed.content) && parsed.content.length === 0))) {
+          throw new Error(parsed.parseError);
+        }
         
-        setDataFiles(prev => prev.map(f => f.name === file.name ? { ...f, status: 'success', content: parsed.content } : f));
+        setDataFiles(prev => prev.map(f => f.name === file.name ? {
+          ...f,
+          status: 'success',
+          content: parsed.content,
+          fileType: parsed.fileType,
+          summary: parsed.summary,
+          parseError: parsed.parseError
+        } : f));
         
         if (isDataFile) {
-          const contentStr = typeof parsed.content === 'string' ? parsed.content : JSON.stringify(parsed.content);
-          allContentForAnalysis += `[File: ${file.name}]\n${contentStr}\n\n`;
+          allContentForAnalysis += `${formatParsedFileForPrompt(parsed)}\n\n`;
         }
       } catch (err) {
         setDataFiles(prev => prev.map(f => f.name === file.name ? { ...f, status: 'error' } : f));
@@ -154,7 +255,7 @@ export const usePresentation = () => {
       setIsAnalyzingReference(true);
       try {
         const parsed = await parseFile(files[0]);
-        const content = typeof parsed?.content === 'string' ? parsed.content : JSON.stringify(parsed?.content || {});
+        const content = formatParsedFileForPrompt(parsed);
         const structure = await aiService.analyzeReferenceStructure(content);
         setReferenceStructure(structure);
         toast.success('참조 양식의 논리 구조가 학습되었습니다.');
@@ -168,17 +269,22 @@ export const usePresentation = () => {
   
   const handleGenerateOutline = async (onPlanReady?: () => void) => {
     generationCancelledRef.current = false;
+    const currentExecutionPlan = useSlideStore.getState().executionPlan;
+    const uploadedContext = buildUploadedContext();
 
-    if (!executionPlan || !executionPlan.isApproved) {
+    if (!currentExecutionPlan || !currentExecutionPlan.isApproved) {
       setIsGenerating(true);
       startLoadingTimer('plan');
       try {
         // [FIX] 업로드된 파일 내용(sourceFileData)을 Plan 생성에 반드시 포함
         let userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
-        if (sourceFileData && sourceFileData.trim().length > 0) {
-          userRequest += `\n\n[업로드된 원본 문서 내용]\n${sourceFileData.substring(0, 15000)}`;
+        if (uploadedContext.text && uploadedContext.text.trim().length > 0) {
+          userRequest += `\n\n[Uploaded source file content]\n${uploadedContext.text.substring(0, 30000)}`;
         }
-        const plan = await aiService.createProjectPlan(userRequest, settings);
+        const planRequest = uploadedContext.mediaParts.length > 0
+          ? [...uploadedContext.mediaParts, { text: userRequest }]
+          : userRequest;
+        const plan = await aiService.createProjectPlan(planRequest, settings);
         if (generationCancelledRef.current) return;
         if (plan) {
           let tasksData: any[] = [];
@@ -224,23 +330,11 @@ export const usePresentation = () => {
       return;
     }
 
-    const parsedFiles = dataFiles.filter(f => f.status === 'success');
-    const multimodalParts: any[] = [];
-    let integratedText = `[추가 지침/메모]\n${info.notes || '없음'}\n\n`;
-
-    // [FIX] 업로드 파일 원본 내용(sourceFileData)을 반드시 통합 텍스트에 포함
-    if (sourceFileData && sourceFileData.trim().length > 0) {
-      integratedText += `[업로드된 원본 문서 내용]\n${sourceFileData}\n\n`;
-    }
-
-    if (dataSummary) {
-      integratedText = `[데이터 심층 분석 보고서]\n${dataSummary}\n\n` + integratedText;
-    }
-
-    parsedFiles.forEach(f => {
-      if (Array.isArray(f.content)) multimodalParts.push(...f.content);
-      else integratedText += `[파일 본문: ${f.name}]\n${f.content}\n\n`;
-    });
+    const integratedText = [
+      `[Additional instructions]\n${info.notes || 'None'}`,
+      uploadedContext.text ? `[Uploaded source context]\n${uploadedContext.text}` : ''
+    ].filter(Boolean).join('\n\n');
+    const multimodalParts = uploadedContext.mediaParts;
 
     const combinedInput = multimodalParts.length > 0 ? [...multimodalParts, { text: integratedText }] : integratedText;
     
@@ -262,7 +356,7 @@ export const usePresentation = () => {
 
       setOutline(result);
       setAiParts(multimodalParts);
-      setSourceFileData(integratedText);
+      setGenerationContext(integratedText);
       setStep('outline');
       toast.success('AI 목차 설계 및 품질 검증 완료 (Enterprise Engine)');
     } catch (err: any) { 
@@ -282,7 +376,13 @@ export const usePresentation = () => {
     
     try {
       console.log("[Step 1] 구성안 데이터 수신 및 파싱 성공");
-      const combinedInput = aiParts.length > 0 ? [...aiParts, { text: sourceFileData }] : sourceFileData;
+      const fallbackContext = buildUploadedContext();
+      const sourceText = generationContext || [
+        `[Additional instructions]\n${info.notes || 'None'}`,
+        fallbackContext.text ? `[Uploaded source context]\n${fallbackContext.text}` : ''
+      ].filter(Boolean).join('\n\n');
+      const mediaParts = aiParts.length > 0 ? aiParts : fallbackContext.mediaParts;
+      const combinedInput = mediaParts.length > 0 ? [...mediaParts, { text: sourceText }] : sourceText;
       
       console.log("[Step 2] 슬라이드 콘텐츠 생성 API 호출 시작");
       const result = await aiService.generatePresentation({
@@ -297,9 +397,13 @@ export const usePresentation = () => {
         throw new Error("데이터 형식이 올바르지 않습니다");
       }
 
+      const normalizedSlideData = normalizeGeneratedSlides(slideData);
+      const presentationMeta = Array.isArray(result) ? {} : (result?.presentation || result || {});
       const presentationWithBrand = { 
-        ...(result?.presentation || result), 
-        slides: slideData,
+        ...presentationMeta, 
+        id: presentationMeta.id || `presentation-${Date.now()}`,
+        title: presentationMeta.title || result?.title || info.title || 'Generated Presentation',
+        slides: normalizedSlideData,
         brandColor: settings.brandColor 
       };
 
@@ -309,7 +413,7 @@ export const usePresentation = () => {
       console.log("[Step 3] 최종 슬라이드 데이터 스토어(Zustand) 반영 완료");
       
       setStep('preview');
-      toast.success(`총 ${slideData.length}장의 발표자료 생성이 완료되었습니다.`);
+      toast.success(`총 ${normalizedSlideData.length}장의 발표자료 생성이 완료되었습니다.`);
       if (onSuccess) onSuccess();
     } catch (err: any) { 
       console.error("Full Slides Generation Error:", err);
@@ -393,6 +497,11 @@ export const usePresentation = () => {
     setOutline(null);
     setDataFiles([]);
     setDataSummary('');
+    setAiParts([]);
+    setSourceFileData('');
+    setGenerationContext('');
+    setReferenceFileName('');
+    setReferenceStructure(null);
     setIsGenerating(false);
     setExecutionPlan(null);
     toast.info('플랫폼 초기화 완료');

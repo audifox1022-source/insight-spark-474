@@ -82,10 +82,14 @@ export async function callGeminiAPI(
   const jsonRule = responseMimeType === 'application/json' ? "\n\nIMPORTANT: Return ONLY a valid JSON object. Do not include markdown formatting or extra text outside the JSON." : "";
   
   const finalUserParts = [...userParts];
-  if (finalUserParts.length > 0 && finalUserParts[0].text) {
-    finalUserParts[0].text = systemPrefix + finalUserParts[0].text + jsonRule;
-  } else if (finalUserParts.length === 0) {
-    finalUserParts.push({ text: systemPrefix + "No user prompt provided." + jsonRule });
+  const firstTextPartIndex = finalUserParts.findIndex((part) => typeof part?.text === 'string');
+  if (firstTextPartIndex >= 0) {
+    finalUserParts[firstTextPartIndex] = {
+      ...finalUserParts[firstTextPartIndex],
+      text: systemPrefix + finalUserParts[firstTextPartIndex].text + jsonRule
+    };
+  } else {
+    finalUserParts.unshift({ text: systemPrefix + "No user prompt provided." + jsonRule });
   }
 
   const universalPayload: any = {
@@ -95,6 +99,7 @@ export async function callGeminiAPI(
       maxOutputTokens: maxTokens,
       topP: 0.95,
       topK: 40,
+      ...(responseMimeType === "application/json" ? { responseMimeType } : {}),
     },
   };
 

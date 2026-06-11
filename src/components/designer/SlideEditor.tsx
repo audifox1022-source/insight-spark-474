@@ -38,6 +38,7 @@ interface SlideEditorProps {
   onDataFileUpload?: (files: File[]) => void;
   onRemoveDataFile?: (idx: number) => void;
   dataSummary?: string;
+  onPlanApproved?: () => void;
 }
 
 /** 
@@ -280,7 +281,7 @@ const ChatSidebar = ({ isOpen, onClose }: any) => {
 export const SlideEditor: React.FC<SlideEditorProps> = ({ 
   onBack, onSave, isSaving, onRegenerateSlide, 
   onOpenChat, onOpenReview, onAutoDesign,
-  dataFiles = [], onDataFileUpload, onRemoveDataFile
+  dataFiles = [], onDataFileUpload, onRemoveDataFile, onPlanApproved
 }) => {
   const store = useSlideStore();
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
@@ -354,6 +355,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const handleApprovePlan = () => {
     store.approvePlan();
     toast.success('전략 계획이 승인되었습니다.');
+    onPlanApproved?.();
   };
 
   // [GUARD] 프로젝트 자체가 로드되지 않았을 때의 대응

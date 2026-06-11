@@ -29,10 +29,6 @@ export function extractJson(text: string): any {
     const parsed = JSON.parse(targetText);
     if (parsed && typeof parsed === 'object') {
        if (Array.isArray(parsed)) return parsed;
-       if (parsed.slides && Array.isArray(parsed.slides)) return parsed.slides;
-       if (parsed.presentation && Array.isArray(parsed.presentation)) return parsed.presentation;
-       if (parsed.presentation && parsed.presentation.slides) return parsed.presentation.slides;
-       if (parsed.outline && Array.isArray(parsed.outline)) return parsed.outline;
     }
     return parsed;
   } catch (parseErr: any) {
@@ -76,8 +72,11 @@ export async function runReaderSubAgent(query: string, rawContent: string): Prom
   return await callGeminiAPI(prompts.GEMINI_READER_SUBAGENT_SYSTEM_PROMPT, userPrompt, 8192, "text");
 }
 
-export async function generateExecutionPlan(userRequest: string, settings: any) {
-  const userPrompt = `[요청] ${userRequest}\n[설정] ${JSON.stringify(settings)}`;
+export async function generateExecutionPlan(userRequest: string | any[], settings: any) {
+  const settingsText = `[Settings] ${JSON.stringify(settings)}`;
+  const userPrompt = typeof userRequest === 'string'
+    ? `[Request] ${userRequest}\n${settingsText}`
+    : [...userRequest, { text: settingsText }];
   const response = await callGeminiAPI(prompts.GEMINI_HITL_PLANNER_SYSTEM_PROMPT, userPrompt, 8192, "application/json");
   return extractJson(response);
 }
@@ -125,6 +124,51 @@ async function withTimeout<T>(promiseFn: (signal: AbortSignal) => Promise<T>, ti
   } finally { clearTimeout(id); }
 }
 
+export function prepareBodyForGeminiParts(body: any): { safeBody: any; mediaParts: any[] } {
+  const fileData = body?.fileData;
+  if (!Array.isArray(fileData)) {
+    return { safeBody: body, mediaParts: [] };
+  }
+
+  const mediaParts: any[] = [];
+  const textParts: string[] = [];
+
+  fileData.forEach((part) => {
+    if (part?.inlineData) {
+      mediaParts.push({ inlineData: part.inlineData });
+      return;
+    }
+
+    if (part?.fileData) {
+      mediaParts.push({ fileData: part.fileData });
+      return;
+    }
+
+    if (typeof part?.text === 'string') {
+      textParts.push(part.text);
+      return;
+    }
+
+    if (part !== undefined && part !== null) {
+      textParts.push(typeof part === 'string' ? part : JSON.stringify(part));
+    }
+  });
+
+  return {
+    safeBody: {
+      ...body,
+      fileData: textParts.join('\n\n')
+    },
+    mediaParts
+  };
+}
+
+export function buildGeminiUserContentFromBody(body: any): string | any[] {
+  const { safeBody, mediaParts } = prepareBodyForGeminiParts(body);
+  const bodyText = JSON.stringify(safeBody);
+  return mediaParts.length > 0 ? [...mediaParts, { text: bodyText }] : bodyText;
+}
+
 export const aiService = {
   runReviewerSubAgent,
   runDocumentationSubAgent,
@@ -140,10 +184,12 @@ export const aiService = {
     });
   },
 
-  async createProjectPlan(userRequest: string, settings: any) {
+  async createProjectPlan(userRequest: string | any[], settings: any) {
     return withTimeout(async (signal) => {
       let refinedRequest = userRequest;
-      if (userRequest.length > 5000) refinedRequest = await runReaderSubAgent("요구사항 요약", userRequest);
+      if (typeof userRequest === 'string' && userRequest.length > 5000) {
+        refinedRequest = await runReaderSubAgent("요구사항 요약", userRequest);
+      }
       const plan = await generateExecutionPlan(refinedRequest, settings);
       return plan;
     });
@@ -151,20 +197,25 @@ export const aiService = {
 
   async getOutline(body: any) {
     return withTimeout(async (signal) => {
-      let finalBody = body;
+      const prepared = prepareBodyForGeminiParts(body);
+      let finalBody = prepared.safeBody;
       
-      if (JSON.stringify(body).length > 8000) {
-        const distilled = await runReaderSubAgent("핵심 슬라이드 구성 성격 파악", JSON.stringify(body));
+      if (JSON.stringify(finalBody).length > 8000) {
+        const distilled = await runReaderSubAgent("핵심 슬라이드 구성 성격 파악", JSON.stringify(finalBody));
         finalBody = { ...finalBody, distilledContext: distilled };
       }
-      return await withSelfAnnealing("Generate Outline", () => callGeminiAPI(prompts.GEMINI_OUTLINE_PROMPT, JSON.stringify(finalBody), 8192, "application/json", false, signal), "OUTLINE_SCHEMA");
+      const userContent = prepared.mediaParts.length > 0
+        ? [...prepared.mediaParts, { text: JSON.stringify(finalBody) }]
+        : JSON.stringify(finalBody);
+      return await withSelfAnnealing("Generate Outline", () => callGeminiAPI(prompts.GEMINI_OUTLINE_PROMPT, userContent, 8192, "application/json", false, signal), "OUTLINE_SCHEMA");
     });
   },
 
   async generatePresentation(body: any) {
     return withTimeout(async (signal) => {
       const systemPrompt = prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium');
-      const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(body), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
+      const userContent = buildGeminiUserContentFromBody(body);
+      const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, userContent, 8192, "application/json", false, signal), "SLIDE_SCHEMA");
       return result;
     });
   },

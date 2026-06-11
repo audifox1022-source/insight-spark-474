@@ -250,6 +250,10 @@ const Index = () => {
                 onDataFileUpload={presentationHooks.handleDataFileUpload}
                 onRemoveDataFile={presentationHooks.handleRemoveDataFile}
                 dataSummary={presentationHooks.dataSummary}
+                onPlanApproved={() => {
+                  setActiveApp('presentation');
+                  presentationHooks.handleGenerateOutline();
+                }}
               />
             </main>
             <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>

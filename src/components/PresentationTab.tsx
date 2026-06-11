@@ -13,7 +13,6 @@ import { Input } from '@/components/ui/input'
 import { PresentationSetupForm } from './PresentationSetupForm'
 import { Presentation, MeetingInfo, PresentationSettings } from '@/types/presentation'
 import { toast } from 'sonner'
-import { parseFile } from '@/utils/fileParser'
 import { FileUploadZone } from '@/components/FileUploadZone'
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
@@ -129,7 +128,6 @@ export const PresentationTab = (props: PresentationTabProps) => {
     regenerateSlide, chatOpen, setChatOpen, reviewOpen, setReviewOpen,
     switchToDesigner, onOpenPlay, referenceFileName, isAnalyzingReference,
     referenceStructure, handleReferenceFileUpload, handleClearReferenceFile,
-    sourceFileData, setSourceFileData,
     forceAbort,
     dataFiles = [], onDataFileUpload, onRemoveDataFile 
   } = props
@@ -146,15 +144,9 @@ export const PresentationTab = (props: PresentationTabProps) => {
   const handleFilesUpload = async (newFiles: File[]) => {
     setFiles(prev => [...prev, ...newFiles])
     if (newFiles.length > 0) {
-       toast.info('파일 분석 엔진 가동...');
-       try {
-           const parsedContent = await parseFile(newFiles[0]);
-           const contentStr = typeof parsedContent?.content === 'string' ? parsedContent.content : JSON.stringify(parsedContent?.content || {});
-           setInfo({ ...info, notes: info.notes + (info.notes ? '\n' : '') + `[파일 분석됨: ${newFiles[0].name}]` });
-           setSourceFileData(contentStr.substring(0, 20000));
-       } catch (err) {
-           toast.error('파일 분석 오류');
-       }
+       toast.info('파일 분석을 시작합니다.');
+       await finalOnDataFileUpload(newFiles);
+       setInfo({ ...info, notes: info.notes + (info.notes ? '\n' : '') + `[Uploaded files] ${newFiles.map(file => file.name).join(', ')}` });
     }
   }
 

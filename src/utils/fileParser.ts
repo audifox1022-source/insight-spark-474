@@ -4,11 +4,32 @@
 
 export interface ParsedFileData {
   fileName: string;
-  fileType: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt' | 'plain' | 'image' | 'unknown';
+  fileType: 'pdf' | 'docx' | 'pptx' | 'xlsx' | 'csv' | 'txt' | 'plain' | 'image' | 'unknown';
   content: string | any[]; // 멀티모달일 경우 Gemini 파츠 배열, 정형 데이터일 경우 텍스트
   summary: string;
   parseError?: string;
 }
+
+const cleanExtractedText = (text: string): string =>
+  text
+    .replace(/\r/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const hasMeaningfulText = (text: string): boolean =>
+  cleanExtractedText(text).replace(/\s/g, '').length >= 40;
+
+const stripXmlText = (text: string): string =>
+  text
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * 동적 스크립트 로드 유틸리티
@@ -32,17 +53,35 @@ const loadScript = (src: string): Promise<void> => {
  */
 async function parsePdf(file: File): Promise<ParsedFileData> {
   try {
-    await loadScript('https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js');
-    const pdfjsLib = (window as any)['pdfjs-dist/build/pdf'];
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+    const pdfjsLib = await import('pdfjs-dist');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const multimodalParts: any[] = [];
     let fullText = '';
 
     const pageLimit = Math.min(pdf.numPages, 20);
 
+    for (let i = 1; i <= pageLimit; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      if (pageText.trim()) {
+        fullText += `\n[Page ${i}]\n${pageText}\n`;
+      }
+    }
+
+    const cleanedText = cleanExtractedText(fullText);
+    if (hasMeaningfulText(cleanedText)) {
+      return {
+        fileName: file.name,
+        fileType: 'pdf',
+        content: cleanedText,
+        summary: cleanedText.substring(0, 1000)
+      };
+    }
+
+    const multimodalParts: any[] = [];
     for (let i = 1; i <= pageLimit; i++) {
       const page = await pdf.getPage(i);
       const viewport = page.getViewport({ scale: 2.0 });
@@ -85,23 +124,77 @@ async function parsePdf(file: File): Promise<ParsedFileData> {
           inlineData: {
             data: base64Image,
             mimeType: 'image/jpeg'
-          }
+          },
+          metadata: { pageNum: i }
         });
       }
-
-      const textContent = await page.getTextContent();
-      fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
     }
 
     return {
       fileName: file.name,
       fileType: 'pdf',
       content: multimodalParts,
-      summary: fullText.substring(0, 500)
+      summary: `Scanned or image-based PDF: ${file.name} (${multimodalParts.length} image parts). Use attached image parts as the source.`
     };
   } catch (err: any) {
     console.error('PDF parsing error:', err);
     return { fileName: file.name, fileType: 'pdf', content: '', summary: '', parseError: err.message };
+  }
+}
+
+async function parseDocx(file: File): Promise<ParsedFileData> {
+  try {
+    const mammoth = await import('mammoth');
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    const text = cleanExtractedText(result.value || '');
+
+    return {
+      fileName: file.name,
+      fileType: 'docx',
+      content: text,
+      summary: text.substring(0, 1000),
+      parseError: text ? undefined : 'DOCX text extraction returned no content'
+    };
+  } catch (err: any) {
+    console.error('DOCX parsing error:', err);
+    return { fileName: file.name, fileType: 'docx', content: '', summary: '', parseError: err.message };
+  }
+}
+
+async function parsePptx(file: File): Promise<ParsedFileData> {
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const slideEntries = Object.keys(zip.files)
+      .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
+      .sort((a, b) => {
+        const aNum = Number(a.match(/slide(\d+)\.xml/i)?.[1] || 0);
+        const bNum = Number(b.match(/slide(\d+)\.xml/i)?.[1] || 0);
+        return aNum - bNum;
+      });
+
+    const slideTexts: string[] = [];
+    for (const entry of slideEntries) {
+      const xml = await zip.files[entry].async('text');
+      const matches = Array.from(xml.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g));
+      const text = cleanExtractedText(matches.map((m) => stripXmlText(m[1])).filter(Boolean).join('\n'));
+      if (text) {
+        const slideNumber = entry.match(/slide(\d+)\.xml/i)?.[1] || String(slideTexts.length + 1);
+        slideTexts.push(`[Slide ${slideNumber}]\n${text}`);
+      }
+    }
+
+    const fullText = cleanExtractedText(slideTexts.join('\n\n'));
+    return {
+      fileName: file.name,
+      fileType: 'pptx',
+      content: fullText,
+      summary: fullText.substring(0, 1000),
+      parseError: fullText ? undefined : 'PPTX text extraction returned no content'
+    };
+  } catch (err: any) {
+    console.error('PPTX parsing error:', err);
+    return { fileName: file.name, fileType: 'pptx', content: '', summary: '', parseError: err.message };
   }
 }
 
@@ -110,6 +203,16 @@ async function parsePdf(file: File): Promise<ParsedFileData> {
  */
 async function parseExcel(file: File): Promise<ParsedFileData> {
   try {
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      const text = cleanExtractedText(await file.text());
+      return {
+        fileName: file.name,
+        fileType: 'csv',
+        content: text,
+        summary: text.substring(0, 1000)
+      };
+    }
+
     await loadScript('https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js');
     const XLSX = (window as any).XLSX;
     
@@ -127,8 +230,8 @@ async function parseExcel(file: File): Promise<ParsedFileData> {
     return {
       fileName: file.name,
       fileType: file.name.endsWith('.csv') ? 'csv' : 'xlsx',
-      content: fullText,
-      summary: fullText.substring(0, 500)
+      content: cleanExtractedText(fullText),
+      summary: cleanExtractedText(fullText).substring(0, 1000)
     };
   } catch (err: any) {
     console.error('Excel/CSV parsing error:', err);
@@ -211,22 +314,77 @@ export async function parseFile(file: File): Promise<ParsedFileData> {
     return parseExcel(file);
   }
 
+  if (ext === 'docx') {
+    return parseDocx(file);
+  }
+
+  if (ext === 'pptx') {
+    return parsePptx(file);
+  }
+
+  if (ext === 'ppt') {
+    return {
+      fileName: file.name,
+      fileType: 'unknown',
+      content: '',
+      summary: '',
+      parseError: 'Legacy .ppt files are not text-extractable in the browser. Please upload .pptx, .pdf, .docx, .txt, or .csv.'
+    };
+  }
+
   if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext || '')) {
     return parseImage(file);
   }
   
   const text = await file.text();
+  const cleanedText = cleanExtractedText(text);
   return {
     fileName: file.name,
     fileType: ext === 'txt' || ext === 'md' ? 'txt' : 'plain',
-    content: text,
-    summary: text.substring(0, 500)
+    content: cleanedText,
+    summary: cleanedText.substring(0, 1000)
   };
 }
 
 /**
  * AI 요청을 위한 파츠 배열 빌더
  */
+export function extractInlinePartsFromContent(content: string | any[] | undefined): any[] {
+  if (!Array.isArray(content)) return [];
+  return content
+    .filter((part) => part?.inlineData || part?.fileData)
+    .map((part) => {
+      if (part.inlineData) return { inlineData: part.inlineData };
+      if (part.fileData) return { fileData: part.fileData };
+      return part;
+    });
+}
+
+export function formatParsedFileForPrompt(
+  file: Pick<ParsedFileData, 'fileName' | 'fileType' | 'content' | 'summary' | 'parseError'>
+): string {
+  const header = `[Uploaded file: ${file.fileName} (${file.fileType})]`;
+  if (file.parseError) {
+    return `${header}\nParse warning: ${file.parseError}`;
+  }
+
+  if (typeof file.content === 'string') {
+    const text = cleanExtractedText(file.content);
+    return `${header}\n${text || file.summary || 'No readable text was extracted.'}`;
+  }
+
+  const textParts = (file.content || [])
+    .map((part: any) => (typeof part?.text === 'string' ? part.text : ''))
+    .filter(Boolean)
+    .join('\n\n');
+
+  if (textParts.trim()) {
+    return `${header}\n${cleanExtractedText(textParts)}`;
+  }
+
+  return `${header}\n${file.summary || `Visual source with ${(file.content || []).length} attached part(s). The attached image parts must be used as source evidence.`}`;
+}
+
 export function buildAIParts(files: ParsedFileData[]): any[] {
   const parts: any[] = [];
   
@@ -234,7 +392,7 @@ export function buildAIParts(files: ParsedFileData[]): any[] {
     if (Array.isArray(f.content)) {
       parts.push(...f.content);
     } else {
-      parts.push({ text: `[파일 원본 데이터: ${f.fileName}]\n${f.content}` });
+      parts.push({ text: formatParsedFileForPrompt(f) });
     }
   });
   
