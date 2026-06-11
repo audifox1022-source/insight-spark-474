@@ -23,19 +23,22 @@ export const PDFCanvas: React.FC<PDFCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [renderTask, setRenderTask] = useState<any>(null);
+  const renderTaskRef = useRef<any>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   // ── PDF RENDER ─────────────────────────────────────────────
   useEffect(() => {
+    let isCancelled = false;
+
     const renderPage = async () => {
       if (!file) return;
       
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
       
+      if (isCancelled) return;
       onNumPages(pdf.numPages);
       
       const pdfPage = await pdf.getPage(page);
@@ -57,22 +60,34 @@ export const PDFCanvas: React.FC<PDFCanvasProps> = ({
       };
       
       // Cancel previous task if any
-      if (renderTask) {
-        renderTask.cancel();
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
       }
       
       const newTask = pdfPage.render(renderContext);
-      setRenderTask(newTask);
+      renderTaskRef.current = newTask;
       
       try {
         await newTask.promise;
       } catch (err) {
         // Render cancelled
+      } finally {
+        if (renderTaskRef.current === newTask) {
+          renderTaskRef.current = null;
+        }
       }
     };
 
     renderPage();
-  }, [file, page, scale]);
+
+    return () => {
+      isCancelled = true;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+    };
+  }, [file, page, scale, onNumPages]);
 
   // ── ANNOTATION INTERACTION ──────────────────────────────────
   const handlePointerDown = (e: React.PointerEvent, ann: any) => {

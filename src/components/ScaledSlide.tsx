@@ -113,7 +113,7 @@ const SlideComponent: React.FC<SlideComponentProps> = ({
             onFinishUpdate();
         }
     }
-  }, [isEditing]);
+  }, [element.content, isEditing, onFinishUpdate, onUpdate]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     if (preview) return;

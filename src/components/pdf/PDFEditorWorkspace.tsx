@@ -180,7 +180,7 @@ export const PDFEditorWorkspace: React.FC<PDFEditorWorkspaceProps> = ({ onBack }
     } finally {
       setIsLoading(false);
     }
-  }, [reset]);
+  }, [reset, setRightSidebarOpen]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

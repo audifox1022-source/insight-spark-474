@@ -285,6 +285,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   dataFiles = [], onDataFileUpload, onRemoveDataFile, onPlanApproved
 }) => {
   const store = useSlideStore();
+  const setIsEditMode = useSlideStore((state) => state.setIsEditMode);
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
   const [showDataLab, setShowDataLab] = useState(false);
   const [regenInput, setRegenInput] = useState('');
@@ -293,8 +294,8 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
-    store.setIsEditMode(true);
-  }, []);
+    setIsEditMode(true);
+  }, [setIsEditMode]);
 
   const handlePrevSlide = () => {
     if (store.currentSlideIndex > 0) {
