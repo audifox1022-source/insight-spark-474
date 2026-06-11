@@ -7,6 +7,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { processAllSlides } from '@/utils/smartSplitter';
+import { normalizeSlideElement } from '@/utils/slideElements';
 import { 
   Presentation, 
   Slide, 
@@ -386,7 +387,8 @@ export const useSlideStore = create<SlideState>()(
         
         const slide = p.slides[slideIndex];
         const maxZ = (slide.elements || []).reduce((m, e) => Math.max(m, e.zIndex || 0), 0);
-        const newEl = { ...elementData, id: `el-${crypto.randomUUID()}`, zIndex: maxZ + 1 };
+        const newEl = normalizeSlideElement({ ...elementData, id: `el-${crypto.randomUUID()}`, zIndex: maxZ + 1 });
+        if (!newEl) return;
         
         const slides = [...p.slides];
         slides[slideIndex] = { ...slide, elements: [...(slide.elements || []), newEl] };

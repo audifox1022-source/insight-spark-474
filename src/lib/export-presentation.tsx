@@ -10,6 +10,11 @@ import { Presentation } from '@/types/presentation';
 import { exportToPptx as exportProfessionalPptx } from './pptx-export-service';
 import { loadFont, NOTO_SANS_KR_URL } from '@/utils/fontLoader';
 import { buildPresentationExportNotes } from '@/utils/exportNotes';
+import {
+  NormalizedSlideElement,
+  normalizeSlideElements,
+  slideElementToPdfFrame
+} from '@/utils/slideElements';
 import { toast } from 'sonner';
 
 function splitLongPdfWord(word: string, font: PDFFont, size: number, maxWidth: number): string[] {
@@ -91,6 +96,109 @@ function drawWrappedText(
   });
 
   return options.y - (visibleLines.length * options.lineHeight);
+}
+
+function pdfHexToRgb(color: string, fallback = '#000000'): RGB {
+  const raw = String(color || fallback).trim();
+  const hex = /^#?[0-9a-f]{3,8}$/i.test(raw) ? raw.replace('#', '') : fallback.replace('#', '');
+  const normalized = hex.length === 3 ? hex.split('').map((char) => char + char).join('') : hex.slice(0, 6);
+  const r = parseInt(normalized.slice(0, 2), 16) / 255;
+  const g = parseInt(normalized.slice(2, 4), 16) / 255;
+  const b = parseInt(normalized.slice(4, 6), 16) / 255;
+  return rgb(r, g, b);
+}
+
+function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mime: string } | null {
+  const match = dataUrl.match(/^data:([^;,]+);base64,(.+)$/i);
+  if (!match) return null;
+
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+
+  return { bytes, mime: match[1].toLowerCase() };
+}
+
+async function drawPdfElement(
+  pdfDoc: PDFDocument,
+  page: PDFPage,
+  element: NormalizedSlideElement,
+  ratio: '16:9' | '4:3',
+  pageWidth: number,
+  pageHeight: number,
+  font: PDFFont
+) {
+  const frame = slideElementToPdfFrame(element, ratio, pageWidth, pageHeight);
+
+  if (element.type === 'text') {
+    const sourceHeight = 720;
+    const fontSize = Math.max(6, Math.min(96, element.fontSize * (pageHeight / sourceHeight)));
+    drawWrappedText(page, element.content, {
+      x: frame.x,
+      y: frame.y + frame.height - fontSize,
+      maxWidth: frame.width,
+      size: fontSize,
+      lineHeight: fontSize * 1.25,
+      font,
+      color: pdfHexToRgb(element.color),
+      maxLines: Math.max(1, Math.floor(frame.height / (fontSize * 1.25)))
+    });
+    return;
+  }
+
+  if (element.shapeKind === 'line') {
+    page.drawLine({
+      start: { x: frame.x, y: frame.y + frame.height },
+      end: { x: frame.x + frame.width, y: frame.y },
+      thickness: Math.max(1, element.strokeWidth * (pageHeight / 720)),
+      color: pdfHexToRgb(element.stroke),
+      opacity: element.opacity
+    });
+    return;
+  }
+
+  if (element.type === 'shape') {
+    if (element.shapeKind === 'ellipse') {
+      page.drawEllipse({
+        x: frame.x + frame.width / 2,
+        y: frame.y + frame.height / 2,
+        xScale: frame.width / 2,
+        yScale: frame.height / 2,
+        color: pdfHexToRgb(element.backgroundColor, '#ffffff'),
+        opacity: element.opacity
+      });
+      return;
+    }
+
+    page.drawRectangle({
+      x: frame.x,
+      y: frame.y,
+      width: frame.width,
+      height: frame.height,
+      color: pdfHexToRgb(element.backgroundColor, '#ffffff'),
+      opacity: element.opacity
+    });
+    return;
+  }
+
+  if (element.type === 'image') {
+    const imageData = dataUrlToBytes(element.content);
+    if (!imageData) return;
+
+    const image = imageData.mime.includes('png')
+      ? await pdfDoc.embedPng(imageData.bytes)
+      : await pdfDoc.embedJpg(imageData.bytes);
+
+    page.drawImage(image, {
+      x: frame.x,
+      y: frame.y,
+      width: frame.width,
+      height: frame.height,
+      opacity: element.opacity
+    });
+  }
 }
 
 /**
@@ -253,6 +361,10 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
             });
           }
         });
+      }
+
+      for (const element of normalizeSlideElements(slide.elements || [])) {
+        await drawPdfElement(pdfDoc, page, element, ratio, width, height, customFont);
       }
 
       // Page Number (Footer)

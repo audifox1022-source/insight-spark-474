@@ -7,6 +7,80 @@
 import pptxgen from 'pptxgenjs';
 import { Presentation } from '@/types/presentation';
 import { buildSlideExportNote } from '@/utils/exportNotes';
+import {
+  NormalizedSlideElement,
+  normalizeSlideElements,
+  slideElementToPptxFrame
+} from '@/utils/slideElements';
+
+function pptxHex(color: string, fallback = '000000'): string {
+  if (!color || color === 'transparent') return fallback;
+  const raw = String(color).replace('#', '').trim();
+  if (/^[0-9a-f]{3}$/i.test(raw)) return raw.split('').map((char) => char + char).join('').toUpperCase();
+  if (/^[0-9a-f]{6,8}$/i.test(raw)) return raw.slice(0, 6).toUpperCase();
+  return fallback;
+}
+
+function pxToPt(px: number): number {
+  return Math.max(6, Math.min(72, Math.round(px * 0.75)));
+}
+
+function drawPptxElement(pres: any, pptSlide: any, element: NormalizedSlideElement, ratio: '16:9' | '4:3') {
+  const frame = slideElementToPptxFrame(element, ratio);
+
+  if (element.type === 'text') {
+    pptSlide.addText(element.content || '', {
+      x: frame.x,
+      y: frame.y,
+      w: frame.w,
+      h: frame.h,
+      fontSize: pxToPt(element.fontSize),
+      fontFace: element.fontFamily || 'Arial',
+      color: pptxHex(element.color),
+      bold: /bold|[6-9]00/.test(element.fontWeight),
+      italic: element.fontStyle === 'italic',
+      align: element.textAlign === 'justify' ? 'left' : element.textAlign,
+      valign: 'top',
+      fit: 'shrink',
+      margin: 0.04,
+      breakLine: true
+    });
+    return;
+  }
+
+  if (element.shapeKind === 'line') {
+    pptSlide.addShape(pres.ShapeType.line, {
+      x: frame.x,
+      y: frame.y,
+      w: frame.w,
+      h: frame.h,
+      line: { color: pptxHex(element.stroke), width: Math.max(1, Math.round(element.strokeWidth / 3)) }
+    });
+    return;
+  }
+
+  if (element.type === 'shape') {
+    pptSlide.addShape(element.shapeKind === 'ellipse' ? pres.ShapeType.ellipse : pres.ShapeType.rect, {
+      x: frame.x,
+      y: frame.y,
+      w: frame.w,
+      h: frame.h,
+      fill: { color: pptxHex(element.backgroundColor, 'FFFFFF'), transparency: Math.round((1 - element.opacity) * 100) },
+      line: { color: pptxHex(element.stroke, pptxHex(element.backgroundColor, 'FFFFFF')), transparency: 100 }
+    });
+    return;
+  }
+
+  if (element.type === 'image' && /^data:image\//i.test(element.content)) {
+    pptSlide.addImage({
+      data: element.content,
+      x: frame.x,
+      y: frame.y,
+      w: frame.w,
+      h: frame.h
+    });
+  }
+}
 
 /**
  * [Enterprise] Professional PPTX Export Service v3.5
@@ -164,6 +238,10 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
             });
         }
       }
+
+      normalizeSlideElements(slide.elements || []).forEach((element) => {
+        drawPptxElement(pres, pptSlide, element, ratio);
+      });
 
       const exportNote = buildSlideExportNote(slide, idx);
       if (exportNote) {

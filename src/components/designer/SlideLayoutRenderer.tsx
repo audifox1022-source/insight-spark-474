@@ -12,6 +12,7 @@ import {
   LayoutGrid, Layers, Columns, Quote
 } from 'lucide-react';
 import { useSlideStore } from '@/store/useSlideStore';
+import { NormalizedSlideElement, normalizeSlideElements } from '@/utils/slideElements';
 
 interface SlideLayoutRendererProps {
   slide: any;
@@ -33,6 +34,7 @@ const getDynamicFontSize = (text: string, baseSize: number, minSize: number, rat
 export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide, slideIndex, thumbnailMode = false }) => {
   const { aspectRatio, updateSlideTitle, updateSlideSubtitle, updateContentItem } = useSlideStore();
   const { layout = 'default', title, subtitle, content = [], theme = {}, style = {} } = slide;
+  const overlayElements = normalizeSlideElements(slide.elements || []);
 
   // 공통 클래스: [CRITICAL] 4:3 비율에서도 레이아웃이 깨지지 않도록 강제 제약 조건 설정
   const containerClass = `w-full h-full relative overflow-hidden flex flex-col p-12 select-none pointer-events-auto ${aspectRatio === '4:3' ? 'p-10' : 'p-12'}`;
@@ -219,9 +221,92 @@ export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide,
     }
   };
 
+  const renderOverlayElement = (element: NormalizedSlideElement) => {
+    const baseStyle: React.CSSProperties = {
+      position: 'absolute',
+      left: element.x,
+      top: element.y,
+      width: element.width,
+      height: element.height,
+      zIndex: element.zIndex,
+      opacity: element.opacity,
+      pointerEvents: 'none',
+      overflow: 'hidden'
+    };
+
+    if (element.type === 'text') {
+      return (
+        <div
+          key={element.id}
+          style={{
+            ...baseStyle,
+            color: element.color,
+            fontSize: element.fontSize,
+            fontFamily: element.fontFamily,
+            fontWeight: element.fontWeight,
+            fontStyle: element.fontStyle,
+            textAlign: element.textAlign,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            lineHeight: 1.25
+          }}
+        >
+          {element.content}
+        </div>
+      );
+    }
+
+    if (element.type === 'image' && element.content) {
+      return (
+        <img
+          key={element.id}
+          src={element.content}
+          alt=""
+          style={{
+            ...baseStyle,
+            objectFit: 'cover',
+            borderRadius: element.borderRadius
+          }}
+        />
+      );
+    }
+
+    if (element.shapeKind === 'line') {
+      return (
+        <div
+          key={element.id}
+          style={{
+            ...baseStyle,
+            height: Math.max(element.strokeWidth, element.height),
+            backgroundColor: element.stroke,
+            borderRadius: 999
+          }}
+        />
+      );
+    }
+
+    return (
+      <div
+        key={element.id}
+        style={{
+          ...baseStyle,
+          backgroundColor: element.backgroundColor,
+          borderRadius: element.shapeKind === 'ellipse' ? 9999 : element.borderRadius,
+          border: element.border,
+          boxShadow: element.boxShadow
+        }}
+      />
+    );
+  };
+
   return (
     <div className="w-full h-full relative font-sans overflow-hidden bg-white text-slate-900 border-none rounded-none outline-none shadow-none ring-0">
       {renderLayout()}
+      {overlayElements.length > 0 && (
+        <div className="absolute inset-0 pointer-events-none">
+          {overlayElements.map(renderOverlayElement)}
+        </div>
+      )}
       {!thumbnailMode && (
         <div className="absolute bottom-10 right-10 flex items-center gap-4 opacity-40 hover:opacity-100 transition-opacity pointer-events-none">
            <div className="h-0.5 w-12 bg-slate-300 rounded-full" />
