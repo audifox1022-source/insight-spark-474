@@ -127,7 +127,12 @@
 - Twenty-fifth Research: `12_research/2026-06-12-workai-complete-meeting-info-context.md`에 Gemini prompt context, Microsoft Copilot prompt framework, Google Cloud prompt engineering, Microsoft Learn prompt components 리서치와 적용 결정을 기록했다.
 - Twenty-fifth A/B Gate: `src/services/ai/prompts.test.ts`에서 legacy meeting context completeness score 5 미만 대비 candidate score 8을 확인한다.
 - Twenty-fifth Verification: `npx vitest run src/services/ai/prompts.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(29파일/78테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-fifth loop git diff audit, commit, push.
+- Twenty-fifth Commit/Push: `ce4d799 fix: preserve meeting info prompt context`를 `origin/main`에 푸시 완료.
+- Twenty-sixth Candidate Feature: `Complete Favorite Template Intent`를 추가했다. 발표 설정 즐겨찾기가 전체 `MeetingInfo` 의도를 저장하고, 구형 partial favorite도 현재 입력값과 안전하게 병합하며, 불러오기 시 `onChange`를 한 번만 호출한다.
+- Twenty-sixth Research: `12_research/2026-06-12-workai-complete-favorite-template-intent.md`에 Web Storage persistence, localStorage, recognition over recall, form cognitive load 리서치와 적용 결정을 기록했다.
+- Twenty-sixth A/B Gate: `src/lib/favorite-templates.test.ts`에서 legacy favorite snapshot completeness score 2 대비 candidate score 8을 확인한다.
+- Twenty-sixth Verification: `npx vitest run src/lib/favorite-templates.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(30파일/80테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-sixth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

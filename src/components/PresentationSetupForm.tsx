@@ -13,7 +13,14 @@ import {
   FileSpreadsheet, FileJson, FileCheck, Pipette, CheckCircle2, Hash,
   AlertTriangle, ShieldCheck, Target, TrendingUp
 } from 'lucide-react';
-import { saveFavoriteTemplate, loadFavoriteTemplates, deleteFavoriteTemplate, FavoriteTemplate } from '@/lib/favorite-templates';
+import {
+  createFavoriteMeetingInfoSnapshot,
+  deleteFavoriteTemplate,
+  FavoriteTemplate,
+  loadFavoriteTemplates,
+  mergeFavoriteMeetingInfo,
+  saveFavoriteTemplate,
+} from '@/lib/favorite-templates';
 import { toast } from 'sonner';
 import { aiService } from '@/lib/ai-service';
 import { buildInsightBrief } from '@/lib/insight-brief';
@@ -142,7 +149,7 @@ export function PresentationSetupForm({
   const handleSaveFavorite = () => {
     if (!favName.trim()) { toast.error('이름을 입력해주세요.'); return; }
     saveFavoriteTemplate(favName.trim(), template, settings, {
-      department: info.department, reporter: info.reporter,
+      ...createFavoriteMeetingInfoSnapshot(info),
     });
     setFavorites(loadFavoriteTemplates());
     setFavName('내 PPT 설정');
@@ -153,8 +160,7 @@ export function PresentationSetupForm({
   const handleLoadFavorite = (fav: FavoriteTemplate) => {
     setTemplate(fav.template);
     onSettingsChange(fav.settings);
-    if (fav.meetingInfo?.department) onChange({ ...info, department: fav.meetingInfo.department });
-    if (fav.meetingInfo?.reporter) onChange({ ...info, reporter: fav.meetingInfo.reporter ?? '' });
+    onChange(mergeFavoriteMeetingInfo(info, fav.meetingInfo));
     setShowFavorites(false);
     toast.success(`"${fav.name}" 불러옴`);
   };

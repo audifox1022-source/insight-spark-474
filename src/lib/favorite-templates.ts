@@ -1,6 +1,16 @@
-import { MeetingInfo, PresentationSettings } from '@/types/presentation';
+import type { MeetingInfo, PresentationSettings } from '@/types/presentation';
 
 const STORAGE_KEY = 'ai_favorite_templates';
+const MEETING_INFO_KEYS: Array<keyof MeetingInfo> = [
+  'title',
+  'objective',
+  'audience',
+  'tone',
+  'week',
+  'department',
+  'reporter',
+  'notes',
+];
 
 export interface FavoriteTemplate {
   id: string;
@@ -42,6 +52,31 @@ export function saveFavoriteTemplate(
   list.unshift(item);
   setAll(list);
   return item;
+}
+
+export function createFavoriteMeetingInfoSnapshot(info: MeetingInfo): Partial<MeetingInfo> {
+  const snapshot: Partial<MeetingInfo> = {};
+  for (const key of MEETING_INFO_KEYS) {
+    const value = info[key];
+    if (typeof value === 'string') {
+      snapshot[key] = value;
+    }
+  }
+  return snapshot;
+}
+
+export function mergeFavoriteMeetingInfo(
+  current: MeetingInfo,
+  favoriteInfo: Partial<MeetingInfo> | null | undefined,
+): MeetingInfo {
+  const next: MeetingInfo = { ...current };
+  for (const key of MEETING_INFO_KEYS) {
+    const value = favoriteInfo?.[key];
+    if (typeof value === 'string') {
+      next[key] = value;
+    }
+  }
+  return next;
 }
 
 export function loadFavoriteTemplates(): FavoriteTemplate[] {
