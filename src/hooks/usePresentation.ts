@@ -100,6 +100,7 @@ export const usePresentation = () => {
   const setStorePresentation = useSlideStore((state) => state.setPresentation);
   const storeAspectRatio = useSlideStore((state) => state.aspectRatio);
   const setStoreAspectRatio = useSlideStore((state) => state.setAspectRatio);
+  const resetSlideStore = useSlideStore((state) => state.reset);
   const setExecutionPlan = useSlideStore((state) => state.setExecutionPlan);
   const executionPlan = useSlideStore((state) => state.executionPlan);
 
@@ -526,6 +527,7 @@ export const usePresentation = () => {
     setDataFiles([]);
     setDataSummary('');
     setIsGenerating(false);
+    resetSlideStore();
     setExecutionPlan(null);
     toast.info('플랫폼 초기화 완료');
   };

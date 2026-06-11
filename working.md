@@ -107,7 +107,12 @@
 - Twenty-first Research: `12_research/2026-06-12-workai-ratio-neutral-generation-copy.md`에 slide size, 제품 내 일관성, usability heuristics 리서치와 적용 결정을 기록했다.
 - Twenty-first A/B Gate: `src/components/presentation-labels.test.ts`에서 legacy ratio-neutral copy score 0 대비 candidate score 1을 확인한다.
 - Twenty-first Verification: `npx vitest run src/components/presentation-labels.test.ts src/components/designer/slide-thumbnail-layout.test.ts src/presentation-final-screen.test.tsx` 통과(3파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 단독 실행 통과(26파일/73테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-first loop git diff audit, commit, push.
+- Twenty-first Commit/Push: `4637f66 fix: use ratio neutral generation copy`를 `origin/main`에 푸시 완료.
+- Twenty-second Candidate Feature: `Reset Clears Designer Store`를 추가했다. 플랫폼 초기화가 hook state뿐 아니라 디자이너 Zustand store의 stale deck, aspectRatio, history도 함께 초기화한다.
+- Twenty-second Research: `12_research/2026-06-12-workai-reset-clears-designer-store.md`에 usability heuristics, 제품 내 일관성, persisted client state lifecycle 리서치와 적용 결정을 기록했다.
+- Twenty-second A/B Gate: `src/hooks/usePresentation-reset.test.tsx`에서 legacy hook-only reset cleanliness score 0 대비 candidate store reset score 4를 확인한다.
+- Twenty-second Verification: `npx vitest run src/hooks/usePresentation-reset.test.tsx src/components/presentation-labels.test.ts src/lib/presentation-storage.test.ts` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(27파일/74테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-second loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
