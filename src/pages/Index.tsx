@@ -10,6 +10,7 @@ import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
 import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { PresentationTab } from '@/components/PresentationTab'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { HistoryPanel } from '@/components/HistoryPanel'
 import { useThemeStore } from '@/store/useThemeStore' // [NEW] 전역 테마 스토어
 import {
   Sparkles, Moon, Sun, FolderOpen, Loader2,
@@ -319,6 +320,15 @@ const Index = () => {
             </div>
           </div>
         </Suspense>
+
+        <HistoryPanel
+          open={Boolean(presentationHooks.isHistoryOpen)}
+          onClose={presentationHooks.closeHistory || (() => {})}
+          items={presentationHooks.savedPresentations || []}
+          isLoading={Boolean(presentationHooks.isHistoryLoading)}
+          onLoad={presentationHooks.loadSavedPresentation || (() => {})}
+          onDelete={presentationHooks.deleteSavedPresentation || (() => {})}
+        />
 
         <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto transition-colors duration-300">
           <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">

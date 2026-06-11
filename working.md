@@ -67,7 +67,12 @@
 - Thirteenth Research: `12_research/2026-06-12-workai-presentation-review-contract.md`에 제품 내 일관성, 구조화 출력, 반복 슬라이드 개선 리서치와 적용 결정을 기록했다.
 - Thirteenth A/B Gate: `src/lib/presentation-review-contract.test.ts`에서 legacy review replacement보다 candidate가 덱 메타데이터, 슬라이드 수, slide id, cover layout, chart data, citation 보존 점수가 높음을 확인한다.
 - Thirteenth Verification: `npx vitest run src/lib/presentation-review-contract.test.ts src/lib/slide-regeneration-contract.test.ts src/presentation-normalizer.test.ts` 통과(3파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(19파일/62테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirteenth loop git diff audit, commit, push.
+- Thirteenth Commit/Push: `32bd733 feat: normalize reviewed presentations`를 `origin/main`에 푸시 완료.
+- Fourteenth Candidate Feature: `Persistent Presentation History`를 추가했다. 저장 버튼을 실제 localStorage 저장 모듈에 연결하고, 저장 목록 패널에서 load/delete가 동작하도록 메인 화면에 연결한다.
+- Fourteenth Research: `12_research/2026-06-12-workai-persistent-presentation-history.md`에 저장 버튼 기대, Web Storage 지속성, best-effort 저장소 한계, 사용자 제어감 리서치와 적용 결정을 기록했다.
+- Fourteenth A/B Gate: `src/lib/presentation-storage.test.ts`에서 legacy no-op save score 0 대비 candidate save/load/delete workflow score 8을 확인하고, 같은 id 재저장 시 중복 없이 업데이트함을 검증한다.
+- Fourteenth Verification: `npx vitest run src/lib/presentation-storage.test.ts src/lib/presentation-review-contract.test.ts src/presentation-final-screen.test.tsx` 통과(3파일/7테스트), `npx tsc --noEmit` 통과, `npm test` 통과(20파일/64테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: fourteenth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

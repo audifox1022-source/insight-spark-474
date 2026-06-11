@@ -18,6 +18,12 @@ import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 import { mergeRegeneratedSlide } from '@/lib/slide-regeneration-contract';
 import { mergeReviewedPresentation } from '@/lib/presentation-review-contract';
+import {
+  deletePresentation,
+  loadPresentations,
+  savePresentation,
+  type SavedPresentation,
+} from '@/lib/presentation-storage';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -86,6 +92,8 @@ export const usePresentation = () => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [savedPresentations, setSavedPresentations] = useState<SavedPresentation[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
   // Zustand Store Sync
   const setStorePresentation = useSlideStore((state) => state.setPresentation);
@@ -101,6 +109,24 @@ export const usePresentation = () => {
     dataFiles,
     referenceStructure,
   });
+
+  const refreshSavedPresentations = useCallback(async () => {
+    setIsHistoryLoading(true);
+    try {
+      const items = await loadPresentations();
+      setSavedPresentations(items);
+    } catch (err) {
+      console.error('Saved presentation list load failed:', err);
+      toast.error('저장 목록을 불러오지 못했습니다.');
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, []);
+
+  const openHistoryPanel = useCallback(() => {
+    setIsHistoryOpen(true);
+    void refreshSavedPresentations();
+  }, [refreshSavedPresentations]);
 
   // ── [로딩 관리] ──────────────────────────────────────────
   const startLoadingTimer = (type: 'outline' | 'full' | 'regen' | 'review' | 'analyze' | 'plan') => {
@@ -431,14 +457,62 @@ export const usePresentation = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await new Promise(res => setTimeout(res, 1000));
+      if (!presentation) {
+        toast.error('저장할 발표자료가 없습니다.');
+        return;
+      }
+      const savedId = await savePresentation(presentation, info, settings, template);
+      if (!savedId) throw new Error('저장 결과 ID가 없습니다.');
+
+      if (presentation.id !== savedId) {
+        const updatedPresentation = { ...presentation, id: savedId };
+        setPresentationState(updatedPresentation);
+        setStorePresentation(updatedPresentation);
+      }
+
+      await refreshSavedPresentations();
       toast.success('프로젝트가 안전하게 저장되었습니다.');
     } catch (err) {
+      console.error('Presentation save failed:', err);
       toast.error('저장 중 오류가 발생했습니다.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  const loadSavedPresentation = useCallback((item: SavedPresentation) => {
+    const loadedPresentation: Presentation = {
+      id: item.id,
+      title: item.title,
+      slides: normalizePresentationSlides(item.slides || []),
+      brandColor: item.settings?.brandColor,
+    };
+
+    if (!loadedPresentation.slides.length) {
+      toast.error('불러올 슬라이드가 없습니다.');
+      return;
+    }
+
+    setPresentationState(loadedPresentation);
+    setStorePresentation(loadedPresentation);
+    setInfo(prev => ({ ...prev, ...(item.meetingInfo || {}) }));
+    setSettings(prev => ({ ...prev, ...(item.settings || {}) }));
+    setTemplate(item.template || 'auto');
+    setCurrentSlideIndex(0);
+    setStep('preview');
+    setIsHistoryOpen(false);
+    toast.success('저장된 발표자료를 불러왔습니다.');
+  }, [setStorePresentation]);
+
+  const deleteSavedPresentation = useCallback(async (id: string) => {
+    const ok = await deletePresentation(id);
+    if (!ok) {
+      toast.error('저장된 발표자료를 삭제하지 못했습니다.');
+      return;
+    }
+    setSavedPresentations(prev => prev.filter(item => item.id !== id));
+    toast.success('저장된 발표자료를 삭제했습니다.');
+  }, []);
 
   const reset = () => {
     generationCancelledRef.current = true;
@@ -464,7 +538,13 @@ export const usePresentation = () => {
     referenceFileName, isAnalyzingReference, handleReferenceFileUpload,
     handleClearReferenceFile: () => { setReferenceFileName(''); setReferenceStructure(null); },
     isDark, toggleDark, appTheme, changeTheme: setAppTheme, // [FIX] toggleDark 명시적 반환
-    openHistory: () => setIsHistoryOpen(true),
+    openHistory: openHistoryPanel,
+    isHistoryOpen,
+    closeHistory: () => setIsHistoryOpen(false),
+    savedPresentations,
+    isHistoryLoading,
+    loadSavedPresentation,
+    deleteSavedPresentation,
     isChatOpen, setChatOpen: setIsChatOpen,
     isReviewOpen, setReviewOpen: setIsReviewOpen,
     executionPlan,
