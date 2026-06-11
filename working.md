@@ -6,7 +6,12 @@
 - Candidate Feature: `Insight Brief Quality Gate`를 추가했다. 생성 전 입력을 의사결정 질문, 청중, 근거, 실행, 리스크, 시각화 단서로 평가하고 같은 브리프를 AI 생성 요청에 주입한다.
 - A/B Gate: `src/lib/insight-brief.test.ts`에서 원본 프롬프트와 인사이트 브리프 보강 프롬프트를 3개 업무 시나리오로 비교한다. 모든 샘플에서 candidate가 baseline보다 높고 평균 개선폭이 70점 이상이어야 통과한다.
 - Verification: `npx vitest run src/lib/insight-brief.test.ts` 통과(1파일/3테스트), `npm test` 통과(12파일/40테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: git diff audit, commit, push.
+- Commit/Push: `e6628dc feat: add insight brief quality gate`를 `origin/main`에 푸시 완료.
+- Second Candidate Feature: `Local Deck Quality Audit`를 추가했다. 생성 후 덱을 로컬에서 점수화하고, AI 리뷰어가 실패해도 우측 품질 패널에 실행 가능한 개선점을 유지한다.
+- Second Research: `12_research/2026-06-11-workai-deck-quality-audit.md`에 생성 결과물 품질 감사 리서치와 적용 결정을 기록했다.
+- Second A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 title-only baseline 대비 actionable review signal 증가를 비교한다.
+- Second Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/3테스트), `npm test` 통과(13파일/43테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: second loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

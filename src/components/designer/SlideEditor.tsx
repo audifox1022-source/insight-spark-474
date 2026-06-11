@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
 import { exportToPdf, exportToPptx } from '@/lib/export-presentation';
+import { auditPresentationQuality } from '@/lib/deck-quality-audit';
 
 interface SlideEditorProps {
   onBack: () => void;
@@ -78,9 +79,12 @@ const FeedbackSidebar = ({ isOpen, onClose, data }: any) => {
                     <div className="flex items-end gap-3">
                         <span className="text-5xl font-black text-white">{data.score || 'A+'}</span>
                         <div className="mb-2 h-2 w-24 bg-white/10 rounded-full overflow-hidden">
-                           <div className="h-full bg-emerald-500" style={{ width: '92%' }} />
+                           <div className="h-full bg-emerald-500" style={{ width: `${data.scoreValue ?? 92}%` }} />
                         </div>
                     </div>
+                    {typeof data.scoreValue === 'number' && (
+                      <p className="text-[11px] text-slate-500 font-bold mt-1">{data.scoreValue}/100 · {data.summary}</p>
+                    )}
                 </div>
 
                 <div className="space-y-4">
@@ -336,18 +340,48 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     if (!store.presentation) return;
     const currentSlide = store.presentation.slides[store.currentSlideIndex];
     setIsReviewing(true);
-    toast.info('AI 리뷰어가 품질을 정밀 분석 중입니다...');
+    toast.info('로컬 품질 감사와 AI 리뷰어를 함께 실행합니다...');
     try {
+      const localAudit = auditPresentationQuality(store.presentation);
+      store.setFeedbackData(localAudit);
+      store.setIsFeedbackOpen(true);
+      store.setIsChatOpen(false);
+      toast.success('로컬 품질 감사 완료. 우측 패널을 먼저 확인하세요.');
+
       const criteria = "전문 컨설턴트 관점에서 논리 구조, 메시지 명확성, 오탈자, 레이아웃 균형 분석.";
       const result = await geminiService.runReviewerSubAgent(currentSlide, criteria);
       if (result) {
-        store.setFeedbackData(result);
+        const aiImprovements = Array.isArray(result.improvements)
+          ? result.improvements.slice(0, 4).map((item: any, index: number) => ({
+              slideIndex: store.currentSlideIndex,
+              slideNumber: store.currentSlideIndex + 1,
+              critical: item.severity === 'high' || item.critical === true,
+              category: item.category || 'Consulting',
+              title: item.title || item.issue || `AI 제안 ${index + 1}`,
+              description: item.description || item.suggestion || String(item),
+              suggestion: item.suggestion || item.description || '',
+            }))
+          : [];
+
+        store.setFeedbackData({
+          ...localAudit,
+          strengths: [
+            ...localAudit.strengths,
+            ...(Array.isArray(result.strengths) ? result.strengths.slice(0, 2) : []),
+          ],
+          improvements: [
+            ...localAudit.improvements,
+            ...aiImprovements,
+          ].slice(0, 12),
+          summary: result.summary || localAudit.summary,
+        });
         store.setIsFeedbackOpen(true);
         store.setIsChatOpen(false);
-        toast.success('[분석 완료] 우측 패널을 확인하세요.');
+        toast.success('[AI 보강 완료] 우측 패널을 업데이트했습니다.');
       }
     } catch (err) {
-      toast.error('품질 검증 오류');
+      console.error(err);
+      toast.warning('AI 리뷰어 응답 실패. 로컬 품질 감사 결과를 유지합니다.');
     } finally {
       setIsReviewing(false);
     }
@@ -487,7 +521,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                <Button onClick={handleEnterpriseReview} disabled={isReviewing} variant="outline" className="w-full h-13 rounded-2xl font-black text-xs gap-3 mt-4 border-emerald-500/20 bg-emerald-500/5 text-emerald-700 hover:bg-emerald-500/10 transition-all">
                  {isReviewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
-                 AI 품질 정밀 검증
+                 품질 정밀 검증
                </Button>
              </div>
           </div>
