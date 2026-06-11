@@ -4,16 +4,12 @@
 // [CLEANUP] 기존 Option 1 지능형 위키 기능 완전 제거 (v2.1.0)
 // [STABILITY] 테마 엔진 방어 로직 강화 및 에러 방지 (v2.1.1)
 // ============================================================
-import { useState, useRef, Suspense, useEffect } from 'react'
+import { useState, useRef, Suspense, useEffect, lazy } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
 import { StepIndicator } from '@/components/StepIndicator'
 import { getStepGuide } from '@/utils/stepGuide'
 import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { PresentationTab } from '@/components/PresentationTab'
-import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
-import { SlideEditor } from '@/components/designer/SlideEditor'
-import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
-import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useThemeStore } from '@/store/useThemeStore' // [NEW] 전역 테마 스토어
 import {
@@ -31,16 +27,40 @@ import { toast } from 'sonner'
 // [FIX] LoadingScreen이 @/components/LoadingScreen 인지 확인
 import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
 
+type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
+
+const TranslatorWorkspace = lazy(() =>
+  import('@/components/TranslatorWorkspace').then((module) => ({ default: module.TranslatorWorkspace })),
+)
+const SlideEditor = lazy(() => import('@/components/designer/SlideEditor'))
+const AudioLabWorkspace = lazy(() => import('@/components/audio/AudioLabWorkspace'))
+const PDFEditorWorkspace = lazy(() => import('@/components/pdf/PDFEditorWorkspace'))
+
 const Index = () => {
   const navigate = useNavigate()
 
 
 
-  type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
+  const [loadedApps, setLoadedApps] = useState<Record<AppMode, boolean>>({
+    presentation: true,
+    designer: false,
+    translator: false,
+    audiolab: false,
+    pdfeditor: false,
+  })
   const translatorRef = useRef<{ handleBack: () => boolean }>(null)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+
+  const activateApp = (mode: AppMode) => {
+    setLoadedApps((prev) => (prev[mode] ? prev : { ...prev, [mode]: true }))
+    setActiveApp(mode)
+  }
+
+  useEffect(() => {
+    setLoadedApps((prev) => (prev[activeApp] ? prev : { ...prev, [activeApp]: true }))
+  }, [activeApp])
 
   // ── [Theme System Integration & Safety] ────────────
   const themeStore = useThemeStore();
@@ -93,7 +113,7 @@ const Index = () => {
 
   const handleBack = () => {
     if (activeApp === 'designer' || activeApp === 'pdfeditor') {
-      setActiveApp('presentation');
+      activateApp('presentation');
       return;
     }
     if (activeApp === 'translator' && translatorRef.current?.handleBack()) {
@@ -127,7 +147,7 @@ const Index = () => {
               <button 
                 onClick={() => {
                   presentationHooks.reset?.();
-                  setActiveApp('presentation');
+                  activateApp('presentation');
                   toast.success('홈 화면으로 돌아왔습니다.');
                   navigate('/');
                 }}
@@ -169,7 +189,7 @@ const Index = () => {
                 return (
                   <button
                     key={mode}
-                    onClick={() => setActiveApp(mode)}
+                    onClick={() => activateApp(mode)}
                     className={[
                       'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
                       activeApp === mode ? 'bg-background shadow-sm text-primary border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
@@ -229,33 +249,35 @@ const Index = () => {
         <Suspense fallback={<AppLoadingScreen />}>
           <div className="flex-1 flex flex-col relative overflow-hidden">
             <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
-              <TranslatorWorkspace ref={translatorRef} />
+              {loadedApps.translator && <TranslatorWorkspace ref={translatorRef} />}
             </main>
             <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'audiolab' ? 'hidden' : ''}`}>
-              <AudioLabWorkspace />
+              {loadedApps.audiolab && <AudioLabWorkspace />}
             </main>
             <main className={`flex-1 w-full max-none mx-auto flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'pdfeditor' ? 'hidden' : ''}`}>
-              <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
+              {loadedApps.pdfeditor && <PDFEditorWorkspace onBack={() => activateApp('presentation')} />}
             </main>
             <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'designer' ? 'hidden' : ''}`}>
-              <SlideEditor 
-                onBack={() => setActiveApp('presentation')} 
-                presentation={presentationHooks.presentation || undefined}
-                onSave={presentationHooks.handleSave}
-                isSaving={presentationHooks.isSaving}
-                onRegenerateSlide={presentationHooks.regenerateSlide}
-                onOpenChat={() => presentationHooks.setChatOpen?.(true)}
-                onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
-                onAutoDesign={presentationHooks.reviewAndFixPresentation}
-                dataFiles={presentationHooks.dataFiles}
-                onDataFileUpload={presentationHooks.handleDataFileUpload}
-                onRemoveDataFile={presentationHooks.handleRemoveDataFile}
-                dataSummary={presentationHooks.dataSummary}
-                onPlanApproved={() => {
-                  setActiveApp('presentation');
-                  presentationHooks.handleGenerateOutline();
-                }}
-              />
+              {loadedApps.designer && (
+                <SlideEditor
+                  onBack={() => activateApp('presentation')}
+                  presentation={presentationHooks.presentation || undefined}
+                  onSave={presentationHooks.handleSave}
+                  isSaving={presentationHooks.isSaving}
+                  onRegenerateSlide={presentationHooks.regenerateSlide}
+                  onOpenChat={() => presentationHooks.setChatOpen?.(true)}
+                  onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
+                  onAutoDesign={presentationHooks.reviewAndFixPresentation}
+                  dataFiles={presentationHooks.dataFiles}
+                  onDataFileUpload={presentationHooks.handleDataFileUpload}
+                  onRemoveDataFile={presentationHooks.handleRemoveDataFile}
+                  dataSummary={presentationHooks.dataSummary}
+                  onPlanApproved={() => {
+                    activateApp('presentation');
+                    presentationHooks.handleGenerateOutline();
+                  }}
+                />
+              )}
             </main>
             <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>
               <PresentationTab 
@@ -268,15 +290,15 @@ const Index = () => {
                 setCurrentSlideIndex={setCurrentSlideIndex}
                 handleGenerateOutline={() => {
                   presentationHooks.handleGenerateOutline(() => {
-                    setActiveApp('designer');
+                    activateApp('designer');
                   });
                 }}
                 handleGenerateFull={(outline: any) => {
                   presentationHooks.handleGenerateFull(outline, () => {
-                    setActiveApp('designer');
+                    activateApp('designer');
                   });
                 }}
-                switchToDesigner={() => setActiveApp('designer')} 
+                switchToDesigner={() => activateApp('designer')}
                 sourceFileData={sourceFileData}
                 setSourceFileData={setSourceFileData}
               />
