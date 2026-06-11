@@ -4,15 +4,11 @@
 // [CLEANUP] 기존 Option 1 지능형 위키 기능 완전 제거 (v2.1.0)
 // [STABILITY] 테마 엔진 방어 로직 강화 및 에러 방지 (v2.1.1)
 // ============================================================
-import { useState, useRef, Suspense, useEffect } from 'react'
+import { useState, useRef, Suspense, useEffect, lazy } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
 import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
 import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { PresentationTab } from '@/components/PresentationTab'
-import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
-import { SlideEditor } from '@/components/designer/SlideEditor'
-import { AudioLabWorkspace } from '@/components/audio/AudioLabWorkspace'
-import { PDFEditorWorkspace } from '@/components/pdf/PDFEditorWorkspace'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { useThemeStore } from '@/store/useThemeStore' // [NEW] 전역 테마 스토어
 import {
@@ -30,6 +26,19 @@ import { toast } from 'sonner'
 // [FIX] LoadingScreen이 @/components/LoadingScreen 인지 확인
 import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
 
+const TranslatorWorkspace = lazy(() =>
+  import('@/components/TranslatorWorkspace').then((module) => ({ default: module.TranslatorWorkspace }))
+);
+const SlideEditor = lazy(() =>
+  import('@/components/designer/SlideEditor').then((module) => ({ default: module.SlideEditor }))
+);
+const AudioLabWorkspace = lazy(() =>
+  import('@/components/audio/AudioLabWorkspace').then((module) => ({ default: module.AudioLabWorkspace }))
+);
+const PDFEditorWorkspace = lazy(() =>
+  import('@/components/pdf/PDFEditorWorkspace').then((module) => ({ default: module.PDFEditorWorkspace }))
+);
+
 const Index = () => {
   const navigate = useNavigate()
 
@@ -37,6 +46,7 @@ const Index = () => {
 
   type AppMode = 'presentation' | 'designer' | 'translator' | 'audiolab' | 'pdfeditor'
   const [activeApp, setActiveApp] = useState<AppMode>('presentation')
+  const [loadedApps, setLoadedApps] = useState<Set<AppMode>>(() => new Set(['presentation']))
   const translatorRef = useRef<{ handleBack: () => boolean }>(null)
   const [themeMenuOpen, setThemeMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -67,6 +77,15 @@ const Index = () => {
 
   // ── [Safe Guard for usePresentation] ──
   const presentationHooks = usePresentation();
+
+  useEffect(() => {
+    setLoadedApps((current) => {
+      if (current.has(activeApp)) return current;
+      const next = new Set(current);
+      next.add(activeApp);
+      return next;
+    });
+  }, [activeApp]);
   
 
   // ── [Rendering Guard] ──
@@ -89,6 +108,8 @@ const Index = () => {
   const setSourceFileData = presentationHooks.setSourceFileData || (() => {});
 
   const guide = getStepGuide(step);
+
+  const shouldRenderApp = (mode: AppMode) => activeApp === mode || loadedApps.has(mode);
 
   const handleBack = () => {
     if (activeApp === 'designer' || activeApp === 'pdfeditor') {
@@ -227,43 +248,51 @@ const Index = () => {
 
         <Suspense fallback={<AppLoadingScreen />}>
           <div className="flex-1 flex flex-col relative overflow-hidden">
-            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
-              <TranslatorWorkspace ref={translatorRef} />
-            </main>
-            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'audiolab' ? 'hidden' : ''}`}>
-              <AudioLabWorkspace />
-            </main>
-            <main className={`flex-1 w-full max-none mx-auto flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'pdfeditor' ? 'hidden' : ''}`}>
-              <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
-            </main>
-            <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'designer' ? 'hidden' : ''}`}>
-              <SlideEditor 
-                onBack={() => setActiveApp('presentation')} 
-                presentation={presentationHooks.presentation || undefined}
-                onSave={presentationHooks.handleSave}
-                isSaving={presentationHooks.isSaving}
-                onRegenerateSlide={presentationHooks.regenerateSlide}
-                onOpenChat={() => presentationHooks.setChatOpen?.(true)}
-                onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
-                onAutoDesign={presentationHooks.reviewAndFixPresentation}
-                dataFiles={presentationHooks.dataFiles}
-                onDataFileUpload={presentationHooks.handleDataFileUpload}
-                onRemoveDataFile={presentationHooks.handleRemoveDataFile}
-                dataSummary={presentationHooks.dataSummary}
-                onGenerateFromPlan={(plan) => {
-                  setActiveApp('presentation');
-                  return presentationHooks.handleGenerateFull(
-                    {
-                      ...plan,
-                      outline: plan.tasks || [],
-                      presentation_title: plan.title || '발표자료',
-                      audience_focus: 'manager',
-                    },
-                    () => setActiveApp('designer')
-                  );
-                }}
-              />
-            </main>
+            {shouldRenderApp('translator') && (
+              <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'translator' ? 'hidden' : ''}`}>
+                <TranslatorWorkspace ref={translatorRef} />
+              </main>
+            )}
+            {shouldRenderApp('audiolab') && (
+              <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'audiolab' ? 'hidden' : ''}`}>
+                <AudioLabWorkspace />
+              </main>
+            )}
+            {shouldRenderApp('pdfeditor') && (
+              <main className={`flex-1 w-full max-none mx-auto flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'pdfeditor' ? 'hidden' : ''}`}>
+                <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
+              </main>
+            )}
+            {shouldRenderApp('designer') && (
+              <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'designer' ? 'hidden' : ''}`}>
+                <SlideEditor
+                  onBack={() => setActiveApp('presentation')}
+                  presentation={presentationHooks.presentation || undefined}
+                  onSave={presentationHooks.handleSave}
+                  isSaving={presentationHooks.isSaving}
+                  onRegenerateSlide={presentationHooks.regenerateSlide}
+                  onOpenChat={() => presentationHooks.setChatOpen?.(true)}
+                  onOpenReview={() => presentationHooks.setReviewOpen?.(true)}
+                  onAutoDesign={presentationHooks.reviewAndFixPresentation}
+                  dataFiles={presentationHooks.dataFiles}
+                  onDataFileUpload={presentationHooks.handleDataFileUpload}
+                  onRemoveDataFile={presentationHooks.handleRemoveDataFile}
+                  dataSummary={presentationHooks.dataSummary}
+                  onGenerateFromPlan={(plan) => {
+                    setActiveApp('presentation');
+                    return presentationHooks.handleGenerateFull(
+                      {
+                        ...plan,
+                        outline: plan.tasks || [],
+                        presentation_title: plan.title || '발표자료',
+                        audience_focus: 'manager',
+                      },
+                      () => setActiveApp('designer')
+                    );
+                  }}
+                />
+              </main>
+            )}
             <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>
               <PresentationTab 
                 {...(presentationHooks as any)} 

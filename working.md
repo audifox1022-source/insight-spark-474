@@ -11,7 +11,12 @@
 - Second Research: `12_research/2026-06-11-workai-deck-quality-audit.md`에 생성 결과물 품질 감사 리서치와 적용 결정을 기록했다.
 - Second A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 title-only baseline 대비 actionable review signal 증가를 비교한다.
 - Second Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/3테스트), `npm test` 통과(13파일/43테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: second loop git diff audit, commit, push.
+- Second Commit/Push: `c66da12 feat: add local deck quality audit`를 `origin/main`에 푸시 완료.
+- Third Candidate Feature: 워크스페이스 lazy mount 코드 스플리팅을 추가했다. Translator, Audio Lab, PDF Editor, Slide Designer를 동적 import로 분리하고 한 번 연 앱은 마운트 유지한다.
+- Third Research: `12_research/2026-06-11-workai-workspace-code-splitting.md`에 초기 번들 최적화 리서치와 A/B 결과를 기록했다.
+- Third A/B Gate: `scripts/bundle-ab-check.mjs`에서 baseline entry 349.55 kB 대비 candidate entry 166.53 kB, 개선율 52.36%, lazy chunk 4개 생성을 확인한다.
+- Third Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --min-improvement 0.2` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: third loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
