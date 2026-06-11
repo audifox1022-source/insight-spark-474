@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { parseFile } from '@/utils/fileParser';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { appendInsightBriefToPrompt, buildInsightBrief } from '@/lib/insight-brief';
+import { buildPresentationFromResult } from '@/lib/presentation-result';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -316,11 +317,12 @@ export const usePresentation = () => {
         throw new Error("데이터 형식이 올바르지 않습니다");
       }
 
-      const presentationWithBrand = { 
-        ...(result?.presentation || result), 
+      const presentationWithBrand = buildPresentationFromResult({
+        rawResult: result,
         slides: slideData,
-        brandColor: settings.brandColor 
-      };
+        fallbackTitle: approvedOutline?.presentation_title || approvedOutline?.title || info.title || '발표자료',
+        brandColor: settings.brandColor,
+      });
 
       setPresentationState(presentationWithBrand);
       setStorePresentation(presentationWithBrand);

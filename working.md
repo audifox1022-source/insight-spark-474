@@ -26,7 +26,13 @@
 - Fifth Research: `12_research/2026-06-11-workai-on-demand-export-loading.md`에 export 지연 로딩 리서치와 A/B 결과를 기록했다.
 - Fifth A/B Gate: `scripts/bundle-ab-check.mjs`에 특정 chunk 비교 옵션을 추가했다. SlideEditor chunk가 baseline 56.62 kB에서 candidate 50.43 kB로 10.93% 감소했다.
 - Fifth Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --baseline-initial-kb 4652.62 --max-initial-kb 1500 --chunk-pattern SlideEditor --baseline-chunk-kb 56.62 --max-chunk-kb 52 --min-improvement 0.2` 통과, `node --check scripts/bundle-ab-check.mjs` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: fifth loop git diff audit, commit, push.
+- Fifth Commit/Push: `ddb9680 perf: load export tools on demand`를 `origin/main`에 푸시 완료.
+- Failed Experiment: Translator workspace document tool dynamic import was tested but rejected because bundle A/B did not improve; changes were reverted before this loop.
+- Sixth Candidate Feature: `Presentation Result Normalizer`를 추가했다. AI가 슬라이드 배열만 반환해도 최종 Presentation 객체에 id/title/slides/brandColor를 안정적으로 채운다.
+- Sixth Research: `12_research/2026-06-11-workai-presentation-result-normalization.md`에 AI 결과 정규화 리서치와 A/B 결과를 기록했다.
+- Sixth A/B Gate: `src/lib/presentation-result.test.ts`에서 기존 배열 spread 방식 대비 candidate의 데이터 무결성 점수가 더 높고 숫자 키가 생기지 않음을 확인했다.
+- Sixth Verification: `npx vitest run src/lib/presentation-result.test.ts` 통과(1파일/3테스트), `npm test` 통과(14파일/46테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: sixth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
