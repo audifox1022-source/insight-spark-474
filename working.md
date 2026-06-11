@@ -132,7 +132,12 @@
 - Twenty-sixth Research: `12_research/2026-06-12-workai-complete-favorite-template-intent.md`에 Web Storage persistence, localStorage, recognition over recall, form cognitive load 리서치와 적용 결정을 기록했다.
 - Twenty-sixth A/B Gate: `src/lib/favorite-templates.test.ts`에서 legacy favorite snapshot completeness score 2 대비 candidate score 8을 확인한다.
 - Twenty-sixth Verification: `npx vitest run src/lib/favorite-templates.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(30파일/80테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-sixth loop git diff audit, commit, push.
+- Twenty-sixth Commit/Push: `04f4c9d fix: preserve favorite template intent`를 `origin/main`에 푸시 완료.
+- Twenty-seventh Candidate Feature: `Preset Metadata Hydration`을 추가했다. AI 주제 프리셋에서 받은 구조화 입력을 `notes`만이 아니라 발표 제목, 목표, 청중, 톤으로 매핑해 설정 단계와 Insight Brief가 즉시 활용하게 했다.
+- Twenty-seventh Research: `12_research/2026-06-12-workai-preset-metadata-hydration.md`에 Gemini prompt context, Microsoft Copilot prompt components, form cognitive load, recognition over recall 리서치와 적용 결정을 기록했다.
+- Twenty-seventh A/B Gate: `src/components/presentation-preset-metadata.test.ts`에서 legacy notes-only preset score 1 대비 candidate score 4를 확인한다.
+- Twenty-seventh Verification: `npx vitest run src/components/presentation-preset-metadata.test.ts` 통과(1파일/3테스트), `npx tsc --noEmit` 통과, `npm test` 통과(31파일/83테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-seventh loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

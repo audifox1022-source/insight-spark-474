@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { parseFile } from '@/utils/fileParser'
 import { FileUploadZone } from '@/components/FileUploadZone'
 import { GENERATE_SLIDES_BUTTON_LABEL } from '@/components/presentation-labels'
+import { buildPresetMeetingInfoPatch } from '@/components/presentation-preset-metadata'
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
 type Preset = {
@@ -303,7 +304,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
                     <Button className="w-full gradient-primary text-white font-black h-14 rounded-2xl mt-8 shadow-glow text-lg" onClick={() => {
                         let finalPrompt = activePresetId === 'manual' ? presetData.manual || '' : PROMPT_PRESETS.find(p => p.id === activePresetId)?.generate(presetData) || '';
                         if (!finalPrompt.trim()) { toast.error('내용을 입력해 주세요.'); return; }
-                        setInfo({ ...info, notes: finalPrompt });
+                        setInfo({ ...info, ...buildPresetMeetingInfoPatch(activePresetId, presetData, finalPrompt) });
                         setStep('info');
                       }}>
                       <Sparkles className="w-5 h-5 mr-2" /> 설정 단계로 이동
