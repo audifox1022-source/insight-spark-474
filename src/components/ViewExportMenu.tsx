@@ -17,8 +17,7 @@ import {
   Loader2
 } from "lucide-react";
 import { Presentation } from "@/types/presentation";
-import { exportToJson } from "@/lib/export-presentation.tsx";
-import { exportToPptx } from "@/utils/pptxExporter";
+import { exportToJson, exportToPptx } from "@/lib/export-presentation.tsx";
 import { toast } from "sonner";
 import { SlideLayoutRenderer } from './designer/SlideLayoutRenderer';
 
