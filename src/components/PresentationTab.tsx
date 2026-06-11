@@ -83,7 +83,7 @@ interface PresentationTabProps {
   step: string
   setStep: (step: any) => void
   info: MeetingInfo
-  setInfo: (info: MeetingInfo) => void
+  setInfo: React.Dispatch<React.SetStateAction<MeetingInfo>>
   settings: PresentationSettings
   setSettings: (settings: PresentationSettings) => void
   handleGenerateOutline: () => void

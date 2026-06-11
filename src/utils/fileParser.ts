@@ -90,7 +90,7 @@ async function parsePdf(file: File): Promise<ParsedFileData> {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      await page.render({ canvasContext: context!, viewport }).promise;
+      await page.render({ canvas, canvasContext: context!, viewport }).promise;
       
       const TILE_HEIGHT = 2500;
       if (canvas.height > TILE_HEIGHT) {

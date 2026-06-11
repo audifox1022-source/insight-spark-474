@@ -18,7 +18,7 @@ const SUPABASE_AUTH_STORAGE_KEY = SUPABASE_PROJECT_REF
 let tempClient: any;
 
 function createTimeoutFetch(timeoutMs: number): typeof fetch {
-  return async (input, init = {}) => {
+  return async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => {
       controller.abort(new Error(`Supabase request timed out after ${timeoutMs}ms`));
