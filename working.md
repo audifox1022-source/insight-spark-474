@@ -112,7 +112,12 @@
 - Twenty-second Research: `12_research/2026-06-12-workai-reset-clears-designer-store.md`에 usability heuristics, 제품 내 일관성, persisted client state lifecycle 리서치와 적용 결정을 기록했다.
 - Twenty-second A/B Gate: `src/hooks/usePresentation-reset.test.tsx`에서 legacy hook-only reset cleanliness score 0 대비 candidate store reset score 4를 확인한다.
 - Twenty-second Verification: `npx vitest run src/hooks/usePresentation-reset.test.tsx src/components/presentation-labels.test.ts src/lib/presentation-storage.test.ts` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(27파일/74테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-second loop git diff audit, commit, push.
+- Twenty-second Commit/Push: `507c084 fix: clear designer store on reset`를 `origin/main`에 푸시 완료.
+- Twenty-third Candidate Feature: `Remove Legacy PPTX Exporter`를 추가했다. 통합 export 경로 밖에 남아 있던 unused `src/utils/pptxExporter.ts`를 삭제해 잘못된 재사용 위험을 제거했다.
+- Twenty-third Research: `12_research/2026-06-12-workai-remove-legacy-pptx-exporter.md`에 technical debt, code health, 제품 내 export 일관성 리서치와 적용 결정을 기록했다.
+- Twenty-third A/B Gate: `src/lib/export-path-hygiene.test.ts`에서 legacy duplicate exporter debt score 1 대비 candidate score 0을 확인한다.
+- Twenty-third Verification: `npx vitest run src/lib/export-path-hygiene.test.ts src/components/ViewExportMenu.test.tsx src/lib/pptx-export-service.test.ts` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(28파일/75테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-third loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
