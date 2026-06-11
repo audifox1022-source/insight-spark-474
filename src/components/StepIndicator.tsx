@@ -76,16 +76,3 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
     </div>
   );
 }
-
-export function getStepGuide(step: AppStep): { title: string; desc: string } {
-  // ── [Safe Guard for step] ──
-  const safeStep = step || 'upload';
-  switch (safeStep) {
-    case 'upload':     return { title: '📂 파일 업로드',    desc: '발표 자료 파일(PDF, Word, 텍스트 등)을 업로드하거나 주제를 직접 입력하세요.' };
-    case 'info':       return { title: '⚙️ 발표 설정',      desc: '발표 목적, 청중, 시간 등 세부 설정을 입력하면 AI가 최적의 구성을 제안합니다.' };
-    case 'outline':    return { title: '📋 목차 확인',      desc: 'AI가 생성한 목차를 검토하고 수정한 뒤 승인하면 슬라이드를 만들기 시작합니다.' };
-    case 'generating': return { title: '✨ 생성 중…',       desc: 'AI가 슬라이드를 만들고 있습니다. 잠시만 기다려주세요.' };
-    case 'preview':    return { title: '🎉 편집 & 확인',    desc: '슬라이드를 클릭해 내용을 수정하고, 저장하거나 발표 모드로 확인하세요.' };
-    default:           return { title: '안내',              desc: '' };
-  }
-}

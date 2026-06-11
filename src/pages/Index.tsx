@@ -6,7 +6,8 @@
 // ============================================================
 import { useState, useRef, Suspense, useEffect } from 'react'
 import { usePresentation } from '@/hooks/usePresentation'
-import { StepIndicator, getStepGuide } from '@/components/StepIndicator'
+import { StepIndicator } from '@/components/StepIndicator'
+import { getStepGuide } from '@/utils/stepGuide'
 import { useVisitorCount } from '@/hooks/useVisitorCount'
 import { PresentationTab } from '@/components/PresentationTab'
 import { TranslatorWorkspace } from '@/components/TranslatorWorkspace'
