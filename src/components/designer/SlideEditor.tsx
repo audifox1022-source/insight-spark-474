@@ -380,21 +380,21 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const currentSlide = slides[store.currentSlideIndex];
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-background relative font-sans selection:bg-primary/20">
+    <div className="flex-1 min-w-0 flex overflow-hidden bg-background relative font-sans selection:bg-primary/20">
       <AnimatePresence>
         {/* HITL EXECUTION PLAN OVERLAY */}
         {store.executionPlan && !store.executionPlan.isApproved && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[120] bg-background/80 backdrop-blur-3xl flex items-center justify-center p-6">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-3xl bg-card border border-border shadow-2xl rounded-[40px] overflow-hidden flex flex-col max-h-full">
-              <div className="p-10 border-b border-border bg-muted/20 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-[120] bg-background/80 backdrop-blur-3xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto overflow-x-hidden">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-3xl min-h-0 bg-card border border-border shadow-2xl rounded-[28px] sm:rounded-[40px] overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-full">
+              <div className="p-5 sm:p-10 border-b border-border bg-muted/20 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
                     <ListChecks className="w-6 h-6 text-primary" />
                   </div>
-                  <h2 className="text-2xl font-black text-foreground tracking-tight">AI 생성 엔진 실행 전략</h2>
+                  <h2 className="min-w-0 text-lg sm:text-2xl font-black text-foreground tracking-tight break-words">AI 생성 엔진 실행 전략</h2>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-10 space-y-5 custom-scrollbar">
+              <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-5 sm:p-10 space-y-5 custom-scrollbar">
                 {(() => {
                   let tasksToRender: any[] = [];
                   const rawTasks = store.executionPlan.tasks;
@@ -423,11 +423,11 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
                   if (!tasksToRender || tasksToRender.length === 0) {
                     return (
-                      <div className="flex flex-col flex-1 items-center justify-center p-10 text-center space-y-4 h-full">
+                      <div className="flex flex-col flex-1 items-center justify-center p-5 sm:p-10 text-center space-y-4 h-full min-w-0">
                         <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
                            <AlertCircle className="w-8 h-8 text-slate-400" />
                         </div>
-                        <p className="text-slate-500 font-medium tracking-tight">
+                        <p className="text-slate-500 font-medium tracking-tight break-words">
                            데이터를 분석할 수 없습니다.<br/>
                            <span className="text-sm opacity-80">AI 응답 형식이 올바르지 않거나 비어있습니다.</span>
                         </p>
@@ -440,9 +440,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                   ));
                 })()}
               </div>
-              <div className="p-10 bg-muted/10 border-t border-border flex items-center justify-between">
-                <div className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em]">Req Slides: {store.executionPlan.totalSlidesRequested}</div>
-                <Button onClick={handleApprovePlan} className="rounded-2xl px-12 h-14 font-black shadow-xl bg-primary text-white hover:scale-105 transition-transform">전략 승인 및 생성 시작</Button>
+              <div className="p-5 sm:p-10 bg-muted/10 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shrink-0">
+                <div className="text-xs font-black text-muted-foreground uppercase tracking-[0.2em] break-words">Req Slides: {store.executionPlan.totalSlidesRequested}</div>
+                <Button onClick={handleApprovePlan} className="rounded-2xl px-6 sm:px-12 min-h-14 h-auto font-black shadow-xl bg-primary text-white hover:scale-105 transition-transform whitespace-normal text-center">전략 승인 및 생성 시작</Button>
               </div>
             </motion.div>
           </motion.div>
@@ -662,15 +662,15 @@ const PlanTaskItem: React.FC<{ task: any; idx: number; onUpdate: (updates: Parti
   const fallbackImpact = task.impact || task.priority || task.status || (idx === 0 ? 'high' : 'medium');
 
   return (
-    <div className={`p-6 rounded-3xl border transition-all ${isEditing ? 'border-primary ring-8 ring-primary/5 bg-background shadow-xl' : 'border-border bg-slate-50 hover:border-primary/40'}`}>
-      <div className="flex items-start gap-5">
+    <div className={`p-5 sm:p-6 rounded-3xl border transition-all min-w-0 ${isEditing ? 'border-primary ring-8 ring-primary/5 bg-background shadow-xl' : 'border-border bg-slate-50 hover:border-primary/40'}`}>
+      <div className="flex items-start gap-4 sm:gap-5 min-w-0">
         <div className="w-12 h-12 rounded-2xl bg-white border border-border flex items-center justify-center font-black text-sm shrink-0 shadow-sm text-primary">{idx + 1}</div>
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center justify-between">
-            {isEditing ? <input autoFocus className="w-full bg-transparent border-none text-base font-black outline-none" value={fallbackTitle} onChange={(e) => onUpdate({ title: e.target.value })} onBlur={() => setIsEditing(false)} /> : <div className="text-base font-black flex items-center gap-2 cursor-pointer group" onClick={() => setIsEditing(true)}>{fallbackTitle} <Edit3 className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" /></div>}
-            <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest ${fallbackImpact === 'high' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>{fallbackImpact} Priority</div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 min-w-0">
+            {isEditing ? <input autoFocus className="w-full min-w-0 bg-transparent border-none text-base font-black outline-none" value={fallbackTitle} onChange={(e) => onUpdate({ title: e.target.value })} onBlur={() => setIsEditing(false)} /> : <div className="min-w-0 text-base font-black flex items-start gap-2 cursor-pointer group break-words" onClick={() => setIsEditing(true)}><span className="min-w-0 break-words">{fallbackTitle}</span> <Edit3 className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" /></div>}
+            <div className={`shrink-0 self-start px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-widest break-words ${fallbackImpact === 'high' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>{fallbackImpact} Priority</div>
           </div>
-          {isEditing ? <textarea className="w-full bg-transparent border-none text-sm font-medium text-muted-foreground outline-none resize-none" value={fallbackDesc} onChange={(e) => onUpdate({ description: e.target.value })} onBlur={() => setIsEditing(false)} /> : <p className="text-sm font-medium text-muted-foreground leading-relaxed cursor-pointer" onClick={() => setIsEditing(true)}>{fallbackDesc}</p>}
+          {isEditing ? <textarea className="w-full min-w-0 bg-transparent border-none text-sm font-medium text-muted-foreground outline-none resize-none" value={fallbackDesc} onChange={(e) => onUpdate({ description: e.target.value })} onBlur={() => setIsEditing(false)} /> : <p className="text-sm font-medium text-muted-foreground leading-relaxed cursor-pointer break-words" onClick={() => setIsEditing(true)}>{fallbackDesc}</p>}
         </div>
       </div>
     </div>

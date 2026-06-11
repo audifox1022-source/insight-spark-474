@@ -11,11 +11,11 @@ import { useSlideStore } from '@/store/useSlideStore';
 import { useThemeStore } from '@/store/useThemeStore'; // [NEW] 전역 테마 스토어
 import { toast } from 'sonner';
 import {
-  extractInlinePartsFromContent,
   formatParsedFileForPrompt,
   parseFile,
   ParsedFileData
 } from '@/utils/fileParser';
+import { buildUploadedContextFromState, UploadedDataFileState } from '@/utils/presentationContext';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -26,14 +26,7 @@ export interface ReferenceStructure {
   }[];
 }
 
-export interface DataFileState {
-  name: string;
-  status: 'loading' | 'success' | 'error';
-  content?: string | any[];
-  fileType?: ParsedFileData['fileType'];
-  summary?: string;
-  parseError?: string;
-}
+export interface DataFileState extends UploadedDataFileState {}
 
 function normalizeContentItem(item: any) {
   if (typeof item === 'string') {
@@ -165,34 +158,11 @@ export const usePresentation = () => {
   }, []);
 
   const buildUploadedContext = useCallback(() => {
-    const textSections: string[] = [];
-    const mediaParts: any[] = [];
-
-    if (sourceFileData && sourceFileData.trim()) {
-      textSections.push(`[Direct source text]\n${sourceFileData.trim()}`);
-    }
-
-    if (dataSummary && dataSummary.trim()) {
-      textSections.push(`[AI data analysis summary]\n${dataSummary.trim()}`);
-    }
-
-    dataFiles.forEach((file) => {
-      if (file.status !== 'success') return;
-      const content = file.content ?? '';
-      textSections.push(formatParsedFileForPrompt({
-        fileName: file.name,
-        fileType: file.fileType || 'unknown',
-        content,
-        summary: file.summary || '',
-        parseError: file.parseError
-      }));
-      mediaParts.push(...extractInlinePartsFromContent(content));
+    return buildUploadedContextFromState({
+      sourceFileData,
+      dataSummary,
+      dataFiles
     });
-
-    return {
-      text: textSections.filter((section) => section.trim()).join('\n\n'),
-      mediaParts
-    };
   }, [dataFiles, dataSummary, sourceFileData]);
 
   const handleDataFileUpload = async (files: File[]) => {

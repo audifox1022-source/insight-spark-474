@@ -146,7 +146,10 @@ export const PresentationTab = (props: PresentationTabProps) => {
     if (newFiles.length > 0) {
        toast.info('파일 분석을 시작합니다.');
        await finalOnDataFileUpload(newFiles);
-       setInfo({ ...info, notes: info.notes + (info.notes ? '\n' : '') + `[Uploaded files] ${newFiles.map(file => file.name).join(', ')}` });
+       setInfo(prev => ({
+         ...prev,
+         notes: prev.notes + (prev.notes ? '\n' : '') + `[Uploaded files] ${newFiles.map(file => file.name).join(', ')}`
+       }));
     }
   }
 
@@ -182,27 +185,29 @@ export const PresentationTab = (props: PresentationTabProps) => {
   // [CRITICAL] step !== 'outline' 조건을 제거하여 실제 슬라이드 생성 중에도 로딩 화면이 보이게 수정했습니다.
   if (isGenerating) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-8 animate-in fade-in duration-700 bg-background/50 backdrop-blur-sm z-[200]">
-        <div className="relative">
-          <div className="w-32 h-32 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-glow" />
-          <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-primary animate-pulse" />
+      <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden bg-background/50 backdrop-blur-sm z-[200]">
+        <div className="min-h-full w-full flex flex-col items-center justify-center px-4 py-8 sm:p-12 text-center space-y-6 sm:space-y-8 animate-in fade-in duration-700">
+          <div className="relative shrink-0">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-glow" />
+            <Sparkles className="absolute inset-0 m-auto w-8 h-8 sm:w-10 sm:h-10 text-primary animate-pulse" />
+          </div>
+          <div className="w-full max-w-3xl space-y-4 min-w-0">
+              <h2 className="text-2xl sm:text-3xl font-black italic tracking-tight text-foreground break-words">Elite AI Content Creator</h2>
+              <div className="flex flex-col items-center gap-2 min-w-0">
+                   <p className="max-w-full text-primary font-black animate-pulse text-base sm:text-xl leading-relaxed break-words">
+                      {loadingMessage || 'AI가 고화질 슬라이드를 생성 중입니다...'}
+                   </p>
+                   <p className="max-w-full text-[10px] sm:text-xs text-muted-foreground font-bold uppercase tracking-widest break-words">Powered by Gemini 2.5 Flash Engine</p>
+              </div>
+          </div>
+          <button
+            onClick={forceAbort}
+            className="max-w-full min-h-12 h-auto flex flex-wrap items-center justify-center gap-2 px-4 sm:px-6 py-3 rounded-2xl border-2 border-red-500/40 bg-red-500/5 text-red-500 font-black text-xs sm:text-sm text-center whitespace-normal break-words hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg mt-2 sm:mt-4 active:scale-95"
+          >
+            <XCircle className="w-4 h-4 shrink-0" />
+            <span className="min-w-0">진행 취소 및 강제 종료 (Emergency Stop)</span>
+          </button>
         </div>
-        <div className="space-y-4">
-            <h2 className="text-3xl font-black italic tracking-tighter text-foreground">Elite AI Content Creator</h2>
-            <div className="flex flex-col gap-2">
-                 <p className="text-primary font-black animate-pulse text-xl">
-                    {loadingMessage || 'AI가 고화질 슬라이드를 생성 중입니다...'}
-                 </p>
-                 <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Powered by Gemini 2.5 Flash Engine</p>
-            </div>
-        </div>
-        <button
-          onClick={forceAbort}
-          className="flex items-center gap-2 px-6 py-3 rounded-2xl border-2 border-red-500/40 bg-red-500/5 text-red-500 font-black text-sm hover:bg-red-500 hover:text-white transition-all duration-300 shadow-lg mt-4 active:scale-95"
-        >
-          <XCircle className="w-4 h-4" />
-          진행 취소 및 강제 종료 (Emergency Stop)
-        </button>
       </div>
     )
   }
@@ -212,7 +217,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
       <AnimatePresence mode="wait">
         
         {step === 'upload' && (
-          <motion.div key="upload" className="flex-1 w-full max-w-[1400px] mx-auto p-8 space-y-8">
+          <motion.div key="upload" className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8 overflow-y-auto overflow-x-hidden">
             <div className="text-center space-y-3">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary text-white shadow-glow mb-4">
                 <PresentationIcon className="w-10 h-10" />
@@ -280,7 +285,10 @@ export const PresentationTab = (props: PresentationTabProps) => {
                     <Button className="w-full gradient-primary text-white font-black h-14 rounded-2xl mt-8 shadow-glow text-lg" onClick={() => {
                         let finalPrompt = activePresetId === 'manual' ? presetData.manual || '' : PROMPT_PRESETS.find(p => p.id === activePresetId)?.generate(presetData) || '';
                         if (!finalPrompt.trim()) { toast.error('내용을 입력해 주세요.'); return; }
-                        setInfo({ ...info, notes: finalPrompt });
+                        setInfo(prev => ({
+                          ...prev,
+                          notes: prev.notes.trim() ? `${finalPrompt}\n\n${prev.notes.trim()}` : finalPrompt
+                        }));
                         setStep('info');
                       }}>
                       <Sparkles className="w-5 h-5 mr-2" /> 설정 단계로 이동
@@ -293,13 +301,13 @@ export const PresentationTab = (props: PresentationTabProps) => {
         )}
 
         {step === 'info' && (
-          <motion.div key="info" className="flex-1 overflow-y-auto p-6 w-full max-w-[1400px] mx-auto">
+          <motion.div key="info" className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 w-full max-w-[1400px] mx-auto">
             <PresentationSetupForm info={info} onChange={setInfo} settings={settings} onSettingsChange={setSettings} onGenerate={handleGenerateOutline} onBack={reset} isGenerating={isGenerating} fileNames={fileNames} dataSummary={dataSummary} template={template} setTemplate={setTemplate} referenceFileName={referenceFileName} isAnalyzingReference={isAnalyzingReference} referenceStructure={referenceStructure} onReferenceFileUpload={handleReferenceFileUpload} onClearReferenceFile={handleClearReferenceFile} onDataFileUpload={finalOnDataFileUpload} dataFiles={dataFiles} onRemoveDataFile={finalOnRemoveDataFile} />
           </motion.div>
         )}
 
         {step === 'outline' && (
-          <motion.div key="outline" className="flex-1 w-full max-w-[1400px] mx-auto p-8 space-y-8 flex flex-col items-center justify-center h-full">
+          <motion.div key="outline" className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto p-4 sm:p-8 space-y-8 flex flex-col items-center justify-center h-full overflow-hidden">
             <div className="w-full space-y-8 flex-1 flex flex-col h-full min-h-0">
               <div className="flex items-center justify-between shrink-0">
                 <div className="text-left space-y-1">
