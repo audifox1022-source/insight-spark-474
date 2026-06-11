@@ -19,6 +19,24 @@ describe('presentation normalizer', () => {
     }).length;
   }
 
+  function legacyRenderableVisualScore(slides: any[]) {
+    return slides.filter((slide, index) => {
+      const layout = normalizeSlideLayout(slide, index);
+      if (layout === 'chart') {
+        const chartData = slide.content_data_chart?.data || slide.content_data_chart || slide.chartData?.data || slide.chartData || slide.content_data?.data || slide.content_data;
+        return Array.isArray(chartData) && chartData.length > 0;
+      }
+      if (layout === 'table') {
+        const tableData = slide.content_data_table || slide.tableData || slide.content_data;
+        return Boolean(
+          (tableData?.columns && Array.isArray(tableData.rows) && tableData.rows.length > 0) ||
+          (Array.isArray(tableData) && tableData.length > 0)
+        );
+      }
+      return false;
+    }).length;
+  }
+
   it('maps common AI slide content variants into renderer-ready heading/description items', () => {
     const slides = normalizePresentationSlides([
       {
@@ -80,6 +98,53 @@ describe('presentation normalizer', () => {
     expect(visualIntentCount).toBe(2);
     expect(candidate[1].layout).toBe('chart');
     expect(candidate[2].layout).toBe('table');
+  });
+
+  it('A/B test: converts AI chart and table variants into renderer-ready data contracts', () => {
+    const aiSlides = [
+      { title: 'Cover', layout: 'cover' },
+      {
+        title: 'Quarterly pipeline trend',
+        layout: 'chart',
+        visualization_type: 'line',
+        content_data_chart: {
+          labels: ['Q1', 'Q2', 'Q3'],
+          datasets: [{ label: 'Pipeline', data: ['100', '142', '168'] }],
+        },
+      },
+      {
+        title: 'Risk response table',
+        layout: 'table',
+        content_data_table: {
+          headers: ['Risk', 'Response'],
+          rows: [
+            ['Security review delay', 'Start review in week 1'],
+            ['Low adoption', 'Run manager training'],
+          ],
+        },
+      },
+    ];
+
+    const candidate = normalizePresentationSlides(aiSlides);
+
+    expect(legacyRenderableVisualScore(aiSlides)).toBe(0);
+    expect(legacyRenderableVisualScore(candidate)).toBe(2);
+    expect(candidate[1].content_data_chart).toEqual([
+      { label: 'Q1', name: 'Q1', value: 100, series: 'Pipeline', description: 'Pipeline' },
+      { label: 'Q2', name: 'Q2', value: 142, series: 'Pipeline', description: 'Pipeline' },
+      { label: 'Q3', name: 'Q3', value: 168, series: 'Pipeline', description: 'Pipeline' },
+    ]);
+    expect(candidate[1].chartData.data).toEqual(candidate[1].content_data_chart);
+    expect(candidate[1].chartType).toBe('line');
+    expect(candidate[2].content_data_table).toEqual({
+      columns: ['Risk', 'Response'],
+      headers: ['Risk', 'Response'],
+      rows: [
+        ['Security review delay', 'Start review in week 1'],
+        ['Low adoption', 'Run manager training'],
+      ],
+    });
+    expect(candidate[2].tableData).toEqual(candidate[2].content_data_table);
   });
 
   it('extracts table rows and speaker notes when standard content is absent', () => {

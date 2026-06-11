@@ -52,7 +52,12 @@
 - Tenth Research: `12_research/2026-06-12-workai-outline-intent-contract.md`에 제품 내 일관성, 구조화 출력 계약, 슬라이드 제목의 메시지 역할 리서치와 적용 결정을 기록했다.
 - Tenth A/B Gate: `src/lib/outline-contract.test.ts`에서 legacy는 승인 outline 대비 의도 일치 점수 1점, candidate는 9점으로 개선됨을 확인하고, generic outline이 생성된 chart 레이아웃을 downgrade하지 않음을 검증한다.
 - Tenth Verification: `npx vitest run src/lib/outline-contract.test.ts src/lib/slide-count-contract.test.ts src/presentation-normalizer.test.ts` 통과(3파일/10테스트), `npx tsc --noEmit` 통과, `npm test` 통과(17파일/57테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: tenth loop git diff audit, commit, push.
+- Tenth Commit/Push: `793b5fb feat: preserve approved outline intent`를 `origin/main`에 푸시 완료.
+- Eleventh Candidate Feature: `Renderable Visualization Data Contract`를 추가했다. AI가 반환한 `labels/datasets`, `headers/rows`, row object, key-value 형태의 차트/표 데이터를 렌더러가 읽는 표준 구조로 정규화한다.
+- Eleventh Research: `12_research/2026-06-12-workai-renderable-visualization-data-contract.md`에 구조 메타데이터, 데이터 wrangling, 접근 가능한 표 구조, 시각화 best practice 리서치와 적용 결정을 기록했다.
+- Eleventh A/B Gate: `src/presentation-normalizer.test.ts`에서 기존 렌더 경로는 변형 차트/표의 렌더 가능 점수 0, candidate는 2로 개선됨을 확인한다.
+- Eleventh Verification: `npx vitest run src/presentation-normalizer.test.ts src/lib/deck-quality-audit.test.ts` 통과(2파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(17파일/58테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: eleventh loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

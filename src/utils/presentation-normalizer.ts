@@ -129,6 +129,179 @@ function normalizeList(value: any): SlideContent[] {
     .filter((item): item is SlideContent => Boolean(item && item.heading));
 }
 
+function parseNumber(value: any): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const text = compactText(value).replace(/,/g, '');
+  const match = text.match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeTableRow(row: any, columns: string[]): any[] {
+  if (Array.isArray(row)) return row.slice(0, columns.length);
+  if (row && typeof row === 'object') {
+    return columns.map((column) => {
+      const key = Object.keys(row).find((candidate) => candidate.toLowerCase() === column.toLowerCase());
+      return key ? row[key] : row[column];
+    });
+  }
+  return [row];
+}
+
+export function normalizeTableData(value: any): { columns: string[]; headers: string[]; rows: any[][] } | null {
+  if (!value) return null;
+
+  if (!Array.isArray(value) && typeof value === 'object') {
+    const nested = value.data || value.table || value.content;
+    if (nested && nested !== value && !Array.isArray(value.rows)) return normalizeTableData(nested);
+
+    const rawColumns = value.columns || value.headers || value.header || value.fields;
+    const rawRows = value.rows || value.values || value.dataRows;
+    if (Array.isArray(rawColumns) && Array.isArray(rawRows)) {
+      const columns = rawColumns.map(compactText).filter(Boolean);
+      const rows = rawRows
+        .map((row: any) => normalizeTableRow(row, columns))
+        .filter((row: any[]) => row.some((cell) => compactText(cell)));
+      return columns.length > 0 && rows.length > 0 ? { columns, headers: columns, rows } : null;
+    }
+  }
+
+  if (Array.isArray(value) && value.length > 0) {
+    if (value.every((row) => row && typeof row === 'object' && !Array.isArray(row))) {
+      const columns = Array.from(
+        new Set(value.flatMap((row) => Object.keys(row).filter((key) => key !== 'id')))
+      );
+      const rows = value.map((row) => columns.map((column) => row[column]));
+      return columns.length > 0 ? { columns, headers: columns, rows } : null;
+    }
+
+    if (Array.isArray(value[0])) {
+      const firstRow = value[0].map(compactText);
+      const firstRowLooksLikeHeader = value.length > 1 && firstRow.every((cell) => cell && parseNumber(cell) === null);
+      const columns = firstRowLooksLikeHeader
+        ? firstRow
+        : firstRow.map((_, index) => (index === 0 ? '항목' : `값 ${index}`));
+      const rows = (firstRowLooksLikeHeader ? value.slice(1) : value)
+        .map((row: any) => normalizeTableRow(row, columns))
+        .filter((row: any[]) => row.some((cell) => compactText(cell)));
+      return columns.length > 0 && rows.length > 0 ? { columns, headers: columns, rows } : null;
+    }
+  }
+
+  if (value && typeof value === 'object') {
+    const rows = Object.entries(value)
+      .filter(([, entryValue]) => compactText(entryValue))
+      .map(([key, entryValue]) => [key, entryValue]);
+    return rows.length > 0 ? { columns: ['항목', '값'], headers: ['항목', '값'], rows } : null;
+  }
+
+  return null;
+}
+
+function normalizeChartPoint(item: any, index: number, fallbackLabel?: any, seriesLabel?: any): AnyRecord | null {
+  if (Array.isArray(item)) {
+    const label = firstText(item[0], fallbackLabel, `항목 ${index + 1}`);
+    const value = parseNumber(item[1]);
+    const series = compactText(seriesLabel);
+    return value === null ? null : { label, name: label, value, ...(series ? { series, description: series } : {}) };
+  }
+
+  if (item && typeof item === 'object') {
+    const label = firstText(
+      item.label,
+      item.name,
+      item.category,
+      item.period,
+      item.date,
+      item.x,
+      item.key,
+      item.metric,
+      item.title,
+      fallbackLabel,
+      `항목 ${index + 1}`
+    );
+    const value = parseNumber(item.value ?? item.amount ?? item.count ?? item.score ?? item.y ?? item.result ?? item.total);
+    if (value === null) return null;
+    const unit = firstText(item.unit);
+    const series = firstText(item.series, seriesLabel);
+    return {
+      ...item,
+      label,
+      name: label,
+      value,
+      ...(unit ? { unit } : {}),
+      ...(series ? { series, description: firstText(item.description, item.insight, series) } : {}),
+    };
+  }
+
+  const value = parseNumber(item);
+  if (value === null) return null;
+  const label = firstText(fallbackLabel, `항목 ${index + 1}`);
+  const series = compactText(seriesLabel);
+  return { label, name: label, value, ...(series ? { series, description: series } : {}) };
+}
+
+export function normalizeChartData(value: any): AnyRecord[] {
+  if (!value) return [];
+
+  if (!Array.isArray(value) && typeof value === 'object') {
+    const labels = value.labels || value.categories || value.xAxis || value.axisLabels;
+    const datasets = value.datasets || value.series;
+    if (Array.isArray(labels) && Array.isArray(datasets)) {
+      return datasets.flatMap((dataset: any) => {
+        const values = Array.isArray(dataset?.data) ? dataset.data : [];
+        const seriesLabel = firstText(dataset?.label, dataset?.name);
+        return values
+          .map((entry: any, index: number) => normalizeChartPoint(entry, index, labels[index], seriesLabel))
+          .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+      });
+    }
+
+    const values = value.values || value.dataPoints;
+    if (Array.isArray(labels) && Array.isArray(values)) {
+      return values
+        .map((entry: any, index: number) => normalizeChartPoint(entry, index, labels[index]))
+        .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+    }
+
+    if (Array.isArray(labels) && Array.isArray(value.data)) {
+      return value.data
+        .map((entry: any, index: number) => normalizeChartPoint(entry, index, labels[index]))
+        .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+    }
+
+    if (Array.isArray(value.data)) return normalizeChartData(value.data);
+
+    const tableData = normalizeTableData(value);
+    if (tableData) {
+      const valueColumnIndex = Math.max(
+        1,
+        tableData.columns.findIndex((_, columnIndex) =>
+          columnIndex > 0 && tableData.rows.some((row) => parseNumber(row[columnIndex]) !== null)
+        )
+      );
+      return tableData.rows
+        .map((row, index) => normalizeChartPoint([row[0], row[valueColumnIndex]], index))
+        .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item, index) => normalizeChartPoint(item, index))
+      .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value)
+      .map(([label, entryValue], index) => normalizeChartPoint([label, entryValue], index))
+      .filter((point: AnyRecord | null): point is AnyRecord => Boolean(point));
+  }
+
+  return [];
+}
+
 function tableRowsToContent(tableData: any): SlideContent[] {
   const rows = Array.isArray(tableData?.rows) ? tableData.rows : [];
   return rows
@@ -181,10 +354,16 @@ export function normalizeSlideContent(slide: any): SlideContent[] {
   const normalizedTimeline = normalizeList(timelineData || []);
   if (normalizedTimeline.length > 0) return normalizedTimeline;
 
-  const tableContent = tableRowsToContent(slide.content_data_table || slide.tableData || slide.content_data);
+  const normalizedLayout = normalizeSlideLayout(slide, 1);
+  if (normalizedLayout === 'chart') {
+    const chartContent = chartDataToContent(normalizeChartData(slide.content_data_chart || slide.chartData || slide.content_data));
+    if (chartContent.length > 0) return chartContent;
+  }
+
+  const tableContent = tableRowsToContent(normalizeTableData(slide.content_data_table || slide.tableData || slide.content_data));
   if (tableContent.length > 0) return tableContent;
 
-  const chartContent = chartDataToContent(slide.content_data_chart || slide.chartData || slide.content_data);
+  const chartContent = chartDataToContent(normalizeChartData(slide.content_data_chart || slide.chartData || slide.content_data));
   if (chartContent.length > 0) return chartContent;
 
   const metricContent = normalizeList(slide.keyMetrics || slide.metrics || slide.kpis || []);
@@ -219,15 +398,50 @@ export function normalizeSlideLayout(slide: any, index = 0): string {
   return SUPPORTED_LAYOUTS.has(normalized) ? normalized : 'default';
 }
 
+function normalizeChartType(slide: any): string {
+  const raw = firstText(slide?.chartType, slide?.chart_type, slide?.visualization_type, slide?.type).toLowerCase();
+  if (raw.includes('line')) return 'line';
+  if (raw.includes('pie')) return 'pie';
+  return 'bar';
+}
+
+export function normalizeSlideVisualizationData(slide: any): Partial<Slide> {
+  if (!slide || typeof slide !== 'object') return {};
+
+  const normalizedLayout = normalizeSlideLayout(slide, 1);
+  const chartSource = slide.content_data_chart || slide.chartData || (normalizedLayout === 'chart' ? slide.content_data : null);
+  const tableSource = slide.content_data_table || slide.tableData || (normalizedLayout === 'table' ? slide.content_data : null);
+  const chartData = normalizeChartData(chartSource);
+  const tableData = normalizeTableData(tableSource);
+  const result: Partial<Slide> = {};
+
+  if (chartData.length > 0) {
+    result.content_data_chart = chartData;
+    result.chartData = { data: chartData };
+    result.chartType = normalizeChartType(slide);
+  }
+
+  if (tableData) {
+    result.content_data_table = tableData;
+    result.tableData = tableData;
+  }
+
+  return result;
+}
+
 export function normalizePresentationSlide(slide: any, index = 0): Slide {
-  const normalizedLayout = normalizeSlideLayout(slide, index);
-  const normalizedContent = normalizeSlideContent(slide);
-  const citation = extractSlideCitation(slide);
-  const title = firstText(slide?.title, slide?.header, slide?.heading, slide?.subject) || `Slide ${index + 1}`;
-  const subtitle = firstText(slide?.subtitle, slide?.subhead, slide?.description, slide?.summary);
+  const rawSlide = slide || {};
+  const normalizedVisualization = normalizeSlideVisualizationData(rawSlide);
+  const slideWithVisualization = { ...rawSlide, ...normalizedVisualization };
+  const normalizedLayout = normalizeSlideLayout(slideWithVisualization, index);
+  const normalizedContent = normalizeSlideContent(slideWithVisualization);
+  const citation = extractSlideCitation(slideWithVisualization);
+  const title = firstText(rawSlide?.title, rawSlide?.header, rawSlide?.heading, rawSlide?.subject) || `Slide ${index + 1}`;
+  const subtitle = firstText(rawSlide?.subtitle, rawSlide?.subhead, rawSlide?.description, rawSlide?.summary);
 
   return {
-    ...(slide || {}),
+    ...rawSlide,
+    ...normalizedVisualization,
     id: firstText(slide?.id) || `slide-${index + 1}-${Date.now()}`,
     title,
     subtitle,
