@@ -7,6 +7,7 @@ import { callGeminiAPI, streamGeminiAPI } from '@/services/ai/api-client';
 import { extractJson } from '@/services/ai/geminiService';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { enforceSlideCountContract } from '@/lib/slide-count-contract';
+import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 
 const DEFAULT_SYSTEM_PROMPT = "당신은 실시간 업무 지원을 위한 최고의 AI 아키텍트입니다.";
 
@@ -19,6 +20,15 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs = 60000): Promise<T
     timeoutId = setTimeout(() => reject(new Error('AI 응답 시간이 초과되었습니다.')), timeoutMs);
   });
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
+function stringifyForPrompt(value: unknown, maxLength = 8000): string {
+  if (!value) return '없음';
+  try {
+    return JSON.stringify(value).substring(0, maxLength);
+  } catch {
+    return '직렬화 불가';
+  }
 }
 
 export const aiService = {
@@ -103,6 +113,10 @@ export const aiService = {
       - 모든 텍스트는 **50자 이내 명사형 종결(개조식)** 필수.
       - 서술형 어미(~합니다 등) 사용 절대 금지.
 
+      [APPROVED OUTLINE CONTRACT]
+      - 승인된 목차가 제공되면 slides[i]는 목차 i번째 항목의 제목, 레이아웃, strategicGoal을 따라야 함.
+      - 생성 중 보강한 근거와 본문은 유지하되, 사용자가 확정한 순서와 발표 의도를 변경하지 말 것.
+
       [JSON SCHEMA]
       {
         "presentation": {
@@ -125,24 +139,27 @@ export const aiService = {
     const prompt = `
       [입력 데이터] ${typeof fileData === 'string' ? fileData.substring(0, 10000) : '데이터 제공됨'}
       [정확한 장수] ${slideCount}장
+      [승인된 목차] ${stringifyForPrompt(approvedOutline)}
       [참고 정보] ${JSON.stringify(meetingInfo || {})}
       
       위 데이터를 바탕으로 신규 레이아웃을 적극 활용하여 설계하십시오.
     `;
 
+    const applyPresentationContracts = (response: string) => {
+      const slideCountContract = enforceSlideCountContract(normalizePresentationSlides(extractJson(response)), {
+        settings,
+        approvedOutline,
+      });
+      return alignSlidesToApprovedOutline(slideCountContract.slides, approvedOutline).slides;
+    };
+
     try {
       if (onChunk) {
         const response = await streamGeminiAPI(systemPrompt, prompt, onChunk, signal);
-        return enforceSlideCountContract(normalizePresentationSlides(extractJson(response)), {
-          settings,
-          approvedOutline,
-        }).slides;
+        return applyPresentationContracts(response);
       } else {
         const response = await callGeminiAPI(systemPrompt, prompt, 8192, "application/json", settings?.useWebSearch, signal);
-        return enforceSlideCountContract(normalizePresentationSlides(extractJson(response)), {
-          settings,
-          approvedOutline,
-        }).slides;
+        return applyPresentationContracts(response);
       }
     } catch (err) {
       console.error('Presentation Generation failed:', err);

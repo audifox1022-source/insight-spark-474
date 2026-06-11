@@ -15,6 +15,7 @@ import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { appendInsightBriefToPrompt, buildInsightBrief } from '@/lib/insight-brief';
 import { buildPresentationFromResult } from '@/lib/presentation-result';
 import { enforceSlideCountContract } from '@/lib/slide-count-contract';
+import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -313,7 +314,8 @@ export const usePresentation = () => {
       
       const normalizedSlides = normalizePresentationSlides(result);
       const slideCountContract = enforceSlideCountContract(normalizedSlides, { settings, approvedOutline });
-      const slideData = slideCountContract.slides;
+      const outlineContract = alignSlidesToApprovedOutline(slideCountContract.slides, approvedOutline);
+      const slideData = outlineContract.slides;
       
       if (!Array.isArray(slideData) || slideData.length === 0) {
         console.error("❌ [Engine] 슬라이드 데이터 생성 실패 (0장):", result);
@@ -334,6 +336,11 @@ export const usePresentation = () => {
       if (slideCountContract.adjusted) {
         console.info(
           `[Slide Count Contract] ${slideCountContract.originalCount} -> ${slideCountContract.actualCount} (${slideCountContract.action})`
+        );
+      }
+      if (outlineContract.adjusted) {
+        console.info(
+          `[Outline Contract] aligned ${outlineContract.alignedCount}/${outlineContract.outlineCount} slides`
         );
       }
       

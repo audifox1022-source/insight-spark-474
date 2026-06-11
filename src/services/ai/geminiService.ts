@@ -10,6 +10,7 @@ import * as prompts from './prompts';
 import { useSlideStore } from '@/store/useSlideStore';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { enforceSlideCountContract, resolveRequestedSlideCount } from '@/lib/slide-count-contract';
+import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 
 export type ProgressCallback = (message: string) => void;
 
@@ -169,12 +170,14 @@ export const aiService = {
       const systemPrompt = [
         prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium'),
         requestedCount ? `\n# [SLIDE COUNT CONTRACT]\n- 반드시 slides 배열을 정확히 ${requestedCount}개 생성하십시오.\n- 부족하거나 초과하지 마십시오.` : '',
+        body?.approvedOutline ? `\n# [APPROVED OUTLINE CONTRACT]\n- 사용자가 승인한 approvedOutline의 순서, 제목, 레이아웃, strategicGoal을 최종 slides에 반영하십시오.\n- 각 slides[i]는 approvedOutline의 outline, tasks, items 또는 plan 배열의 i번째 항목과 같은 발표 의도를 가져야 합니다.` : '',
       ].join('');
       const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(body), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
-      return enforceSlideCountContract(normalizePresentationSlides(result), {
+      const slideCountContract = enforceSlideCountContract(normalizePresentationSlides(result), {
         settings: body?.settings,
         approvedOutline: body?.approvedOutline,
-      }).slides;
+      });
+      return alignSlidesToApprovedOutline(slideCountContract.slides, body?.approvedOutline).slides;
     });
   },
 
