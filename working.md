@@ -42,7 +42,12 @@
 - Eighth Research: `12_research/2026-06-12-workai-evidence-source-provenance.md`에 신뢰 UX, 데이터 시각화 source/notes, 차트 출처 표기, 발표 citation 원칙 리서치와 적용 결정을 기록했다.
 - Eighth A/B Gate: `src/lib/slide-citations.test.ts`에서 legacy citation_url-only baseline은 1개 회수, candidate는 direct/source_url/references/nested citation 4개 회수를 확인한다.
 - Eighth Verification: `npx vitest run src/lib/slide-citations.test.ts src/lib/deck-quality-audit.test.ts` 통과(2파일/7테스트), `npx tsc --noEmit` 통과, `npm test` 통과(15파일/51테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: eighth loop git diff audit, commit, push.
+- Eighth Commit/Push: `7f0e9e5 feat: preserve slide evidence sources`를 `origin/main`에 푸시 완료.
+- Ninth Candidate Feature: `Slide Count Contract`를 추가했다. 사용자가 입력한 `slideCount` 또는 승인한 outline 길이에 맞춰 생성 결과를 trim/pad 보정한다.
+- Ninth Research: `12_research/2026-06-12-workai-slide-count-contract.md`에 사용자 제어감, structured output 검증, 발표 시간/인지 부하 리서치와 적용 결정을 기록했다.
+- Ninth A/B Gate: `src/lib/slide-count-contract.test.ts`에서 legacy는 5장 요청에 7장을 유지하지만 candidate는 5장으로 보정하고, 부족 생성은 승인 outline 기반으로 보강함을 확인한다.
+- Ninth Verification: `npx vitest run src/lib/slide-count-contract.test.ts src/lib/presentation-result.test.ts src/presentation-normalizer.test.ts` 통과(3파일/10테스트), `npx tsc --noEmit` 통과, `npm test` 통과(16파일/54테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: ninth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

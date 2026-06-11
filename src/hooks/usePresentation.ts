@@ -14,6 +14,7 @@ import { parseFile } from '@/utils/fileParser';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { appendInsightBriefToPrompt, buildInsightBrief } from '@/lib/insight-brief';
 import { buildPresentationFromResult } from '@/lib/presentation-result';
+import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -310,7 +311,9 @@ export const usePresentation = () => {
       });
       if (generationCancelledRef.current) return;
       
-      const slideData = normalizePresentationSlides(result);
+      const normalizedSlides = normalizePresentationSlides(result);
+      const slideCountContract = enforceSlideCountContract(normalizedSlides, { settings, approvedOutline });
+      const slideData = slideCountContract.slides;
       
       if (!Array.isArray(slideData) || slideData.length === 0) {
         console.error("❌ [Engine] 슬라이드 데이터 생성 실패 (0장):", result);
@@ -328,9 +331,18 @@ export const usePresentation = () => {
       setStorePresentation(presentationWithBrand);
       
       console.log("[Step 3] 최종 슬라이드 데이터 스토어(Zustand) 반영 완료");
+      if (slideCountContract.adjusted) {
+        console.info(
+          `[Slide Count Contract] ${slideCountContract.originalCount} -> ${slideCountContract.actualCount} (${slideCountContract.action})`
+        );
+      }
       
       setStep('preview');
-      toast.success(`총 ${slideData.length}장의 발표자료 생성이 완료되었습니다.`);
+      toast.success(
+        slideCountContract.adjusted
+          ? `요청한 ${slideData.length}장 구성에 맞춰 발표자료 생성을 완료했습니다.`
+          : `총 ${slideData.length}장의 발표자료 생성이 완료되었습니다.`
+      );
       if (onSuccess) onSuccess();
     } catch (err: any) { 
       console.error("Full Slides Generation Error:", err);

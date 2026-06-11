@@ -9,6 +9,7 @@ import { callGeminiAPI } from './api-client';
 import * as prompts from './prompts';
 import { useSlideStore } from '@/store/useSlideStore';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
+import { enforceSlideCountContract, resolveRequestedSlideCount } from '@/lib/slide-count-contract';
 
 export type ProgressCallback = (message: string) => void;
 
@@ -164,9 +165,16 @@ export const aiService = {
 
   async generatePresentation(body: any) {
     return withTimeout(async (signal) => {
-      const systemPrompt = prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium');
+      const requestedCount = resolveRequestedSlideCount({ settings: body?.settings, approvedOutline: body?.approvedOutline });
+      const systemPrompt = [
+        prompts.getSystemPromptCore(body?.settings?.difficulty || 'medium'),
+        requestedCount ? `\n# [SLIDE COUNT CONTRACT]\n- 반드시 slides 배열을 정확히 ${requestedCount}개 생성하십시오.\n- 부족하거나 초과하지 마십시오.` : '',
+      ].join('');
       const result = await withSelfAnnealing("Generate Presentation", () => callGeminiAPI(systemPrompt, JSON.stringify(body), 8192, "application/json", false, signal), "SLIDE_SCHEMA");
-      return normalizePresentationSlides(result);
+      return enforceSlideCountContract(normalizePresentationSlides(result), {
+        settings: body?.settings,
+        approvedOutline: body?.approvedOutline,
+      }).slides;
     });
   },
 
