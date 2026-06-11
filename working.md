@@ -157,7 +157,12 @@
 - Thirty-first Research: `12_research/2026-06-12-workai-reset-clears-generation-context.md`에 user control, consistency, recognition, localStorage state lifecycle 리서치와 적용 결정을 기록했다.
 - Thirty-first A/B Gate: `src/hooks/usePresentation-reset.test.tsx`에서 legacy reset context score 1 대비 candidate score 5를 확인한다.
 - Thirty-first Verification: `npx vitest run src/hooks/usePresentation-reset.test.tsx` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/90테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-first loop git diff audit, commit, push.
+- Thirty-first Commit/Push: `09a8bdd fix: clear generation context on reset`를 `origin/main`에 푸시 완료.
+- Thirty-second Candidate Feature: `Editable Brief Department Field`를 추가했다. 프롬프트 컨텍스트와 저장 모델이 이미 다루는 `department`를 설정 화면의 발표 브리프에서도 직접 확인/수정할 수 있게 했다.
+- Thirty-second Research: `12_research/2026-06-12-workai-editable-brief-department-field.md`에 form cognitive load, consistency, Gemini prompt context, Copilot prompt context 리서치와 적용 결정을 기록했다.
+- Thirty-second A/B Gate: `src/components/PresentationSetupForm.test.tsx`에서 editable brief field score가 7에서 8로 증가하고 담당 부서 값 렌더링을 확인한다.
+- Thirty-second Verification: `npx vitest run src/components/PresentationSetupForm.test.tsx` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/90테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-second loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

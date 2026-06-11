@@ -46,6 +46,7 @@ function briefFieldScore() {
     '발표 어조',
     '보고 기간/주차',
     '보고자',
+    '담당 부서',
     '참고사항/원문 요청',
   ];
 
@@ -91,10 +92,11 @@ describe('PresentationSetupForm brief metadata fields', () => {
     const candidateScore = briefFieldScore();
 
     expect(legacyFieldScore).toBe(0);
-    expect(candidateScore).toBe(7);
+    expect(candidateScore).toBe(8);
     expect(screen.getByLabelText('발표 제목')).toHaveValue(info.title);
     expect(screen.getByLabelText('목표/결정 요청')).toHaveValue(info.objective);
     expect(screen.getByLabelText('핵심 청중')).toHaveValue(info.audience);
+    expect(screen.getByLabelText('담당 부서')).toHaveValue(info.department);
   });
 
   it('updates meeting info through controlled brief inputs', () => {

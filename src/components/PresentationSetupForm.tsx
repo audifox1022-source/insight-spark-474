@@ -284,6 +284,16 @@ export function PresentationSetupForm({
               className="h-12 rounded-xl bg-card"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-department" className="text-sm font-bold">담당 부서</Label>
+            <Input
+              id="brief-department"
+              value={info.department || ''}
+              onChange={(e) => update('department', e.target.value)}
+              placeholder="전략기획팀"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
           <div className="md:col-span-2 space-y-2">
             <Label htmlFor="brief-notes" className="text-sm font-bold">참고사항/원문 요청</Label>
             <Textarea
