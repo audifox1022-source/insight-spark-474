@@ -17,6 +17,7 @@ import {
 } from '@/utils/fileParser';
 import { buildUploadedContextFromState, UploadedDataFileState } from '@/utils/presentationContext';
 import { repairPlanTasks } from '@/utils/planTasks';
+import { repairSlideDeck } from '@/utils/slideQuality';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -368,7 +369,7 @@ export const usePresentation = () => {
         throw new Error("데이터 형식이 올바르지 않습니다");
       }
 
-      const normalizedSlideData = normalizeGeneratedSlides(slideData);
+      const normalizedSlideData = repairSlideDeck(normalizeGeneratedSlides(slideData), sourceText);
       const presentationMeta = Array.isArray(result) ? {} : (result?.presentation || result || {});
       const presentationWithBrand = { 
         ...presentationMeta, 
