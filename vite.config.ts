@@ -50,11 +50,48 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    modulePreload: {
+      resolveDependencies(filename, deps, context) {
+        if (context.hostType !== 'html') return deps;
+        const deferUntilWorkspaceOpen = [
+          'audio-tools',
+          'chart-tools',
+          'document-tools',
+          'export-tools',
+          'pdfjs',
+        ];
+        return deps.filter((dep) => !deferUntilWorkspaceOpen.some((chunk) => dep.includes(chunk)));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
           if (id.includes('pdfjs-dist')) return 'pdfjs';
-          if (id.includes('node_modules')) return 'vendor';
+          if (id.includes('pptxgenjs') || id.includes('jspdf') || id.includes('html2canvas') || id.includes('pdf-lib')) {
+            return 'export-tools';
+          }
+          if (id.includes('/docx/') || id.includes('/mammoth/') || id.includes('/file-saver/')) {
+            return 'document-tools';
+          }
+          if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('/victory-vendor/')) {
+            return 'chart-tools';
+          }
+          if (id.includes('/meyda/') || id.includes('@vercel/blob')) {
+            return 'audio-tools';
+          }
+          if (id.includes('@supabase/supabase-js')) return 'supabase';
+          if (id.includes('@google/generative-ai') || id.includes('@ai-sdk/') || id.includes('/ai/')) {
+            return 'ai-sdk';
+          }
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/') || id.includes('@tanstack/react-query')) {
+            return 'react-vendor';
+          }
+          if (id.includes('@radix-ui/') || id.includes('lucide-react') || id.includes('framer-motion') || id.includes('sonner')) {
+            return 'ui-vendor';
+          }
+          return 'vendor';
         },
       },
     },

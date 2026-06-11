@@ -16,7 +16,12 @@
 - Third Research: `12_research/2026-06-11-workai-workspace-code-splitting.md`에 초기 번들 최적화 리서치와 A/B 결과를 기록했다.
 - Third A/B Gate: `scripts/bundle-ab-check.mjs`에서 baseline entry 349.55 kB 대비 candidate entry 166.53 kB, 개선율 52.36%, lazy chunk 4개 생성을 확인한다.
 - Third Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --min-improvement 0.2` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: third loop git diff audit, commit, push.
+- Third Commit/Push: `9005b4d perf: lazy load secondary workspaces`를 `origin/main`에 푸시 완료.
+- Fourth Candidate Feature: `Vendor Preload Diet`를 추가했다. Vite manualChunks를 사용 경로별로 나누고 modulepreload filter로 export/document/chart/audio/pdfjs chunk를 첫 HTML preload에서 제외한다.
+- Fourth Research: `12_research/2026-06-11-workai-vendor-preload-diet.md`에 vendor preload 최적화 리서치와 A/B 결과를 기록했다.
+- Fourth A/B Gate: `scripts/bundle-ab-check.mjs`를 확장해 초기 JS preload 총량을 측정한다. baseline initial 4,652.62 kB 대비 candidate 1,001.00 kB, 개선율 78.49%를 확인했다.
+- Fourth Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --baseline-initial-kb 4652.62 --max-initial-kb 1500 --min-improvement 0.2` 통과, `node --check scripts/bundle-ab-check.mjs` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: fourth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
