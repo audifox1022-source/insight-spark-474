@@ -16,6 +16,7 @@ import { appendInsightBriefToPrompt, buildInsightBrief } from '@/lib/insight-bri
 import { buildPresentationFromResult } from '@/lib/presentation-result';
 import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
+import { mergeRegeneratedSlide } from '@/lib/slide-regeneration-contract';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -377,10 +378,16 @@ export const usePresentation = () => {
 
       if (result && result.slide) {
         const newSlides = [...presentation.slides];
-        newSlides[slideIndex] = { ...result.slide, id: currentSlide.id };
+        const regenerationContract = mergeRegeneratedSlide(currentSlide, result.slide, slideIndex);
+        newSlides[slideIndex] = regenerationContract.slide;
         const updatedPres = { ...presentation, slides: newSlides };
         setPresentationState(updatedPres);
         setStorePresentation(updatedPres);
+        if (regenerationContract.adjusted) {
+          console.info(
+            `[Slide Regeneration Contract] normalized slide ${slideIndex + 1}; preserved ${regenerationContract.preservedFields.join(', ') || 'schema'}`
+          );
+        }
         toast.success(`${slideIndex + 1}번 슬라이드 재생성 완료`);
       }
     } catch (err: any) {

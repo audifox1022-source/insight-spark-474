@@ -57,7 +57,12 @@
 - Eleventh Research: `12_research/2026-06-12-workai-renderable-visualization-data-contract.md`에 구조 메타데이터, 데이터 wrangling, 접근 가능한 표 구조, 시각화 best practice 리서치와 적용 결정을 기록했다.
 - Eleventh A/B Gate: `src/presentation-normalizer.test.ts`에서 기존 렌더 경로는 변형 차트/표의 렌더 가능 점수 0, candidate는 2로 개선됨을 확인한다.
 - Eleventh Verification: `npx vitest run src/presentation-normalizer.test.ts src/lib/deck-quality-audit.test.ts` 통과(2파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(17파일/58테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: eleventh loop git diff audit, commit, push.
+- Eleventh Commit/Push: `a0e61f7 feat: normalize renderable visualization data`를 `origin/main`에 푸시 완료.
+- Twelfth Candidate Feature: `Slide Regeneration Contract`를 추가했다. 개별 슬라이드 재생성 결과도 기존 id/출처/전략 목표를 보존하고, content/chart/table/cover layout 정규화 계약을 통과한 뒤 store에 반영한다.
+- Twelfth Research: `12_research/2026-06-12-workai-slide-regeneration-contract.md`에 제품 내 일관성, 구조화 출력, 반복 슬라이드 개선 리서치와 적용 결정을 기록했다.
+- Twelfth A/B Gate: `src/lib/slide-regeneration-contract.test.ts`에서 legacy replacement보다 candidate가 stable id, 표준 content, chart data, citation, elements, cover layout 보존 점수가 높음을 확인한다.
+- Twelfth Verification: `npx vitest run src/lib/slide-regeneration-contract.test.ts src/presentation-normalizer.test.ts src/lib/slide-citations.test.ts` 통과(3파일/10테스트), `npx tsc --noEmit` 통과, `npm test` 통과(18파일/60테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twelfth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
