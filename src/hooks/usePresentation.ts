@@ -17,6 +17,7 @@ import { buildPresentationFromResult } from '@/lib/presentation-result';
 import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 import { mergeRegeneratedSlide } from '@/lib/slide-regeneration-contract';
+import { mergeReviewedPresentation } from '@/lib/presentation-review-contract';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -408,8 +409,14 @@ export const usePresentation = () => {
       const { result } = await aiService.reviewAndFix({ presentation });
       if (generationCancelledRef.current) return;
       if (result?.presentation) {
-        setPresentationState(result.presentation);
-        setStorePresentation(result.presentation);
+        const reviewContract = mergeReviewedPresentation(presentation, result.presentation);
+        setPresentationState(reviewContract.presentation);
+        setStorePresentation(reviewContract.presentation);
+        if (reviewContract.adjusted) {
+          console.info(
+            `[Presentation Review Contract] normalized ${reviewContract.normalizedSlideCount} slides; restored ${reviewContract.restoredMissingSlides}, dropped ${reviewContract.droppedExtraSlides}`
+          );
+        }
         toast.success('디자인 밸런스 자동 최적화 완료 (Self-annealing)');
       }
     } catch (err: any) {

@@ -62,7 +62,12 @@
 - Twelfth Research: `12_research/2026-06-12-workai-slide-regeneration-contract.md`에 제품 내 일관성, 구조화 출력, 반복 슬라이드 개선 리서치와 적용 결정을 기록했다.
 - Twelfth A/B Gate: `src/lib/slide-regeneration-contract.test.ts`에서 legacy replacement보다 candidate가 stable id, 표준 content, chart data, citation, elements, cover layout 보존 점수가 높음을 확인한다.
 - Twelfth Verification: `npx vitest run src/lib/slide-regeneration-contract.test.ts src/presentation-normalizer.test.ts src/lib/slide-citations.test.ts` 통과(3파일/10테스트), `npx tsc --noEmit` 통과, `npm test` 통과(18파일/60테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twelfth loop git diff audit, commit, push.
+- Twelfth Commit/Push: `5d6b8af feat: normalize regenerated slides`를 `origin/main`에 푸시 완료.
+- Thirteenth Candidate Feature: `Presentation Review Contract`를 추가했다. 자동 리뷰/수정 결과를 기존 덱과 병합해 deck id, brandColor, slide count, slide id, 출처, 렌더 가능한 데이터 구조를 보존한다.
+- Thirteenth Research: `12_research/2026-06-12-workai-presentation-review-contract.md`에 제품 내 일관성, 구조화 출력, 반복 슬라이드 개선 리서치와 적용 결정을 기록했다.
+- Thirteenth A/B Gate: `src/lib/presentation-review-contract.test.ts`에서 legacy review replacement보다 candidate가 덱 메타데이터, 슬라이드 수, slide id, cover layout, chart data, citation 보존 점수가 높음을 확인한다.
+- Thirteenth Verification: `npx vitest run src/lib/presentation-review-contract.test.ts src/lib/slide-regeneration-contract.test.ts src/presentation-normalizer.test.ts` 통과(3파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(19파일/62테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirteenth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
