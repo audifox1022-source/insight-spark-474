@@ -44,6 +44,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     presentation, 
     currentSlideIndex, 
     isSaving,
+    aspectRatio,
     addSlide,
     setCurrentSlideIndex
   } = useSlideStore();
@@ -58,7 +59,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     const toastId = toast.loading('PDF 변환 및 다운로드 준비 중...');
     setIsExporting(true);
     try {
-      await exportToPdf(presentation);
+      await exportToPdf(presentation, aspectRatio);
       toast.success('PDF 다운로드가 시작되었습니다.', { id: toastId });
     } catch (error: any) {
       console.error("PDF Export failed:", error);
@@ -82,7 +83,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     if (!presentation) return;
     const toastId = toast.loading('PPTX 생성 중... (객체 1:1 매핑)');
     try {
-      await exportToPptx(presentation);
+      await exportToPptx(presentation, aspectRatio);
       toast.success('PowerPoint 내보내기가 완료되었습니다!', { id: toastId });
     } catch (error: any) {
       console.error("PPTX Export failed:", error);
