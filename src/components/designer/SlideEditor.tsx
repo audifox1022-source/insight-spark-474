@@ -23,7 +23,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
-import { exportToPdf, exportToPptx } from '@/lib/export-presentation';
 import { auditPresentationQuality } from '@/lib/deck-quality-audit';
 
 interface SlideEditorProps {
@@ -317,6 +316,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
     setIsExporting(true);
     const tid = toast.loading('PDF 미리보기를 준비 중입니다...');
     try {
+      const { exportToPdf } = await import('@/lib/export-presentation');
       await exportToPdf(store.presentation, store.aspectRatio);
       toast.success('PDF 생성이 완료되었습니다.', { id: tid });
     } catch (err) {
@@ -329,7 +329,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
   const handleExportPPTX = async () => {
      if (!store.presentation) return;
-     toast.promise(exportToPptx(store.presentation, store.aspectRatio), {
+     toast.promise((async () => {
+       const { exportToPptx } = await import('@/lib/export-presentation');
+       return exportToPptx(store.presentation!, store.aspectRatio);
+     })(), {
        loading: 'Professional PPTX 파일을 생성 중입니다...',
        success: 'PPTX 다운로드가 시작되었습니다.',
        error: 'PPTX 변환 중 오류가 발생했습니다.'

@@ -21,7 +21,12 @@
 - Fourth Research: `12_research/2026-06-11-workai-vendor-preload-diet.md`에 vendor preload 최적화 리서치와 A/B 결과를 기록했다.
 - Fourth A/B Gate: `scripts/bundle-ab-check.mjs`를 확장해 초기 JS preload 총량을 측정한다. baseline initial 4,652.62 kB 대비 candidate 1,001.00 kB, 개선율 78.49%를 확인했다.
 - Fourth Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --baseline-initial-kb 4652.62 --max-initial-kb 1500 --min-improvement 0.2` 통과, `node --check scripts/bundle-ab-check.mjs` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: fourth loop git diff audit, commit, push.
+- Fourth Commit/Push: `96097dd perf: reduce initial vendor preloads`를 `origin/main`에 푸시 완료.
+- Fifth Candidate Feature: `On-demand Export Loading`을 추가했다. SlideEditor의 PDF/PPTX export 엔진을 버튼 클릭 시점 dynamic import로 지연한다.
+- Fifth Research: `12_research/2026-06-11-workai-on-demand-export-loading.md`에 export 지연 로딩 리서치와 A/B 결과를 기록했다.
+- Fifth A/B Gate: `scripts/bundle-ab-check.mjs`에 특정 chunk 비교 옵션을 추가했다. SlideEditor chunk가 baseline 56.62 kB에서 candidate 50.43 kB로 10.93% 감소했다.
+- Fifth Verification: `npm run build` 통과, `node scripts/bundle-ab-check.mjs --baseline-kb 349.55 --max-kb 260 --baseline-initial-kb 4652.62 --max-initial-kb 1500 --chunk-pattern SlideEditor --baseline-chunk-kb 56.62 --max-chunk-kb 52 --min-improvement 0.2` 통과, `node --check scripts/bundle-ab-check.mjs` 통과, `npm test` 통과(13파일/43테스트), `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: fifth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
