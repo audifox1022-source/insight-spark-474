@@ -19,6 +19,7 @@ import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 import { mergeRegeneratedSlide } from '@/lib/slide-regeneration-contract';
 import { mergeReviewedPresentation } from '@/lib/presentation-review-contract';
 import { buildPresentationBriefPromptContext } from '@/lib/presentation-prompt-context';
+import { createDefaultMeetingInfo, normalizeMeetingInfo } from '@/lib/meeting-info';
 import {
   deletePresentation,
   loadPresentations,
@@ -62,9 +63,7 @@ export const usePresentation = () => {
   const generationCancelledRef = useRef(false);
   
   // ── [Data State] ─────────────────────────────────────────
-  const [info, setInfo] = useState<MeetingInfo>({ 
-    week: '', department: '', reporter: '', notes: '', title: '', objective: '', audience: '', tone: 'professional' 
-  });
+  const [info, setInfo] = useState<MeetingInfo>(() => createDefaultMeetingInfo());
 
   const [settings, setSettings] = useState<PresentationSettings>({
     difficulty: 'medium',
@@ -501,7 +500,7 @@ export const usePresentation = () => {
     setPresentationState(loadedPresentation);
     setStorePresentation(loadedPresentation);
     setStoreAspectRatio(normalizeSavedAspectRatio(item.aspectRatio));
-    setInfo(prev => ({ ...prev, ...(item.meetingInfo || {}) }));
+    setInfo(normalizeMeetingInfo(item.meetingInfo));
     setSettings(prev => ({ ...prev, ...(item.settings || {}) }));
     setTemplate(item.template || 'auto');
     setCurrentSlideIndex(0);
