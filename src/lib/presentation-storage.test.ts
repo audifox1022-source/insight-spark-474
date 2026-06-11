@@ -44,6 +44,10 @@ function legacyNoopSaveScore() {
   return 0;
 }
 
+function legacyAspectRatioSaveScore(saved: any[]) {
+  return saved.filter((item) => item.aspectRatio === '4:3').length;
+}
+
 function savedWorkflowScore(saved: any[]) {
   const first = saved[0];
   const checks = [
@@ -51,6 +55,7 @@ function savedWorkflowScore(saved: any[]) {
     first?.id === presentation.id,
     first?.title === presentation.title,
     first?.slides?.length === presentation.slides.length,
+    first?.aspectRatio === '4:3',
     first?.meetingInfo?.objective === meetingInfo.objective,
     first?.settings?.brandColor === settings.brandColor,
     first?.template === 'auto',
@@ -76,12 +81,14 @@ describe('presentation storage workflow', () => {
   });
 
   it('A/B test: real save/load/delete workflow beats previous no-op save behavior', async () => {
-    const savedId = await savePresentation(presentation, meetingInfo, settings, 'auto');
+    const savedId = await savePresentation(presentation, meetingInfo, settings, 'auto', '4:3');
     const saved = await loadPresentations();
 
     expect(savedId).toBe(presentation.id);
     expect(savedWorkflowScore(saved)).toBeGreaterThan(legacyNoopSaveScore());
-    expect(savedWorkflowScore(saved)).toBe(8);
+    expect(savedWorkflowScore(saved)).toBe(9);
+    expect(legacyAspectRatioSaveScore([{ ...saved[0], aspectRatio: undefined }])).toBe(0);
+    expect(legacyAspectRatioSaveScore(saved)).toBe(1);
 
     const deleted = await deletePresentation(presentation.id);
     expect(deleted).toBe(true);
@@ -89,12 +96,13 @@ describe('presentation storage workflow', () => {
   });
 
   it('updates an existing saved presentation instead of duplicating it', async () => {
-    await savePresentation(presentation, meetingInfo, settings, 'auto');
+    await savePresentation(presentation, meetingInfo, settings, 'auto', '16:9');
     await savePresentation(
       { ...presentation, title: '수정된 PoC 승인안' },
       { ...meetingInfo, objective: '확대 승인' },
       settings,
-      'executive'
+      'executive',
+      '4:3'
     );
 
     const saved = await loadPresentations();
@@ -102,5 +110,6 @@ describe('presentation storage workflow', () => {
     expect(saved[0].title).toBe('수정된 PoC 승인안');
     expect(saved[0].meetingInfo.objective).toBe('확대 승인');
     expect(saved[0].template).toBe('executive');
+    expect(saved[0].aspectRatio).toBe('4:3');
   });
 });

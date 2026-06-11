@@ -1,11 +1,13 @@
 import { Presentation, MeetingInfo, PresentationSettings } from '@/types/presentation';
 
 const STORAGE_KEY = 'ai_presentations';
+export type PresentationAspectRatio = '16:9' | '4:3';
 
 export interface SavedPresentation {
   id: string;
   title: string;
   slides: Presentation['slides'];
+  aspectRatio?: PresentationAspectRatio;
   settings: PresentationSettings;
   meetingInfo: MeetingInfo;
   template: string;
@@ -26,15 +28,21 @@ function setAll(list: SavedPresentation[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
+export function normalizeSavedAspectRatio(value: unknown): PresentationAspectRatio {
+  return value === '4:3' ? '4:3' : '16:9';
+}
+
 export async function savePresentation(
   presentation: Presentation,
   meetingInfo: MeetingInfo,
   settings: PresentationSettings,
   template: string,
+  aspectRatio: PresentationAspectRatio = '16:9',
 ): Promise<string | null> {
   try {
     const list = getAll();
     const now = new Date().toISOString();
+    const normalizedAspectRatio = normalizeSavedAspectRatio(aspectRatio);
 
     if (presentation.id) {
       // 기존 업데이트
@@ -44,6 +52,7 @@ export async function savePresentation(
           ...list[idx],
           title: presentation.title,
           slides: presentation.slides,
+          aspectRatio: normalizedAspectRatio,
           settings,
           meetingInfo,
           template,
@@ -54,6 +63,7 @@ export async function savePresentation(
           id: presentation.id,
           title: presentation.title,
           slides: presentation.slides,
+          aspectRatio: normalizedAspectRatio,
           settings,
           meetingInfo,
           template,
@@ -70,6 +80,7 @@ export async function savePresentation(
         id,
         title: presentation.title,
         slides: presentation.slides,
+        aspectRatio: normalizedAspectRatio,
         settings,
         meetingInfo,
         template,

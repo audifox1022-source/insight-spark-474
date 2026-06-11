@@ -21,6 +21,7 @@ import { mergeReviewedPresentation } from '@/lib/presentation-review-contract';
 import {
   deletePresentation,
   loadPresentations,
+  normalizeSavedAspectRatio,
   savePresentation,
   type SavedPresentation,
 } from '@/lib/presentation-storage';
@@ -97,6 +98,8 @@ export const usePresentation = () => {
 
   // Zustand Store Sync
   const setStorePresentation = useSlideStore((state) => state.setPresentation);
+  const storeAspectRatio = useSlideStore((state) => state.aspectRatio);
+  const setStoreAspectRatio = useSlideStore((state) => state.setAspectRatio);
   const setExecutionPlan = useSlideStore((state) => state.setExecutionPlan);
   const executionPlan = useSlideStore((state) => state.executionPlan);
 
@@ -461,7 +464,7 @@ export const usePresentation = () => {
         toast.error('저장할 발표자료가 없습니다.');
         return;
       }
-      const savedId = await savePresentation(presentation, info, settings, template);
+      const savedId = await savePresentation(presentation, info, settings, template, storeAspectRatio);
       if (!savedId) throw new Error('저장 결과 ID가 없습니다.');
 
       if (presentation.id !== savedId) {
@@ -495,6 +498,7 @@ export const usePresentation = () => {
 
     setPresentationState(loadedPresentation);
     setStorePresentation(loadedPresentation);
+    setStoreAspectRatio(normalizeSavedAspectRatio(item.aspectRatio));
     setInfo(prev => ({ ...prev, ...(item.meetingInfo || {}) }));
     setSettings(prev => ({ ...prev, ...(item.settings || {}) }));
     setTemplate(item.template || 'auto');
@@ -502,7 +506,7 @@ export const usePresentation = () => {
     setStep('preview');
     setIsHistoryOpen(false);
     toast.success('저장된 발표자료를 불러왔습니다.');
-  }, [setStorePresentation]);
+  }, [setStoreAspectRatio, setStorePresentation]);
 
   const deleteSavedPresentation = useCallback(async (id: string) => {
     const ok = await deletePresentation(id);

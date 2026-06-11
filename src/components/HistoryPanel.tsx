@@ -97,6 +97,9 @@ export const HistoryPanel = React.forwardRef<HTMLDivElement, HistoryPanelProps>(
                       <span className="text-[11px] text-muted-foreground ml-1">
                         · {item.slides?.length ?? 0}장
                       </span>
+                      <span className="text-[11px] text-muted-foreground ml-1">
+                        · {item.aspectRatio || '16:9'}
+                      </span>
                     </div>
                     <Button
                       size="sm"

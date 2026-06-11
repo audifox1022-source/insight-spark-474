@@ -92,7 +92,12 @@
 - Eighteenth Research: `12_research/2026-06-12-workai-aspect-ratio-aware-header-export.md`에 PowerPoint slide size, 제품 내 일관성, 4:3/16:9 환경 차이 리서치와 적용 결정을 기록했다.
 - Eighteenth A/B Gate: `src/components/designer/EditorHeader.test.tsx`에서 legacy header ratio preservation score 0 대비 candidate score 2를 확인한다.
 - Eighteenth Verification: `npx vitest run src/components/designer/EditorHeader.test.tsx src/components/ViewExportMenu.test.tsx src/lib/export-presentation.test.ts` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(24파일/70테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: eighteenth loop git diff audit, commit, push.
+- Eighteenth Commit/Push: `02ed99f fix: preserve export aspect ratio from header`를 `origin/main`에 푸시 완료.
+- Nineteenth Candidate Feature: `Persistent Aspect Ratio History`를 추가했다. 저장된 발표자료가 deck별 16:9/4:3 비율을 보존하고, 불러오기 시 store aspect ratio를 복원한다.
+- Nineteenth Research: `12_research/2026-06-12-workai-persistent-aspect-ratio-history.md`에 PowerPoint slide size, Web Storage, 제품 내 일관성 리서치와 적용 결정을 기록했다.
+- Nineteenth A/B Gate: `src/lib/presentation-storage.test.ts`에서 legacy saved ratio score 0 대비 candidate score 1을 확인하고, 같은 id 업데이트 시 ratio도 갱신됨을 검증한다.
+- Nineteenth Verification: `npx vitest run src/lib/presentation-storage.test.ts src/components/designer/EditorHeader.test.tsx src/components/ViewExportMenu.test.tsx` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(24파일/70테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: nineteenth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
