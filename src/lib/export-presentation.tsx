@@ -10,7 +10,35 @@ import { Presentation } from '@/types/presentation';
 import { exportToPptx as exportProfessionalPptx } from './pptx-export-service';
 import { loadFont, NOTO_SANS_KR_URL } from '@/utils/fontLoader';
 import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
+import { normalizeChartData, normalizeTableData } from '@/utils/presentation-normalizer';
 import { toast } from 'sonner';
+
+export interface PdfChartPoint {
+  label: string;
+  value: number;
+}
+
+export interface PdfTableData {
+  columns: string[];
+  rows: any[][];
+}
+
+export function extractPdfChartData(slide: any): PdfChartPoint[] {
+  return normalizeChartData(slide?.content_data_chart || slide?.chartData || slide?.content_data)
+    .slice(0, 6)
+    .map((point: any, index) => ({
+      label: String(point.label || point.name || `항목 ${index + 1}`),
+      value: Number(point.value) || 0,
+    }));
+}
+
+export function extractPdfTableData(slide: any): PdfTableData | null {
+  const table = normalizeTableData(slide?.content_data_table || slide?.tableData || slide?.content_data);
+  if (!table) return null;
+  const columns = table.columns.slice(0, 5);
+  const rows = table.rows.slice(0, 7).map((row) => row.slice(0, columns.length));
+  return columns.length > 0 && rows.length > 0 ? { columns, rows } : null;
+}
 
 /**
  * [Enterprise] Professional PDF Export with Korean Font Embedding & Adaptive Ratio
@@ -61,6 +89,8 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
 
       const textColor = hexToRgb(textColorHex);
       const accentColor = hexToRgb(accentColorHex);
+      const surfaceTextColor = rgb(0.12, 0.16, 0.23);
+      const secondarySurfaceTextColor = rgb(0.4, 0.4, 0.5);
 
       const layout = slide.layout || 'default';
       const title = slide.title || '';
@@ -139,8 +169,115 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
              });
              page.drawText(item.description || '', {
                  x: xPos + 30, y: 100 + boxHeight - 90, size: 18, font: customFont, color: rgb(0.3, 0.3, 0.3), maxWidth: 500
-             });
+            });
           });
+      } else if (layout === 'chart') {
+          const chartRows = extractPdfChartData(slide);
+          const chartTop = height - 230;
+          const maxValue = Math.max(1, ...chartRows.map((point) => Math.max(0, point.value)));
+
+          if (chartRows.length > 0) {
+            page.drawText('Data Chart', {
+              x: 60, y: chartTop + 45,
+              size: 12, font: customFont, color: accentColor
+            });
+
+            chartRows.forEach((point, idx) => {
+              const yPos = chartTop - idx * 55;
+              const barWidth = Math.max(24, (Math.max(0, point.value) / maxValue) * 430);
+
+              page.drawText(point.label.slice(0, 32), {
+                x: 80, y: yPos + 8,
+                size: 14, font: customFont, color: textColor
+              });
+              page.drawRectangle({
+                x: 250, y: yPos,
+                width: barWidth, height: 24,
+                color: accentColor,
+                opacity: 0.85
+              });
+              page.drawText(String(point.value), {
+                x: 700, y: yPos + 7,
+                size: 12, font: customFont, color: textColor
+              });
+            });
+          } else {
+            page.drawText('표시할 차트 데이터가 없습니다.', {
+              x: 80, y: chartTop,
+              size: 20, font: customFont, color: textColor
+            });
+          }
+
+          contentList.slice(0, 3).forEach((item, idx) => {
+            const yPos = chartTop - idx * 95;
+            page.drawRectangle({
+              x: 820, y: yPos - 12,
+              width: 360, height: 70,
+              color: rgb(0.97, 0.98, 1.0),
+              opacity: 0.9
+            });
+            page.drawText(item.heading || '', {
+              x: 840, y: yPos + 32,
+              size: 14, font: customFont, color: surfaceTextColor,
+              maxWidth: 320
+            });
+            page.drawText(item.description || '', {
+              x: 840, y: yPos + 10,
+              size: 9, font: customFont, color: secondarySurfaceTextColor,
+              maxWidth: 320
+            });
+          });
+      } else if (layout === 'table') {
+          const table = extractPdfTableData(slide);
+          if (table) {
+            const startX = 60;
+            const startY = height - 230;
+            const tableWidth = width - 120;
+            const colWidth = tableWidth / table.columns.length;
+            const rowHeight = 42;
+
+            table.columns.forEach((column, colIdx) => {
+              page.drawRectangle({
+                x: startX + colIdx * colWidth,
+                y: startY,
+                width: colWidth,
+                height: rowHeight,
+                color: rgb(0.12, 0.16, 0.23)
+              });
+              page.drawText(String(column).slice(0, 28), {
+                x: startX + colIdx * colWidth + 12,
+                y: startY + 14,
+                size: 11, font: customFont, color: rgb(1, 1, 1),
+                maxWidth: colWidth - 24
+              });
+            });
+
+            table.rows.forEach((row, rowIdx) => {
+              row.forEach((cell, colIdx) => {
+                const yPos = startY - rowHeight * (rowIdx + 1);
+                page.drawRectangle({
+                  x: startX + colIdx * colWidth,
+                  y: yPos,
+                  width: colWidth,
+                  height: rowHeight,
+                  color: rowIdx % 2 === 0 ? rgb(0.97, 0.98, 1.0) : rgb(1, 1, 1),
+                  borderColor: rgb(0.88, 0.9, 0.94),
+                  borderWidth: 1
+                });
+                page.drawText(String(cell ?? '').slice(0, 42), {
+                  x: startX + colIdx * colWidth + 12,
+                  y: yPos + 14,
+                  size: 10, font: customFont, color: surfaceTextColor,
+                  maxWidth: colWidth - 24
+                });
+              });
+            });
+          } else {
+            page.drawText('표시할 표 데이터가 없습니다.', {
+              x: 80, y: height - 260,
+              size: 20, font: customFont, color: textColor
+            });
+          }
       } else if (layout === 'cover') {
          // Center everything for cover
          const titleSize = 72;

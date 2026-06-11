@@ -82,7 +82,12 @@
 - Sixteenth Research: `12_research/2026-06-12-workai-unified-pptx-export-path.md`에 제품 내 일관성, PowerPoint chart/graph, 데이터 시각화 best practice 리서치와 적용 결정을 기록했다.
 - Sixteenth A/B Gate: `src/components/ViewExportMenu.test.tsx`에서 legacy path score 0 대비 unified path score 1을 확인하고, 최종 메뉴 클릭 시 `lib/export-presentation`의 `exportToPptx`가 호출됨을 검증한다.
 - Sixteenth Verification: `npx vitest run src/components/ViewExportMenu.test.tsx src/lib/pptx-export-service.test.ts src/presentation-final-screen.test.tsx` 통과(3파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 통과(22파일/67테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: sixteenth loop git diff audit, commit, push.
+- Sixteenth Commit/Push: `549b2a6 fix: unify final pptx export path`를 `origin/main`에 푸시 완료.
+- Seventeenth Candidate Feature: `PDF Visual Data Export`를 추가했다. PDF 내보내기에서 chart/table 슬라이드를 기본 bullet로 떨어뜨리지 않고, 표준화된 시각화 데이터를 bar/table 형태의 PDF 도형과 텍스트로 출력한다.
+- Seventeenth Research: `12_research/2026-06-12-workai-pdf-visual-data-export.md`에 빠른 데이터 이해, 데이터 테이블 비교, 시각화 best practice, 표 구조 리서치와 적용 결정을 기록했다.
+- Seventeenth A/B Gate: `src/lib/export-presentation.test.ts`에서 legacy PDF visual export score 0 대비 candidate score 2를 확인하고, dense table capping을 검증한다.
+- Seventeenth Verification: `npx vitest run src/lib/export-presentation.test.ts src/lib/pptx-export-service.test.ts src/presentation-normalizer.test.ts` 통과(3파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(23파일/69테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: seventeenth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
