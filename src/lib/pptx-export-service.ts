@@ -7,6 +7,36 @@
 import pptxgen from 'pptxgenjs';
 import { Presentation } from '@/types/presentation';
 import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
+import { normalizeChartData, normalizeTableData } from '@/utils/presentation-normalizer';
+
+export interface PptxChartPoint {
+  label: string;
+  value: number;
+  series?: string;
+}
+
+export interface PptxTableData {
+  columns: string[];
+  rows: any[][];
+}
+
+export function extractPptxChartData(slide: any): PptxChartPoint[] {
+  return normalizeChartData(slide?.content_data_chart || slide?.chartData || slide?.content_data)
+    .slice(0, 6)
+    .map((point: any, index) => ({
+      label: String(point.label || point.name || `항목 ${index + 1}`),
+      value: Number(point.value) || 0,
+      ...(point.series ? { series: String(point.series) } : {}),
+    }));
+}
+
+export function extractPptxTableData(slide: any): PptxTableData | null {
+  const table = normalizeTableData(slide?.content_data_table || slide?.tableData || slide?.content_data);
+  if (!table) return null;
+  const columns = table.columns.slice(0, 5);
+  const rows = table.rows.slice(0, 6).map((row) => row.slice(0, columns.length));
+  return columns.length > 0 && rows.length > 0 ? { columns, rows } : null;
+}
 
 /**
  * [Enterprise] Professional PPTX Export Service v3.5
@@ -151,6 +181,82 @@ export const exportToPptx = async (presentation: Presentation, ratio: '16:9' | '
                 pptSlide.addShape(pres.ShapeType.rect, { x: xPos, y: yPos, w: 4.4, h: matH, fill: { color: 'F8FAFC' } });
                 pptSlide.addText(item.heading, { x: xPos + 0.2, y: yPos + 0.2, w: 4, fontSize: 14, bold: true, color: textColor });
                 pptSlide.addText(item.description, { x: xPos + 0.2, y: yPos + 0.6, w: 4, fontSize: 9, color: '64748B' });
+            });
+            break;
+        }
+
+        case 'chart': {
+            const chartRows = extractPptxChartData(slide);
+            const chartY = 1.7;
+            const maxValue = Math.max(1, ...chartRows.map((point) => Math.max(0, point.value)));
+            pptSlide.addText('Data Chart', {
+              x: 0.55, y: 1.32, w: 1.4, h: 0.25,
+              fontSize: 8, bold: true, color: accentColor, fontFace: 'Arial'
+            });
+
+            if (chartRows.length === 0) {
+              pptSlide.addText('No chart data', { x: 0.7, y: chartY, w: 5, h: 0.4, fontSize: 14, color: '94A3B8' });
+            }
+
+            chartRows.forEach((point, cIdx) => {
+              const y = chartY + cIdx * 0.48;
+              const barW = Math.max(0.18, (Math.max(0, point.value) / maxValue) * 3.4);
+              pptSlide.addText(point.label, { x: 0.65, y, w: 1.45, h: 0.25, fontSize: 9, bold: true, color: textColor });
+              pptSlide.addShape(pres.ShapeType.rect, {
+                x: 2.1, y: y + 0.03, w: barW, h: 0.22,
+                fill: { color: accentColor },
+                line: { color: accentColor, transparency: 100 }
+              });
+              pptSlide.addText(String(point.value), { x: 5.65, y, w: 0.8, h: 0.25, fontSize: 9, bold: true, color: textColor });
+            });
+
+            normalizedContent.slice(0, 3).forEach((item, cIdx) => {
+              const y = 1.75 + cIdx * 0.8;
+              pptSlide.addShape(pres.ShapeType.rect, { x: 6.55, y, w: 2.85, h: 0.62, fill: { color: 'F8FAFC' }, line: { color: 'E2E8F0', width: 1 } });
+              pptSlide.addText(item.heading, { x: 6.72, y: y + 0.1, w: 2.5, h: 0.16, fontSize: 10, bold: true, color: textColor });
+              pptSlide.addText(item.description, { x: 6.72, y: y + 0.32, w: 2.5, h: 0.18, fontSize: 7, color: '64748B' });
+            });
+            break;
+        }
+
+        case 'table': {
+            const table = extractPptxTableData(slide);
+            if (!table) {
+              pptSlide.addText('No table data', { x: 0.7, y: 1.7, w: 5, h: 0.4, fontSize: 14, color: '94A3B8' });
+              break;
+            }
+
+            const x = 0.55;
+            const y = 1.58;
+            const totalW = 8.9;
+            const colW = totalW / table.columns.length;
+            const rowH = ratio === '16:9' ? 0.42 : 0.52;
+
+            table.columns.forEach((column, cIdx) => {
+              pptSlide.addShape(pres.ShapeType.rect, {
+                x: x + cIdx * colW, y, w: colW, h: rowH,
+                fill: { color: BRAND.TEXT },
+                line: { color: BRAND.TEXT, width: 0.5 }
+              });
+              pptSlide.addText(column, {
+                x: x + cIdx * colW + 0.08, y: y + 0.1, w: colW - 0.16, h: 0.15,
+                fontSize: 8, bold: true, color: BRAND.WHITE, fontFace: 'Arial'
+              });
+            });
+
+            table.rows.forEach((row, rowIdx) => {
+              row.forEach((cell, cIdx) => {
+                const rowY = y + rowH * (rowIdx + 1);
+                pptSlide.addShape(pres.ShapeType.rect, {
+                  x: x + cIdx * colW, y: rowY, w: colW, h: rowH,
+                  fill: { color: rowIdx % 2 === 0 ? 'F8FAFC' : 'FFFFFF' },
+                  line: { color: 'E2E8F0', width: 0.5 }
+                });
+                pptSlide.addText(String(cell ?? ''), {
+                  x: x + cIdx * colW + 0.08, y: rowY + 0.1, w: colW - 0.16, h: 0.18,
+                  fontSize: 8, color: textColor, fontFace: 'Arial'
+                });
+              });
             });
             break;
         }

@@ -72,7 +72,12 @@
 - Fourteenth Research: `12_research/2026-06-12-workai-persistent-presentation-history.md`에 저장 버튼 기대, Web Storage 지속성, best-effort 저장소 한계, 사용자 제어감 리서치와 적용 결정을 기록했다.
 - Fourteenth A/B Gate: `src/lib/presentation-storage.test.ts`에서 legacy no-op save score 0 대비 candidate save/load/delete workflow score 8을 확인하고, 같은 id 재저장 시 중복 없이 업데이트함을 검증한다.
 - Fourteenth Verification: `npx vitest run src/lib/presentation-storage.test.ts src/lib/presentation-review-contract.test.ts src/presentation-final-screen.test.tsx` 통과(3파일/7테스트), `npx tsc --noEmit` 통과, `npm test` 통과(20파일/64테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: fourteenth loop git diff audit, commit, push.
+- Fourteenth Commit/Push: `9978e52 feat: persist presentation history`를 `origin/main`에 푸시 완료.
+- Fifteenth Candidate Feature: `PPTX Visual Data Export`를 추가했다. PPTX 내보내기에서 chart/table 슬라이드를 기본 bullet으로 떨어뜨리지 않고, 표준화된 시각화 데이터를 bar/table 형태의 네이티브 shape/text로 출력한다.
+- Fifteenth Research: `12_research/2026-06-12-workai-pptx-visual-data-export.md`에 PowerPoint chart/table, 빠른 데이터 이해, table comparison, 데이터 시각화 best practice 리서치와 적용 결정을 기록했다.
+- Fifteenth A/B Gate: `src/lib/pptx-export-service.test.ts`에서 legacy PPTX visual export score 0 대비 candidate score 2를 확인하고, dense table capping을 검증한다.
+- Fifteenth Verification: `npx vitest run src/lib/pptx-export-service.test.ts src/presentation-normalizer.test.ts src/lib/presentation-storage.test.ts` 통과(3파일/9테스트), `npx tsc --noEmit` 통과, `npm test` 통과(21파일/66테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: fifteenth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
