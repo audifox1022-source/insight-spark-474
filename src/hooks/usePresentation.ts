@@ -16,6 +16,7 @@ import {
   ParsedFileData
 } from '@/utils/fileParser';
 import { buildUploadedContextFromState, UploadedDataFileState } from '@/utils/presentationContext';
+import { repairPlanTasks } from '@/utils/planTasks';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -283,7 +284,7 @@ export const usePresentation = () => {
           setExecutionPlan({
             id: `plan-${Date.now()}`,
             title: plan.title || '발표자료 생성 계획서',
-            tasks: tasksData || [],
+            tasks: repairPlanTasks(tasksData || [], uploadedContext.text, settings.slideCount),
             isApproved: false,
             totalSlidesRequested: settings.slideCount
           });

@@ -147,7 +147,10 @@ export const useSlideStore = create<SlideState>()(
       updatePlanTask: (taskId, updates) => {
         const plan = get().executionPlan;
         if (!plan) return;
-        const updatedTasks = plan.tasks.map(t => t.id === taskId ? { ...t, ...updates } : t);
+        const updatedTasks = plan.tasks.map((t, idx) => {
+          const id = t.id || `task-${idx + 1}`;
+          return id === taskId ? { ...t, id, ...updates } : t;
+        });
         set({ executionPlan: { ...plan, tasks: updatedTasks } });
       },
       approvePlan: () => {

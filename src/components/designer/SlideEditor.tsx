@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
 import { exportToPdf, exportToPptx } from '@/lib/export-presentation';
+import { normalizePlanTask } from '@/utils/planTasks';
 
 interface SlideEditorProps {
   onBack: () => void;
@@ -435,9 +436,17 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                     );
                   }
 
-                  return tasksToRender.map((task, idx) => (
-                    <PlanTaskItem key={task.id || idx} task={task} idx={idx} onUpdate={(u) => store.updatePlanTask(task.id || String(idx), u)} />
-                  ));
+                  return tasksToRender.map((task, idx) => {
+                    const displayTask = normalizePlanTask(task, idx);
+                    return (
+                      <PlanTaskItem
+                        key={displayTask.id}
+                        task={task}
+                        idx={idx}
+                        onUpdate={(u) => store.updatePlanTask(displayTask.id, u)}
+                      />
+                    );
+                  });
                 })()}
               </div>
               <div className="p-5 sm:p-10 bg-muted/10 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 shrink-0">
@@ -656,10 +665,10 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 const PlanTaskItem: React.FC<{ task: any; idx: number; onUpdate: (updates: Partial<PlanTask>) => void }> = ({ task, idx, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   
-  // AI 응답 키(Key) 유연성 방어 로직 (맵핑)
-  const fallbackTitle = task.title || task.phaseName || task.step || task.name || task.topic || `항목 ${idx + 1}`;
-  const fallbackDesc = task.description || task.detail || task.deliverables || task.summary || task.content || '세부 내용이 없습니다.';
-  const fallbackImpact = task.impact || task.priority || task.status || (idx === 0 ? 'high' : 'medium');
+  const displayTask = normalizePlanTask(task, idx);
+  const fallbackTitle = displayTask.title;
+  const fallbackDesc = displayTask.description;
+  const fallbackImpact = displayTask.impact;
 
   return (
     <div className={`p-5 sm:p-6 rounded-3xl border transition-all min-w-0 ${isEditing ? 'border-primary ring-8 ring-primary/5 bg-background shadow-xl' : 'border-border bg-slate-50 hover:border-primary/40'}`}>
