@@ -26,6 +26,12 @@ export interface RecommendedInsightSlide {
   visualization: 'none' | 'chart' | 'table' | 'timeline' | 'comparison';
 }
 
+export interface InsightDepthRequirement {
+  label: string;
+  instruction: string;
+  failureMode: string;
+}
+
 export interface InsightBrief {
   qualityScore: number;
   scoreLabel: '보강 필요' | '생성 가능' | '고신뢰';
@@ -42,6 +48,7 @@ export interface InsightBrief {
   gapWarnings: string[];
   evidencePrompts: string[];
   recommendedSlides: RecommendedInsightSlide[];
+  insightDepthRequirements: InsightDepthRequirement[];
 }
 
 interface DataFileBriefInput {
@@ -70,6 +77,34 @@ const RISK_PATTERN =
   /(리스크|위험|제약|문제|장애|불확실|가정|대응|완화|대안|병목|한계|risk|constraint)/i;
 const AUDIENCE_PATTERN =
   /(임원|경영|고객|투자|팀|부서|사용자|담당자|audience|manager|executive|마케팅|영업|개발|재무|인사)/i;
+
+const INSIGHT_DEPTH_REQUIREMENTS: InsightDepthRequirement[] = [
+  {
+    label: '핵심 관찰',
+    instruction: '데이터, 문서, 사용자 메모에서 확인되는 변화, 대비, 예외를 한 문장으로 쓸 것',
+    failureMode: '단순 현황 나열',
+  },
+  {
+    label: '사업적 의미',
+    instruction: '핵심 청중의 목표와 의사결정 질문에 미치는 영향, 즉 so what을 밝힐 것',
+    failureMode: '좋음/나쁨 수준의 추상 평가',
+  },
+  {
+    label: '권고 행동',
+    instruction: '담당 주체, 다음 결정, 우선순위, 일정 중 하나를 붙여 실행 문장으로 끝낼 것',
+    failureMode: '검토 필요만 반복',
+  },
+  {
+    label: '근거 연결',
+    instruction: '수치, 파일명, 사용자 입력, 사례 등 근거/출처를 슬라이드 메시지에 연결할 것',
+    failureMode: '출처 없는 단언',
+  },
+  {
+    label: '리스크/가정',
+    instruction: '불확실성, 제약, 반대 논리, 확인 필요 항목 중 하나를 최소 1회 공개할 것',
+    failureMode: '장밋빛 결론',
+  },
+];
 
 function normalizeText(value: unknown): string {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -335,6 +370,7 @@ export function buildInsightBrief(input: BuildInsightBriefInput): InsightBrief {
     gapWarnings,
     evidencePrompts,
     recommendedSlides,
+    insightDepthRequirements: INSIGHT_DEPTH_REQUIREMENTS,
   };
 }
 
@@ -355,6 +391,12 @@ export function formatInsightBriefForPrompt(brief: InsightBrief): string {
   const gaps = brief.gapWarnings.length > 0
     ? brief.gapWarnings.map((gap) => `- ${gap}`).join('\n')
     : '- 현재 입력에서 중대한 보강 항목 없음';
+
+  const insightDepth = brief.insightDepthRequirements
+    .map((requirement) => {
+      return `- ${requirement.label}: ${requirement.instruction} / 실패 패턴: ${requirement.failureMode}`;
+    })
+    .join('\n');
 
   return [
     INSIGHT_BRIEF_PROMPT_MARKER,
@@ -377,8 +419,12 @@ export function formatInsightBriefForPrompt(brief: InsightBrief): string {
     '[권장 슬라이드 전략]',
     slides,
     '',
+    '[인사이트 깊이 기준]',
+    insightDepth,
+    '',
     '[생성 강제 규칙]',
-    '- 각 본문 슬라이드는 관찰 -> 의미 -> 행동 중 최소 2개를 포함할 것',
+    '- 일반론 금지: 각 본문 슬라이드는 핵심 관찰 -> 사업적 의미 -> 권고 행동 중 최소 2개를 포함할 것',
+    '- 슬라이드 제목은 무엇이 변했고 왜 중요한지 드러내며, 본문에는 근거/출처 또는 리스크/가정 중 하나를 연결할 것',
     '- 수치/KPI/비교 데이터가 있으면 chart, table, comparison 중 하나로 구조화할 것',
     '- 결론 없는 요약을 금지하고 각 슬라이드에 의사결정 기여도를 명시할 것',
     '- 리스크 또는 가정이 부족하면 마지막 1개 슬라이드에서 확인 필요 항목으로 분리할 것',

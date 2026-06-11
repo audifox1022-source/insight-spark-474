@@ -117,7 +117,12 @@
 - Twenty-third Research: `12_research/2026-06-12-workai-remove-legacy-pptx-exporter.md`에 technical debt, code health, 제품 내 export 일관성 리서치와 적용 결정을 기록했다.
 - Twenty-third A/B Gate: `src/lib/export-path-hygiene.test.ts`에서 legacy duplicate exporter debt score 1 대비 candidate score 0을 확인한다.
 - Twenty-third Verification: `npx vitest run src/lib/export-path-hygiene.test.ts src/components/ViewExportMenu.test.tsx src/lib/pptx-export-service.test.ts` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(28파일/75테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-third loop git diff audit, commit, push.
+- Twenty-third Commit/Push: `618b462 chore: remove legacy pptx exporter`를 `origin/main`에 푸시 완료.
+- Twenty-fourth Candidate Feature: `Insight Depth Guardrails`를 추가했다. 생성 프롬프트의 `Insight Brief`에 핵심 관찰, 사업적 의미, 권고 행동, 근거 연결, 리스크/가정 기준과 실패 패턴을 포함해 일반론 슬라이드 생성을 억제한다.
+- Twenty-fourth Research: `12_research/2026-06-12-workai-insight-depth-guardrails.md`에 Gemini prompt design, Tableau data storytelling/visual best practices, NN/g dashboard actionability 리서치와 적용 결정을 기록했다.
+- Twenty-fourth A/B Gate: `src/lib/insight-brief.test.ts`에서 legacy prompt depth score 30 미만 대비 candidate score 90 이상을 확인한다.
+- Twenty-fourth Verification: `npx vitest run src/lib/insight-brief.test.ts` 통과(1파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(28파일/76테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-fourth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

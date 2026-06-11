@@ -35,6 +35,23 @@ function promptReadinessScore(prompt: string): number {
   return checks.reduce((score, check) => score + (check.test(prompt) ? 10 : 0), 0);
 }
 
+function insightDepthScore(prompt: string): number {
+  const checks = [
+    /인사이트 깊이 기준/,
+    /핵심 관찰/,
+    /사업적 의미/,
+    /권고 행동/,
+    /근거\/출처|근거 연결/,
+    /리스크\/가정/,
+    /일반론 금지/,
+    /so what|왜 중요한지/,
+    /출처 없는 단언/,
+    /검토 필요만 반복/,
+  ];
+
+  return checks.reduce((score, check) => score + (check.test(prompt) ? 10 : 0), 0);
+}
+
 describe('insight brief generation', () => {
   it('scores evidence-rich business inputs higher than sparse topic prompts', () => {
     const sparse = buildInsightBrief({
@@ -149,5 +166,35 @@ describe('insight brief generation', () => {
 
     expect(deltas.every((delta) => delta > 0)).toBe(true);
     expect(deltas.reduce((sum, delta) => sum + delta, 0) / deltas.length).toBeGreaterThanOrEqual(70);
+  });
+
+  it('A/B test: prompt formatting adds insight-depth guardrails against generic summaries', () => {
+    const brief = buildInsightBrief({
+      meetingInfo: {
+        week: '2026년 2분기',
+        department: '전략기획팀',
+        reporter: '김현',
+        title: 'AI 영업 생산성 개선안',
+        objective: '파일럿 확대 여부와 예산 승인 결정',
+        audience: 'CRO 및 영업 임원',
+        notes: '리드 응답시간 28% 단축, 계약 전환율 6%p 상승. 리스크는 현장 교육 부담과 데이터 품질 편차.',
+      },
+      settings: defaultSettings,
+      template: 'proposal',
+      dataSummary: '영업 파일럿 12주 분석 결과 담당자별 응답시간이 평균 28% 단축되고 전환율이 6%p 상승했다.',
+      dataFiles: [{ name: 'sales-ai-pilot.csv', status: 'success' }],
+    });
+
+    const legacyFormat = [
+      INSIGHT_BRIEF_PROMPT_MARKER,
+      '[생성 강제 규칙]',
+      '- 각 본문 슬라이드는 관찰 -> 의미 -> 행동 중 최소 2개를 포함할 것',
+      '- 수치/KPI/비교 데이터가 있으면 chart, table, comparison 중 하나로 구조화할 것',
+      '- 결론 없는 요약을 금지하고 각 슬라이드에 의사결정 기여도를 명시할 것',
+    ].join('\n');
+    const candidate = formatInsightBriefForPrompt(brief);
+
+    expect(insightDepthScore(legacyFormat)).toBeLessThan(30);
+    expect(insightDepthScore(candidate)).toBeGreaterThanOrEqual(90);
   });
 });
