@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -10,11 +10,13 @@ import {
   BarChart3, Lightbulb, Wand2, Star, Trash2, BookmarkPlus,
   ChevronDown, ChevronUp, Upload, Loader2, Palette, X, ClipboardList,
   Baby, Briefcase, Award, Crown, PenTool, Timer, Clock, Layers, BookOpen,
-  FileSpreadsheet, FileJson, FileCheck, Pipette, CheckCircle2, Hash
+  FileSpreadsheet, FileJson, FileCheck, Pipette, CheckCircle2, Hash,
+  AlertTriangle, ShieldCheck, Target, TrendingUp
 } from 'lucide-react';
 import { saveFavoriteTemplate, loadFavoriteTemplates, deleteFavoriteTemplate, FavoriteTemplate } from '@/lib/favorite-templates';
 import { toast } from 'sonner';
 import { aiService } from '@/lib/ai-service';
+import { buildInsightBrief } from '@/lib/insight-brief';
 import { ReferenceStructure } from '@/hooks/usePresentation';
 import SettingsSection from './SettingsSection';
 import { Settings } from '@/types';
@@ -116,6 +118,17 @@ export function PresentationSetupForm({
   const templateInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
+
+  const insightBrief = useMemo(() => buildInsightBrief({
+    meetingInfo: info,
+    settings,
+    template,
+    dataSummary,
+    dataFiles,
+    referenceStructure,
+  }), [info, settings, template, dataSummary, dataFiles, referenceStructure]);
+
+  const passedCriteria = insightBrief.criteria.filter((criterion) => criterion.passed).length;
 
   useEffect(() => { setFavorites(loadFavoriteTemplates()); }, []);
 
@@ -304,6 +317,95 @@ export function PresentationSetupForm({
               </div>
             </motion.div>
           )}
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
+      {/* SECTION 0.8. 인사이트 품질 게이트 */}
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-amber-600" />
+            0.8. 인사이트 품질 게이트
+          </h3>
+          <p className="text-sm text-muted-foreground ml-8">생성 전에 목표, 근거, 실행성을 점검해 일반적인 결과물을 줄입니다.</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
+          <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/10 p-5 flex flex-col justify-between min-h-[220px]">
+            <div className="space-y-2">
+              <p className="text-xs font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">Insight Score</p>
+              <div className="flex items-end gap-2">
+                <span className="text-5xl font-black text-slate-900 dark:text-slate-50">{insightBrief.qualityScore}</span>
+                <span className="text-sm font-bold text-muted-foreground mb-2">/100</span>
+              </div>
+              <p className="text-sm font-black text-amber-700 dark:text-amber-300">{insightBrief.scoreLabel}</p>
+            </div>
+            <div className="space-y-2">
+              <div className="h-2 rounded-full bg-white dark:bg-slate-800 overflow-hidden border border-amber-100 dark:border-amber-900/50">
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${insightBrief.qualityScore}%` }} />
+              </div>
+              <p className="text-xs font-semibold text-muted-foreground">{passedCriteria}/{insightBrief.criteria.length}개 게이트 충족</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="rounded-xl bg-muted/40 p-4 min-h-[96px]">
+                <div className="flex items-center gap-2 text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                  <Target className="w-4 h-4 text-primary" /> 결정 질문
+                </div>
+                <p className="text-sm font-bold leading-relaxed text-slate-800 dark:text-slate-100">{insightBrief.strategyFrame.decisionQuestion}</p>
+              </div>
+              <div className="rounded-xl bg-muted/40 p-4 min-h-[96px]">
+                <div className="flex items-center gap-2 text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                  <BarChart3 className="w-4 h-4 text-cyan-500" /> 근거 기반
+                </div>
+                <p className="text-sm font-bold leading-relaxed text-slate-800 dark:text-slate-100">{insightBrief.strategyFrame.sourceBasis}</p>
+              </div>
+              <div className="rounded-xl bg-muted/40 p-4 min-h-[96px]">
+                <div className="flex items-center gap-2 text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
+                  <TrendingUp className="w-4 h-4 text-emerald-500" /> 기대 행동
+                </div>
+                <p className="text-sm font-bold leading-relaxed text-slate-800 dark:text-slate-100">{insightBrief.strategyFrame.expectedAction}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {insightBrief.criteria.map((criterion) => (
+                <div key={criterion.id} className={`flex items-start gap-3 p-3 rounded-xl border ${criterion.passed ? 'bg-emerald-50/60 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/40' : 'bg-slate-50 border-slate-200 dark:bg-slate-900/40 dark:border-slate-800'}`}>
+                  {criterion.passed ? (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-100">{criterion.label}</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                      {criterion.passed ? criterion.evidence : criterion.recommendation}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {insightBrief.gapWarnings.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/10 dark:border-amber-900/50 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Lightbulb className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm font-black text-amber-800 dark:text-amber-300">우선 보강 항목</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {insightBrief.evidencePrompts.map((prompt) => (
+                    <span key={prompt} className="px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-amber-100 dark:border-amber-900/50 text-xs font-semibold text-amber-800 dark:text-amber-200">
+                      {prompt}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import { useThemeStore } from '@/store/useThemeStore'; // [NEW] 전역 테마 �
 import { toast } from 'sonner';
 import { parseFile } from '@/utils/fileParser';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
+import { appendInsightBriefToPrompt, buildInsightBrief } from '@/lib/insight-brief';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -85,6 +86,16 @@ export const usePresentation = () => {
   const setStorePresentation = useSlideStore((state) => state.setPresentation);
   const setExecutionPlan = useSlideStore((state) => state.setExecutionPlan);
   const executionPlan = useSlideStore((state) => state.executionPlan);
+
+  const buildCurrentInsightBrief = () => buildInsightBrief({
+    meetingInfo: info,
+    settings,
+    template,
+    dataSummary,
+    sourceFileData,
+    dataFiles,
+    referenceStructure,
+  });
 
   // ── [로딩 관리] ──────────────────────────────────────────
   const startLoadingTimer = (type: 'outline' | 'full' | 'regen' | 'review' | 'analyze' | 'plan') => {
@@ -179,6 +190,8 @@ export const usePresentation = () => {
         if (sourceFileData && sourceFileData.trim().length > 0) {
           userRequest += `\n\n[업로드된 원본 문서 내용]\n${sourceFileData.substring(0, 15000)}`;
         }
+        const insightBrief = buildCurrentInsightBrief();
+        userRequest = appendInsightBriefToPrompt(userRequest, insightBrief);
         const plan = await aiService.createProjectPlan(userRequest, settings);
         if (generationCancelledRef.current) return;
         if (plan) {
@@ -243,6 +256,9 @@ export const usePresentation = () => {
       else integratedText += `[파일 본문: ${f.name}]\n${f.content}\n\n`;
     });
 
+    const insightBrief = buildCurrentInsightBrief();
+    integratedText = appendInsightBriefToPrompt(integratedText, insightBrief);
+
     const combinedInput = multimodalParts.length > 0 ? [...multimodalParts, { text: integratedText }] : integratedText;
     
     setIsGenerating(true);
@@ -283,11 +299,13 @@ export const usePresentation = () => {
     
     try {
       console.log("[Step 1] 구성안 데이터 수신 및 파싱 성공");
-      const combinedInput = aiParts.length > 0 ? [...aiParts, { text: sourceFileData }] : sourceFileData;
+      const insightBrief = buildCurrentInsightBrief();
+      const insightEnhancedSource = appendInsightBriefToPrompt(sourceFileData, insightBrief);
+      const combinedInput = aiParts.length > 0 ? [...aiParts, { text: insightEnhancedSource }] : insightEnhancedSource;
       
       console.log("[Step 2] 슬라이드 콘텐츠 생성 API 호출 시작");
       const result = await aiService.generatePresentation({
-        fileData: combinedInput, template, meetingInfo: info, settings, approvedOutline
+        fileData: combinedInput, template, meetingInfo: info, settings, approvedOutline, insightBrief
       });
       if (generationCancelledRef.current) return;
       

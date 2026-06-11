@@ -1,5 +1,13 @@
 # Autoresearch Working Log
 
+## 2026-06-11 Product Improvement Loop
+- Objective: 제품 본연의 발표자료 생성 기능을 강화하고, 외부 리서치를 `12_research/`에 한국어로 저장하며, A/B 검증이 개선을 보일 때만 소스에 반영한다.
+- Research: `12_research/2026-06-11-workai-insight-brief-quality-gate.md`에 데이터 스토리텔링, Human-in-the-loop AI UX, LLM eval, A/B 테스트 근거와 적용 결정을 기록했다.
+- Candidate Feature: `Insight Brief Quality Gate`를 추가했다. 생성 전 입력을 의사결정 질문, 청중, 근거, 실행, 리스크, 시각화 단서로 평가하고 같은 브리프를 AI 생성 요청에 주입한다.
+- A/B Gate: `src/lib/insight-brief.test.ts`에서 원본 프롬프트와 인사이트 브리프 보강 프롬프트를 3개 업무 시나리오로 비교한다. 모든 샘플에서 candidate가 baseline보다 높고 평균 개선폭이 70점 이상이어야 통과한다.
+- Verification: `npx vitest run src/lib/insight-brief.test.ts` 통과(1파일/3테스트), `npm test` 통과(12파일/40테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: git diff audit, commit, push.
+
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
 
