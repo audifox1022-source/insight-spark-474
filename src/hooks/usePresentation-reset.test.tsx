@@ -2,7 +2,8 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePresentation } from '@/hooks/usePresentation';
 import { useSlideStore } from '@/store/useSlideStore';
-import type { Presentation } from '@/types/presentation';
+import { createDefaultMeetingInfo } from '@/lib/meeting-info';
+import type { MeetingInfo, Presentation } from '@/types/presentation';
 
 const localStorageMock = vi.hoisted(() => {
   const storage = new Map<string, string>();
@@ -64,12 +65,34 @@ const staleDeck: Presentation = {
   ],
 };
 
+const staleInfo: MeetingInfo = {
+  week: '2026년 2분기',
+  department: '전략기획팀',
+  reporter: '김현',
+  notes: '이전 생성 메모',
+  title: '이전 발표 제목',
+  objective: '이전 발표 목표',
+  audience: '이전 청중',
+  tone: '이전 톤',
+};
+
 function resetStoreCleanlinessScore(state: any) {
   const checks = [
     state.presentation === null,
     state.aspectRatio === '16:9',
     state.executionPlan === null,
     Array.isArray(state.history) && state.history.length === 0,
+  ];
+  return checks.filter(Boolean).length;
+}
+
+function resetHookContextScore(state: any) {
+  const checks = [
+    JSON.stringify(state.info) === JSON.stringify(createDefaultMeetingInfo()),
+    state.template === 'auto',
+    state.sourceFileData === '',
+    state.dataSummary === '',
+    state.currentSlideIndex === 0,
   ];
   return checks.filter(Boolean).length;
 }
@@ -114,5 +137,32 @@ describe('usePresentation reset contract', () => {
     expect(resetStoreCleanlinessScore(useSlideStore.getState())).toBe(4);
     expect(result.current.presentation).toBeNull();
     expect(result.current.step).toBe('upload');
+  });
+
+  it('A/B test: platform reset clears stale generation brief context', () => {
+    const { result } = renderHook(() => usePresentation());
+
+    act(() => {
+      result.current.setInfo(staleInfo);
+      result.current.setTemplate('proposal');
+      result.current.setSourceFileData('stale uploaded source');
+      result.current.setDataSummary('stale data summary');
+      result.current.setCurrentSlideIndex(3);
+    });
+
+    const legacyContextAfterReset = {
+      info: staleInfo,
+      template: 'proposal',
+      sourceFileData: 'stale uploaded source',
+      dataSummary: '',
+      currentSlideIndex: 3,
+    };
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(resetHookContextScore(legacyContextAfterReset)).toBe(1);
+    expect(resetHookContextScore(result.current)).toBe(5);
   });
 });

@@ -524,8 +524,15 @@ export const usePresentation = () => {
     setStep('upload');
     setPresentationState(null);
     setOutline(null);
+    setCurrentSlideIndex(0);
+    setInfo(createDefaultMeetingInfo());
+    setTemplate('auto');
     setDataFiles([]);
     setDataSummary('');
+    setAiParts([]);
+    setSourceFileData('');
+    setReferenceFileName('');
+    setReferenceStructure(null);
     setIsGenerating(false);
     resetSlideStore();
     setExecutionPlan(null);

@@ -152,7 +152,12 @@
 - Thirtieth Research: `12_research/2026-06-12-workai-normalize-loaded-meeting-info.md`에 localStorage persistence, consistency, recognition, user control 리서치와 적용 결정을 기록했다.
 - Thirtieth A/B Gate: `src/lib/meeting-info.test.ts`에서 legacy partial saved-info merge는 stale metadata를 누출하지만 candidate normalize는 stale leak score 0임을 확인한다.
 - Thirtieth Verification: `npx vitest run src/lib/meeting-info.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/89테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirtieth loop git diff audit, commit, push.
+- Thirtieth Commit/Push: `4769f4f fix: normalize loaded meeting info`를 `origin/main`에 푸시 완료.
+- Thirty-first Candidate Feature: `Reset Clears Generation Context`를 추가했다. 플랫폼 reset이 `MeetingInfo`, template, sourceFileData, aiParts, reference 상태, currentSlideIndex까지 초기화해 이전 발표 브리프나 원문이 다음 생성에 섞이지 않도록 했다.
+- Thirty-first Research: `12_research/2026-06-12-workai-reset-clears-generation-context.md`에 user control, consistency, recognition, localStorage state lifecycle 리서치와 적용 결정을 기록했다.
+- Thirty-first A/B Gate: `src/hooks/usePresentation-reset.test.tsx`에서 legacy reset context score 1 대비 candidate score 5를 확인한다.
+- Thirty-first Verification: `npx vitest run src/hooks/usePresentation-reset.test.tsx` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/90테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-first loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
