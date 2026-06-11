@@ -18,6 +18,7 @@ import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
 import { mergeRegeneratedSlide } from '@/lib/slide-regeneration-contract';
 import { mergeReviewedPresentation } from '@/lib/presentation-review-contract';
+import { buildPresentationBriefPromptContext } from '@/lib/presentation-prompt-context';
 import {
   deletePresentation,
   loadPresentations,
@@ -221,7 +222,7 @@ export const usePresentation = () => {
       startLoadingTimer('plan');
       try {
         // [FIX] 업로드된 파일 내용(sourceFileData)을 Plan 생성에 반드시 포함
-        let userRequest = `주제: ${info.title || '자동 생성'}\n목표: ${info.objective}\n참고: ${info.notes}`;
+        let userRequest = buildPresentationBriefPromptContext(info);
         if (sourceFileData && sourceFileData.trim().length > 0) {
           userRequest += `\n\n[업로드된 원본 문서 내용]\n${sourceFileData.substring(0, 15000)}`;
         }
@@ -275,7 +276,7 @@ export const usePresentation = () => {
 
     const parsedFiles = dataFiles.filter(f => f.status === 'success');
     const multimodalParts: any[] = [];
-    let integratedText = `[추가 지침/메모]\n${info.notes || '없음'}\n\n`;
+    let integratedText = `${buildPresentationBriefPromptContext(info)}\n\n`;
 
     // [FIX] 업로드 파일 원본 내용(sourceFileData)을 반드시 통합 텍스트에 포함
     if (sourceFileData && sourceFileData.trim().length > 0) {
