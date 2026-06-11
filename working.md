@@ -97,7 +97,12 @@
 - Nineteenth Research: `12_research/2026-06-12-workai-persistent-aspect-ratio-history.md`에 PowerPoint slide size, Web Storage, 제품 내 일관성 리서치와 적용 결정을 기록했다.
 - Nineteenth A/B Gate: `src/lib/presentation-storage.test.ts`에서 legacy saved ratio score 0 대비 candidate score 1을 확인하고, 같은 id 업데이트 시 ratio도 갱신됨을 검증한다.
 - Nineteenth Verification: `npx vitest run src/lib/presentation-storage.test.ts src/components/designer/EditorHeader.test.tsx src/components/ViewExportMenu.test.tsx` 통과(3파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(24파일/70테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: nineteenth loop git diff audit, commit, push.
+- Nineteenth Commit/Push: `818f5ca feat: persist deck aspect ratio`를 `origin/main`에 푸시 완료.
+- Twentieth Candidate Feature: `Aspect Ratio Aware Filmstrip Thumbnails`를 추가했다. 4:3 덱에서 하단 필름스트립 썸네일 프레임도 4:3 비율로 표시한다.
+- Twentieth Research: `12_research/2026-06-12-workai-aspect-ratio-aware-filmstrip-thumbnails.md`에 slide size, 시각 디자인 원칙, aspect ratio 보존 리서치와 적용 결정을 기록했다.
+- Twentieth A/B Gate: `src/components/designer/slide-thumbnail-layout.test.ts`에서 legacy 4:3 thumbnail frame score 0 대비 candidate score 1을 확인하고, 16:9 active state 보존을 검증한다.
+- Twentieth Verification: `npx vitest run src/components/designer/slide-thumbnail-layout.test.ts src/components/designer/EditorHeader.test.tsx src/lib/presentation-storage.test.ts` 통과(3파일/5테스트), `npx tsc --noEmit` 통과, `npm test` 통과(25파일/72테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twentieth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

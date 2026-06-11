@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
 import { auditPresentationQuality } from '@/lib/deck-quality-audit';
+import { getFilmstripThumbnailClass } from './slide-thumbnail-layout';
 
 interface SlideEditorProps {
   onBack: () => void;
@@ -644,7 +645,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
         <div className="h-44 bg-card/80 backdrop-blur-2xl border-t border-border flex items-center gap-6 px-10 py-6 overflow-x-auto custom-scrollbar shadow-[0_-15px_40px_rgba(0,0,0,0.03)] selection:bg-transparent">
           {slides.map((s: any, idx: number) => (
-            <button key={s.id} onClick={() => store.setCurrentSlideIndex(idx)} className={`flex-shrink-0 w-64 h-[144px] rounded-2xl border-2 transition-all relative overflow-hidden group ${store.currentSlideIndex === idx ? 'border-primary ring-8 ring-primary/10 scale-105 shadow-2xl z-20' : 'border-border opacity-70 hover:opacity-100 hover:border-primary/40 hover:scale-[1.02]'}`}>
+            <button key={s.id} onClick={() => store.setCurrentSlideIndex(idx)} className={getFilmstripThumbnailClass(store.currentSlideIndex === idx, store.aspectRatio)}>
               <div className="absolute inset-0 bg-white dark:bg-slate-900 pointer-events-none">
                 <div className={`scale-[0.2] origin-top-left ${store.aspectRatio === '16:9' ? 'aspect-video w-[1280px] h-[720px]' : 'aspect-[4/3] w-[960px] h-[720px]'}`}>
                   <SlideLayoutRenderer slide={s} slideIndex={idx} thumbnailMode={true} />
