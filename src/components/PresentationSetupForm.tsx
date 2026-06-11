@@ -213,6 +213,92 @@ export function PresentationSetupForm({
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-4xl mx-auto p-8 flex flex-col gap-10 animate-in fade-in duration-300"
     >
+      {/* SECTION 0. 발표 브리프 */}
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+            <ClipboardList className="w-6 h-6 text-primary" />
+            0. 발표 브리프
+          </h3>
+          <p className="text-sm text-muted-foreground ml-8">AI가 의사결정 맥락을 놓치지 않도록 발표의 핵심 정보를 확인해 주세요.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="brief-title" className="text-sm font-bold">발표 제목</Label>
+            <Input
+              id="brief-title"
+              value={info.title || ''}
+              onChange={(e) => update('title', e.target.value)}
+              placeholder="AI 영업 생산성 개선안"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-objective" className="text-sm font-bold">목표/결정 요청</Label>
+            <Input
+              id="brief-objective"
+              value={info.objective || ''}
+              onChange={(e) => update('objective', e.target.value)}
+              placeholder="파일럿 확대 여부와 예산 승인 결정"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-audience" className="text-sm font-bold">핵심 청중</Label>
+            <Input
+              id="brief-audience"
+              value={info.audience || ''}
+              onChange={(e) => update('audience', e.target.value)}
+              placeholder="CRO 및 영업 임원"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-tone" className="text-sm font-bold">발표 어조</Label>
+            <Input
+              id="brief-tone"
+              value={info.tone || ''}
+              onChange={(e) => update('tone', e.target.value)}
+              placeholder="경영진 보고체"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-week" className="text-sm font-bold">보고 기간/주차</Label>
+            <Input
+              id="brief-week"
+              value={info.week || ''}
+              onChange={(e) => update('week', e.target.value)}
+              placeholder="2026년 2분기"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="brief-reporter" className="text-sm font-bold">보고자</Label>
+            <Input
+              id="brief-reporter"
+              value={info.reporter || ''}
+              onChange={(e) => update('reporter', e.target.value)}
+              placeholder="전략기획팀 김현"
+              className="h-12 rounded-xl bg-card"
+            />
+          </div>
+          <div className="md:col-span-2 space-y-2">
+            <Label htmlFor="brief-notes" className="text-sm font-bold">참고사항/원문 요청</Label>
+            <Textarea
+              id="brief-notes"
+              value={info.notes || ''}
+              onChange={(e) => update('notes', e.target.value)}
+              placeholder="핵심 수치, 리스크, 반드시 포함할 메시지를 입력하세요."
+              className="min-h-[120px] rounded-xl bg-card resize-y"
+            />
+          </div>
+        </div>
+      </div>
+
+      <hr className="border-border" />
+
       {/* SECTION 0. 데이터 분석 파이프라인 */}
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">

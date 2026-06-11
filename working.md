@@ -137,7 +137,12 @@
 - Twenty-seventh Research: `12_research/2026-06-12-workai-preset-metadata-hydration.md`에 Gemini prompt context, Microsoft Copilot prompt components, form cognitive load, recognition over recall 리서치와 적용 결정을 기록했다.
 - Twenty-seventh A/B Gate: `src/components/presentation-preset-metadata.test.ts`에서 legacy notes-only preset score 1 대비 candidate score 4를 확인한다.
 - Twenty-seventh Verification: `npx vitest run src/components/presentation-preset-metadata.test.ts` 통과(1파일/3테스트), `npx tsc --noEmit` 통과, `npm test` 통과(31파일/83테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: twenty-seventh loop git diff audit, commit, push.
+- Twenty-seventh Commit/Push: `c55da58 feat: hydrate preset meeting metadata`를 `origin/main`에 푸시 완료.
+- Twenty-eighth Candidate Feature: `Editable Brief Fields`를 추가했다. 설정 화면 상단에 발표 제목, 목표/결정 요청, 핵심 청중, 발표 어조, 보고 기간/주차, 보고자, 참고사항 입력 필드를 노출해 사용자가 생성 전 메타데이터를 직접 확인/보강할 수 있게 했다.
+- Twenty-eighth Research: `12_research/2026-06-12-workai-editable-brief-fields.md`에 form cognitive load, recognition over recall, Gemini prompt context, Copilot prompt components 리서치와 적용 결정을 기록했다.
+- Twenty-eighth A/B Gate: `src/components/PresentationSetupForm.test.tsx`에서 legacy setup brief field score 0 대비 candidate score 7을 확인한다.
+- Twenty-eighth Verification: `npx vitest run src/components/PresentationSetupForm.test.tsx` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(32파일/85테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: twenty-eighth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
