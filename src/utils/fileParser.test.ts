@@ -1,12 +1,36 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { parsePdf } from './pdfParser';
 import {
   buildAIParts,
   extractInlinePartsFromContent,
   formatParsedFileForPrompt,
+  parseFile,
   ParsedFileData
 } from './fileParser';
 
+vi.mock('./pdfParser', () => ({
+  parsePdf: vi.fn(async (file: File) => ({
+    fileName: file.name,
+    fileType: 'pdf',
+    content: 'parsed pdf',
+    summary: 'parsed pdf'
+  }))
+}));
+
 describe('file parser prompt formatting', () => {
+  it('loads the PDF parser module for PDF uploads', async () => {
+    const file = new File(['fake pdf'], 'deck.pdf', { type: 'application/pdf' });
+
+    const parsed = await parseFile(file);
+
+    expect(parsePdf).toHaveBeenCalledWith(file);
+    expect(parsed).toMatchObject({
+      fileName: 'deck.pdf',
+      fileType: 'pdf',
+      content: 'parsed pdf'
+    });
+  });
+
   it('formats extracted text files as readable source context', () => {
     const parsed: ParsedFileData = {
       fileName: 'strategy.docx',

@@ -50,6 +50,12 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    modulePreload: {
+      resolveDependencies(_url, deps, { hostType }) {
+        if (hostType !== 'html') return deps;
+        return deps.filter((dep) => !/^assets\/pdfjs-[^/]+\.js$/.test(dep));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
