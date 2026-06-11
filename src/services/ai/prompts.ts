@@ -5,15 +5,26 @@
 // [AUDIO LAB RESTORE] Speech Share, Sentiment Flow, Forensic & Lyrics
 // [STABILITY] 전체 코드 출력 (김현 님 지침 준수)
 // ============================================================
+import type { MeetingInfo } from '@/types/presentation';
 import { DIFFICULTY_MAP } from './constants';
 
-export function getMeetingInfoContext(info: any): string {
+export function getMeetingInfoContext(info: Partial<MeetingInfo> | null | undefined): string {
   return [
-    info?.week ? `발표 주제/주차: ${info.week}` : '',
-    info?.department ? `부서: ${info.department}` : '',
-    info?.reporter ? `보고자: ${info.reporter}` : '',
-    info?.notes ? `참구사항: ${info.notes}` : '',
-  ].filter(Boolean).join('\n');
+    ['발표 제목', info?.title],
+    ['목표', info?.objective],
+    ['핵심 청중', info?.audience],
+    ['톤', info?.tone],
+    ['주차/기간', info?.week],
+    ['부서', info?.department],
+    ['보고자', info?.reporter],
+    ['참고사항', info?.notes],
+  ]
+    .map(([label, value]) => {
+      const text = String(value || '').trim();
+      return text ? `${label}: ${text}` : '';
+    })
+    .filter(Boolean)
+    .join('\n');
 }
 
 export const GEMINI_SYSTEM_PROMPT_STANDARD = `

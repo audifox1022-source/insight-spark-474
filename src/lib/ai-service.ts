@@ -8,6 +8,7 @@ import { extractJson } from '@/services/ai/geminiService';
 import { normalizePresentationSlides } from '@/utils/presentation-normalizer';
 import { enforceSlideCountContract } from '@/lib/slide-count-contract';
 import { alignSlidesToApprovedOutline } from '@/lib/outline-contract';
+import { getMeetingInfoContext } from '@/services/ai/prompts';
 
 const DEFAULT_SYSTEM_PROMPT = "당신은 실시간 업무 지원을 위한 최고의 AI 아키텍트입니다.";
 
@@ -140,7 +141,8 @@ export const aiService = {
       [입력 데이터] ${typeof fileData === 'string' ? fileData.substring(0, 10000) : '데이터 제공됨'}
       [정확한 장수] ${slideCount}장
       [승인된 목차] ${stringifyForPrompt(approvedOutline)}
-      [참고 정보] ${JSON.stringify(meetingInfo || {})}
+      [참고 정보]
+      ${getMeetingInfoContext(meetingInfo) || '없음'}
       
       위 데이터를 바탕으로 신규 레이아웃을 적극 활용하여 설계하십시오.
     `;
