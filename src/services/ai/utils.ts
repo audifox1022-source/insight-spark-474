@@ -5,6 +5,7 @@ import { MAX_FILE_BYTES, ALLOWED_SLIDE_TYPES, AllowedSlideType, TYPE_ALIAS_MAP }
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: false });
+const TRAILING_DECODE_ARTIFACT_PATTERN = /\uFFFD+$/;
 
 /**
  * 대용량 파일 데이터를 전송 가능한 크기로 제한합니다.
@@ -16,7 +17,9 @@ export function truncateFileData(fileData: any): string {
   if (encoded.length <= MAX_FILE_BYTES) return raw;
   const sliced = encoded.slice(0, MAX_FILE_BYTES);
   const decoded = decoder.decode(sliced);
-  return decoded.replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
+  return decoded
+    .replace(TRAILING_DECODE_ARTIFACT_PATTERN, "")
+    .replace(/\\u[\dA-Fa-f]{0,3}$|\\x[\dA-Fa-f]?$|\\$/, "");
 }
 
 /**
