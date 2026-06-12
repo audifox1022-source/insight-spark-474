@@ -14,7 +14,7 @@ import {
   X, AlertCircle, Edit3, ListChecks, Loader2, Send,
   HelpCircle, Info, FileDown, Eye, FileDigit, 
   MoreHorizontal, DownloadCloud, FileText,
-  Maximize2, Box
+  Maximize2, Box, RefreshCw, Clock, Lightbulb
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSlideStore, ExecutionPlan, PlanTask } from '@/store/useSlideStore';
@@ -26,6 +26,9 @@ import { geminiService } from '@/services/ai/geminiService';
 import { auditPresentationQuality } from '@/lib/deck-quality-audit';
 import { buildFeedbackRecommendationView, mergeFeedbackImprovements } from '@/lib/review-feedback';
 import { getFilmstripThumbnailClass } from './slide-thumbnail-layout';
+import { BatchRegenerationPanel } from './BatchRegenerationPanel';
+import { VersionHistoryPanel } from './VersionHistoryPanel';
+import { AISuggestionPanel } from './AISuggestionPanel';
 
 interface SlideEditorProps {
   onBack: () => void;
@@ -305,6 +308,9 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
   const [showRegenPopup, setShowRegenPopup] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showBatchRegen, setShowBatchRegen] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [showAISuggestions, setShowAISuggestions] = useState(false);
 
   useEffect(() => {
     store.setIsEditMode(true);
@@ -531,9 +537,25 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
                </div>
 
                <Button onClick={handleEnterpriseReview} disabled={isReviewing} variant="outline" className="w-full h-13 rounded-2xl font-black text-xs gap-3 mt-4 border-emerald-500/20 bg-emerald-500/5 text-emerald-700 hover:bg-emerald-500/10 transition-all">
-                 {isReviewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
-                 품질 정밀 검증
-               </Button>
+                  {isReviewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4 text-emerald-500" />}
+                  품질 정밀 검증
+                </Button>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <Button onClick={() => setShowBatchRegen(true)} variant="outline" className="h-14 rounded-2xl font-black text-[11px] flex-col gap-1 border-orange-500/20 hover:bg-orange-500/5">
+                    <RefreshCw className="w-4 h-4 text-orange-500" />
+                    배치 재생성
+                  </Button>
+                  <Button onClick={() => setShowVersionHistory(true)} variant="outline" className="h-14 rounded-2xl font-black text-[11px] flex-col gap-1 border-cyan-500/20 hover:bg-cyan-500/5">
+                    <Clock className="w-4 h-4 text-cyan-500" />
+                    버전 히스토리
+                  </Button>
+                </div>
+
+                <Button onClick={() => setShowAISuggestions(true)} variant="outline" className="w-full h-13 rounded-2xl font-black text-xs gap-3 mt-2 border-amber-500/20 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 transition-all">
+                  <Lightbulb className="w-4 h-4 text-amber-500" />
+                  AI 콘텐츠 제안
+                </Button>
              </div>
           </div>
 
@@ -680,6 +702,32 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
 
       <FeedbackSidebar isOpen={store.isFeedbackOpen} onClose={() => store.setIsFeedbackOpen(false)} data={store.feedbackData} />
       <ChatSidebar isOpen={store.isChatOpen} onClose={() => store.setIsChatOpen(false)} />
+      
+      <BatchRegenerationPanel
+        isOpen={showBatchRegen}
+        onClose={() => setShowBatchRegen(false)}
+        presentation={store.presentation!}
+        onComplete={(updated) => store.setPresentation(updated)}
+      />
+      
+      <VersionHistoryPanel
+        isOpen={showVersionHistory}
+        onClose={() => setShowVersionHistory(false)}
+        presentation={store.presentation}
+        onRestore={(restored) => store.setPresentation(restored)}
+      />
+      
+      <AISuggestionPanel
+        isOpen={showAISuggestions}
+        onClose={() => setShowAISuggestions(false)}
+        presentation={store.presentation}
+        currentSlideIndex={store.currentSlideIndex}
+        onApplySuggestion={(idx, updates) => {
+          if (updates.title) store.updateSlideTitle(idx, updates.title);
+          if (updates.content) store.updateSlideContent(idx, updates.content);
+          if (updates.layout) store.updateSlideLayout(idx, updates.layout);
+        }}
+      />
 
       <AnimatePresence>
         {showRegenPopup && (
