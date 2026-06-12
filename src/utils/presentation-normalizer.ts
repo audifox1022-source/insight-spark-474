@@ -438,6 +438,8 @@ export function normalizePresentationSlide(slide: any, index = 0): Slide {
   const citation = extractSlideCitation(slideWithVisualization);
   const title = firstText(rawSlide?.title, rawSlide?.header, rawSlide?.heading, rawSlide?.subject) || `Slide ${index + 1}`;
   const subtitle = firstText(rawSlide?.subtitle, rawSlide?.subhead, rawSlide?.description, rawSlide?.summary);
+  const strategicGoal = firstText(rawSlide?.strategicGoal, rawSlide?.strategic_goal, rawSlide?.goal, rawSlide?.objective, rawSlide?.intent);
+  const speakerNotes = firstText(rawSlide?.speakerNotes, rawSlide?.speaker_notes, rawSlide?.presenter_notes, rawSlide?.notes);
 
   return {
     ...rawSlide,
@@ -449,6 +451,8 @@ export function normalizePresentationSlide(slide: any, index = 0): Slide {
     type: firstText(slide?.type) || normalizedLayout,
     layout: normalizedLayout,
     content: normalizedContent,
+    ...(strategicGoal ? { strategicGoal } : {}),
+    ...(speakerNotes ? { speakerNotes } : {}),
     ...(citation ? { citation_url: citation.url, source_label: citation.label } : {}),
     elements: Array.isArray(slide?.elements) ? slide.elements : [],
   } as Slide;

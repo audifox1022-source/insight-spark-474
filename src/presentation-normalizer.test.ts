@@ -183,4 +183,26 @@ describe('presentation normalizer', () => {
     expect(normalizeSlideLayout({ layout: 'comparison-table' }, 1)).toBe('table');
     expect(normalizeSlideLayout({ layout: 'unknown-layout' }, 1)).toBe('default');
   });
+
+  it('A/B test: canonicalizes AI intent and speaker note aliases for downstream review', () => {
+    const aiSlides = [
+      { title: 'Cover', layout: 'cover' },
+      {
+        title: 'PoC 확대 판단',
+        layout: 'content',
+        strategic_goal: '파일럿 확대 승인 여부 결정',
+        speaker_notes: 'CRO에게 전환율 개선 근거를 먼저 설명',
+        content: [{ heading: '전환율', description: '계약 전환율 6%p 상승' }],
+      },
+    ];
+    const legacyCanonicalIntentScore = [
+      Boolean((aiSlides[1] as any).strategicGoal),
+      Boolean((aiSlides[1] as any).speakerNotes),
+    ].filter(Boolean).length;
+    const candidate = normalizePresentationSlides(aiSlides);
+
+    expect(legacyCanonicalIntentScore).toBe(0);
+    expect(candidate[1].strategicGoal).toBe('파일럿 확대 승인 여부 결정');
+    expect(candidate[1].speakerNotes).toBe('CRO에게 전환율 개선 근거를 먼저 설명');
+  });
 });

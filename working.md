@@ -187,7 +187,12 @@
 - Thirty-seventh Research: `12_research/2026-06-12-workai-utf8-truncation-artifact-cleanup.md`에 MDN TextDecoder fatal/default behavior, WHATWG UTF-8 decode, TextDecoder API 리서치와 적용 결정을 기록했다.
 - Thirty-seventh A/B Gate: `src/services/ai/utils.test.ts`에서 legacy truncation은 U+FFFD로 끝나지만 candidate는 U+FFFD를 포함하지 않고 `MAX_FILE_BYTES` 제한을 유지함을 확인한다.
 - Thirty-seventh Verification: `npx vitest run src/services/ai/utils.test.ts` 통과(1파일/1테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/96테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-seventh loop git diff audit, commit, push.
+- Thirty-seventh Commit/Push: `8462a93 fix: clean truncated utf8 prompt artifacts`를 `origin/main`에 푸시 완료.
+- Thirty-eighth Candidate Feature: `Slide Intent Alias Normalization`를 추가했다. AI가 `strategic_goal`, `goal`, `objective`, `intent`, `speaker_notes`, `presenter_notes`, `notes` 같은 alias로 반환한 발표 의도/발표자 메모를 canonical `strategicGoal`과 `speakerNotes`로 승격한다.
+- Thirty-eighth Research: `12_research/2026-06-12-workai-slide-intent-alias-normalization.md`에 Gemini structured output, Google Cloud response schema, JSON Schema additional properties, Zod validation boundary 리서치와 적용 결정을 기록했다.
+- Thirty-eighth A/B Gate: `src/presentation-normalizer.test.ts`에서 legacy canonical intent score 0 대비 candidate가 `strategicGoal`과 `speakerNotes`를 모두 보존함을 확인한다.
+- Thirty-eighth Verification: `npx vitest run src/presentation-normalizer.test.ts` 통과(1파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/97테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-eighth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
