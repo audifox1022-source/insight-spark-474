@@ -147,6 +147,33 @@ describe('presentation normalizer', () => {
     expect(candidate[2].tableData).toEqual(candidate[2].content_data_table);
   });
 
+  it('A/B test: infers chart labels and values from business metric field names', () => {
+    const aiSlides = [
+      { title: 'Cover', layout: 'cover' },
+      {
+        title: '월별 매출 추이',
+        layout: 'chart',
+        content_data_chart: [
+          { month: '1월', revenue: '120억원', note: '신규 계약 확대' },
+          { month: '2월', revenue: '145억원', note: '업셀 증가' },
+        ],
+      },
+    ];
+    const legacyBusinessMetricChartScore = aiSlides[1].content_data_chart.filter((point: any) => {
+      const legacyLabel = point.label || point.name || point.category || point.period || point.date || point.x || point.key || point.metric || point.title;
+      const legacyValue = point.value ?? point.amount ?? point.count ?? point.score ?? point.y ?? point.result ?? point.total;
+      return Boolean(legacyLabel) && Number.isFinite(Number.parseFloat(String(legacyValue).replace(/,/g, '')));
+    }).length;
+    const candidate = normalizePresentationSlides(aiSlides);
+
+    expect(legacyBusinessMetricChartScore).toBe(0);
+    expect(candidate[1].content_data_chart).toEqual([
+      expect.objectContaining({ label: '1월', name: '1월', value: 120, valueField: 'revenue' }),
+      expect.objectContaining({ label: '2월', name: '2월', value: 145, valueField: 'revenue' }),
+    ]);
+    expect(candidate[1].chartData.data).toEqual(candidate[1].content_data_chart);
+  });
+
   it('extracts table rows and speaker notes when standard content is absent', () => {
     expect(
       normalizeSlideContent({

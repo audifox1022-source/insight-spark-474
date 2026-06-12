@@ -192,7 +192,12 @@
 - Thirty-eighth Research: `12_research/2026-06-12-workai-slide-intent-alias-normalization.md`에 Gemini structured output, Google Cloud response schema, JSON Schema additional properties, Zod validation boundary 리서치와 적용 결정을 기록했다.
 - Thirty-eighth A/B Gate: `src/presentation-normalizer.test.ts`에서 legacy canonical intent score 0 대비 candidate가 `strategicGoal`과 `speakerNotes`를 모두 보존함을 확인한다.
 - Thirty-eighth Verification: `npx vitest run src/presentation-normalizer.test.ts` 통과(1파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/97테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-eighth loop git diff audit, commit, push.
+- Thirty-eighth Commit/Push: `2cd3911 fix: normalize slide intent aliases`를 `origin/main`에 푸시 완료.
+- Thirty-ninth Candidate Feature: `Chart Business Field Inference`를 추가했다. AI가 `{ month, revenue }` 같은 업무 원자료 필드명으로 반환한 차트 row를 renderer/exporter가 읽는 canonical `label`, `name`, `value` chart point로 정규화한다.
+- Thirty-ninth Research: `12_research/2026-06-12-workai-chart-business-field-inference.md`에 Gemini structured output, Observable data reshaping, Vega-Lite quantitative/dimension field, Tableau time-series chart 리서치와 적용 결정을 기록했다.
+- Thirty-ninth A/B Gate: `src/presentation-normalizer.test.ts`에서 legacy business metric chart score 0 대비 candidate가 `month`/`revenue` row 2개를 렌더 가능한 chart point로 보존함을 확인한다.
+- Thirty-ninth Verification: `npx vitest run src/presentation-normalizer.test.ts` 통과(1파일/7테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/98테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-ninth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

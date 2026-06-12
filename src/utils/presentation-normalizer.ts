@@ -32,6 +32,64 @@ const CONTENT_KEYS = [
   'steps',
 ];
 
+const CHART_LABEL_KEYS = [
+  'label',
+  'name',
+  'category',
+  'period',
+  'date',
+  'month',
+  'quarter',
+  'week',
+  'year',
+  'segment',
+  'group',
+  'department',
+  'team',
+  'region',
+  'market',
+  'country',
+  'product',
+  'channel',
+  'customer',
+  'persona',
+  'owner',
+  'x',
+  'key',
+  'metric',
+  'title',
+];
+
+const CHART_EXPLICIT_VALUE_KEYS = ['value', 'amount', 'count', 'score', 'y', 'result', 'total'];
+
+const CHART_METADATA_KEYS = new Set([
+  'id',
+  'unit',
+  'series',
+  'description',
+  'desc',
+  'insight',
+  'note',
+  'notes',
+  'trend',
+  'color',
+  'type',
+]);
+
+function normalizeFieldName(value: string): string {
+  return value.replace(/[\s_-]+/g, '').toLowerCase();
+}
+
+function getFieldValue(record: AnyRecord, candidates: string[]): { key: string; value: any } | null {
+  const keys = Object.keys(record);
+  for (const candidate of candidates) {
+    const normalizedCandidate = normalizeFieldName(candidate);
+    const key = keys.find((entry) => normalizeFieldName(entry) === normalizedCandidate);
+    if (key) return { key, value: record[key] };
+  }
+  return null;
+}
+
 function compactText(value: any): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.replace(/\s+/g, ' ').trim();
@@ -138,6 +196,35 @@ function parseNumber(value: any): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function findFallbackChartLabel(record: AnyRecord): string {
+  const labelKeys = new Set(CHART_LABEL_KEYS.map(normalizeFieldName));
+  for (const [key, value] of Object.entries(record)) {
+    const normalizedKey = normalizeFieldName(key);
+    if (labelKeys.has(normalizedKey) || CHART_METADATA_KEYS.has(normalizedKey)) continue;
+    const text = compactText(value);
+    if (text && parseNumber(text) === null) return text;
+  }
+  return '';
+}
+
+function findChartValue(record: AnyRecord): { key: string; value: number } | null {
+  const explicitValue = getFieldValue(record, CHART_EXPLICIT_VALUE_KEYS);
+  if (explicitValue) {
+    const parsed = parseNumber(explicitValue.value);
+    if (parsed !== null) return { key: explicitValue.key, value: parsed };
+  }
+
+  const labelKeys = new Set(CHART_LABEL_KEYS.map(normalizeFieldName));
+  for (const [key, value] of Object.entries(record)) {
+    const normalizedKey = normalizeFieldName(key);
+    if (labelKeys.has(normalizedKey) || CHART_METADATA_KEYS.has(normalizedKey)) continue;
+    const parsed = parseNumber(value);
+    if (parsed !== null) return { key, value: parsed };
+  }
+
+  return null;
+}
+
 function normalizeTableRow(row: any, columns: string[]): any[] {
   if (Array.isArray(row)) return row.slice(0, columns.length);
   if (row && typeof row === 'object') {
@@ -208,29 +295,19 @@ function normalizeChartPoint(item: any, index: number, fallbackLabel?: any, seri
   }
 
   if (item && typeof item === 'object') {
-    const label = firstText(
-      item.label,
-      item.name,
-      item.category,
-      item.period,
-      item.date,
-      item.x,
-      item.key,
-      item.metric,
-      item.title,
-      fallbackLabel,
-      `항목 ${index + 1}`
-    );
-    const value = parseNumber(item.value ?? item.amount ?? item.count ?? item.score ?? item.y ?? item.result ?? item.total);
-    if (value === null) return null;
+    const labelField = getFieldValue(item, CHART_LABEL_KEYS);
+    const label = firstText(labelField?.value, fallbackLabel, findFallbackChartLabel(item), `항목 ${index + 1}`);
+    const chartValue = findChartValue(item);
+    if (!chartValue) return null;
     const unit = firstText(item.unit);
     const series = firstText(item.series, seriesLabel);
     return {
       ...item,
       label,
       name: label,
-      value,
+      value: chartValue.value,
       ...(unit ? { unit } : {}),
+      ...(chartValue.key && normalizeFieldName(chartValue.key) !== 'value' ? { valueField: chartValue.key } : {}),
       ...(series ? { series, description: firstText(item.description, item.insight, series) } : {}),
     };
   }
