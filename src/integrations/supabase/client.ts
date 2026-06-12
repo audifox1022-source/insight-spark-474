@@ -4,7 +4,7 @@ import { getSupabaseProjectRef, isExpectedSupabaseProjectRef } from './config';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const SUPABASE_REQUEST_TIMEOUT_MS = 5000;
+const SUPABASE_REQUEST_TIMEOUT_MS = 15000;
 const SUPABASE_AUTH_REFRESH_MARGIN_MS = 60 * 1000;
 const SUPABASE_PROJECT_REF = getSupabaseProjectRef(SUPABASE_URL);
 const SUPABASE_PROJECT_REF_MATCHES_REPO = isExpectedSupabaseProjectRef(SUPABASE_URL);

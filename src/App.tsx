@@ -24,6 +24,7 @@ import { WorkAIGenerator } from "./components/ai/WorkAIGenerator";
 import { useSlideStore } from "./store/useSlideStore";
 import { useThemeStore } from "./store/useThemeStore";
 import { EXPECTED_SUPABASE_PROJECT_REF, getSupabaseProjectRef } from "./integrations/supabase/config";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // ============================================================
 // QUERY CLIENT
@@ -268,7 +269,9 @@ const App = () => {
               path="/generator"
               element={
                 <ProtectedRoute>
-                  <WorkAIGenerator />
+                  <ErrorBoundary>
+                    <WorkAIGenerator />
+                  </ErrorBoundary>
                 </ProtectedRoute>
               }
             />
