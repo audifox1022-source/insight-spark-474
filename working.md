@@ -167,7 +167,12 @@
 - Thirty-third Research: `12_research/2026-06-12-workai-slide-insight-anatomy-audit.md`에 Tableau visual best practices, Tableau Blueprint, HBS data storytelling, NN/g dashboard actionability 리서치와 적용 결정을 기록했다.
 - Thirty-third A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 legacy deck-level insight issue count 0 대비 candidate가 2번 슬라이드의 `인사이트 연결 부족`을 검출하고 strong deck에는 오탐하지 않음을 확인한다.
 - Thirty-third Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/5테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/91테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-third loop git diff audit, commit, push.
+- Thirty-third Commit/Push: `79e02c5 feat: audit slide insight anatomy`를 `origin/main`에 푸시 완료.
+- Thirty-fourth Candidate Feature: `Review Feedback Priority Merge`를 추가했다. 품질 정밀 검증에서 로컬 감사 12개가 먼저 표시 슬롯을 채워도 AI 리뷰어의 critical/high 제안이 사라지지 않도록 severity 기반 병합 helper를 도입했다.
+- Thirty-fourth Research: `12_research/2026-06-12-workai-review-feedback-priority-merge.md`에 NN/g severity prioritization, Tableau action-oriented dashboard guidance 리서치와 적용 결정을 기록했다.
+- Thirty-fourth A/B Gate: `src/lib/review-feedback.test.ts`에서 legacy concat-slice는 critical AI 제안을 잃지만 candidate priority merge는 이를 첫 번째 항목으로 보존함을 확인한다.
+- Thirty-fourth Verification: `npx vitest run src/lib/review-feedback.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(35파일/93테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-fourth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

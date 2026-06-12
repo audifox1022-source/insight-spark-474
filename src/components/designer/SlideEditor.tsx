@@ -24,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
 import { auditPresentationQuality } from '@/lib/deck-quality-audit';
+import { mergeFeedbackImprovements } from '@/lib/review-feedback';
 import { getFilmstripThumbnailClass } from './slide-thumbnail-layout';
 
 interface SlideEditorProps {
@@ -373,10 +374,7 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
             ...localAudit.strengths,
             ...(Array.isArray(result.strengths) ? result.strengths.slice(0, 2) : []),
           ],
-          improvements: [
-            ...localAudit.improvements,
-            ...aiImprovements,
-          ].slice(0, 12),
+          improvements: mergeFeedbackImprovements(localAudit.improvements, aiImprovements),
           summary: result.summary || localAudit.summary,
         });
         store.setIsFeedbackOpen(true);
