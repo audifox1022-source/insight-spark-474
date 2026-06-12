@@ -24,7 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { geminiService } from '@/services/ai/geminiService';
 import { auditPresentationQuality } from '@/lib/deck-quality-audit';
-import { mergeFeedbackImprovements } from '@/lib/review-feedback';
+import { buildFeedbackRecommendationView, mergeFeedbackImprovements } from '@/lib/review-feedback';
 import { getFilmstripThumbnailClass } from './slide-thumbnail-layout';
 
 interface SlideEditorProps {
@@ -103,18 +103,32 @@ const FeedbackSidebar = ({ isOpen, onClose, data }: any) => {
                   {(data.improvements || [
                     { critical: true, category: 'Logic', title: '근거 자료 부족', description: '시장 점유율 데이터의 출처를 명확히 할 필요가 있습니다.' },
                     { critical: false, category: 'Layout', title: '텍스트 밀도 조절', description: '하단 불렛포인트의 길이를 15% 정도 축소하여 여백을 확보하세요.' }
-                  ]).map((imp: any, i: number) => (
-                    <div key={i} className="bg-white/5 border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-5 space-y-3 group">
-                      <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${imp.critical ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
-                          {imp.critical ? 'Critical' : 'Careful'}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-300 transition-colors">{imp.category || 'Consulting'}</span>
+                  ]).map((imp: any, i: number) => {
+                    const recommendation = buildFeedbackRecommendationView(imp);
+                    return (
+                      <div key={i} className="bg-white/5 border border-white/5 hover:border-white/10 transition-colors rounded-2xl p-5 space-y-3 group">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${recommendation.critical ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+                            {recommendation.critical ? 'Critical' : 'Careful'}
+                          </span>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 group-hover:text-slate-300 transition-colors">
+                            {recommendation.slideLabel && <span>{recommendation.slideLabel}</span>}
+                            <span>{recommendation.category}</span>
+                          </div>
+                        </div>
+                        <h5 className="font-black text-white leading-snug">{recommendation.title}</h5>
+                        {recommendation.description && (
+                          <p className="text-xs text-slate-400 leading-relaxed font-medium">{recommendation.description}</p>
+                        )}
+                        {recommendation.suggestion && (
+                          <div className="rounded-xl border border-emerald-400/15 bg-emerald-400/5 p-3">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">Recommended Fix</p>
+                            <p className="mt-1 text-xs leading-relaxed font-semibold text-emerald-50">{recommendation.suggestion}</p>
+                          </div>
+                        )}
                       </div>
-                      <h5 className="font-black text-white leading-snug">{imp.title}</h5>
-                      <p className="text-xs text-slate-400 leading-relaxed font-medium">{imp.description}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             ) : (
@@ -130,11 +144,6 @@ const FeedbackSidebar = ({ isOpen, onClose, data }: any) => {
             )}
           </div>
 
-          <div className="p-8 border-t border-white/10 bg-white/[0.02]">
-            <Button className="w-full bg-white text-slate-950 hover:bg-slate-200 font-black h-14 rounded-2xl shadow-xl transition-all active:scale-[0.98]">
-               자동 수정 제안 적용하기
-            </Button>
-          </div>
         </motion.div>
       )}
     </AnimatePresence>

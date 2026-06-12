@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { mergeFeedbackImprovements, type FeedbackImprovementLike } from '@/lib/review-feedback';
+import {
+  buildFeedbackRecommendationView,
+  mergeFeedbackImprovements,
+  type FeedbackImprovementLike,
+} from '@/lib/review-feedback';
 
 function legacyMerge(
   localImprovements: FeedbackImprovementLike[],
@@ -45,5 +49,28 @@ describe('review feedback merge', () => {
     );
 
     expect(candidate.map((item) => item.title)).toEqual(['첫 번째 high', '두 번째 high', '세 번째 high']);
+  });
+
+  it('A/B test: builds actionable recommendation display details beyond legacy title and description', () => {
+    const finding: FeedbackImprovementLike = {
+      title: '결론 슬라이드의 결정 요청 약함',
+      description: '최종 슬라이드가 실행 책임과 승인 요청을 분리하지 않음',
+      suggestion: '승인 요청, 책임자, 다음 회의 일정을 한 줄로 추가',
+      category: 'Action',
+      slideIndex: 3,
+    };
+    const legacyVisibleFields = [finding.title, finding.description].filter(Boolean).length;
+    const candidate = buildFeedbackRecommendationView(finding);
+    const candidateVisibleFields = [
+      candidate.title,
+      candidate.description,
+      candidate.suggestion,
+      candidate.slideLabel,
+    ].filter(Boolean).length;
+
+    expect(legacyVisibleFields).toBe(2);
+    expect(candidateVisibleFields).toBe(4);
+    expect(candidate.suggestion).toBe('승인 요청, 책임자, 다음 회의 일정을 한 줄로 추가');
+    expect(candidate.slideLabel).toBe('Slide 4');
   });
 });

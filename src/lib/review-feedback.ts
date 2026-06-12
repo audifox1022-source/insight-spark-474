@@ -4,12 +4,26 @@ export interface FeedbackImprovementLike {
   critical?: boolean;
   severity?: SeverityLike;
   category?: string;
+  issue?: string;
   title?: string;
   description?: string;
   suggestion?: string;
   slideIndex?: number;
   slideNumber?: number;
   [key: string]: unknown;
+}
+
+export interface FeedbackRecommendationView {
+  critical: boolean;
+  category: string;
+  title: string;
+  description: string;
+  suggestion: string;
+  slideLabel: string;
+}
+
+function compactText(value: unknown): string {
+  return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function priorityScore(item: FeedbackImprovementLike): number {
@@ -34,4 +48,23 @@ export function mergeFeedbackImprovements(
     .sort((a, b) => b.priority - a.priority || a.index - b.index)
     .slice(0, Math.max(0, limit))
     .map(({ item }) => item);
+}
+
+export function buildFeedbackRecommendationView(item: FeedbackImprovementLike): FeedbackRecommendationView {
+  const title = compactText(item.title) || compactText(item.issue) || '개선 제안';
+  const description = compactText(item.description) || compactText(item.issue);
+  const slideNumber = typeof item.slideNumber === 'number'
+    ? item.slideNumber
+    : typeof item.slideIndex === 'number'
+      ? item.slideIndex + 1
+      : null;
+
+  return {
+    critical: item.critical === true || item.severity === 'high',
+    category: compactText(item.category) || 'Consulting',
+    title,
+    description,
+    suggestion: compactText(item.suggestion),
+    slideLabel: slideNumber ? `Slide ${slideNumber}` : '',
+  };
 }

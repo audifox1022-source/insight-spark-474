@@ -172,7 +172,12 @@
 - Thirty-fourth Research: `12_research/2026-06-12-workai-review-feedback-priority-merge.md`에 NN/g severity prioritization, Tableau action-oriented dashboard guidance 리서치와 적용 결정을 기록했다.
 - Thirty-fourth A/B Gate: `src/lib/review-feedback.test.ts`에서 legacy concat-slice는 critical AI 제안을 잃지만 candidate priority merge는 이를 첫 번째 항목으로 보존함을 확인한다.
 - Thirty-fourth Verification: `npx vitest run src/lib/review-feedback.test.ts` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(35파일/93테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-fourth loop git diff audit, commit, push.
+- Thirty-fourth Commit/Push: `cc6d6df fix: prioritize review feedback findings`를 `origin/main`에 푸시 완료.
+- Thirty-fifth Candidate Feature: `Feedback Recommendation Display`를 추가했다. 품질 리뷰 카드가 문제 제목/설명만 보여주던 상태에서 권고 수정과 슬라이드 위치를 함께 보여주도록 표시용 view-model과 UI 렌더링을 보강했다.
+- Thirty-fifth Research: `12_research/2026-06-12-workai-feedback-recommendation-display.md`에 actionable findings, lean UX documentation, task-focused UI content, severity communication 리서치와 적용 결정을 기록했다.
+- Thirty-fifth A/B Gate: `src/lib/review-feedback.test.ts`에서 legacy visible field score 2 대비 candidate score 4와 `Slide 4`, 권고 수정 문자열 보존을 확인한다.
+- Thirty-fifth Verification: `npx vitest run src/lib/review-feedback.test.ts` 통과(1파일/3테스트), `npx tsc --noEmit` 통과, `npm test` 통과(35파일/94테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-fifth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.
