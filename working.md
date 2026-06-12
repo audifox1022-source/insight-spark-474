@@ -202,7 +202,12 @@
 - Fortieth Research: `12_research/2026-06-12-workai-empty-visual-data-audit.md`에 NN/g empty state, Tableau visual best practices, Vega-Lite invalid data, Carbon empty states 리서치와 적용 결정을 기록했다.
 - Fortieth A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 legacy truthy visualization score 2 대비 candidate가 빈 chart/table shell 2개를 모두 누락 이슈로 검출함을 확인한다.
 - Fortieth Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/99테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: fortieth loop git diff audit, commit, push.
+- Fortieth Commit/Push: `3ba87b6 fix: audit empty visual data`를 `origin/main`에 푸시 완료.
+- Forty-first Candidate Feature: `Outline Speaker Notes Contract`를 추가했다. 승인된 outline의 `speakerNotes`, `speaker_notes`, `presenter_notes`, `notes`를 최종 slide의 canonical `speakerNotes`로 보존한다.
+- Forty-first Research: `12_research/2026-06-12-workai-outline-speaker-notes-contract.md`에 Gemini structured output, Microsoft Copilot prompt components, NN/g consistency, Google Cloud prompt engineering 리서치와 적용 결정을 기록했다.
+- Forty-first A/B Gate: `src/lib/outline-contract.test.ts`에서 legacy speaker note score 0 대비 candidate가 snake_case `speaker_notes`를 final `speakerNotes`와 `outline_speaker_notes`로 보존함을 확인한다.
+- Forty-first Verification: `npx vitest run src/lib/outline-contract.test.ts` 통과(1파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/100테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: forty-first loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

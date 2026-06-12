@@ -64,6 +64,30 @@ describe('outline contract', () => {
     expect(candidate.slides[0].citation_url).toBe(generated[0].citation_url);
   });
 
+  it('A/B test: preserves approved outline speaker note aliases for final slides', () => {
+    const approvedOutline = {
+      outline: [
+        {
+          title: 'PoC 확대 승인 판단',
+          layout: 'chart',
+          strategicGoal: 'CRO 승인 확보',
+          speaker_notes: '전환율 6%p 상승 근거를 먼저 말하고 확대 리스크를 짚는다.',
+        },
+      ],
+    };
+    const generated = [slide('s1', 'Generated evidence', 'chart')];
+    const legacySpeakerNoteScore = generated.filter((currentSlide, index) => {
+      const item = approvedOutline.outline[index];
+      const approvedNotes = item.speakerNotes || item.speaker_notes;
+      return Boolean(approvedNotes) && currentSlide.speakerNotes === approvedNotes;
+    }).length;
+    const candidate = alignSlidesToApprovedOutline(generated, approvedOutline);
+
+    expect(legacySpeakerNoteScore).toBe(0);
+    expect(candidate.slides[0].speakerNotes).toBe('전환율 6%p 상승 근거를 먼저 말하고 확대 리스크를 짚는다.');
+    expect(candidate.slides[0].outline_speaker_notes).toBe(candidate.slides[0].speakerNotes);
+  });
+
   it('does not downgrade a richer generated layout when the approved outline layout is generic', () => {
     const generated = [slide('s1', 'Generated evidence', 'chart')];
     const candidate = alignSlidesToApprovedOutline(generated, {

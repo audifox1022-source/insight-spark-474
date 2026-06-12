@@ -40,6 +40,10 @@ function outlineSpeakerPersona(item: any): string {
   return compactText(item?.speakerPersona || item?.speaker_persona || item?.persona || item?.tone);
 }
 
+function outlineSpeakerNotes(item: any): string {
+  return compactText(item?.speakerNotes || item?.speaker_notes || item?.presenter_notes || item?.notes);
+}
+
 function recommendationLayout(value: unknown, intent: unknown): string {
   const text = `${compactText(value)} ${compactText(intent)}`.toLowerCase();
   if (!text.trim()) return '';
@@ -92,6 +96,7 @@ export function alignSlidesToApprovedOutline(
     const subtitle = outlineSubtitle(item);
     const strategicGoal = outlineStrategicGoal(item);
     const speakerPersona = outlineSpeakerPersona(item);
+    const speakerNotes = outlineSpeakerNotes(item);
     const layout = outlineLayout(item, index);
     const next: Slide = { ...slide };
     let changed = false;
@@ -117,6 +122,11 @@ export function alignSlidesToApprovedOutline(
       changed = true;
     }
 
+    if (speakerNotes && next.speakerNotes !== speakerNotes) {
+      next.speakerNotes = speakerNotes;
+      changed = true;
+    }
+
     if (shouldApplyOutlineLayout(layout, next) && next.layout !== layout) {
       next.layout = layout;
       next.type = layout;
@@ -130,6 +140,7 @@ export function alignSlidesToApprovedOutline(
       outline_slide_number: index + 1,
       outline_title: title || next.outline_title,
       outline_layout: layout || next.outline_layout,
+      outline_speaker_notes: speakerNotes || next.outline_speaker_notes,
     } as Slide;
   });
 
