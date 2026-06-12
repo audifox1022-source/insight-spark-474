@@ -177,7 +177,12 @@
 - Thirty-fifth Research: `12_research/2026-06-12-workai-feedback-recommendation-display.md`에 actionable findings, lean UX documentation, task-focused UI content, severity communication 리서치와 적용 결정을 기록했다.
 - Thirty-fifth A/B Gate: `src/lib/review-feedback.test.ts`에서 legacy visible field score 2 대비 candidate score 4와 `Slide 4`, 권고 수정 문자열 보존을 확인한다.
 - Thirty-fifth Verification: `npx vitest run src/lib/review-feedback.test.ts` 통과(1파일/3테스트), `npx tsc --noEmit` 통과, `npm test` 통과(35파일/94테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-fifth loop git diff audit, commit, push.
+- Thirty-fifth Commit/Push: `d9927c2 feat: show actionable review recommendations`를 `origin/main`에 푸시 완료.
+- Thirty-sixth Candidate Feature: `Tolerant Presentation Metadata`를 추가했다. AI 응답의 `id` 하나가 숫자처럼 잘못 와도 유효한 제목과 추가 메타데이터를 버리지 않도록 presentation metadata를 필드별로 정규화한다.
+- Thirty-sixth Research: `12_research/2026-06-12-workai-tolerant-presentation-metadata.md`에 Gemini structured output, Zod safeParse, JSON Schema additional properties, Google Cloud response schema 리서치와 적용 결정을 기록했다.
+- Thirty-sixth A/B Gate: `src/lib/presentation-result.test.ts`에서 legacy strict metadata path는 fallback title로 떨어지고 owner를 잃지만 candidate는 fallback id를 쓰면서 `분기 성과 보고` title과 owner를 보존함을 확인한다.
+- Thirty-sixth Verification: `npx vitest run src/lib/presentation-result.test.ts` 통과(1파일/4테스트), `npx tsc --noEmit` 통과, `npm test` 통과(35파일/95테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-sixth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

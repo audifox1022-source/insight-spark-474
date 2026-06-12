@@ -1,12 +1,4 @@
-import { z } from 'zod';
 import type { Presentation, Slide } from '@/types/presentation';
-
-const RawPresentationSchema = z.object({
-  id: z.string().min(1).optional(),
-  title: z.string().min(1).optional(),
-  presentation_title: z.string().min(1).optional(),
-  brandColor: z.string().min(1).optional(),
-}).passthrough();
 
 export interface BuildPresentationResultInput {
   rawResult: unknown;
@@ -26,6 +18,11 @@ function getRawPresentationObject(rawResult: unknown): Record<string, unknown> {
   return record;
 }
 
+function getStringField(source: Record<string, unknown>, key: string): string {
+  const value = source[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : '';
+}
+
 export function buildPresentationFromResult({
   rawResult,
   slides,
@@ -33,16 +30,17 @@ export function buildPresentationFromResult({
   brandColor,
   idSeed,
 }: BuildPresentationResultInput): Presentation {
-  const parsed = RawPresentationSchema.safeParse(getRawPresentationObject(rawResult));
-  const source = parsed.success ? parsed.data : {};
+  const source = getRawPresentationObject(rawResult);
   const safeSlides = Array.isArray(slides) ? slides : [];
-  const title = source.title || source.presentation_title || fallbackTitle || '발표자료';
+  const title = getStringField(source, 'title') || getStringField(source, 'presentation_title') || fallbackTitle || '발표자료';
+  const id = getStringField(source, 'id') || `presentation-${idSeed || Date.now()}`;
+  const sourceBrandColor = getStringField(source, 'brandColor');
 
   return {
     ...source,
-    id: source.id || `presentation-${idSeed || Date.now()}`,
+    id,
     title,
     slides: safeSlides,
-    brandColor: brandColor || source.brandColor,
+    brandColor: brandColor || sourceBrandColor,
   } as Presentation;
 }

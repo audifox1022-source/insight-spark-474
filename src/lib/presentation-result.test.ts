@@ -29,6 +29,24 @@ function legacyArraySpread(rawResult: unknown, brandColor?: string) {
   };
 }
 
+function legacyStrictPresentationMetadata(rawResult: unknown, fallbackTitle: string) {
+  const source = (((rawResult as any)?.presentation || rawResult) ?? {}) as Record<string, unknown>;
+  const schemaValid = (
+    (source.id === undefined || typeof source.id === 'string') &&
+    (source.title === undefined || typeof source.title === 'string') &&
+    (source.presentation_title === undefined || typeof source.presentation_title === 'string') &&
+    (source.brandColor === undefined || typeof source.brandColor === 'string')
+  );
+  const parsed = schemaValid ? source : {};
+
+  return {
+    ...parsed,
+    id: parsed.id || 'presentation-ab-test',
+    title: parsed.title || parsed.presentation_title || fallbackTitle,
+    slides,
+  };
+}
+
 function integrityScore(value: any): number {
   const checks = [
     typeof value?.id === 'string' && value.id.length > 0,
@@ -93,5 +111,28 @@ describe('presentation result normalization', () => {
 
     expect(candidate.id).toBe('presentation-outline');
     expect(candidate.title).toBe('시장 진입 전략');
+  });
+
+  it('A/B test: preserves valid metadata when one AI metadata field has the wrong type', () => {
+    const rawResult = {
+      presentation: {
+        id: 12345,
+        title: '분기 성과 보고',
+        owner: '전략기획팀',
+      },
+    };
+    const baseline = legacyStrictPresentationMetadata(rawResult, 'fallback');
+    const candidate = buildPresentationFromResult({
+      rawResult,
+      slides,
+      fallbackTitle: 'fallback',
+      idSeed: 'metadata',
+    });
+
+    expect(baseline.title).toBe('fallback');
+    expect((baseline as any).owner).toBeUndefined();
+    expect(candidate.id).toBe('presentation-metadata');
+    expect(candidate.title).toBe('분기 성과 보고');
+    expect((candidate as any).owner).toBe('전략기획팀');
   });
 });
