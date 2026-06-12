@@ -256,12 +256,16 @@ const Index = () => {
             )}
             {shouldRenderApp('audiolab') && (
               <main className={`flex-1 w-full max-w-[1700px] mx-auto p-6 flex flex-col h-[calc(100vh-80px)] overflow-hidden ${activeApp !== 'audiolab' ? 'hidden' : ''}`}>
-                <AudioLabWorkspace />
+                <ErrorBoundary>
+                  <AudioLabWorkspace />
+                </ErrorBoundary>
               </main>
             )}
             {shouldRenderApp('pdfeditor') && (
               <main className={`flex-1 w-full max-none mx-auto flex flex-col h-[calc(100vh-56px)] overflow-hidden ${activeApp !== 'pdfeditor' ? 'hidden' : ''}`}>
-                <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
+                <ErrorBoundary>
+                  <PDFEditorWorkspace onBack={() => setActiveApp('presentation')} />
+                </ErrorBoundary>
               </main>
             )}
             {shouldRenderApp('designer') && (

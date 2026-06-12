@@ -14,15 +14,49 @@ export interface Presentation {
 
 export type AppStep = 'upload' | 'info' | 'outline' | 'generating' | 'preview';
 
+export interface ChartDataPoint {
+  label?: string;
+  name?: string;
+  value: number;
+  value2?: number;
+  series?: string;
+}
+
+export interface TableData {
+  columns: string[];
+  rows: string[][];
+}
+
+export interface TimelineItem {
+  date?: string;
+  event?: string;
+  description?: string;
+}
+
+export interface SlideTheme {
+  bgColor?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+export interface SlideStyle {
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: string;
+  textAlign?: string;
+  padding?: string;
+}
+
 export interface Slide {
   id: string;
   title: string;
-  subtitle?: string; // [NEW] AI가 생성하는 유려한 부제
+  subtitle?: string;
   type: string;
   content: string | SlideContent[];
   speakerPersona?: string;
   strategicGoal?: string;
-  speakerNotes?: string; // [NEW] 발표자용 상세 스크립트
+  speakerNotes?: string;
   visualization_type?: 'chart' | 'table' | 'timeline' | 'grid' | 'comparison' | 'none';
   layout?: string;
   elements: SlideElement[];
@@ -30,22 +64,28 @@ export interface Slide {
   background_image?: string;
   citation_url?: string;
   source_label?: string;
-  content_data?: any; // 차트나 표를 위한 로우 데이터 리스트
-  theme?: {
-    bgColor?: string;
-    backgroundColor?: string;
-    textColor?: string;
-    accentColor?: string;
-  };
-  style?: any; // 전역 슬라이드 스타일 (Title 등)
-  [key: string]: any;
+  content_data?: ChartDataPoint[] | TableData | TimelineItem[];
+  content_data_chart?: ChartDataPoint[];
+  content_data_table?: TableData;
+  content_data_timeline?: TimelineItem[];
+  chartData?: ChartDataPoint[];
+  tableData?: TableData;
+  timelineData?: TimelineItem[];
+  theme?: SlideTheme;
+  style?: SlideStyle;
+}
+
+export interface SlideContentStyle {
+  color?: string;
+  fontSize?: number;
+  fontWeight?: string;
 }
 
 export interface SlideContent {
   heading: string;
   description: string;
   icon?: string;
-  style?: any; // [NEW] 개별 아이템 스타일링 지원
+  style?: SlideContentStyle;
 }
 
 export interface SlideElement {
