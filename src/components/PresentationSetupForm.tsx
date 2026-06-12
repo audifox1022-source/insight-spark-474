@@ -225,22 +225,31 @@ export function PresentationSetupForm({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="brief-title" className="text-sm font-bold">발표 제목</Label>
+            <Label htmlFor="brief-title" className="text-sm font-bold flex items-center gap-1">발표 제목 <span className="text-destructive text-xs">*</span></Label>
             <Input
               id="brief-title"
               value={info.title || ''}
-              onChange={(e) => update('title', e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.length <= 200) update('title', e.target.value);
+              }}
               placeholder="AI 영업 생산성 개선안"
+              maxLength={200}
               className="h-12 rounded-xl bg-card"
             />
+            {(info.title || '').length > 150 && (
+              <p className="text-xs text-amber-600">{(info.title || '').length}/200자</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="brief-objective" className="text-sm font-bold">목표/결정 요청</Label>
             <Input
               id="brief-objective"
               value={info.objective || ''}
-              onChange={(e) => update('objective', e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.length <= 500) update('objective', e.target.value);
+              }}
               placeholder="파일럿 확대 여부와 예산 승인 결정"
+              maxLength={500}
               className="h-12 rounded-xl bg-card"
             />
           </div>
@@ -299,10 +308,16 @@ export function PresentationSetupForm({
             <Textarea
               id="brief-notes"
               value={info.notes || ''}
-              onChange={(e) => update('notes', e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.length <= 5000) update('notes', e.target.value);
+              }}
               placeholder="핵심 수치, 리스크, 반드시 포함할 메시지를 입력하세요."
+              maxLength={5000}
               className="min-h-[120px] rounded-xl bg-card resize-y"
             />
+            {(info.notes || '').length > 4500 && (
+              <p className="text-xs text-amber-600">{(info.notes || '').length}/5000자</p>
+            )}
           </div>
         </div>
       </div>

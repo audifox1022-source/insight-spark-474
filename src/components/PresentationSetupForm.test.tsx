@@ -50,7 +50,9 @@ function briefFieldScore() {
     '참고사항/원문 요청',
   ];
 
-  return labels.filter((label) => screen.queryByLabelText(label)).length;
+  return labels.filter((label) => {
+    return screen.queryByLabelText(label) || screen.queryByLabelText(new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+  }).length;
 }
 
 function renderSetupForm(onChange = vi.fn()) {
@@ -93,7 +95,7 @@ describe('PresentationSetupForm brief metadata fields', () => {
 
     expect(legacyFieldScore).toBe(0);
     expect(candidateScore).toBe(8);
-    expect(screen.getByLabelText('발표 제목')).toHaveValue(info.title);
+    expect(screen.getByLabelText(/발표 제목/)).toHaveValue(info.title);
     expect(screen.getByLabelText('목표/결정 요청')).toHaveValue(info.objective);
     expect(screen.getByLabelText('핵심 청중')).toHaveValue(info.audience);
     expect(screen.getByLabelText('담당 부서')).toHaveValue(info.department);
