@@ -162,7 +162,12 @@
 - Thirty-second Research: `12_research/2026-06-12-workai-editable-brief-department-field.md`에 form cognitive load, consistency, Gemini prompt context, Copilot prompt context 리서치와 적용 결정을 기록했다.
 - Thirty-second A/B Gate: `src/components/PresentationSetupForm.test.tsx`에서 editable brief field score가 7에서 8로 증가하고 담당 부서 값 렌더링을 확인한다.
 - Thirty-second Verification: `npx vitest run src/components/PresentationSetupForm.test.tsx` 통과(1파일/2테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/90테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-second loop git diff audit, commit, push.
+- Thirty-second Commit/Push: `8ac839a feat: expose brief department field`를 `origin/main`에 푸시 완료.
+- Thirty-third Candidate Feature: `Slide Insight Anatomy Audit`를 추가했다. 덱 전체의 근거/액션 신호가 있더라도 개별 본문 슬라이드가 관찰/근거, 사업적 의미, 권고 행동 중 최소 두 축을 연결하지 못하면 `인사이트 연결 부족` 이슈로 표시한다.
+- Thirty-third Research: `12_research/2026-06-12-workai-slide-insight-anatomy-audit.md`에 Tableau visual best practices, Tableau Blueprint, HBS data storytelling, NN/g dashboard actionability 리서치와 적용 결정을 기록했다.
+- Thirty-third A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 legacy deck-level insight issue count 0 대비 candidate가 2번 슬라이드의 `인사이트 연결 부족`을 검출하고 strong deck에는 오탐하지 않음을 확인한다.
+- Thirty-third Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/5테스트), `npx tsc --noEmit` 통과, `npm test` 통과(34파일/91테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: thirty-third loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

@@ -38,6 +38,8 @@ const ACTION_PATTERN =
   /(실행|도입|확대|축소|결정|승인|투자|개선|전환|계획|추진|전략|우선순위|로드맵|next|action|recommend|제안|요청)/i;
 const RISK_PATTERN =
   /(리스크|위험|제약|문제|장애|불확실|가정|대응|완화|대안|병목|한계|risk|constraint)/i;
+const BUSINESS_MEANING_PATTERN =
+  /(의미|영향|효과|기대|필요성|타당성|기회|우선순위|왜|따라서|결과|악화|개선|so what|implication)/i;
 const GENERIC_TITLE_PATTERN = /^(개요|소개|내용|정리|요약|전략|방안|분석|결론|목차)$/i;
 
 function compactText(value: unknown): string {
@@ -109,6 +111,13 @@ function hasVisualizationData(slide: Slide): boolean {
     slide.tableData ||
     slide.timelineData
   );
+}
+
+function insightAnatomyScore(slide: Slide, text: string): number {
+  const hasEvidence = NUMERIC_OR_KPI_PATTERN.test(text) || hasVisualizationData(slide) || Boolean(extractSlideCitation(slide));
+  const hasMeaning = BUSINESS_MEANING_PATTERN.test(text);
+  const hasAction = ACTION_PATTERN.test(text) || Boolean(compactText(slide.strategicGoal));
+  return [hasEvidence, hasMeaning, hasAction].filter(Boolean).length;
 }
 
 function summarize(score: number, issueCount: number): string {
@@ -183,6 +192,10 @@ export function auditPresentationQuality(presentation: Presentation | null | und
 
     if (!isCover && GENERIC_TITLE_PATTERN.test(title)) {
       issues.push(createIssue(index, 'low', 'Logic', '일반적 제목', `"${title}"은 의사결정 메시지가 약합니다.`, '제목을 결론형 문장 또는 핵심 인사이트로 변경'));
+    }
+
+    if (!isCover && items.length > 0 && insightAnatomyScore(slide, text) < 2) {
+      issues.push(createIssue(index, 'medium', 'Logic', '인사이트 연결 부족', '관찰, 사업적 의미, 권고 행동 중 최소 2개가 한 슬라이드 안에서 연결되지 않았습니다.', '수치/사례 관찰에 왜 중요한지와 다음 행동을 함께 추가'));
     }
 
     if ((slide.layout === 'chart' || slide.layout === 'table' || slide.visualization_type === 'chart' || slide.visualization_type === 'table') && !hasVisualizationData(slide)) {
