@@ -14,6 +14,18 @@ function legacyDeckLevelInsightIssueCount(presentation: Presentation): number {
   return hasEvidence && hasAction ? 0 : 1;
 }
 
+function legacyTruthyVisualizationDataScore(presentation: Presentation): number {
+  return presentation.slides.filter((slide) => Boolean(
+    slide.content_data ||
+    slide.content_data_chart ||
+    slide.content_data_table ||
+    slide.content_data_timeline ||
+    slide.chartData ||
+    slide.tableData ||
+    slide.timelineData
+  )).length;
+}
+
 const weakDeck: Presentation = {
   id: 'weak',
   title: 'Weak deck',
@@ -216,5 +228,51 @@ describe('deck quality audit', () => {
     expect(insightIssues.length).toBeGreaterThan(0);
     expect(insightIssues[0].slideNumber).toBe(2);
     expect(auditPresentationQuality(strongDeck).improvements.some((issue) => issue.title === '인사이트 연결 부족')).toBe(false);
+  });
+
+  it('A/B test: treats empty chart and table shells as missing visualization data', () => {
+    const emptyVisualDeck: Presentation = {
+      id: 'empty-visual',
+      title: '시각화 데이터 검수',
+      slides: [
+        {
+          id: 'cover',
+          title: '시각화 데이터 검수',
+          type: 'cover',
+          layout: 'cover',
+          content: [],
+          elements: [],
+        },
+        {
+          id: 'chart-empty',
+          title: '매출 12% 증가 효과 확인',
+          type: 'chart',
+          layout: 'chart',
+          strategicGoal: '확대 승인',
+          chartData: { data: [] },
+          content_data_chart: [],
+          content: [{ heading: '매출', description: '매출 12% 증가 효과를 근거로 확대 승인 필요' }],
+          elements: [],
+        },
+        {
+          id: 'table-empty',
+          title: '비용 3% 감소 대응 계획',
+          type: 'table',
+          layout: 'table',
+          strategicGoal: '대응 계획 확정',
+          tableData: { columns: ['항목', '값'], rows: [] },
+          content: [{ heading: '비용', description: '비용 3% 감소 결과에 따른 대응 계획 확정' }],
+          elements: [],
+        },
+      ],
+    };
+
+    const baselineScore = legacyTruthyVisualizationDataScore(emptyVisualDeck);
+    const candidate = auditPresentationQuality(emptyVisualDeck);
+    const emptyDataIssues = candidate.improvements.filter((issue) => issue.title === '시각화 데이터 누락');
+
+    expect(baselineScore).toBe(2);
+    expect(emptyDataIssues).toHaveLength(2);
+    expect(emptyDataIssues.map((issue) => issue.slideNumber)).toEqual([2, 3]);
   });
 });

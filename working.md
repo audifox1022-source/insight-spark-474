@@ -197,7 +197,12 @@
 - Thirty-ninth Research: `12_research/2026-06-12-workai-chart-business-field-inference.md`에 Gemini structured output, Observable data reshaping, Vega-Lite quantitative/dimension field, Tableau time-series chart 리서치와 적용 결정을 기록했다.
 - Thirty-ninth A/B Gate: `src/presentation-normalizer.test.ts`에서 legacy business metric chart score 0 대비 candidate가 `month`/`revenue` row 2개를 렌더 가능한 chart point로 보존함을 확인한다.
 - Thirty-ninth Verification: `npx vitest run src/presentation-normalizer.test.ts` 통과(1파일/7테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/98테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
-- Next: thirty-ninth loop git diff audit, commit, push.
+- Thirty-ninth Commit/Push: `842fee4 feat: infer chart business fields`를 `origin/main`에 푸시 완료.
+- Fortieth Candidate Feature: `Empty Visual Data Audit`를 추가했다. 품질 감사가 빈 `chartData: { data: [] }`, 빈 `content_data_chart`, 빈 table rows를 실제 데이터로 오판하지 않고 `시각화 데이터 누락`으로 표시한다.
+- Fortieth Research: `12_research/2026-06-12-workai-empty-visual-data-audit.md`에 NN/g empty state, Tableau visual best practices, Vega-Lite invalid data, Carbon empty states 리서치와 적용 결정을 기록했다.
+- Fortieth A/B Gate: `src/lib/deck-quality-audit.test.ts`에서 legacy truthy visualization score 2 대비 candidate가 빈 chart/table shell 2개를 모두 누락 이슈로 검출함을 확인한다.
+- Fortieth Verification: `npx vitest run src/lib/deck-quality-audit.test.ts` 통과(1파일/6테스트), `npx tsc --noEmit` 통과, `npm test` 통과(36파일/99테스트), `npm run build` 통과, `npm run lint` 통과(기존 11 warning, 0 errors).
+- Next: fortieth loop git diff audit, commit, push.
 
 ## Current Goal
 Improve the Codex `autoresearch` skill in `C:\Users\SAMSUNG\gemini\antigravity\scratch\insight-spark-474` into a strong self-improving research and development skill. The required loop is research -> design -> change -> verify -> record -> commit -> repeat, with resumable state, external research in `12_research/`, concurrency safety, A/B or harness validation, and a completion audit.

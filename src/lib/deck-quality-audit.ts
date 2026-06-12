@@ -1,5 +1,6 @@
 import type { Presentation, Slide, SlideContent } from '@/types/presentation';
 import { extractSlideCitation } from '@/lib/slide-citations';
+import { normalizeChartData, normalizeTableData } from '@/utils/presentation-normalizer';
 
 export type DeckQualitySeverity = 'high' | 'medium' | 'low';
 export type DeckQualityCategory = 'Logic' | 'Evidence' | 'Action' | 'Layout' | 'Risk' | 'Data' | 'Source';
@@ -101,15 +102,31 @@ function createIssue(
   };
 }
 
+function hasTimelineData(value: unknown): boolean {
+  return Array.isArray(value) && value.some((item) => compactText(typeof item === 'object' ? JSON.stringify(item) : item));
+}
+
 function hasVisualizationData(slide: Slide): boolean {
-  return Boolean(
-    slide.content_data ||
-    slide.content_data_chart ||
-    slide.content_data_table ||
-    slide.content_data_timeline ||
-    slide.chartData ||
-    slide.tableData ||
-    slide.timelineData
+  const layout = compactText(slide.layout || slide.type || slide.visualization_type).toLowerCase();
+  const chartSources = [
+    slide.content_data_chart,
+    slide.chartData,
+    layout.includes('chart') ? slide.content_data : null,
+  ];
+  const tableSources = [
+    slide.content_data_table,
+    slide.tableData,
+    layout.includes('table') ? slide.content_data : null,
+  ];
+
+  return (
+    chartSources.some((source) => normalizeChartData(source).length > 0) ||
+    tableSources.some((source) => {
+      const table = normalizeTableData(source);
+      return Boolean(table && table.rows.length > 0 && table.columns.length > 0);
+    }) ||
+    hasTimelineData(slide.content_data_timeline) ||
+    hasTimelineData(slide.timelineData)
   );
 }
 
