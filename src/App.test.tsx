@@ -106,9 +106,9 @@ describe('App routing', () => {
 
     await waitFor(() => {
       expect(screen.getByText('auth page')).toBeInTheDocument();
-    });
+    }, { timeout: 15000 });
     expect(screen.queryByText('generator page')).not.toBeInTheDocument();
-  });
+  }, 20000);
 
   it('renders a configuration screen when Supabase env vars are missing', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', '');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   AlertCircle, Layers, X, Shield, Languages, Check, ListChecks,
@@ -143,7 +143,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
   const [activePresetId, setActivePresetId] = useState<string>('manual')
   const [presetData, setPresetData] = useState<Record<string, string>>({})
   const [files, setFiles] = useState<File[]>([])
-  const fileNames = files.map(f => f.name)
+  const fileNames = useMemo(() => files.map(f => f.name), [files])
   const autoSwitchedToDesignerRef = React.useRef(false)
 
   React.useEffect(() => {
@@ -195,6 +195,8 @@ export const PresentationTab = (props: PresentationTabProps) => {
       });
     }
   }, [outline]);
+
+  const outlineItemCount = useMemo(() => localOutlineList.length, [localOutlineList]);
 
   const updateOutlineSlide = (index: number, updates: any) => {
     const newList = [...localOutlineList];
