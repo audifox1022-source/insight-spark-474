@@ -252,3 +252,23 @@
   }
   @page { size: A4 landscape; margin: 8mm; }
 }
+
+/* Safe area for mobile bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground));
+}

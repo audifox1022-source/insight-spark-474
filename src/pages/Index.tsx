@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 
 // [FIX] LoadingScreen이 @/components/LoadingScreen 인지 확인
 import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
+import { MobileNav } from '@/components/MobileNav'
 
 const TranslatorWorkspace = lazy(() =>
   import('@/components/TranslatorWorkspace').then((module) => ({ default: module.TranslatorWorkspace }))
@@ -334,7 +335,15 @@ const Index = () => {
           onDelete={presentationHooks.deleteSavedPresentation || (() => {})}
         />
 
-        <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto transition-colors duration-300">
+        <MobileNav
+          activeApp={activeApp}
+          onAppChange={setActiveApp}
+          onHistoryOpen={openHistory}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+
+        <footer className="border-t border-border bg-card/60 backdrop-blur-sm py-4 mt-auto transition-colors duration-300 pb-20 md:pb-4">
           <div className="max-w-[1700px] mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">Made with ❤️ by <span className="font-semibold">Hyeon</span></p>
             {visitorStats && (
