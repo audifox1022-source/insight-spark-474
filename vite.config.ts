@@ -57,7 +57,10 @@ export default defineConfig(({ mode }) => ({
           'audio-tools',
           'chart-tools',
           'document-tools',
-          'export-tools',
+          'pptxgen',
+          'jspdf',
+          'pdf-lib',
+          'html2canvas',
           'pdfjs',
         ];
         return deps.filter((dep) => !deferUntilWorkspaceOpen.some((chunk) => dep.includes(chunk)));
@@ -69,9 +72,10 @@ export default defineConfig(({ mode }) => ({
           if (!id.includes('node_modules')) return;
 
           if (id.includes('pdfjs-dist')) return 'pdfjs';
-          if (id.includes('pptxgenjs') || id.includes('jspdf') || id.includes('html2canvas') || id.includes('pdf-lib')) {
-            return 'export-tools';
-          }
+          if (id.includes('pptxgenjs')) return 'pptxgen';
+          if (id.includes('jspdf')) return 'jspdf';
+          if (id.includes('pdf-lib')) return 'pdf-lib';
+          if (id.includes('html2canvas')) return 'html2canvas';
           if (id.includes('/docx/') || id.includes('/mammoth/') || id.includes('/file-saver/')) {
             return 'document-tools';
           }
