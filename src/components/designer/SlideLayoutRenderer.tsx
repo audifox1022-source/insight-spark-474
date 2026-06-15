@@ -15,6 +15,7 @@ import { useSlideStore } from '@/store/useSlideStore';
 import { normalizeSlideContent, normalizeSlideLayout } from '@/utils/presentation-normalizer';
 import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 import { ChartRenderer } from './ChartRenderer';
+import { InteractiveChart } from './InteractiveChart';
 import { TableRenderer } from './TableRenderer';
 
 interface SlideLayoutRendererProps {
@@ -131,7 +132,11 @@ export const SlideLayoutRenderer: React.FC<SlideLayoutRendererProps> = ({ slide,
             </div>
             <div className="flex-1 grid grid-cols-[1.35fr_0.65fr] gap-8 min-h-0">
               <div className="min-h-0 rounded-[36px] bg-white border border-slate-100 p-6 shadow-xl shadow-slate-100">
-                <ChartRenderer data={Array.isArray(chartData) ? chartData : []} type={chartType} />
+                {thumbnailMode ? (
+                  <ChartRenderer data={Array.isArray(chartData) ? chartData : []} type={chartType} />
+                ) : (
+                  <InteractiveChart data={Array.isArray(chartData) ? chartData : []} type={chartType} />
+                )}
               </div>
               <div className="space-y-4 overflow-hidden">
                 {(Array.isArray(content) ? content : []).slice(0, 4).map((item: any, idx: number) => (
