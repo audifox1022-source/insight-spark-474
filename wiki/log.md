@@ -1,3 +1,8 @@
+﻿## [2026-06-15] Export Path Refactor & Boundary Cleanup
+- Preserved raw uploaded source text in `usePresentation` so outline generation no longer overwrites `sourceFileData` with derived prompt text.
+- Switched `EditorHeader` and `ViewExportMenu` to lazy-load export modules on demand, including DOCX, PDF, and PPTX paths.
+- Aligned `PresentationTab` props with the hook return shape and removed `any` from the presentation tab boundary.
+- Verified with `npm.cmd test` and `npm.cmd run build`.
 # Work AI - Development Log
 
 ## [2026-04-09] System Refactoring & Upgrade
@@ -19,3 +24,4 @@
 
 ---
 *Log maintained by Antigravity*
+

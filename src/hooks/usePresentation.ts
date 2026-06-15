@@ -27,6 +27,7 @@ import {
   savePresentation,
   type SavedPresentation,
 } from '@/lib/presentation-storage';
+import type { OutlineData } from '@/components/OutlinePreview';
 
 export interface ReferenceStructure {
   slideCount: number;
@@ -40,10 +41,75 @@ export interface ReferenceStructure {
 export interface DataFileState {
   name: string;
   status: 'loading' | 'success' | 'error';
-  content?: string | any[];
+  content?: string | unknown[];
 }
 
-export const usePresentation = () => {
+type OutlineLike = {
+  title?: string;
+  presentation_title?: string;
+  audience_focus?: string;
+  outline?: unknown[];
+  tasks?: unknown[];
+  plan?: unknown[];
+  phases?: unknown[];
+  steps?: unknown[];
+  items?: unknown[];
+  [key: string]: unknown;
+};
+
+export interface UsePresentationResult {
+  step: 'upload' | 'info' | 'outline' | 'preview';
+  setStep: (step: 'upload' | 'info' | 'outline' | 'preview') => void;
+  isGenerating: boolean;
+  isSaving: boolean;
+  loadingMessage: string;
+  info: MeetingInfo;
+  setInfo: (info: MeetingInfo) => void;
+  settings: PresentationSettings;
+  setSettings: (settings: PresentationSettings) => void;
+  template: string;
+  setTemplate: (template: string) => void;
+  presentation: Presentation | null;
+  outline: OutlineData | null;
+  currentSlideIndex: number;
+  setCurrentSlideIndex: (index: number) => void;
+  handleGenerateOutline: (onPlanReady?: () => void) => Promise<void>;
+  handleGenerateFull: (approvedOutline: OutlineLike, onSuccess?: () => void) => Promise<void>;
+  regenerateSlide: (slideIndex: number, userInstruction?: string) => Promise<void>;
+  reviewAndFixPresentation: () => Promise<void>;
+  handleSave: () => Promise<void>;
+  reset: () => void;
+  dataFiles: DataFileState[];
+  handleDataFileUpload: (files: File[]) => Promise<void>;
+  handleRemoveDataFile: (idx: number) => void;
+  dataSummary: string;
+  setDataSummary: (summary: string) => void;
+  sourceFileData: string;
+  setSourceFileData: (data: string) => void;
+  referenceFileName: string;
+  isAnalyzingReference: boolean;
+  handleReferenceFileUpload: (files: File[]) => Promise<void>;
+  handleClearReferenceFile: () => void;
+  isDark: boolean;
+  toggleDark: () => void;
+  appTheme: string;
+  changeTheme: (theme: string) => void;
+  openHistory: () => void;
+  isHistoryOpen: boolean;
+  closeHistory: () => void;
+  savedPresentations: SavedPresentation[];
+  isHistoryLoading: boolean;
+  loadSavedPresentation: (item: SavedPresentation) => void;
+  deleteSavedPresentation: (id: string) => Promise<void>;
+  isChatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
+  isReviewOpen: boolean;
+  setReviewOpen: (open: boolean) => void;
+  executionPlan: unknown;
+  forceAbort: () => void;
+}
+
+export const usePresentation = (): UsePresentationResult => {
   // ── [UI & Theme System Integration] ───────────────────────
   // useThemeStore가 없는 환경(SSR 등)에서도 앱이 죽지 않도록 방어 코드 적용
   const themeStore = useThemeStore();
@@ -78,12 +144,12 @@ export const usePresentation = () => {
 
   const [template, setTemplate] = useState('auto');
   const [presentation, setPresentationState] = useState<Presentation | null>(null);
-  const [outline, setOutline] = useState<any>(null);
+  const [outline, setOutline] = useState<OutlineData | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [dataFiles, setDataFiles] = useState<DataFileState[]>([]);
   const [dataSummary, setDataSummary] = useState('');
   
-  const [aiParts, setAiParts] = useState<any[]>([]);
+  const [aiParts, setAiParts] = useState<unknown[]>([]);
   const [sourceFileData, setSourceFileData] = useState<string>('');
   const [referenceFileName, setReferenceFileName] = useState<string>('');
   const [referenceStructure, setReferenceStructure] = useState<ReferenceStructure | null>(null);
@@ -314,7 +380,6 @@ export const usePresentation = () => {
 
       setOutline(result);
       setAiParts(multimodalParts);
-      setSourceFileData(integratedText);
       setStep('outline');
       toast.success('AI 목차 설계 및 품질 검증 완료 (Enterprise Engine)');
     } catch (err: any) { 

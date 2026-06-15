@@ -17,6 +17,7 @@ import { parseFile } from '@/utils/fileParser'
 import { FileUploadZone } from '@/components/FileUploadZone'
 import { GENERATE_SLIDES_BUTTON_LABEL } from '@/components/presentation-labels'
 import { buildPresetMeetingInfoPatch } from '@/components/presentation-preset-metadata'
+import type { OutlineData, OutlineItem } from '@/components/OutlinePreview'
 
 type PresetField = { id: string; label: string; placeholder: string; suggestions: string[] };
 type Preset = {
@@ -84,13 +85,13 @@ const PROMPT_PRESETS: Preset[] = [
 
 interface PresentationTabProps {
   step: string
-  setStep: (step: any) => void
+  setStep: (step: 'upload' | 'info' | 'outline' | 'preview') => void
   info: MeetingInfo
   setInfo: (info: MeetingInfo) => void
   settings: PresentationSettings
   setSettings: (settings: PresentationSettings) => void
   handleGenerateOutline: () => void
-  handleGenerateFull: (outline: any) => void
+  handleGenerateFull: (outline: Record<string, unknown>) => void
   reset: () => void
   isGenerating: boolean
   loadingMessage?: string 
@@ -98,29 +99,29 @@ interface PresentationTabProps {
   template: string
   setTemplate: (t: string) => void
   presentation: Presentation | null
-  outline: any
+  outline: OutlineData | null
   currentSlideIndex: number
   setCurrentSlideIndex: (idx: number) => void
   handleSave: () => void
   isSaving: boolean
   regenerateSlide: (idx: number, req: string) => Promise<void>
-  chatOpen: boolean
+  isChatOpen: boolean
   setChatOpen: (o: boolean) => void
-  reviewOpen: boolean
+  isReviewOpen: boolean
   setReviewOpen: (o: boolean) => void
   switchToDesigner: () => void
   onOpenPlay?: () => void;
   referenceFileName: string
   isAnalyzingReference: boolean
-  referenceStructure: any
+  referenceStructure: unknown
   handleReferenceFileUpload: (files: File[]) => void
   handleClearReferenceFile: () => void
   sourceFileData: string
   setSourceFileData: (data: string) => void
   forceAbort: () => void 
-  dataFiles: Array<{ name: string, status: 'loading' | 'success' | 'error' }>;
-  onDataFileUpload: (files: File[]) => void;
-  onRemoveDataFile: (index: number) => void;
+  dataFiles: Array<{ name: string, status: 'loading' | 'success' | 'error'; content?: string | unknown[] }>;
+  handleDataFileUpload: (files: File[]) => void;
+  handleRemoveDataFile: (index: number) => void;
 }
 
 export const PresentationTab = (props: PresentationTabProps) => {
@@ -128,17 +129,13 @@ export const PresentationTab = (props: PresentationTabProps) => {
     step, setStep, info, setInfo, settings, setSettings, handleGenerateOutline, handleGenerateFull,
     reset, isGenerating, loadingMessage, dataSummary, template, setTemplate,
     presentation, outline, currentSlideIndex, setCurrentSlideIndex, handleSave, isSaving, 
-    regenerateSlide, chatOpen, setChatOpen, reviewOpen, setReviewOpen,
+    regenerateSlide, isChatOpen, setChatOpen, isReviewOpen, setReviewOpen,
     switchToDesigner, onOpenPlay, referenceFileName, isAnalyzingReference,
     referenceStructure, handleReferenceFileUpload, handleClearReferenceFile,
     sourceFileData, setSourceFileData,
     forceAbort,
-    dataFiles = [], onDataFileUpload, onRemoveDataFile 
+    dataFiles = [], handleDataFileUpload, handleRemoveDataFile 
   } = props
-
-  // [인터페이스 미스매치 방어] usePresentation 훅에서 제공하는 handleDataFileUpload와 handleRemoveDataFile 이름을 유연하게 바인딩합니다.
-  const finalOnDataFileUpload = onDataFileUpload || (props as any).handleDataFileUpload || (() => {});
-  const finalOnRemoveDataFile = onRemoveDataFile || (props as any).handleRemoveDataFile || (() => {});
 
   const [activePresetId, setActivePresetId] = useState<string>('manual')
   const [presetData, setPresetData] = useState<Record<string, string>>({})
@@ -174,16 +171,14 @@ export const PresentationTab = (props: PresentationTabProps) => {
     }
   }
 
-  const getOutlineList = (data: any) => {
+  const getOutlineList = (data: OutlineData | null) => {
     if (!data) return [];
-    if (Array.isArray(data)) return data;
     if (data.outline && Array.isArray(data.outline)) return data.outline;
-    if (data.slides && Array.isArray(data.slides)) return data.slides;
     return [];
   };
 
   const [editingOutlineIndex, setEditingOutlineIndex] = useState<number | null>(null);
-  const [localOutlineList, setLocalOutlineList] = useState<any[]>([]);
+  const [localOutlineList, setLocalOutlineList] = useState<OutlineItem[]>([]);
   const [localOutlineMetadata, setLocalOutlineMetadata] = useState({ title: '', audience: 'manager' });
 
   React.useEffect(() => {
@@ -198,7 +193,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
 
   const outlineItemCount = useMemo(() => localOutlineList.length, [localOutlineList]);
 
-  const updateOutlineSlide = (index: number, updates: any) => {
+  const updateOutlineSlide = (index: number, updates: Partial<OutlineItem>) => {
     const newList = [...localOutlineList];
     newList[index] = { ...newList[index], ...updates };
     setLocalOutlineList(newList);
@@ -320,7 +315,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
 
         {step === 'info' && (
           <motion.div key="info" className="flex-1 overflow-y-auto p-6 w-full max-w-[1400px] mx-auto">
-            <PresentationSetupForm info={info} onChange={setInfo} settings={settings} onSettingsChange={setSettings} onGenerate={handleGenerateOutline} onBack={reset} isGenerating={isGenerating} fileNames={fileNames} dataSummary={dataSummary} template={template} setTemplate={setTemplate} referenceFileName={referenceFileName} isAnalyzingReference={isAnalyzingReference} referenceStructure={referenceStructure} onReferenceFileUpload={handleReferenceFileUpload} onClearReferenceFile={handleClearReferenceFile} onDataFileUpload={finalOnDataFileUpload} dataFiles={dataFiles} onRemoveDataFile={finalOnRemoveDataFile} />
+            <PresentationSetupForm info={info} onChange={setInfo} settings={settings} onSettingsChange={setSettings} onGenerate={handleGenerateOutline} onBack={reset} isGenerating={isGenerating} fileNames={fileNames} dataSummary={dataSummary} template={template} setTemplate={setTemplate} referenceFileName={referenceFileName} isAnalyzingReference={isAnalyzingReference} referenceStructure={referenceStructure} onReferenceFileUpload={handleReferenceFileUpload} onClearReferenceFile={handleClearReferenceFile} onDataFileUpload={handleDataFileUpload} dataFiles={dataFiles} onRemoveDataFile={handleRemoveDataFile} />
           </motion.div>
         )}
 
@@ -348,7 +343,7 @@ export const PresentationTab = (props: PresentationTabProps) => {
                         <p className="text-muted-foreground font-medium">목차가 비어있습니다</p>
                         <p className="text-xs text-muted-foreground mt-1">이전 단계로 돌아가 다시 생성해 주세요</p>
                       </div>
-                    ) : localOutlineList.map((slide: any, idx: number) => (
+                    ) : localOutlineList.map((slide, idx: number) => (
                       <div key={idx} onClick={() => setEditingOutlineIndex(idx)} className={`flex gap-6 p-6 rounded-3xl bg-white dark:bg-slate-900 border transition-all cursor-pointer ${editingOutlineIndex === idx ? 'border-primary ring-4 ring-primary/10' : 'border-border'}`}>
                         <span className="text-3xl font-black text-primary/20">{String(idx + 1).padStart(2, '0')}</span>
                         <div className="flex-1 text-left space-y-2">
@@ -361,7 +356,12 @@ export const PresentationTab = (props: PresentationTabProps) => {
               </div>
               <div className="flex items-center gap-4 pt-4 shrink-0">
                 <Button variant="outline" className="flex-1 h-16 rounded-[24px] font-black" onClick={() => setStep('info')}>구성 재설정</Button>
-                <Button className="flex-[2] h-16 rounded-[24px] font-black gradient-primary text-white shadow-glow text-lg" onClick={() => handleGenerateFull({ ...outline, outline: localOutlineList, presentation_title: localOutlineMetadata.title, audience_focus: localOutlineMetadata.audience })}>
+                <Button className="flex-[2] h-16 rounded-[24px] font-black gradient-primary text-white shadow-glow text-lg" onClick={() => handleGenerateFull({
+                  ...(outline || {}),
+                  outline: localOutlineList,
+                  presentation_title: localOutlineMetadata.title,
+                  audience_focus: localOutlineMetadata.audience,
+                })}>
                   {isGenerating ? <Loader2 className="animate-spin mr-2" /> : <MonitorPlay className="mr-2" />} {GENERATE_SLIDES_BUTTON_LABEL}
                 </Button>
               </div>

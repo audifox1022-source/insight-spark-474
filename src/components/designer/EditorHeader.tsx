@@ -14,8 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from 'sonner';
 import { useSlideStore } from '@/store/useSlideStore';
-import { exportToJson, exportToPptx, exportToPdf } from "@/lib/export-presentation.tsx";
-import { exportToDocx } from "@/lib/export-docx";
 
 interface EditorHeaderProps {
   onBack?: () => void;
@@ -52,6 +50,17 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const [isExporting, setIsExporting] = useState(false);
 
+  const downloadJson = (payload: unknown, filename: string) => {
+    const dataStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   /**
    * [html2pdf.js] High-Fidelity PDF Download 
    */
@@ -60,6 +69,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     const toastId = toast.loading('PDF 변환 및 다운로드 준비 중...');
     setIsExporting(true);
     try {
+      const { exportToPdf } = await import('@/lib/export-presentation.tsx');
       await exportToPdf(presentation, aspectRatio);
       toast.success('PDF 다운로드가 시작되었습니다.', { id: toastId });
     } catch (error: any) {
@@ -84,6 +94,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     if (!presentation) return;
     const toastId = toast.loading('PPTX 생성 중... (객체 1:1 매핑)');
     try {
+      const { exportToPptx } = await import('@/lib/export-presentation.tsx');
       await exportToPptx(presentation, aspectRatio);
       toast.success('PowerPoint 내보내기가 완료되었습니다!', { id: toastId });
     } catch (error: any) {
@@ -94,7 +105,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
 
   const handleExportJson = () => {
     if (!presentation) return;
-    exportToJson(presentation);
+    downloadJson(presentation, `${presentation.title || 'presentation'}.json`);
     toast.success('JSON 데이터를 다운로드합니다.');
   };
 
@@ -102,6 +113,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     if (!presentation) return;
     const toastId = toast.loading('Word 문서 생성 중...');
     try {
+      const { exportToDocx } = await import('@/lib/export-docx');
       await exportToDocx(presentation);
       toast.success('Word 문서 내보내기가 완료되었습니다!', { id: toastId });
     } catch (error: any) {
@@ -187,7 +199,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
           <DropdownMenuTrigger asChild>
             <Button 
               variant="outline" size="sm"
-              disabled={isExporting}
               className="h-8 gap-2 bg-background border-primary/20 hover:border-primary/50 transition-all font-bold text-xs rounded-lg"
             >
               {isExporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PresentationIcon className="w-3.5 h-3.5 text-primary" />}

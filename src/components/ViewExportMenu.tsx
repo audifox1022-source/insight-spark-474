@@ -17,8 +17,6 @@ import {
   Loader2
 } from "lucide-react";
 import { Presentation } from "@/types/presentation";
-import { exportToJson, exportToPptx } from "@/lib/export-presentation.tsx";
-import { exportToDocx } from "@/lib/export-docx";
 import { toast } from "sonner";
 import { SlideLayoutRenderer } from './designer/SlideLayoutRenderer';
 
@@ -32,6 +30,17 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
   onPlay 
 }) => {
   const [isExporting, setIsExporting] = useState(false);
+
+  const downloadJson = (payload: unknown, filename: string) => {
+    const dataStr = JSON.stringify(payload, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   /** [FIX] PDF 오프스크린(Off-screen) 렌더링 방식 내보내기 구현 */
   const handleExportPdf = async () => {
@@ -100,7 +109,7 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
       toast.error("데이터가 없습니다.");
       return;
     }
-    exportToJson(presentation);
+    downloadJson(presentation, `${presentation.title || 'presentation'}.json`);
     toast.success('JSON 데이터를 다운로드합니다.');
   };
 
@@ -111,6 +120,7 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
     }
     const toastId = toast.loading('Word 문서 생성 중...');
     try {
+      const { exportToDocx } = await import('@/lib/export-docx');
       await exportToDocx(presentation);
       toast.success('Word 문서 내보내기가 완료되었습니다!', { id: toastId });
     } catch (error) {
@@ -126,6 +136,7 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
     }
     const toastId = toast.loading('PPTX 생성 중...');
     try {
+      const { exportToPptx } = await import('@/lib/export-presentation.tsx');
       await exportToPptx(presentation);
       toast.success('PowerPoint 내보내기가 완료되었습니다!', { id: toastId });
     } catch (error) {
@@ -140,7 +151,6 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
         <DropdownMenuTrigger asChild>
           <Button 
             variant="outline" 
-            disabled={isExporting}
             className="gap-2 bg-background/50 backdrop-blur-sm border-primary/20 hover:border-primary/50 transition-all font-bold"
           >
             {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <PresentationIcon className="w-4 h-4 text-primary" />}

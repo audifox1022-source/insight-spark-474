@@ -18,6 +18,7 @@ import {
   ChevronLeft, Headphones, FileDigit, BookOpen, X, BarChart3,
   Brain
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/integrations/supabase/client'
@@ -196,7 +197,7 @@ const Index = () => {
                   audiolab: 'Audio Lab', 
                   pdfeditor: 'PDF 편집' 
                 };
-                const Icons: Record<string, any> = { 
+                const Icons: Record<string, LucideIcon> = { 
                   presentation: Sparkles, 
                   translator: Globe, 
                   audiolab: Headphones, 
@@ -323,7 +324,7 @@ const Index = () => {
             )}
             <div className={`flex-1 flex flex-col overflow-hidden ${activeApp === 'presentation' ? 'contents' : 'hidden'}`}>
               <PresentationTab 
-                {...(presentationHooks as any)} 
+                {...presentationHooks}
                 template={template} 
                 setTemplate={setTemplate} 
                 isGenerating={isGenerating} 
@@ -335,7 +336,7 @@ const Index = () => {
                     setActiveApp('designer');
                   });
                 }}
-                handleGenerateFull={(outline: any) => {
+                handleGenerateFull={(outline) => {
                   presentationHooks.handleGenerateFull(outline, () => {
                     setActiveApp('designer');
                   });

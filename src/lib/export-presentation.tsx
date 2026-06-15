@@ -1,13 +1,10 @@
-// ============================================================
+﻿// ============================================================
 // src/lib/export-presentation.tsx (Work AI - Ultimate PDF Engine)
 // [CRITICAL UPGRADE] Dynamic Aspect Ratio (16:9 / 4:3) Support
 // [FIX] CJK Font Embedding & Adaptive Layout Sizing
-// [STABILITY] 전체 코드 출력 (김현 님 지침 준수)
+// [STABILITY] ?꾩껜 肄붾뱶 異쒕젰 (源????吏移?以??
 // ============================================================
-import { PDFDocument, rgb } from 'pdf-lib';
-import fontkit from '@pdf-lib/fontkit';
 import { Presentation } from '@/types/presentation';
-import { exportToPptx as exportProfessionalPptx } from './pptx-export-service';
 import { loadFont, NOTO_SANS_KR_URL } from '@/utils/fontLoader';
 import { extractSlideCitation, formatCitationDisplay } from '@/lib/slide-citations';
 import { normalizeChartData, normalizeTableData } from '@/utils/presentation-normalizer';
@@ -27,7 +24,7 @@ export function extractPdfChartData(slide: any): PdfChartPoint[] {
   return normalizeChartData(slide?.content_data_chart || slide?.chartData || slide?.content_data)
     .slice(0, 6)
     .map((point: any, index) => ({
-      label: String(point.label || point.name || `항목 ${index + 1}`),
+      label: String(point.label || point.name || `??ぉ ${index + 1}`),
       value: Number(point.value) || 0,
     }));
 }
@@ -45,12 +42,15 @@ export function extractPdfTableData(slide: any): PdfTableData | null {
  */
 export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4:3' = '16:9') => {
   if (!presentation || !presentation.slides || presentation.slides.length === 0) {
-    throw new Error('내보낼 슬라이드 데이터가 없습니다.');
+    throw new Error('?대낫???щ씪?대뱶 ?곗씠?곌? ?놁뒿?덈떎.');
   }
 
-  const toastId = toast.loading(`[${ratio}] 고해상도 PDF 엔진을 초기화 중입니다...`);
+  const toastId = toast.loading(`[${ratio}] 怨좏빐?곷룄 PDF ?붿쭊??珥덇린??以묒엯?덈떎...`);
 
   try {
+    const { PDFDocument, rgb } = await import('pdf-lib');
+    const { default: fontkit } = await import('@pdf-lib/fontkit');
+
     // 1. Initialize PDF Document & Fontkit
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
@@ -202,7 +202,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
               });
             });
           } else {
-            page.drawText('표시할 차트 데이터가 없습니다.', {
+            page.drawText('?쒖떆??李⑦듃 ?곗씠?곌? ?놁뒿?덈떎.', {
               x: 80, y: chartTop,
               size: 20, font: customFont, color: textColor
             });
@@ -273,7 +273,7 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
               });
             });
           } else {
-            page.drawText('표시할 표 데이터가 없습니다.', {
+            page.drawText('?쒖떆?????곗씠?곌? ?놁뒿?덈떎.', {
               x: 80, y: height - 260,
               size: 20, font: customFont, color: textColor
             });
@@ -331,15 +331,15 @@ export const exportToPdf = async (presentation: Presentation, ratio: '16:9' | '4
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const safeTitle = (presentation.title || 'WorkAI').replace(/[^a-z0-9가-힣]/gi, '_');
+    const safeTitle = (presentation.title || 'WorkAI').replace(/[^a-z0-9_-]/gi, '_');
     link.download = `${safeTitle}_${ratio}_${Date.now()}.pdf`;
     link.click();
     URL.revokeObjectURL(url);
 
-    toast.success(`${ratio} PDF 내보내기 완료!`, { id: toastId });
+    toast.success(`${ratio} PDF ?대낫?닿린 ?꾨즺!`, { id: toastId });
   } catch (err) {
-    console.error('🔥 PDF Export Error:', err);
-    toast.error('PDF 생성 중 오류 발생', { id: toastId });
+    console.error('?뵦 PDF Export Error:', err);
+    toast.error('PDF ?앹꽦 以??ㅻ쪟 諛쒖깮', { id: toastId });
     throw err;
   }
 };
@@ -355,4 +355,12 @@ export const exportToJson = (presentation: Presentation) => {
   URL.revokeObjectURL(url);
 };
 
-export { exportProfessionalPptx as exportToPptx };
+export const exportToPptx = async (...args: any[]) => {
+  const { exportToPptx: exportProfessionalPptx } = await import('./pptx-export-service');
+  return exportProfessionalPptx(...args);
+};
+
+
+
+
+
