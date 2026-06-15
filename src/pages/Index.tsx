@@ -29,6 +29,7 @@ import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
 import { MobileNav } from '@/components/MobileNav'
 import { SaveStatus } from '@/components/SaveStatus'
 import { useAutoSave } from '@/hooks/useAutoSave'
+import { NetworkStatus } from '@/components/NetworkStatus'
 
 const TranslatorWorkspace = lazy(() =>
   import('@/components/TranslatorWorkspace').then((module) => ({ default: module.TranslatorWorkspace }))
@@ -264,6 +265,7 @@ const Index = () => {
         </header>
 
         <HelpPopup open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <NetworkStatus />
 
         <Suspense fallback={<AppLoadingScreen />}>
           <div className="flex-1 flex flex-col relative overflow-hidden">
