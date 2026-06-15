@@ -28,6 +28,7 @@ import { buildFeedbackRecommendationView, mergeFeedbackImprovements } from '@/li
 import { getFilmstripThumbnailClass } from './slide-thumbnail-layout';
 import { BatchRegenerationPanel } from './BatchRegenerationPanel';
 import { VersionHistoryPanel } from './VersionHistoryPanel';
+import { VirtualSlideFilmstrip } from './VirtualSlideFilmstrip';
 import { AISuggestionPanel } from './AISuggestionPanel';
 
 interface SlideEditorProps {
@@ -672,32 +673,14 @@ export const SlideEditor: React.FC<SlideEditorProps> = ({
           </motion.div>
         </div>
 
-        <div className="h-44 bg-card/80 backdrop-blur-2xl border-t border-border flex items-center gap-6 px-10 py-6 overflow-x-auto custom-scrollbar shadow-[0_-15px_40px_rgba(0,0,0,0.03)] selection:bg-transparent">
-          {slides.map((s: any, idx: number) => (
-            <button key={s.id} onClick={() => store.setCurrentSlideIndex(idx)} className={getFilmstripThumbnailClass(store.currentSlideIndex === idx, store.aspectRatio)}>
-              <div className="absolute inset-0 bg-white dark:bg-slate-900 pointer-events-none">
-                <div className={`scale-[0.2] origin-top-left ${store.aspectRatio === '16:9' ? 'aspect-video w-[1280px] h-[720px]' : 'aspect-[4/3] w-[960px] h-[720px]'}`}>
-                  <SlideLayoutRenderer slide={s} slideIndex={idx} thumbnailMode={true} />
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute bottom-4 left-4 z-30">
-                 <div className="px-3 py-1.5 rounded-xl bg-slate-900/90 text-[10px] font-black text-white shadow-xl backdrop-blur-md">
-                    SLIDE {idx + 1}
-                 </div>
-              </div>
-              <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); store.deleteSlide(idx); }} className="absolute top-4 right-4 z-30 w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 opacity-0 group-hover:opacity-100 hover:bg-rose-500 hover:text-white transition-all">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </button>
-          ))}
-          <Button onClick={store.addSlide} variant="ghost" className="flex-shrink-0 w-40 h-[144px] border-2 border-dashed border-primary/20 bg-slate-50/50 rounded-2xl gap-3 font-black text-xs text-slate-400 hover:bg-primary/5 hover:border-primary hover:text-primary transition-all group">
-             <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
-                <Plus className="w-5 h-5 text-primary" />
-             </div>
-             슬라이드 추가
-          </Button>
-        </div>
+        <VirtualSlideFilmstrip
+          slides={slides}
+          currentIndex={store.currentSlideIndex}
+          aspectRatio={store.aspectRatio}
+          onSelect={(idx) => store.setCurrentSlideIndex(idx)}
+          onDelete={(idx) => store.deleteSlide(idx)}
+          onAdd={store.addSlide}
+        />
       </main>
 
       <FeedbackSidebar isOpen={store.isFeedbackOpen} onClose={() => store.setIsFeedbackOpen(false)} data={store.feedbackData} />
