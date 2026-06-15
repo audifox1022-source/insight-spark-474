@@ -27,6 +27,8 @@ import { buildInsightBrief } from '@/lib/insight-brief';
 import { ReferenceStructure } from '@/hooks/usePresentation';
 import SettingsSection from './SettingsSection';
 import { Settings } from '@/types';
+import { TemplateLibrary } from './TemplateLibrary';
+import { TemplatePreset } from '@/lib/template-library';
 
 interface PresentationSetupFormProps {
   info: MeetingInfo;
@@ -121,6 +123,8 @@ export function PresentationSetupForm({
   const [templateFile, setTemplateFile] = useState<string | null>(null);
   const [templateFileName, setTemplateFileName] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showTemplateLibrary, setShowTemplateLibrary] = useState(false);
+  const [selectedTemplatePreset, setSelectedTemplatePreset] = useState<TemplatePreset | null>(null);
   
   const templateInputRef = useRef<HTMLInputElement>(null);
   const referenceInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +149,25 @@ export function PresentationSetupForm({
   const updateSetting = <K extends keyof PresentationSettings>(
     key: K, value: PresentationSettings[K]
   ) => onSettingsChange({ ...settings, [key]: value });
+
+  const handleTemplateSelect = (templatePreset: TemplatePreset) => {
+    setSelectedTemplatePreset(templatePreset);
+    setTemplate(templatePreset.id);
+    
+    // 설정 적용
+    if (templatePreset.settings.difficulty) updateSetting('difficulty', templatePreset.settings.difficulty);
+    if (templatePreset.settings.volume) updateSetting('volume', templatePreset.settings.volume);
+    if (templatePreset.settings.slideCount) updateSetting('slideCount', templatePreset.settings.slideCount);
+    if (templatePreset.settings.generationStyle) updateSetting('generationStyle', templatePreset.settings.generationStyle);
+    
+    // 제목 자동 입력
+    if (!info.title || info.title === '') {
+      update('title', templatePreset.name);
+    }
+    
+    setShowTemplateLibrary(false);
+    toast.success(`"${templatePreset.name}" 템플릿이 적용되었습니다.`);
+  };
 
   const handleSaveFavorite = () => {
     if (!favName.trim()) { toast.error('이름을 입력해주세요.'); return; }
@@ -213,6 +236,14 @@ export function PresentationSetupForm({
       animate={{ opacity: 1, y: 0 }}
       className="w-full max-w-4xl mx-auto p-8 flex flex-col gap-10 animate-in fade-in duration-300"
     >
+      {/* 템플릿 라이브러리 */}
+      <TemplateLibrary
+        isOpen={showTemplateLibrary}
+        onClose={() => setShowTemplateLibrary(false)}
+        onSelect={handleTemplateSelect}
+        selectedId={selectedTemplatePreset?.id}
+      />
+
       {/* SECTION 0. 발표 브리프 */}
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
@@ -576,6 +607,35 @@ export function PresentationSetupForm({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* 템플릿 라이브러리 버튼 */}
+      <div className="flex flex-col gap-4 p-6 rounded-3xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Layout className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold">템플릿 라이브러리</h3>
+              <p className="text-xs text-muted-foreground">15개 사전 정의 템플릿으로 빠르게 시작하세요</p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowTemplateLibrary(true)}
+            className="gap-2"
+          >
+            <Layout className="w-4 h-4" />
+            템플릿 선택
+          </Button>
+        </div>
+        {selectedTemplatePreset && (
+          <div className="flex items-center gap-2 text-sm text-primary font-medium">
+            <CheckCircle2 className="w-4 h-4" />
+            현재 적용: {selectedTemplatePreset.name}
+          </div>
+        )}
       </div>
 
       <hr className="border-border" />
