@@ -2,7 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SavedPresentation } from '@/lib/presentation-storage';
 import { Button } from '@/components/ui/button';
-import { X, Trash2, FolderOpen, Clock, Loader2 } from 'lucide-react';
+import { X, Trash2, FolderOpen, Clock } from 'lucide-react';
+import { HistorySkeleton } from '@/components/SkeletonLoaders';
 
 interface HistoryPanelProps {
   open: boolean;
@@ -61,9 +62,7 @@ export const HistoryPanel = React.forwardRef<HTMLDivElement, HistoryPanelProps>(
             {/* 목록 */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {isLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                </div>
+                <HistorySkeleton />
               ) : items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                   <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center">
