@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Lightbulb, X, Loader2, Sparkles, Check, 
-  ChevronRight, RefreshCw
+  ChevronRight, RefreshCw, CheckCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -26,25 +26,26 @@ interface ContentSuggestion {
 }
 
 const SUGGESTION_PROMPT = `
-당신은 프레젠테이션 전문가입니다. 현재 슬라이드를 분석하여 개선 제안을 제공해주세요.
+당신은 McKinsey, BCG 수준의 프레젠테이션 전문가입니다. 
+현재 슬라이드를 분석하여 실질적으로 개선할 수 있는 제안을 제공해주세요.
 
 제안 유형:
-1. heading: 슬라이드 제목 개선
-2. description: 본문 설명 개선
-3. layout: 레이아웃 변경 제안
-4. content: 새 콘텐츠 항목 추가
+1. heading: 슬라이드 제목을 더 설득력 있게 개선
+2. description: 본문 설명을 더 구체적이고 근거 있게 개선
+3. layout: 데이터에 맞는 최적의 레이아웃 제안
+4. content: 누락된 핵심 콘텐츠 항목 추가
 
 응답 형식 (JSON 배열):
 [
   {
     "type": "heading|description|layout|content",
     "confidence": 0.0-1.0,
-    "content": "제안 내용",
-    "reason": "제안 이유"
+    "content": "구체적인 개선 제안 내용",
+    "reason": "왜 이것이 중요한지에 대한 근거"
   }
 ]
 
-최대 3개의 제안만 제공하세요.
+최대 3개의 가장 중요한 제안만 제공하세요.
 `;
 
 export function AISuggestionPanel({ 
@@ -106,7 +107,19 @@ export function AISuggestionPanel({
     if (isOpen && currentSlide) {
       fetchSuggestions();
     }
-  }, [isOpen, currentSlide]);
+  }, [isOpen, currentSlideIndex]);
+
+  const handleApplyAll = () => {
+    if (!currentSlide || suggestions.length === 0) return;
+    
+    suggestions.forEach((suggestion, index) => {
+      if (!appliedIndices.has(index)) {
+        suggestion.applyAction();
+      }
+    });
+    
+    toast.success('모든 제안이 적용되었습니다.');
+  };
 
   const handleApply = (suggestion: any, index: number) => {
     if (!currentSlide) return;
@@ -240,7 +253,17 @@ export function AISuggestionPanel({
           )}
         </div>
 
-        <div className="p-8 border-t border-white/10 bg-white/[0.02]">
+        <div className="p-8 border-t border-white/10 bg-white/[0.02] space-y-3">
+          {suggestions.length > 0 && appliedIndices.size < suggestions.length && (
+            <Button 
+              onClick={handleApplyAll}
+              disabled={isLoading}
+              className="w-full gap-2 bg-amber-500 text-white hover:bg-amber-600"
+            >
+              <CheckCheck className="w-4 h-4" />
+              모든 제안 적용 ({suggestions.length - appliedIndices.size}개)
+            </Button>
+          )}
           <Button 
             onClick={fetchSuggestions} 
             disabled={isLoading}
