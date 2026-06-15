@@ -169,6 +169,7 @@ const Index = () => {
                   navigate('/');
                 }}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                aria-label="WorkAI 홈으로 이동"
               >
                 <motion.div
                   className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center shadow-glow flex-shrink-0"
@@ -211,6 +212,8 @@ const Index = () => {
                       'flex items-center gap-2 px-4 py-1.5 text-[13px] font-bold rounded-lg transition-all',
                       activeApp === mode ? 'bg-background shadow-sm text-primary border border-border/50' : 'text-muted-foreground hover:text-foreground hover:bg-background/50',
                     ].join(' ')}
+                    aria-label={`${labels[mode] || mode} 모드로 전환`}
+                    aria-current={activeApp === mode ? 'page' : undefined}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {labels[mode] || mode}
@@ -229,13 +232,13 @@ const Index = () => {
                 <SaveStatus status={autoSave.status} />
               )}
               <div className="w-px h-6 bg-border/60 mx-1.5 hidden sm:block" />
-              <Button variant="ghost" size="sm" onClick={openHistory} className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold">
+              <Button variant="ghost" size="sm" onClick={openHistory} className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold" aria-label="저장된 발표자료 목록 열기">
                 <FolderOpen className="w-3.5 h-3.5" /> 저장 목록
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-8 h-8 text-muted-foreground hover:text-foreground"><HelpCircle className="w-4 h-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setHelpOpen(true)} className="w-8 h-8 text-muted-foreground hover:text-foreground" aria-label="도움말 열기"><HelpCircle className="w-4 h-4" /></Button>
               
               <div className="relative">
-                <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-8 h-8 text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="icon" onClick={() => setThemeMenuOpen(!themeMenuOpen)} className="w-8 h-8 text-muted-foreground hover:text-foreground" aria-label="브랜드 테마 설정" aria-expanded={themeMenuOpen}>
                   <Palette className="w-4 h-4" />
                 </Button>
                 <AnimatePresence>
@@ -253,11 +256,11 @@ const Index = () => {
               </div>
 
               {/* [SYSTEM] 테마 토글 버튼 - useThemeStore 연동 */}
-              <Button variant="ghost" size="icon" onClick={toggleTheme} className="w-8 h-8 text-muted-foreground transition-transform hover:scale-110 active:rotate-12">
+              <Button variant="ghost" size="icon" onClick={toggleTheme} className="w-8 h-8 text-muted-foreground transition-transform hover:scale-110 active:rotate-12" aria-label={isDark ? '라이트 모드로 전환' : '다크 모드로 전환'}>
                 {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-slate-400" />}
               </Button>
 
-              <Button variant="ghost" size="icon" onClick={handleLogout} className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors">
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="w-8 h-8 text-muted-foreground hover:text-destructive transition-colors" aria-label="로그아웃">
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>

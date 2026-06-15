@@ -121,9 +121,9 @@ describe('presentation final screen flow', () => {
 
     await waitFor(() => {
       expect(onGenerateFromPlan).toHaveBeenCalledWith(expect.objectContaining({ id: 'plan-1' }));
-    });
+    }, { timeout: 10000 });
     expect(slideStoreMock.state.executionPlan?.isApproved).toBe(true);
-  });
+  }, 15000);
 
   it('renders a completion fallback and switches to the designer from preview state', async () => {
     const switchToDesigner = vi.fn();

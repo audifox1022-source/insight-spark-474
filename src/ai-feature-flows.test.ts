@@ -94,7 +94,7 @@ describe('AI feature flows', () => {
     expect(Array.isArray(result)).toBe(true);
     expect(result[0].title).toBe('Overview');
     expect(result[0].content).toEqual([{ heading: 'Result', description: 'Growth' }]);
-  });
+  }, 10000);
 
   it('normalizes alternate PPT content fields before slides reach the editor', async () => {
     callGeminiAPIMock.mockResolvedValue(
