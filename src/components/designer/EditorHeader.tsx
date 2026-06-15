@@ -98,7 +98,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
   };
 
   return (
-    <div className="px-6 py-2 border-b border-border bg-white flex items-center justify-between z-30 shadow-sm relative print:hidden">
+    <div className="px-6 py-2 border-b border-border bg-card flex items-center justify-between z-30 shadow-sm relative print:hidden">
       <div className="flex items-center gap-3">
         {onBack && (
           <Button 

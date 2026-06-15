@@ -40,7 +40,7 @@ export const EditorSidebar: React.FC = () => {
   const addStar = () => addElement({ type: 'star', left: 400, top: 300, width: 200, height: 200, fill: '#FFD93D' });
 
   return (
-    <div className="w-[280px] border-r border-border bg-white flex flex-col h-full shrink-0 shadow-[10px_0_30px_rgba(0,0,0,0.02)] z-10 transition-all">
+    <div className="w-[280px] border-r border-border bg-card flex flex-col h-full shrink-0 shadow-[10px_0_30px_rgba(0,0,0,0.02)] z-10 transition-all">
       <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar">
         
         {/* Elements Section */}
