@@ -27,6 +27,8 @@ import { toast } from 'sonner'
 // [FIX] LoadingScreen이 @/components/LoadingScreen 인지 확인
 import { LoadingScreen as AppLoadingScreen } from '@/components/LoadingScreen'
 import { MobileNav } from '@/components/MobileNav'
+import { SaveStatus } from '@/components/SaveStatus'
+import { useAutoSave } from '@/hooks/useAutoSave'
 
 const TranslatorWorkspace = lazy(() =>
   import('@/components/TranslatorWorkspace').then((module) => ({ default: module.TranslatorWorkspace }))
@@ -108,6 +110,18 @@ const Index = () => {
   const setDataSummary = presentationHooks.setDataSummary || (() => {});
   const sourceFileData = presentationHooks.sourceFileData || '';
   const setSourceFileData = presentationHooks.setSourceFileData || (() => {});
+
+  // ── [Auto-Save System] ──
+  const autoSave = useAutoSave(presentationData, {
+    delay: 30000,
+    minChanges: 5,
+    enabled: Boolean(presentationData && activeApp === 'presentation'),
+    onSave: async () => {
+      if (presentationData) {
+        await presentationHooks.handleSave();
+      }
+    },
+  });
 
   const guide = getStepGuide(step);
 
@@ -210,6 +224,9 @@ const Index = () => {
 
             <div className="flex items-center gap-1.5 flex-shrink-0">
               {activeApp === 'presentation' && <StepIndicator currentStep={step} />}
+              {presentationData && (
+                <SaveStatus status={autoSave.status} />
+              )}
               <div className="w-px h-6 bg-border/60 mx-1.5 hidden sm:block" />
               <Button variant="ghost" size="sm" onClick={openHistory} className="gap-1.5 text-muted-foreground hover:text-foreground hidden sm:flex h-8 px-3 text-xs font-semibold">
                 <FolderOpen className="w-3.5 h-3.5" /> 저장 목록
