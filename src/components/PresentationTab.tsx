@@ -342,7 +342,13 @@ export const PresentationTab = (props: PresentationTabProps) => {
                   </div>
                 </div>
                 <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 p-8 overflow-y-auto custom-scrollbar flex-1 items-start content-start">
-                    {localOutlineList.map((slide: any, idx: number) => (
+                    {localOutlineList.length === 0 ? (
+                      <div className="col-span-full flex flex-col items-center justify-center py-16 text-center">
+                        <ListChecks className="w-12 h-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground font-medium">목차가 비어있습니다</p>
+                        <p className="text-xs text-muted-foreground mt-1">이전 단계로 돌아가 다시 생성해 주세요</p>
+                      </div>
+                    ) : localOutlineList.map((slide: any, idx: number) => (
                       <div key={idx} onClick={() => setEditingOutlineIndex(idx)} className={`flex gap-6 p-6 rounded-3xl bg-white dark:bg-slate-900 border transition-all cursor-pointer ${editingOutlineIndex === idx ? 'border-primary ring-4 ring-primary/10' : 'border-border'}`}>
                         <span className="text-3xl font-black text-primary/20">{String(idx + 1).padStart(2, '0')}</span>
                         <div className="flex-1 text-left space-y-2">

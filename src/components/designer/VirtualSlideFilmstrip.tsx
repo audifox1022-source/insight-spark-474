@@ -78,6 +78,19 @@ export function VirtualSlideFilmstrip({
     Math.ceil((scrollLeft + containerWidth) / (THUMBNAIL_WIDTH + THUMBNAIL_GAP)) + OVERSCAN
   );
 
+  if (slides.length === 0) {
+    return (
+      <div className="h-44 bg-card/80 backdrop-blur-2xl border-t border-border flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-muted-foreground font-medium">슬라이드가 없습니다</p>
+          <Button onClick={onAdd} variant="outline" size="sm" className="gap-2">
+            <Plus className="w-4 h-4" /> 첫 번째 슬라이드 추가
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       ref={scrollRef}
