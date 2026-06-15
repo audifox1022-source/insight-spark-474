@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Presentation } from "@/types/presentation";
 import { exportToJson, exportToPptx } from "@/lib/export-presentation.tsx";
+import { exportToDocx } from "@/lib/export-docx";
 import { toast } from "sonner";
 import { SlideLayoutRenderer } from './designer/SlideLayoutRenderer';
 
@@ -103,6 +104,21 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
     toast.success('JSON 데이터를 다운로드합니다.');
   };
 
+  const handleExportDocx = async () => {
+    if (!presentation || !presentation.slides?.length) {
+      toast.error("내보낼 데이터가 없습니다.");
+      return;
+    }
+    const toastId = toast.loading('Word 문서 생성 중...');
+    try {
+      await exportToDocx(presentation);
+      toast.success('Word 문서 내보내기가 완료되었습니다!', { id: toastId });
+    } catch (error) {
+      console.error("DOCX Export failed:", error);
+      toast.error('Word 문서 생성 중 오류가 발생했습니다.', { id: toastId });
+    }
+  };
+
   const handleExportPptx = async () => {
     if (!presentation || !presentation.slides?.length) {
       toast.error("내보낼 데이터가 없습니다.");
@@ -164,6 +180,17 @@ export const ViewExportMenu: React.FC<ViewExportMenuProps> = ({
             <div className="flex flex-col gap-0.5">
               <span className="font-semibold">PowerPoint로 내보내기</span>
               <span className="text-[10px] text-muted-foreground italic">(수정 가능한 네이티브 객체)</span>
+            </div>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem 
+            onClick={handleExportDocx}
+            className="gap-3 py-2.5 cursor-pointer focus:bg-primary/5 focus:text-primary"
+          >
+            <FileText className="w-4 h-4 text-blue-500" />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold">Word로 내보내기</span>
+              <span className="text-[10px] text-muted-foreground italic">편집 가능한 텍스트 문서</span>
             </div>
           </DropdownMenuItem>
 

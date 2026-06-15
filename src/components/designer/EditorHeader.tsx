@@ -15,6 +15,7 @@ import {
 import { toast } from 'sonner';
 import { useSlideStore } from '@/store/useSlideStore';
 import { exportToJson, exportToPptx, exportToPdf } from "@/lib/export-presentation.tsx";
+import { exportToDocx } from "@/lib/export-docx";
 
 interface EditorHeaderProps {
   onBack?: () => void;
@@ -95,6 +96,18 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
     if (!presentation) return;
     exportToJson(presentation);
     toast.success('JSON 데이터를 다운로드합니다.');
+  };
+
+  const handleExportDocx = async () => {
+    if (!presentation) return;
+    const toastId = toast.loading('Word 문서 생성 중...');
+    try {
+      await exportToDocx(presentation);
+      toast.success('Word 문서 내보내기가 완료되었습니다!', { id: toastId });
+    } catch (error: any) {
+      console.error("DOCX Export failed:", error);
+      toast.error(`Word 문서 생성 실패: ${error.message || '알 수 없는 오류'}`, { id: toastId });
+    }
   };
 
   return (
@@ -227,6 +240,17 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
               </div>
             </DropdownMenuItem>
  
+            <DropdownMenuItem 
+              onClick={handleExportDocx}
+              className="gap-3 py-2.5 cursor-pointer focus:bg-primary/5 focus:text-primary rounded-md"
+            >
+              <FileText className="w-4 h-4 text-blue-500" />
+              <div className="flex flex-col gap-0.5">
+                <span className="font-bold">Word로 내보내기</span>
+                <span className="text-[9px] text-muted-foreground italic font-medium">편집 가능한 텍스트 문서</span>
+              </div>
+            </DropdownMenuItem>
+
             <DropdownMenuSeparator className="my-1 bg-primary/5" />
  
             <DropdownMenuItem 
