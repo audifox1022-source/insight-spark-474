@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { analyzeAndTranslate, reverseTranslate, structureTextAsMarkdown, extractTextFromImage } from '@/lib/translation-service';
 import type { AnalysisResults, TranslationAndAnalysisResponse, ContextualTerm, TerminologyTerm } from '@/types/translation';
-import { saveTranslation } from '@/lib/translation-history';
+import { saveTranslation, type TranslationHistoryItem } from '@/lib/translation-history';
+import { TranslationHistoryPanel } from './TranslationHistoryPanel';
 
 import AnalysisPanel from './AnalysisPanel';
 import Loader from './Loader';
@@ -107,7 +108,7 @@ export const TranslatorWorkspace = React.forwardRef((props, ref) => {
   } | null>(null);
 
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
@@ -515,6 +516,14 @@ export const TranslatorWorkspace = React.forwardRef((props, ref) => {
 
             <div className="flex items-center gap-2">
                <button
+                onClick={() => setIsHistoryOpen(true)}
+                className="group flex items-center gap-2 px-5 py-3 text-[13px] font-bold rounded-2xl border border-border/40
+                  bg-background/40 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-background/60 transition-all shadow-sm"
+              >
+                <History className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" /> 히스토리
+              </button>
+
+               <button
                 onClick={() => setHelpModalOpen(true)}
                 className="group flex items-center gap-2 px-5 py-3 text-[13px] font-bold rounded-2xl border border-border/40
                   bg-background/40 text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-background/60 transition-all shadow-sm"
@@ -877,6 +886,17 @@ export const TranslatorWorkspace = React.forwardRef((props, ref) => {
         />
       )}
       <HelpModal isOpen={isHelpModalOpen} onClose={() => setHelpModalOpen(false)} />
+      <TranslationHistoryPanel
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onSelect={(item) => {
+          setSourceText(item.sourceText);
+          setTranslatedText(item.translatedText);
+          setTargetLanguage(item.targetLanguage);
+          setIsHistoryOpen(false);
+          toast.success('히스토리에서 불러왔습니다.');
+        }}
+      />
     </div>
   );
 });
