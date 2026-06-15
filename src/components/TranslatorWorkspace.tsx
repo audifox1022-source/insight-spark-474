@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { analyzeAndTranslate, reverseTranslate, structureTextAsMarkdown, extractTextFromImage } from '@/lib/translation-service';
 import type { AnalysisResults, TranslationAndAnalysisResponse, ContextualTerm, TerminologyTerm } from '@/types/translation';
+import { saveTranslation } from '@/lib/translation-history';
 
 import AnalysisPanel from './AnalysisPanel';
 import Loader from './Loader';
@@ -154,7 +155,18 @@ export const TranslatorWorkspace = React.forwardRef((props, ref) => {
     });
     setTranslationEditing(false);
     setIsVoiceMode(false);
-  }, []);
+
+    // 번역 결과 저장
+    if (result.translation && sourceText) {
+      saveTranslation({
+        sourceText: sourceText.substring(0, 500),
+        translatedText: result.translation.substring(0, 500),
+        sourceLanguage: result.sourceLanguage || 'auto',
+        targetLanguage,
+        domain: result.detectedDomain || undefined,
+      });
+    }
+  }, [sourceText, targetLanguage]);
 
   const handleAnalysis = useCallback(async () => {
     const safeText = sourceText || '';
