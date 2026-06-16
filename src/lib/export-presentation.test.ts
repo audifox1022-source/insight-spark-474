@@ -69,4 +69,61 @@ describe('pdf export visual data contract', () => {
     expect(table?.rows).toHaveLength(7);
     expect(table?.rows[0]).toHaveLength(5);
   });
+
+  it('preserves numeric values for chart items like 전일계획 instead of converting to 0', () => {
+    const slide = {
+      title: '전일 대비 계획',
+      layout: 'chart',
+      content_data_chart: [
+        { label: '전일계획', value: 150 },
+        { label: '당일계획', value: 200 },
+        { label: '달성률', value: 75 },
+      ],
+    };
+
+    const chartData = extractPdfChartData(slide);
+    expect(chartData).toEqual([
+      { label: '전일계획', value: 150 },
+      { label: '당일계획', value: 200 },
+      { label: '달성률', value: 75 },
+    ]);
+  });
+
+  it('handles string numeric values and comma-formatted numbers correctly', () => {
+    const slide = {
+      title: '매출 비교',
+      layout: 'chart',
+      content_data_chart: [
+        { label: '전일계획', value: '1,500' },
+        { label: '당일실적', value: '2,300' },
+        { label: '비율', value: 65.2 },
+      ],
+    };
+
+    const chartData = extractPdfChartData(slide);
+    expect(chartData).toEqual([
+      { label: '전일계획', value: 1500 },
+      { label: '당일실적', value: 2300 },
+      { label: '비율', value: 65.2 },
+    ]);
+  });
+
+  it('handles alternative value field names (amount, count, score, result, total)', () => {
+    const slide = {
+      title: '대시보드',
+      layout: 'chart',
+      content_data_chart: [
+        { label: '전일계획', amount: 300 },
+        { label: '당일계획', count: 450 },
+        { label: '달성율', score: 88 },
+      ],
+    };
+
+    const chartData = extractPdfChartData(slide);
+    expect(chartData).toEqual([
+      { label: '전일계획', value: 300 },
+      { label: '당일계획', value: 450 },
+      { label: '달성율', value: 88 },
+    ]);
+  });
 });

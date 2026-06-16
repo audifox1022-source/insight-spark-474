@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // src/lib/export-presentation.tsx (Work AI - Ultimate PDF Engine)
 // [CRITICAL UPGRADE] Dynamic Aspect Ratio (16:9 / 4:3) Support
 // [FIX] CJK Font Embedding & Adaptive Layout Sizing
@@ -23,10 +23,14 @@ export interface PdfTableData {
 export function extractPdfChartData(slide: any): PdfChartPoint[] {
   return normalizeChartData(slide?.content_data_chart || slide?.chartData || slide?.content_data)
     .slice(0, 6)
-    .map((point: any, index) => ({
-      label: String(point.label || point.name || `??ぉ ${index + 1}`),
-      value: Number(point.value) || 0,
-    }));
+    .map((point: any, index) => {
+      const rawValue = point.value ?? point.amount ?? point.count ?? point.score ?? point.result ?? point.total ?? 0;
+      const numValue = typeof rawValue === 'number' ? rawValue : Number(String(rawValue).replace(/,/g, ''));
+      return {
+        label: String(point.label || point.name || `항목 ${index + 1}`),
+        value: Number.isFinite(numValue) ? numValue : 0,
+      };
+    });
 }
 
 export function extractPdfTableData(slide: any): PdfTableData | null {

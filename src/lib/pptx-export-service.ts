@@ -23,11 +23,15 @@ export interface PptxTableData {
 export function extractPptxChartData(slide: any): PptxChartPoint[] {
   return normalizeChartData(slide?.content_data_chart || slide?.chartData || slide?.content_data)
     .slice(0, 6)
-    .map((point: any, index) => ({
-      label: String(point.label || point.name || `항목 ${index + 1}`),
-      value: Number(point.value) || 0,
-      ...(point.series ? { series: String(point.series) } : {}),
-    }));
+    .map((point: any, index) => {
+      const rawValue = point.value ?? point.amount ?? point.count ?? point.score ?? point.result ?? point.total ?? 0;
+      const numValue = typeof rawValue === 'number' ? rawValue : Number(String(rawValue).replace(/,/g, ''));
+      return {
+        label: String(point.label || point.name || `항목 ${index + 1}`),
+        value: Number.isFinite(numValue) ? numValue : 0,
+        ...(point.series ? { series: String(point.series) } : {}),
+      };
+    });
 }
 
 export function extractPptxTableData(slide: any): PptxTableData | null {

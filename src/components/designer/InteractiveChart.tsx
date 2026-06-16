@@ -30,11 +30,15 @@ export const InteractiveChart: React.FC<InteractiveChartProps> = ({
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
   const chartData = useMemo(() => {
-    let processed = data.map(item => ({
-      name: item.label || item.name || '항목',
-      value: Number(item.value) || 0,
-      original: item
-    }));
+    let processed = data.map(item => {
+      const rawValue = item.value ?? item.amount ?? item.count ?? item.score ?? item.result ?? item.total ?? 0;
+      const numValue = typeof rawValue === 'number' ? rawValue : Number(String(rawValue).replace(/,/g, ''));
+      return {
+        name: item.label || item.name || '항목',
+        value: Number.isFinite(numValue) ? numValue : 0,
+        original: item
+      };
+    });
 
     // 정렬
     if (sortBy === 'asc') {

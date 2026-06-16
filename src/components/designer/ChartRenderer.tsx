@@ -23,10 +23,14 @@ export const ChartRenderer: React.FC<ChartProps> = ({ data, type, colors = COLOR
   }
 
   // 데이터 정규화 (label/name과 value가 있는지 확인)
-  const chartData = data.map(item => ({
-    name: item.label || item.name || '항목',
-    value: Number(item.value) || 0
-  }));
+  const chartData = data.map(item => {
+    const rawValue = item.value ?? item.amount ?? item.count ?? item.score ?? item.result ?? item.total ?? 0;
+    const numValue = typeof rawValue === 'number' ? rawValue : Number(String(rawValue).replace(/,/g, ''));
+    return {
+      name: item.label || item.name || '항목',
+      value: Number.isFinite(numValue) ? numValue : 0
+    };
+  });
 
   const renderChart = () => {
     switch (type) {
