@@ -1,13 +1,9 @@
 // api/identify-audio.js
-import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createAudioUploadMiddleware } from './_audio-upload.js';
 import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from './_auth.js';
 
-// Vercel 하드 리밋(4.5MB)이 존재하지만, 코드 레벨에서는 50MB까지 허용하도록 설정
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
+const upload = createAudioUploadMiddleware();
 
 const runMiddleware = (req, res, fn) => {
   return new Promise((resolve, reject) => {
@@ -39,18 +35,21 @@ export default async function handler(req, res) {
     await runMiddleware(req, res, upload.single('file'));
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
-    const API_KEY = process.env.GEMINI_API_KEY;
-    const genAI = new GoogleGenerativeAI(API_KEY || '');
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY is missing' });
+
+    const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const audioData = {
       inlineData: {
         data: req.file.buffer.toString('base64'),
-        mimeType: req.file.mimetype || 'audio/mp3',
+        mimeType: req.file.mimetype || 'audio/mpeg',
       },
     };
 
-    const prompt = '이 오디오 파일을 듣고, 주로 사람들이 말하는 회의/음성 녹음(Speech)인지, 아니면 악기 연주와 노래가 포함된 음악(Music)인지 식별해. "Speech" 또는 "Music" 중 하나의 단어로만 대답해.';
+    const prompt =
+      'Classify the uploaded audio as either Speech or Music. Return only one English word: Speech or Music.';
     const result = await model.generateContent([prompt, audioData]);
     const text = (await result.response).text().trim().toLowerCase();
 
@@ -58,9 +57,8 @@ export default async function handler(req, res) {
     if (text.includes('speech')) resultType = 'Speech';
     else if (text.includes('music')) resultType = 'Music';
 
-    res.status(200).json({ type: resultType });
-
+    return res.status(200).json({ type: resultType });
   } catch (error) {
-    res.status(500).json({ error: error.message || 'Error occurred' });
+    return res.status(500).json({ error: error.message || 'Error occurred' });
   }
 }

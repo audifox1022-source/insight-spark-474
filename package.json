@@ -54,7 +54,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.3",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
     "dotenv": "^16.4.7",
@@ -69,7 +69,7 @@
     "lucide-react": "^0.462.0",
     "mammoth": "^1.8.0",
     "meyda": "^5.6.3",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.2.0",
     "next-themes": "^0.3.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.0.227",
@@ -89,6 +89,9 @@
     "vaul": "^0.9.9",
     "zod": "^3.25.76",
     "zustand": "^5.0.11"
+  },
+  "overrides": {
+    "dompurify": "^3.4.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",

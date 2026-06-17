@@ -1,12 +1,9 @@
 // api/analyze-music.js
-import multer from 'multer';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createAudioUploadMiddleware } from './_audio-upload.js';
 import { applyCorsHeaders, getAuthErrorPayload, requireAuth } from './_auth.js';
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 }
-});
+const upload = createAudioUploadMiddleware();
 
 const runMiddleware = (req, res, fn) => {
   return new Promise((resolve, reject) => {
@@ -37,7 +34,9 @@ export default async function handler(req, res) {
     if (!req.file) return res.status(400).json({ error: 'No audio file provided' });
 
     const API_KEY = process.env.GEMINI_API_KEY;
-    const genAI = new GoogleGenerativeAI(API_KEY || '');
+    if (!API_KEY) return res.status(500).json({ error: 'GEMINI_API_KEY is missing' });
+
+    const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const audioData = {
