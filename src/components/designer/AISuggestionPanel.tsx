@@ -138,7 +138,7 @@ export function AISuggestionPanel({
       case 'layout':
         onApplySuggestion(currentSlideIndex, { layout: suggestion.content });
         break;
-      case 'content':
+      case 'content': {
         const newContent = {
           heading: suggestion.content.split(':')[0] || '새 항목',
           description: suggestion.content.split(':')[1] || suggestion.content,
@@ -147,6 +147,7 @@ export function AISuggestionPanel({
           content: [...(currentSlide.content || []), newContent] 
         });
         break;
+      }
     }
 
     setAppliedIndices(prev => new Set([...prev, index]));

@@ -83,6 +83,19 @@ const Index = () => {
 
   // ── [Safe Guard for usePresentation] ──
   const presentationHooks = usePresentation();
+  const presentationData = presentationHooks?.presentation || null;
+
+  // ── [Auto-Save System] ──
+  const autoSave = useAutoSave(presentationData, {
+    delay: 30000,
+    minChanges: 5,
+    enabled: Boolean(presentationHooks && presentationData && activeApp === 'presentation'),
+    onSave: async () => {
+      if (presentationHooks && presentationData) {
+        await presentationHooks.handleSave();
+      }
+    },
+  });
 
   useEffect(() => {
     setLoadedApps((current) => {
@@ -102,7 +115,6 @@ const Index = () => {
   // ── [Mandatory Fallback & Safe Destructuring] ──
   const step = presentationHooks.step || 'upload';
   const openHistory = presentationHooks.openHistory || (() => {});
-  const presentationData = presentationHooks.presentation || null;
   const currentSlideIndex = presentationHooks.currentSlideIndex || 0;
   const setCurrentSlideIndex = presentationHooks.setCurrentSlideIndex || (() => {});
   const isGenerating = presentationHooks.isGenerating || false;
@@ -112,18 +124,6 @@ const Index = () => {
   const setDataSummary = presentationHooks.setDataSummary || (() => {});
   const sourceFileData = presentationHooks.sourceFileData || '';
   const setSourceFileData = presentationHooks.setSourceFileData || (() => {});
-
-  // ── [Auto-Save System] ──
-  const autoSave = useAutoSave(presentationData, {
-    delay: 30000,
-    minChanges: 5,
-    enabled: Boolean(presentationData && activeApp === 'presentation'),
-    onSave: async () => {
-      if (presentationData) {
-        await presentationHooks.handleSave();
-      }
-    },
-  });
 
   const guide = getStepGuide(step);
 
