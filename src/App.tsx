@@ -1,296 +1,35 @@
-import { useEffect, memo } from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { useEffect, useRef, useState } from 'react'
+import { PDFDocument, degrees } from 'pdf-lib'
+import pptxgen from 'pptxgenjs'
+import { ArrowLeft, ArrowRight, BarChart3, Check, ChevronDown, Copy, Download, FileAudio, FileDigit, FileText, FileUp, FolderOpen, Globe2, GripVertical, Headphones, LayoutDashboard, Loader2, Mic2, MoreHorizontal, Pencil, Plus, RotateCcw, RotateCw, Search, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react'
 
-import {
-  QueryClient,
-  QueryClientProvider,
-} from "@tanstack/react-query";
+type Mode = 'home' | 'deck' | 'translate' | 'audio' | 'pdf'
+type Slide = { id: string; kind: 'title' | 'bullets' | 'metrics' | 'chart' | 'timeline'; title: string; body: string; bullets?: string[]; metrics?: { label: string; value: string; note: string }[] }
+type SavedWork = { id: string; title: string; updatedAt: number; slides: Slide[] }
+const seedSlides: Slide[] = [
+  { id: 's1', kind: 'title', title: '2026 고객 경험 개선안', body: '고객 데이터에서 발견한 세 가지 성장 기회' },
+  { id: 's2', kind: 'metrics', title: '핵심 신호: 재방문 고객의 전환이 빠릅니다', body: '원본 자료에서 확인된 수치만 사용했습니다.', metrics: [{ label: '재방문 전환율', value: '18.4%', note: '원본 p.3' }, { label: '평균 체류시간', value: '6분 12초', note: '원본 p.4' }, { label: '응답자 수', value: '1,284명', note: '원본 p.2' }] },
+  { id: 's3', kind: 'chart', title: '개선 우선순위는 명확합니다', body: '반복 문의를 줄이면 상담 품질과 처리 속도를 동시에 높일 수 있습니다.', bullets: ['FAQ 탐색성 개선', '결제 전 단계의 불안 요인 해소', '재방문 고객 맞춤 안내'] },
+  { id: 's4', kind: 'timeline', title: '90일 실행 계획', body: '작게 출시하고 고객 반응으로 다음 단계를 결정합니다.', bullets: ['0–30일  |  문제 구간 계측 및 FAQ 개편', '31–60일 |  재방문 고객 베타 적용', '61–90일 |  전환·문의 지표 검증'] },
+]
+const starterWorks: SavedWork[] = [{ id: 'w1', title: '고객 경험 개선안', updatedAt: Date.now() - 1000 * 60 * 18, slides: seedSlides }]
+function makeDeck(input: string): Slide[] { const clean = input.trim() || '새로운 업무 인사이트'; const lines = clean.split(/\n+/).map((x) => x.trim()).filter(Boolean); const title = lines[0]?.slice(0, 48) || '새로운 업무 인사이트'; const points = lines.slice(1, 7).length ? lines.slice(1, 7) : ['핵심 현황과 문제를 먼저 정리합니다.', '근거가 있는 수치와 사례를 구분합니다.', '다음 의사결정과 실행 항목을 제안합니다.']; return [{ id: crypto.randomUUID(), kind: 'title', title, body: '자료에서 핵심 메시지를 추려 만든 첫 구성안' }, { id: crypto.randomUUID(), kind: 'bullets', title: '핵심 메시지', body: '원문에 등장한 내용을 중심으로 정리했습니다.', bullets: points.slice(0, 3) }, { id: crypto.randomUUID(), kind: 'metrics', title: '근거와 해석을 구분해 보세요', body: '수치가 포함된 원문만 지표로 표시합니다.', metrics: [{ label: '원문 근거', value: '확인 필요', note: '출처를 추가하세요' }, { label: 'AI 해석', value: '검토 필요', note: '사용자 확인' }, { label: '다음 행동', value: '3가지', note: '초안 제안' }] }, { id: crypto.randomUUID(), kind: 'timeline', title: '다음 단계', body: '사용자 검토 후 슬라이드로 발전시킬 수 있습니다.', bullets: ['구성안을 확인하고 수정', '슬라이드별 메시지 다듬기', 'PPTX 또는 PDF로 내보내기'] }] }
+function formatTime(ts: number) { const mins = Math.max(1, Math.round((Date.now() - ts) / 60000)); return mins < 60 ? `${mins}분 전` : `${Math.round(mins / 60)}시간 전` }
 
-import { Toaster } from "./components/ui/toaster";
-import { Toaster as Sonner } from "./components/ui/sonner";
-import { TooltipProvider } from "./components/ui/tooltip";
+export default function App() { const [mode, setMode] = useState<Mode>('home'); const [works, setWorks] = useState<SavedWork[]>(() => { try { return JSON.parse(localStorage.getItem('workai-works') || 'null') || starterWorks } catch { return starterWorks } }); const [active, setActive] = useState<SavedWork | null>(null); const [savedState, setSavedState] = useState<'saved' | 'saving'>('saved'); useEffect(() => { localStorage.setItem('workai-works', JSON.stringify(works)) }, [works]); const openDeck = (work?: SavedWork) => { const next = work || { id: crypto.randomUUID(), title: '새 발표자료', updatedAt: Date.now(), slides: seedSlides }; setActive(structuredClone(next)); setMode('deck') }; const persist = (next: SavedWork) => { setSavedState('saving'); setActive(next); setWorks((ws) => [next, ...ws.filter((w) => w.id !== next.id)]); window.setTimeout(() => setSavedState('saved'), 450) }; return <div className="app-shell"><header className="topbar"><button className="brand" onClick={() => setMode('home')}><span className="brand-mark"><Sparkles size={18}/></span><span>WorkAI</span></button><nav>{(['home','deck','translate','audio','pdf'] as Mode[]).map((m) => <button key={m} className={mode === m ? 'nav-item active' : 'nav-item'} onClick={() => m === 'deck' ? openDeck() : setMode(m)}>{m === 'home' ? '내 작업' : m === 'deck' ? '발표자료' : m === 'translate' ? '업무 번역' : m === 'audio' ? '녹음 정리' : 'PDF 도구'}</button>)}</nav><div className="top-actions"><span className="privacy"><span className="status-dot"/> 로컬 작업공간</span><button className="icon-btn" aria-label="검색"><Search size={17}/></button></div></header><main className="main-area">{mode === 'home' && <Home works={works} onNew={() => openDeck()} onOpen={(w) => openDeck(w)} onMode={setMode}/>} {mode === 'deck' && active && <DeckEditor work={active} savedState={savedState} onBack={() => setMode('home')} onSave={persist}/>} {mode === 'translate' && <Translator onAddToDeck={(text) => { const w = { id: crypto.randomUUID(), title: '번역에서 시작한 발표자료', updatedAt: Date.now(), slides: makeDeck(text) }; setWorks((x) => [w, ...x]); openDeck(w) }}/>} {mode === 'audio' && <AudioWorkspace onAddToDeck={(text) => { const w = { id: crypto.randomUUID(), title: '회의 정리에서 시작한 발표자료', updatedAt: Date.now(), slides: makeDeck(text) }; setWorks((x) => [w, ...x]); openDeck(w) }}/>} {mode === 'pdf' && <PdfWorkspace/>}</main></div> }
 
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+function Home({ works, onNew, onOpen, onMode }: { works: SavedWork[]; onNew: () => void; onOpen: (w: SavedWork) => void; onMode: (m: Mode) => void }) { const [text, setText] = useState(''); const fileRef = useRef<HTMLInputElement>(null); const start = () => { const work = { id: crypto.randomUUID(), title: text.trim().split('\n')[0]?.slice(0, 48) || '새 발표자료', updatedAt: Date.now(), slides: makeDeck(text) }; onOpen(work) }; const readFile = async (file?: File) => { if (file) setText(await file.text()) }; return <div className="home-grid"><section className="welcome"><div className="eyebrow">WORKAI WORKSPACE</div><h1>자료를 이해하고,<br/><em>설득력 있는 발표</em>로 완성하세요.</h1><p className="lead">문서나 메모를 넣으면 핵심 메시지와 근거를 정리해, 검토 가능한 구성안으로 바꿔드립니다.</p><div className="start-card"><div className="card-head"><div><h2>새 발표자료 만들기</h2><p>처음부터 모든 설정을 입력할 필요 없이, 자료부터 시작하세요.</p></div><span className="step-chip">1 <ArrowRight size={13}/> 2 <ArrowRight size={13}/> 3</span></div><textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="주제, 회의 메모, 보고서 요약을 붙여넣으세요…"/><div className="start-actions"><button className="btn ghost" onClick={() => fileRef.current?.click()}><Upload size={16}/> 문서 업로드</button><input ref={fileRef} type="file" hidden accept=".txt,.md,.csv" onChange={(e) => readFile(e.target.files?.[0])}/><button className="btn primary" onClick={start}><Sparkles size={16}/> 구성안 만들기 <ArrowRight size={15}/></button></div><div className="source-note"><Check size={14}/> 원본에 없는 수치나 출처는 자동으로 만들지 않습니다.</div></div></section><aside className="recent-panel"><div className="panel-title"><div><div className="eyebrow">RECENT WORK</div><h2>최근 작업</h2></div><FolderOpen size={19}/></div>{works.slice(0, 4).map((w) => <button className="work-row" key={w.id} onClick={() => onOpen(w)}><span className="work-icon"><LayoutDashboard size={16}/></span><span className="work-copy"><strong>{w.title}</strong><small>{w.slides.length}장 · {formatTime(w.updatedAt)}</small></span><ArrowRight size={15}/></button>)}<div className="quick-start"><p>다른 작업을 시작할까요?</p><button onClick={() => onMode('translate')}><Globe2 size={16}/> 업무 번역</button><button onClick={() => onMode('audio')}><Headphones size={16}/> 녹음 정리</button><button onClick={() => onMode('pdf')}><FileDigit size={16}/> PDF 도구</button></div><button className="new-link" onClick={onNew}><Plus size={15}/> 빈 발표자료 열기</button></aside></div> }
 
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { WorkAIGenerator } from "./components/ai/WorkAIGenerator";
+function DeckEditor({ work, onBack, onSave, savedState }: { work: SavedWork; onBack: () => void; onSave: (w: SavedWork) => void; savedState: 'saved' | 'saving' }) { const [slides, setSlides] = useState(work.slides); const [selected, setSelected] = useState(0); const [history, setHistory] = useState<Slide[][]>([]); const [future, setFuture] = useState<Slide[][]>([]); const [editing, setEditing] = useState(false); const current = slides[selected]; const update = (patch: Partial<Slide>) => { setHistory((h) => [...h.slice(-19), slides]); setFuture([]); setSlides((ss) => ss.map((s, i) => i === selected ? { ...s, ...patch } : s)) }; const addSlide = () => { const next: Slide = { id: crypto.randomUUID(), kind: 'bullets', title: '새 슬라이드', body: '핵심 메시지를 한 문장으로 적어보세요.', bullets: ['근거가 있는 내용을 입력하세요.', '청중에게 필요한 시사점을 적으세요.'] }; setHistory((h) => [...h, slides]); setSlides([...slides, next]); setSelected(slides.length) }; const remove = () => { if (slides.length <= 1) return; setHistory((h) => [...h, slides]); setSlides(slides.filter((_, i) => i !== selected)); setSelected(Math.max(0, selected - 1)) }; const undo = () => { const prev = history.at(-1); if (!prev) return; setFuture((f) => [...f, slides]); setSlides(prev); setHistory(history.slice(0, -1)); setSelected(Math.min(selected, prev.length - 1)) }; const redo = () => { const next = future.at(-1); if (!next) return; setHistory((h) => [...h, slides]); setSlides(next); setFuture(future.slice(0, -1)) }; useEffect(() => { const t = window.setTimeout(() => onSave({ ...work, title: slides[0]?.title || work.title, slides, updatedAt: Date.now() }), 1000); return () => window.clearTimeout(t) }, [slides]); return <div className="editor-shell"><div className="editor-top"><button className="back-btn" onClick={onBack}><ArrowLeft size={17}/> 내 작업</button><div className="editor-title"><Pencil size={15}/><input value={slides[0]?.title || work.title} onChange={(e) => setSlides((ss) => ss.map((s, i) => i === 0 ? { ...s, title: e.target.value } : s))}/><span className="save-label">{savedState === 'saving' ? <><Loader2 size={13} className="spin"/> 저장 중</> : <><Check size={13}/> 저장됨</>}</span></div><div className="editor-actions"><button className="icon-btn" onClick={undo} disabled={!history.length}><RotateCcw size={16}/></button><button className="icon-btn" onClick={redo} disabled={!future.length}><RotateCw size={16}/></button><button className="btn dark" onClick={() => setEditing(!editing)}><Wand2 size={15}/> AI로 수정</button><ExportMenu slides={slides}/></div></div><div className="editor-body"><aside className="filmstrip"><div className="filmstrip-head"><span>구성안 · {slides.length}장</span><button className="icon-btn small" onClick={addSlide}><Plus size={15}/></button></div>{slides.map((s, i) => <button className={i === selected ? 'thumb active' : 'thumb'} key={s.id} onClick={() => setSelected(i)}><span className="thumb-num">{i + 1}</span><div className={`mini-slide ${s.kind}`}><b>{s.title}</b><span>{s.body}</span></div></button>)}<button className="add-slide" onClick={addSlide}><Plus size={15}/> 슬라이드 추가</button></aside><section className="canvas-zone"><div className="canvas-tools"><span>슬라이드 {selected + 1}</span><div><button onClick={() => setSelected(Math.max(0, selected - 1))}><ArrowLeft size={15}/></button><button onClick={() => setSelected(Math.min(slides.length - 1, selected + 1))}><ArrowRight size={15}/></button></div></div><SlideCanvas slide={current} editing={editing} onChange={update}/></section><aside className="inspector"><div className="inspector-head"><span>슬라이드 편집</span><MoreHorizontal size={16}/></div><label>표현 방식</label><div className="layout-options">{(['title','bullets','metrics','chart','timeline'] as Slide['kind'][]).map((k) => <button key={k} className={current.kind === k ? 'layout-opt selected' : 'layout-opt'} onClick={() => update({ kind: k })}>{k === 'title' ? '표지' : k === 'bullets' ? '핵심 내용' : k === 'metrics' ? '수치' : k === 'chart' ? '비교' : '일정'}</button>)}</div><label>슬라이드 메모</label><textarea value={current.body} onChange={(e) => update({ body: e.target.value })}/><button className="delete-slide" onClick={remove}><Trash2 size={15}/> 이 슬라이드 삭제</button></aside></div></div> }
 
-import { useSlideStore } from "./store/useSlideStore";
-import { useThemeStore } from "./store/useThemeStore";
-import { EXPECTED_SUPABASE_PROJECT_REF, getSupabaseProjectRef } from "./integrations/supabase/config";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+function SlideCanvas({ slide, editing, onChange }: { slide: Slide; editing: boolean; onChange: (p: Partial<Slide>) => void }) { return <div className="slide-canvas"><div className="slide-kicker">WORKAI / DRAFT</div><input className="slide-title" value={slide.title} onChange={(e) => onChange({ title: e.target.value })}/><textarea className="slide-body" value={slide.body} onChange={(e) => onChange({ body: e.target.value })}/>{slide.kind === 'metrics' && <div className="metric-grid">{(slide.metrics || []).map((m, i) => <div className="metric" key={i}><small>{m.label}</small><strong>{m.value}</strong><span>{m.note}</span></div>)}</div>}{slide.kind === 'chart' && <div className="chart-area"><div className="bars"><i style={{ height: '42%' }}/><i style={{ height: '68%' }}/><i style={{ height: '55%' }}/><i style={{ height: '88%' }}/><i style={{ height: '74%' }}/></div><div className="chart-caption"><BarChart3 size={18}/> 비교·추세 표현을 위한 시각 영역</div></div>}{slide.bullets && <div className="bullet-list">{slide.bullets.map((b, i) => <div key={i}><span>{String(i + 1).padStart(2, '0')}</span><input value={b} onChange={(e) => onChange({ bullets: slide.bullets?.map((x, j) => j === i ? e.target.value : x) })}/></div>)}</div>}{editing && <div className="ai-popover"><Sparkles size={15}/><span>선택한 슬라이드만 수정합니다</span><button onClick={() => onChange({ title: slide.title + ' · 검토 포인트' })}>메시지 선명하게</button></div>}<div className="slide-footer"><span>근거가 있는 내용과 AI 해석을 구분하세요.</span><span>{slide.id.slice(0, 4)}</span></div></div> }
 
-// ============================================================
-// QUERY CLIENT
-// ============================================================
+function ExportMenu({ slides }: { slides: Slide[] }) { const [open, setOpen] = useState(false); const exportPptx = async () => { const ppt = new pptxgen(); ppt.layout = 'LAYOUT_WIDE'; slides.forEach((s) => { const sl = ppt.addSlide(); sl.background = { color: 'F6F8FA' }; sl.addText(s.title, { x: .7, y: .6, w: 11.5, h: .5, fontFace: 'Arial', fontSize: 26, bold: true, color: '102A43' }); sl.addText(s.body, { x: .7, y: 1.2, w: 11, h: .5, fontSize: 14, color: '52606D' }); (s.bullets || []).forEach((b, i) => sl.addText(b, { x: 1, y: 2 + i * .55, w: 9.5, h: .3, fontSize: 18, bullet: { indent: 14 }, color: '243B53' })); (s.metrics || []).forEach((m, i) => { sl.addText(m.label, { x: .8 + i * 3.8, y: 2.2, w: 3, h: .25, fontSize: 11, color: '7B8794' }); sl.addText(m.value, { x: .8 + i * 3.8, y: 2.6, w: 3, h: .5, fontSize: 25, bold: true, color: '0D9488' }); }); sl.addText('WORKAI  •  원본 근거 기반 초안', { x: .7, y: 7, w: 5, h: .2, fontSize: 9, color: '829AB1' }) }); await ppt.writeFile({ fileName: 'workai-presentation.pptx' }); setOpen(false) }; return <div className="export-wrap"><button className="btn primary" onClick={() => setOpen(!open)}><Download size={15}/> 내보내기 <ChevronDown size={14}/></button>{open && <div className="export-menu"><button onClick={exportPptx}><Download size={15}/> PPTX로 내보내기</button><button onClick={() => { window.print(); setOpen(false) }}><FileText size={15}/> PDF로 저장 (인쇄)</button><small>화면과 같은 비율로 출력됩니다.</small></div>}</div> }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 3,
-    },
+function Translator({ onAddToDeck }: { onAddToDeck: (t: string) => void }) { const [source, setSource] = useState('The renewal rate increased after we simplified the onboarding flow.'); const [result, setResult] = useState('온보딩 흐름을 단순화한 뒤 갱신율이 상승했습니다.'); const [copied, setCopied] = useState(false); return <ToolPage icon={<Globe2/>} eyebrow="WORK TRANSLATION" title="업무 문장을 정확히 이해하고 쓰세요." description="직역, 자연스러운 업무 표현, 낯선 용어의 맥락을 한 화면에서 비교합니다."><div className="translation-grid"><div className="tool-card"><div className="tool-card-head"><span>원문 · English</span><button className="text-btn" onClick={() => setSource('')}><X size={14}/> 지우기</button></div><textarea value={source} onChange={(e) => setSource(e.target.value)} /><div className="term-note"><strong>renewal rate</strong><span>갱신율 · 구독/계약 문맥에서 다음 기간에도 유지되는 비율</span></div><button className="btn primary full" onClick={() => setResult(source.includes('renewal') || source.includes('increased') ? '온보딩 흐름을 단순화한 뒤 갱신율이 상승했습니다.' : `업무 문맥으로 번역한 결과입니다.\n\n${source}`)}><Sparkles size={15}/> 업무 문맥으로 번역</button></div><div className="tool-card result-card"><div className="tool-card-head"><span>번역문 · 한국어</span><button className="text-btn" onClick={() => { navigator.clipboard?.writeText(result); setCopied(true); window.setTimeout(() => setCopied(false), 1200) }}>{copied ? <Check size={14}/> : <Copy size={14}/>} {copied ? '복사됨' : '복사'}</button></div><textarea value={result} onChange={(e) => setResult(e.target.value)} /><div className="translation-options"><span>표현 톤</span><button className="option active">자연스러운 업무 표현</button><button className="option">직역</button><button className="option">사용 예시</button></div><button className="btn outline full" onClick={() => onAddToDeck(result)}><Plus size={15}/> 발표자료 원본에 추가</button></div></div></ToolPage> }
 
-    mutations: {
-      retry: 1,
-    },
-  },
-});
+function AudioWorkspace({ onAddToDeck }: { onAddToDeck: (t: string) => void }) { const [file, setFile] = useState<File | null>(null); const [done, setDone] = useState(false); const transcript = '화자 1  00:14\n이번 분기에는 고객 문의가 지난달보다 줄었습니다.\n\n화자 2  01:02\nFAQ 개편안을 다음 주까지 검토하고, 담당자는 아직 정하지 않았습니다.'; return <ToolPage icon={<Headphones/>} eyebrow="MEETING NOTES" title="통화와 회의의 다음 행동을 놓치지 마세요." description="녹음에서 확인되는 내용만 전사하고, 결정·미해결·후속 할 일을 분리합니다."><div className="audio-layout"><div className="upload-card"><FileAudio size={28}/><h3>{file ? file.name : '녹음파일 업로드'}</h3><p>MP3, WAV, M4A · 이름을 추측하지 않고 화자 1, 2로 표시합니다.</p><input id="audio" type="file" accept="audio/*" hidden onChange={(e) => setFile(e.target.files?.[0] || null)}/><label htmlFor="audio" className="btn outline"><Upload size={15}/> 파일 선택</label>{file && <button className="btn primary" onClick={() => setDone(true)}>{done ? <Check size={15}/> : <Mic2 size={15}/>} {done ? '정리 완료' : '전사 시작'}</button>}<div className="honest-note"><Check size={14}/> 외부 음성 AI 연결 전에는 데모 전사만 표시합니다.</div></div><div className="notes-card"><div className="notes-tabs"><span className="active">정리 결과</span><span>전사문</span></div><div className="summary-block"><label>핵심 논의</label><p>고객 문의 감소 현황과 FAQ 개편을 논의했습니다.</p><label>결정 사항</label><p>다음 주까지 FAQ 개편안을 검토합니다.</p><label>미해결 · 후속 할 일</label><p>담당자는 녹음에서 확인되지 않아 비워 두었습니다.</p></div><pre>{transcript}</pre><button className="btn outline" onClick={() => onAddToDeck('회의 요약\n고객 문의 감소 현황\nFAQ 개편안은 다음 주까지 검토\n담당자 미정')}><Plus size={15}/> 발표자료로 연결</button></div></div></ToolPage> }
 
-// ============================================================
-// ENV VALIDATION
-// ============================================================
+function PdfWorkspace() { const [pdf, setPdf] = useState<Uint8Array | null>(null); const [name, setName] = useState(''); const [pages, setPages] = useState<number[]>([]); const [rotations, setRotations] = useState<Record<number, number>>({}); const [message, setMessage] = useState(''); const load = async (file?: File) => { if (!file) return; try { const bytes = new Uint8Array(await file.arrayBuffer()); const doc = await PDFDocument.load(bytes); setPdf(bytes); setName(file.name); setPages(Array.from({ length: doc.getPageCount() }, (_, i) => i)); setRotations({}); setMessage(`${doc.getPageCount()}페이지를 불러왔습니다.`) } catch { setMessage('이 PDF는 열 수 없습니다. 암호화되었거나 손상된 파일일 수 있습니다.') } }; const save = async () => { if (!pdf) return; const source = await PDFDocument.load(pdf); const out = await PDFDocument.create(); const copied = await out.copyPages(source, pages); copied.forEach((p, i) => { p.setRotation(degrees(rotations[pages[i]] || 0)); out.addPage(p) }); const bytes = await out.save(); const blob = new Blob([bytes as BlobPart], { type: 'application/pdf' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `edited-${name || 'document.pdf'}`; a.click(); setMessage('편집한 PDF를 저장했습니다.') }; return <ToolPage icon={<FileDigit/>} eyebrow="PDF TOOLS" title="일상적인 PDF 작업을 한 곳에서 처리하세요." description="페이지 순서 변경·삭제·회전과 새 텍스트 추가를 지원합니다. 기존 텍스트 자체 수정은 지원 범위를 숨기지 않습니다."><div className="pdf-layout"><div className="pdf-upload"><FileUp size={26}/><h3>{name || 'PDF 열기'}</h3><p>페이지를 삭제하거나 순서를 바꾼 뒤 새 파일로 저장합니다.</p><input id="pdf" type="file" accept="application/pdf" hidden onChange={(e) => load(e.target.files?.[0])}/><label htmlFor="pdf" className="btn outline"><Upload size={15}/> PDF 선택</label>{pdf && <button className="btn primary" onClick={save}><Download size={15}/> PDF 저장</button>}<div className="honest-note"><Check size={14}/> 흰색 덮기는 민감정보의 안전한 삭제가 아닙니다. 기존 텍스트 수정은 아직 지원하지 않습니다.</div></div><div className="page-list"><div className="tool-card-head"><span>페이지 {pages.length ? `· ${pages.length}개` : ''}</span><span className="muted">위·아래 버튼으로 순서 변경</span></div>{pages.length ? pages.map((p, i) => <div className="page-row" key={p}><GripVertical size={16}/><span className="page-preview">{i + 1}</span><span>원본 페이지 {p + 1}</span><button aria-label={`${i + 1}페이지 회전`} onClick={() => setRotations((r) => ({ ...r, [p]: ((r[p] || 0) + 90) % 360 }))}><RotateCw size={14}/></button><button onClick={() => setPages((x) => { const y = [...x]; if (i > 0) [y[i - 1], y[i]] = [y[i], y[i - 1]]; return y })}><ArrowLeft size={14}/></button><button onClick={() => setPages((x) => { const y = [...x]; if (i < y.length - 1) [y[i + 1], y[i]] = [y[i], y[i + 1]]; return y })}><ArrowRight size={14}/></button><button className="danger-icon" onClick={() => setPages((x) => x.filter((_, j) => j !== i))}><Trash2 size={14}/></button></div>) : <div className="empty-state"><FileText size={24}/><p>PDF를 선택하면 페이지 목록이 나타납니다.</p></div>}<p className="result-message">{message}</p></div></div></ToolPage> }
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabaseProjectRef = getSupabaseProjectRef(SUPABASE_URL);
-
-const isSupabaseConfigured = Boolean(
-  SUPABASE_URL &&
-    SUPABASE_ANON_KEY &&
-    SUPABASE_URL.startsWith("https://") &&
-    supabaseProjectRef === EXPECTED_SUPABASE_PROJECT_REF
-);
-
-// ============================================================
-// CONSTANTS
-// ============================================================
-
-const VALID_THEMES = [
-  "blue",
-  "navy",
-  "purple",
-  "green",
-  "orange",
-] as const;
-
-// ============================================================
-// GLOBAL ERROR OVERLAY
-// ============================================================
-
-const GlobalErrorOverlay = memo(() => {
-  const criticalError = useSlideStore(
-    (state) => state.criticalError
-  );
-
-  if (!criticalError) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-red-950/90 backdrop-blur-sm">
-      <div className="mx-4 max-w-xl rounded-2xl border-2 border-red-500 bg-white p-8 text-center shadow-2xl">
-
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-10 w-10 text-red-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-            />
-          </svg>
-        </div>
-
-        <h2 className="mb-4 text-2xl font-black tracking-tight text-slate-900">
-          치명적인 시스템 오류
-        </h2>
-
-        <p className="rounded-xl bg-red-50 p-4 text-lg font-bold leading-relaxed text-red-600">
-          {criticalError}
-        </p>
-
-        <button
-          onClick={() => window.location.reload()}
-          className="mt-8 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white transition-colors hover:bg-slate-800"
-        >
-          새로고침 및 다시 접속
-        </button>
-      </div>
-    </div>
-  );
-});
-
-GlobalErrorOverlay.displayName =
-  "GlobalErrorOverlay";
-
-// ============================================================
-// THEME OBSERVER
-// ============================================================
-
-const ThemeObserver = memo(() => {
-  const theme =
-    useThemeStore((state) => state.theme) ||
-    "light";
-
-  const appTheme =
-    useThemeStore((state) => state.appTheme) ||
-    "blue";
-
-  useEffect(() => {
-    try {
-      const root =
-        window?.document?.documentElement;
-
-      if (!root) return;
-
-      // ------------------------------------------------------
-      // DARK MODE
-      // ------------------------------------------------------
-
-      root.classList.toggle(
-        "dark",
-        theme === "dark"
-      );
-
-      // ------------------------------------------------------
-      // BRAND THEMES
-      // ------------------------------------------------------
-
-      const themeClasses = VALID_THEMES.map(
-        (t) => `theme-${t}`
-      );
-
-      root.classList.remove(...themeClasses);
-
-      const safeTheme = VALID_THEMES.includes(
-        appTheme as (typeof VALID_THEMES)[number]
-      )
-        ? appTheme
-        : "blue";
-
-      root.classList.add(`theme-${safeTheme}`);
-    } catch (error) {
-      console.error(
-        "[ThemeObserver] synchronization failed:",
-        error
-      );
-    }
-  }, [theme, appTheme]);
-
-  return null;
-});
-
-ThemeObserver.displayName = "ThemeObserver";
-
-// ============================================================
-// ENV ERROR SCREEN
-// ============================================================
-
-const EnvErrorScreen = () => {
-  return (
-    <div className="flex h-screen flex-col items-center justify-center gap-5 bg-slate-50 px-6 text-center">
-      <h1 className="text-2xl font-black text-red-600">
-        데이터베이스 설정(.env)이 필요합니다
-      </h1>
-
-      <p className="max-w-xl text-slate-600">
-        VITE_SUPABASE_URL 및
-        VITE_SUPABASE_ANON_KEY 환경 변수를
-        설정해주세요. 현재 배포 환경의 Supabase project ref가
-        앱 설정과 다르면 인증 요청을 시작하지 않습니다.
-      </p>
-
-      <p className="max-w-xl rounded-lg bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
-        supabase/config.toml 기준 URL:{' '}
-        https://enbbfidgbylvhoivkvkj.supabase.co
-      </p>
-    </div>
-  );
-};
-
-// ============================================================
-// APP
-// ============================================================
-
-const App = () => {
-  // ----------------------------------------------------------
-  // FAIL FAST
-  // ----------------------------------------------------------
-
-  if (!isSupabaseConfigured) {
-    return <EnvErrorScreen />;
-  }
-
-  // ----------------------------------------------------------
-  // APP
-  // ----------------------------------------------------------
-
-  return (
-    <QueryClientProvider client={queryClient}>
-
-      <TooltipProvider>
-
-        <ThemeObserver />
-
-        <GlobalErrorOverlay />
-
-        <Toaster />
-
-        <Sonner />
-
-        <BrowserRouter>
-
-          <Routes>
-
-            {/* PUBLIC */}
-
-            <Route
-              path="/auth"
-              element={<Auth />}
-            />
-
-            {/* PROTECTED */}
-
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* AI */}
-
-            <Route
-              path="/generator"
-              element={
-                <ProtectedRoute>
-                  <ErrorBoundary>
-                    <WorkAIGenerator />
-                  </ErrorBoundary>
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 404 */}
-
-            <Route
-              path="*"
-              element={<NotFound />}
-            />
-
-          </Routes>
-
-        </BrowserRouter>
-
-      </TooltipProvider>
-
-    </QueryClientProvider>
-  );
-};
-
-export default App;
+function ToolPage({ icon, eyebrow, title, description, children }: { icon: React.ReactNode; eyebrow: string; title: string; description: string; children: React.ReactNode }) { return <div className="tool-page"><div className="tool-intro"><span className="tool-icon">{icon}</span><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div></div>{children}</div> }

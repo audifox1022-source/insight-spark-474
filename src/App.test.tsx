@@ -1,150 +1,33 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it } from 'vitest'
+import App from './App'
 
-const onAuthStateChange = vi.fn(() => ({
-  data: {
-    subscription: {
-      unsubscribe: vi.fn(),
-    },
-  },
-}));
+describe('WorkAI 핵심 흐름', () => {
+  beforeEach(() => { localStorage.clear() })
 
-const getSupabaseSessionSafely = vi.fn();
+  it('홈에서 자료를 입력해 발표자료 편집기로 이동한다', () => {
+    render(<App />)
+    fireEvent.change(screen.getByPlaceholderText('주제, 회의 메모, 보고서 요약을 붙여넣으세요…'), { target: { value: '분기 실적\n매출이 증가했습니다.' } })
+    fireEvent.click(screen.getByRole('button', { name: /구성안 만들기/ }))
+    expect(screen.getByText('구성안 · 4장')).toBeInTheDocument()
+    expect(screen.getAllByDisplayValue('분기 실적').length).toBeGreaterThan(0)
+  })
 
-vi.mock('@/integrations/supabase/client', () => ({
-  getSupabaseSessionSafely,
-  supabase: {
-    auth: {
-      onAuthStateChange,
-    },
-  },
-}));
+  it('슬라이드 추가와 AI 수정이 현재 슬라이드에만 적용된다', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '발표자료' }))
+    fireEvent.click(screen.getByRole('button', { name: '슬라이드 추가' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI로 수정' }))
+    fireEvent.click(screen.getByRole('button', { name: '메시지 선명하게' }))
+    expect(screen.getByDisplayValue('새 슬라이드 · 검토 포인트')).toBeInTheDocument()
+    expect(screen.getByText('구성안 · 5장')).toBeInTheDocument()
+  })
 
-vi.mock('@/pages/Index', () => ({
-  default: () => <div>index page</div>,
-}));
-
-vi.mock('@/pages/Auth', () => ({
-  default: () => <div>auth page</div>,
-}));
-
-vi.mock('@/pages/NotFound', () => ({
-  default: () => <div>not found page</div>,
-}));
-
-vi.mock('@/components/ai/WorkAIGenerator', () => ({
-  WorkAIGenerator: () => <div>generator page</div>,
-}));
-
-vi.mock('@/store/useSlideStore', () => ({
-  useSlideStore: (selector: (state: { criticalError: string | null }) => unknown) =>
-    selector({ criticalError: null }),
-}));
-
-vi.mock('@/store/useThemeStore', () => ({
-  useThemeStore: (selector: (state: { theme: string; appTheme: string }) => unknown) =>
-    selector({ theme: 'light', appTheme: 'blue' }),
-}));
-
-async function renderAppAt(path: string) {
-  window.history.pushState({}, '', path);
-  const { default: App } = await import('./App');
-  return render(<App />);
-}
-
-describe('App routing', () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://enbbfidgbylvhoivkvkj.supabase.co');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
-
-    const storage = new Map<string, string>();
-    const localStorageMock = {
-      getItem: vi.fn((key: string) => storage.get(key) ?? null),
-      setItem: vi.fn((key: string, value: string) => storage.set(key, value)),
-      removeItem: vi.fn((key: string) => storage.delete(key)),
-      clear: vi.fn(() => storage.clear()),
-      key: vi.fn((index: number) => Array.from(storage.keys())[index] ?? null),
-      get length() {
-        return storage.size;
-      },
-    };
-
-    Object.defineProperty(window, 'localStorage', {
-      value: localStorageMock,
-      configurable: true,
-    });
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: localStorageMock,
-      configurable: true,
-    });
-    Object.defineProperty(window, 'matchMedia', {
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-      configurable: true,
-    });
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.unstubAllEnvs();
-  });
-
-  it('redirects /generator to auth when there is no active session', async () => {
-    getSupabaseSessionSafely.mockResolvedValueOnce(null);
-
-    await renderAppAt('/generator');
-
-    await waitFor(() => {
-      expect(screen.getByText('auth page')).toBeInTheDocument();
-    }, { timeout: 15000 });
-    expect(screen.queryByText('generator page')).not.toBeInTheDocument();
-  }, 20000);
-
-  it('renders a configuration screen when Supabase env vars are missing', async () => {
-    vi.stubEnv('VITE_SUPABASE_URL', '');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', '');
-    vi.resetModules();
-
-    await renderAppAt('/');
-
-    expect(screen.getByText(/VITE_SUPABASE_URL/)).toBeInTheDocument();
-    expect(screen.getByText(/VITE_SUPABASE_ANON_KEY/)).toBeInTheDocument();
-    expect(screen.getByText(/enbbfidgbylvhoivkvkj\.supabase\.co/)).toBeInTheDocument();
-  });
-
-  it('renders a configuration screen when Supabase project ref is unexpected', async () => {
-    vi.stubEnv('VITE_SUPABASE_URL', 'https://ikjdvyiqllnfpeaxfvfb.supabase.co');
-    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
-    vi.resetModules();
-
-    await renderAppAt('/');
-
-    expect(screen.getByText(/Supabase project ref/)).toBeInTheDocument();
-    expect(screen.getByText(/enbbfidgbylvhoivkvkj\.supabase\.co/)).toBeInTheDocument();
-    expect(screen.queryByText('index page')).not.toBeInTheDocument();
-  });
-
-  it('renders /generator for authenticated users', async () => {
-    getSupabaseSessionSafely.mockResolvedValueOnce({
-      access_token: 'token',
-      token_type: 'bearer',
-      user: { id: 'user-id' },
-    });
-
-    await renderAppAt('/generator');
-
-    await waitFor(() => {
-      expect(screen.getByText('generator page')).toBeInTheDocument();
-    });
-  });
-});
+  it('업무 도구 탭을 독립적으로 연다', () => {
+    render(<App />)
+    fireEvent.click(screen.getAllByRole('button', { name: '업무 번역' })[0])
+    expect(screen.getByRole('heading', { name: '업무 문장을 정확히 이해하고 쓰세요.' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'PDF 도구' }))
+    expect(screen.getByRole('heading', { name: '일상적인 PDF 작업을 한 곳에서 처리하세요.' })).toBeInTheDocument()
+  })
+})
