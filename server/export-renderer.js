@@ -1,9 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
-import fontkit from '@pdf-lib/fontkit'
 import pptxgen from 'pptxgenjs'
-
-const NOTO_SANS_KR_URL = 'https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@main/Sans/OTF/Korean/NotoSansCJKkr-Regular.otf'
-let cachedKoreanFontBytes = null
 
 function numberOr(value, fallback) {
   const num = Number(value)
@@ -47,39 +43,14 @@ function getTextAlign(value) {
   return ['left', 'center', 'right'].includes(value) ? value : 'left'
 }
 
-async function fetchKoreanFontBytes() {
-  if (cachedKoreanFontBytes) return cachedKoreanFontBytes
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 5000)
-  try {
-    const response = await fetch(NOTO_SANS_KR_URL, { signal: controller.signal })
-    if (!response.ok) {
-      throw new Error(`Font request failed: ${response.status}`)
-    }
-    cachedKoreanFontBytes = new Uint8Array(await response.arrayBuffer())
-    return cachedKoreanFontBytes
-  } finally {
-    clearTimeout(timeout)
-  }
-}
-
 async function getPdfFont(pdfDoc) {
-  const fallbackFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
-
-  try {
-    pdfDoc.registerFontkit(fontkit)
-    const bytes = await fetchKoreanFontBytes()
-    return {
-      font: await pdfDoc.embedFont(bytes, { subset: true }),
-      supportsUnicode: true,
-    }
-  } catch (error) {
-    console.warn('[PDF Export] Korean font load failed, using ASCII fallback:', error.message)
-    return {
-      font: fallbackFont,
-      supportsUnicode: false,
-    }
+  // Do not fetch or embed a remote font in a serverless function. A malformed
+  // or HTML response from the font CDN can make fontkit throw during pdfDoc.save
+  // and terminate the whole function. The browser export path preserves Korean;
+  // this server path intentionally uses a safe ASCII fallback.
+  return {
+    font: await pdfDoc.embedFont(StandardFonts.Helvetica),
+    supportsUnicode: false,
   }
 }
 
