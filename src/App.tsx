@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { PDFDocument, degrees } from "pdf-lib";
+import { PDFDocument, degrees, rgb } from "pdf-lib";
 import pptxgen from "pptxgenjs";
 import { parseFile } from "./utils/fileParser";
 import {
@@ -54,6 +54,17 @@ type SavedWork = {
   updatedAt: number;
   slides: Slide[];
   theme?: TemplateId;
+};
+type PdfTextItem = {
+  id: string;
+  page: number;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  pageWidth: number;
+  pageHeight: number;
 };
 const templates: { id: TemplateId; label: string; description: string }[] = [
   { id: "clean", label: "클린 리포트", description: "밝고 정돈된 업무 보고" },
@@ -1371,6 +1382,10 @@ function PdfWorkspace() {
   const [pages, setPages] = useState<number[]>([]);
   const [rotations, setRotations] = useState<Record<number, number>>({});
   const [previews, setPreviews] = useState<Record<number, string>>({});
+  const [textItems, setTextItems] = useState<PdfTextItem[]>([]);
+  const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [replacementDraft, setReplacementDraft] = useState("");
+  const [textEdits, setTextEdits] = useState<Record<string, string>>({});
   const [selectedPage, setSelectedPage] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [textDraft, setTextDraft] = useState("");
@@ -1380,6 +1395,9 @@ function PdfWorkspace() {
     if (!file) return;
     setMessage("PDF를 읽는 중입니다…");
     setPreviews({});
+    setTextItems([]);
+    setTextEdits({});
+    setSelectedTextId(null);
     setOverlays({});
     setSelectedPage(0);
     try {
@@ -1410,6 +1428,7 @@ function PdfWorkspace() {
           disableWorker: true,
         }).promise;
         const nextPreviews: Record<number, string> = {};
+        const nextTextItems: PdfTextItem[] = [];
         for (const index of pageIndexes.slice(0, 30)) {
           const page = await rendered.getPage(index + 1);
           const viewport = page.getViewport({ scale: 0.8 });
@@ -1421,8 +1440,34 @@ function PdfWorkspace() {
             await page.render({ canvasContext: context, viewport }).promise;
             nextPreviews[index] = canvas.toDataURL("image/jpeg", 0.8);
           }
+          const textContent = await page.getTextContent();
+          textContent.items.forEach((raw: any, itemIndex: number) => {
+            const value = String(raw.str || "").trim();
+            if (!value || !raw.transform) return;
+            const height = Math.max(
+              8,
+              Math.abs(Number(raw.transform[3] || 12)),
+            );
+            const x = Number(raw.transform[4] || 0);
+            const baseline = Number(raw.transform[5] || 0);
+            nextTextItems.push({
+              id: `${index}-${itemIndex}`,
+              page: index,
+              text: value,
+              x,
+              y: Math.max(0, page.view[3] - baseline - height),
+              width: Math.max(
+                8,
+                Number(raw.width || value.length * height * 0.45),
+              ),
+              height,
+              pageWidth: page.view[2],
+              pageHeight: page.view[3],
+            });
+          });
         }
         setPreviews(nextPreviews);
+        setTextItems(nextTextItems);
       } catch (previewError) {
         const previewDetail =
           previewError instanceof Error
@@ -1450,6 +1495,41 @@ function PdfWorkspace() {
         p.setRotation(degrees(rotations[pages[i]] || 0));
         out.addPage(p);
       });
+      for (const item of textItems) {
+        const replacement = textEdits[item.id];
+        if (replacement === undefined) continue;
+        const pagePosition = pages.indexOf(item.page);
+        if (pagePosition < 0) continue;
+        const target = copied[pagePosition];
+        target.drawRectangle({
+          x: item.x - 2,
+          y: target.getHeight() - item.y - item.height - 2,
+          width: item.width + 4,
+          height: item.height + 4,
+          color: rgb(1, 1, 1),
+          opacity: 1,
+        });
+        if (!replacement.trim()) continue;
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 180;
+        const context = canvas.getContext("2d");
+        if (!context) continue;
+        context.font = `${Math.max(18, Math.round(item.height * 3.2))}px Pretendard, Arial, sans-serif`;
+        context.fillStyle = "#102a43";
+        context.fillText(
+          replacement.slice(0, 120),
+          8,
+          Math.max(45, Math.round(item.height * 2.5)),
+        );
+        const image = await out.embedPng(canvas.toDataURL("image/png"));
+        target.drawImage(image, {
+          x: item.x,
+          y: target.getHeight() - item.y - item.height,
+          width: item.width,
+          height: item.height,
+        });
+      }
       for (let i = 0; i < copied.length; i += 1) {
         const overlay = overlays[pages[i]]?.trim();
         if (!overlay) continue;
@@ -1491,7 +1571,7 @@ function PdfWorkspace() {
       icon={<FileDigit />}
       eyebrow="PDF TOOLS"
       title="일상적인 PDF 작업을 한 곳에서 처리하세요."
-      description="페이지 순서 변경·삭제·회전과 새 텍스트 추가를 지원합니다. 기존 텍스트 자체 수정은 지원 범위를 숨기지 않습니다."
+      description="텍스트 기반 PDF의 문장을 선택해 교체·삭제하고, 새 텍스트를 추가할 수 있습니다. 스캔 문서와 복잡한 배경은 별도 제약이 있습니다."
     >
       <div className="pdf-layout">
         <div className="pdf-upload">
@@ -1515,7 +1595,8 @@ function PdfWorkspace() {
           )}
           <div className="honest-note">
             <Check size={14} /> 흰색 덮기는 민감정보의 안전한 삭제가 아닙니다.
-            기존 텍스트 수정은 아직 지원하지 않습니다.
+            스캔 PDF의 문자 인식과 복잡한 글꼴·배경의 완전한 동일 재현은 지원
+            범위가 제한됩니다.
           </div>
         </div>
         <div className="page-list">
@@ -1588,6 +1669,36 @@ function PdfWorkspace() {
                       src={previews[selectedPage]}
                       alt="선택한 PDF 페이지 전체 미리보기"
                     />
+                    {textItems
+                      .filter((item) => item.page === selectedPage)
+                      .map((item) => (
+                        <button
+                          key={item.id}
+                          className={
+                            item.id === selectedTextId
+                              ? "pdf-text-hit selected"
+                              : "pdf-text-hit"
+                          }
+                          style={{
+                            left: `${(item.x / item.pageWidth) * 100}%`,
+                            top: `${(item.y / item.pageHeight) * 100}%`,
+                            width: `${(item.width / item.pageWidth) * 100}%`,
+                            height: `${(item.height / item.pageHeight) * 100}%`,
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedTextId(item.id);
+                            setReplacementDraft(
+                              textEdits[item.id] ?? item.text,
+                            );
+                          }}
+                          title="클릭하여 텍스트 선택"
+                        >
+                          {textEdits[item.id] !== undefined
+                            ? textEdits[item.id]
+                            : item.text}
+                        </button>
+                      ))}
                     {overlays[selectedPage] && (
                       <span className="pdf-overlay-preview">
                         {overlays[selectedPage]}
@@ -1602,6 +1713,55 @@ function PdfWorkspace() {
                 )}
               </div>
               <div className="pdf-overlay-tools">
+                <label>PDF 안의 텍스트 편집</label>
+                {selectedTextId ? (
+                  <>
+                    <div>
+                      <input
+                        value={replacementDraft}
+                        onChange={(event) =>
+                          setReplacementDraft(event.target.value)
+                        }
+                        placeholder="선택한 텍스트를 수정하세요"
+                      />
+                      <button
+                        className="btn outline"
+                        onClick={() => {
+                          setTextEdits((current) => ({
+                            ...current,
+                            [selectedTextId]: replacementDraft,
+                          }));
+                          setSelectedTextId(null);
+                          setReplacementDraft("");
+                        }}
+                      >
+                        수정 적용
+                      </button>
+                      <button
+                        className="btn ghost"
+                        onClick={() => {
+                          setTextEdits((current) => ({
+                            ...current,
+                            [selectedTextId]: "",
+                          }));
+                          setSelectedTextId(null);
+                          setReplacementDraft("");
+                        }}
+                      >
+                        텍스트 삭제
+                      </button>
+                    </div>
+                    <small>
+                      원본 텍스트 영역을 흰색으로 덮고 수정 내용을 삽입합니다.
+                      배경색과 글꼴이 복잡한 PDF에서는 모양이 달라질 수
+                      있습니다.
+                    </small>
+                  </>
+                ) : (
+                  <small>
+                    페이지 위의 텍스트를 클릭하면 선택·수정·삭제할 수 있습니다.
+                  </small>
+                )}
                 <label>페이지 위에 새 텍스트 추가</label>
                 <div>
                   <input
