@@ -4,7 +4,7 @@
 
 export interface ParsedFileData {
   fileName: string;
-  fileType: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'txt' | 'plain' | 'image' | 'unknown';
+  fileType: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'json' | 'html' | 'rtf' | 'pptx' | 'txt' | 'plain' | 'image' | 'unknown';
   content: string | any[]; // 멀티모달일 경우 Gemini 파츠 배열, 정형 데이터일 경우 텍스트
   summary: string;
   parseError?: string;
@@ -197,6 +197,31 @@ async function parseImage(file: File): Promise<ParsedFileData> {
   });
 }
 
+async function parseDocx(file: File): Promise<ParsedFileData> {
+  try {
+    const mammoth = await import('mammoth');
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+    const content = result.value.trim();
+    return { fileName: file.name, fileType: 'docx', content, summary: content.substring(0, 500), parseError: result.messages.length ? result.messages.map((m: any) => m.message).join('; ') : undefined };
+  } catch (err: any) {
+    return { fileName: file.name, fileType: 'docx', content: '', summary: '', parseError: `Word 문서를 읽지 못했습니다: ${err.message}` };
+  }
+}
+
+async function parseStructuredText(file: File, type: 'json' | 'html' | 'rtf'): Promise<ParsedFileData> {
+  const raw = await file.text();
+  let content = raw;
+  if (type === 'json') {
+    try { content = JSON.stringify(JSON.parse(raw), null, 2); } catch { content = raw; }
+  } else if (type === 'html') {
+    const doc = new DOMParser().parseFromString(raw, 'text/html');
+    content = doc.body?.textContent?.replace(/\s+/g, ' ').trim() || '';
+  } else {
+    content = raw.replace(/\\'[0-9a-f]{2}/gi, ' ').replace(/[{}]/g, ' ').replace(/\\[a-z]+\d* ?/gi, ' ').replace(/\s+/g, ' ').trim();
+  }
+  return { fileName: file.name, fileType: type, content, summary: content.substring(0, 500) };
+}
+
 /**
  * 통합 파일 파싱 분기
  */
@@ -213,6 +238,15 @@ export async function parseFile(file: File): Promise<ParsedFileData> {
 
   if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext || '')) {
     return parseImage(file);
+  }
+
+  if (ext === 'docx') return parseDocx(file);
+  if (ext === 'json') return parseStructuredText(file, 'json');
+  if (['html', 'htm'].includes(ext || '')) return parseStructuredText(file, 'html');
+  if (ext === 'rtf') return parseStructuredText(file, 'rtf');
+
+  if (['pptx', 'ppt'].includes(ext || '')) {
+    return { fileName: file.name, fileType: 'pptx', content: '', summary: '', parseError: 'PPT/PPTX 파일은 업로드할 수 있지만 현재 브라우저에서 텍스트 추출을 지원하지 않습니다. 슬라이드 화면에서 내용을 복사해 붙여넣어 주세요.' };
   }
   
   const text = await file.text();
