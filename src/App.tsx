@@ -212,14 +212,12 @@ function normalizeAiDeck(payload: any, input: string): Slide[] {
       bullets: bullets.length ? bullets : undefined,
       metrics:
         kind === "metrics"
-          ? numeric
-              .slice(0, 3)
-              .map((value: string, j: number) => ({
-                label:
-                  ["원문 수치", "주요 변화", "확인된 지표"][j] || "원문 수치",
-                value,
-                note: "원본 자료에서 확인",
-              }))
+          ? numeric.slice(0, 3).map((value: string, j: number) => ({
+              label:
+                ["원문 수치", "주요 변화", "확인된 지표"][j] || "원문 수치",
+              value,
+              note: "원본 자료에서 확인",
+            }))
           : undefined,
     };
   });
@@ -1373,11 +1371,17 @@ function PdfWorkspace() {
   const [pages, setPages] = useState<number[]>([]);
   const [rotations, setRotations] = useState<Record<number, number>>({});
   const [previews, setPreviews] = useState<Record<number, string>>({});
+  const [selectedPage, setSelectedPage] = useState(0);
+  const [zoom, setZoom] = useState(1);
+  const [textDraft, setTextDraft] = useState("");
+  const [overlays, setOverlays] = useState<Record<number, string>>({});
   const [message, setMessage] = useState("");
   const load = async (file?: File) => {
     if (!file) return;
     setMessage("PDF를 읽는 중입니다…");
     setPreviews({});
+    setOverlays({});
+    setSelectedPage(0);
     try {
       if (
         file.type !== "application/pdf" &&
@@ -1394,17 +1398,21 @@ function PdfWorkspace() {
       setName(file.name);
       setPages(pageIndexes);
       setRotations({});
+      setZoom(1);
       setMessage(
         `${doc.getPageCount()}페이지를 불러왔습니다. 아래에서 실제 페이지 미리보기를 확인하세요.`,
       );
       try {
         const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const rendered = await pdfjs.getDocument({ data: bytes.slice(), disableWorker: true }).promise;
+        const rendered = await pdfjs.getDocument({
+          data: bytes.slice(),
+          disableWorker: true,
+        }).promise;
         const nextPreviews: Record<number, string> = {};
         for (const index of pageIndexes.slice(0, 30)) {
           const page = await rendered.getPage(index + 1);
-          const viewport = page.getViewport({ scale: 0.32 });
+          const viewport = page.getViewport({ scale: 0.8 });
           const canvas = document.createElement("canvas");
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -1416,7 +1424,10 @@ function PdfWorkspace() {
         }
         setPreviews(nextPreviews);
       } catch (previewError) {
-        const previewDetail = previewError instanceof Error ? previewError.message : String(previewError);
+        const previewDetail =
+          previewError instanceof Error
+            ? previewError.message
+            : String(previewError);
         setMessage(
           `${doc.getPageCount()}페이지를 불러왔습니다. 미리보기를 만들지 못했습니다 (${previewDetail}). 편집과 저장은 가능합니다.`,
         );
@@ -1439,6 +1450,27 @@ function PdfWorkspace() {
         p.setRotation(degrees(rotations[pages[i]] || 0));
         out.addPage(p);
       });
+      for (let i = 0; i < copied.length; i += 1) {
+        const overlay = overlays[pages[i]]?.trim();
+        if (!overlay) continue;
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 160;
+        const context = canvas.getContext("2d");
+        if (!context) continue;
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.font = "44px Pretendard, Arial, sans-serif";
+        context.fillStyle = "#102a43";
+        context.fillText(overlay.slice(0, 80), 24, 88);
+        const image = await out.embedPng(canvas.toDataURL("image/png"));
+        const pageWidth = copied[i].getWidth();
+        copied[i].drawImage(image, {
+          x: 36,
+          y: copied[i].getHeight() - 82,
+          width: Math.min(pageWidth - 72, 260),
+          height: 35,
+        });
+      }
       const bytes = await out.save();
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       const a = document.createElement("a");
@@ -1491,9 +1523,122 @@ function PdfWorkspace() {
             <span>페이지 {pages.length ? `· ${pages.length}개` : ""}</span>
             <span className="muted">미리보기와 위·아래 버튼으로 편집</span>
           </div>
+          {pages.length > 0 && (
+            <div className="pdf-viewer">
+              <div className="pdf-viewer-toolbar">
+                <button
+                  className="icon-btn small"
+                  disabled={pages.indexOf(selectedPage) <= 0}
+                  onClick={() =>
+                    setSelectedPage(
+                      pages[Math.max(0, pages.indexOf(selectedPage) - 1)],
+                    )
+                  }
+                >
+                  <ArrowLeft size={14} />
+                </button>
+                <strong>
+                  {pages.indexOf(selectedPage) + 1} / {pages.length}
+                </strong>
+                <button
+                  className="icon-btn small"
+                  disabled={pages.indexOf(selectedPage) === pages.length - 1}
+                  onClick={() =>
+                    setSelectedPage(
+                      pages[
+                        Math.min(
+                          pages.length - 1,
+                          pages.indexOf(selectedPage) + 1,
+                        )
+                      ],
+                    )
+                  }
+                >
+                  <ArrowRight size={14} />
+                </button>
+                <button
+                  className="zoom-btn"
+                  onClick={() =>
+                    setZoom((value) =>
+                      Math.max(0.7, Number((value - 0.1).toFixed(1))),
+                    )
+                  }
+                >
+                  −
+                </button>
+                <span>{Math.round(zoom * 100)}%</span>
+                <button
+                  className="zoom-btn"
+                  onClick={() =>
+                    setZoom((value) =>
+                      Math.min(1.6, Number((value + 0.1).toFixed(1))),
+                    )
+                  }
+                >
+                  +
+                </button>
+              </div>
+              <div className="pdf-page-stage">
+                {previews[selectedPage] ? (
+                  <div
+                    className="pdf-page-frame"
+                    style={{ transform: `scale(${zoom})` }}
+                  >
+                    <img
+                      src={previews[selectedPage]}
+                      alt="선택한 PDF 페이지 전체 미리보기"
+                    />
+                    {overlays[selectedPage] && (
+                      <span className="pdf-overlay-preview">
+                        {overlays[selectedPage]}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <Loader2 size={22} className="spin" />
+                    <p>페이지 미리보기를 준비하는 중입니다.</p>
+                  </div>
+                )}
+              </div>
+              <div className="pdf-overlay-tools">
+                <label>페이지 위에 새 텍스트 추가</label>
+                <div>
+                  <input
+                    value={textDraft}
+                    onChange={(e) => setTextDraft(e.target.value)}
+                    placeholder="추가할 텍스트를 입력하세요"
+                  />
+                  <button
+                    className="btn outline"
+                    disabled={!textDraft.trim()}
+                    onClick={() => {
+                      setOverlays((current) => ({
+                        ...current,
+                        [selectedPage]: textDraft.trim(),
+                      }));
+                      setTextDraft("");
+                    }}
+                  >
+                    추가
+                  </button>
+                </div>
+                <small>
+                  추가한 텍스트는 페이지 상단에 표시되며 저장 시 PDF에
+                  반영됩니다.
+                </small>
+              </div>
+            </div>
+          )}
           {pages.length ? (
             pages.map((p, i) => (
-              <div className="page-row" key={p}>
+              <div
+                className={
+                  p === selectedPage ? "page-row selected" : "page-row"
+                }
+                key={p}
+                onClick={() => setSelectedPage(p)}
+              >
                 <GripVertical size={16} />
                 {previews[p] ? (
                   <img
