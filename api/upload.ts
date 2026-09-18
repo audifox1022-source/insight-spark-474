@@ -48,7 +48,6 @@ export default async function handler(request, response) {
       onUploadCompleted: async ({ blob }) => {
         console.info('[Upload] Blob upload completed.', {
           pathname: blob.pathname,
-          size: blob.size,
           contentType: blob.contentType,
         });
       },
