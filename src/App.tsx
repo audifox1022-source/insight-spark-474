@@ -1429,16 +1429,18 @@ function PdfWorkspace() {
         }).promise;
         const nextPreviews: Record<number, string> = {};
         const nextTextItems: PdfTextItem[] = [];
-        for (const index of pageIndexes.slice(0, 30)) {
+        for (const index of pageIndexes) {
           const page = await rendered.getPage(index + 1);
-          const viewport = page.getViewport({ scale: 0.8 });
-          const canvas = document.createElement("canvas");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          const context = canvas.getContext("2d");
-          if (context) {
-            await page.render({ canvasContext: context, viewport }).promise;
-            nextPreviews[index] = canvas.toDataURL("image/jpeg", 0.8);
+          if (index < 30) {
+            const viewport = page.getViewport({ scale: 1.2 });
+            const canvas = document.createElement("canvas");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            const context = canvas.getContext("2d");
+            if (context) {
+              await page.render({ canvasContext: context, viewport }).promise;
+              nextPreviews[index] = canvas.toDataURL("image/jpeg", 0.84);
+            }
           }
           const textContent = await page.getTextContent();
           textContent.items.forEach((raw: any, itemIndex: number) => {
@@ -1787,6 +1789,45 @@ function PdfWorkspace() {
                   추가한 텍스트는 페이지 상단에 표시되며 저장 시 PDF에
                   반영됩니다.
                 </small>
+              </div>
+              <div className="pdf-text-list">
+                <div className="pdf-text-list-head">
+                  <label>이 페이지에서 읽은 텍스트</label>
+                  <span>
+                    {
+                      textItems.filter((item) => item.page === selectedPage)
+                        .length
+                    }
+                    개
+                  </span>
+                </div>
+                {textItems.filter((item) => item.page === selectedPage)
+                  .length ? (
+                  textItems
+                    .filter((item) => item.page === selectedPage)
+                    .map((item) => (
+                      <button
+                        key={item.id}
+                        className={
+                          item.id === selectedTextId
+                            ? "pdf-text-row selected"
+                            : "pdf-text-row"
+                        }
+                        onClick={() => {
+                          setSelectedTextId(item.id);
+                          setReplacementDraft(textEdits[item.id] ?? item.text);
+                        }}
+                      >
+                        <span>{item.text}</span>
+                        <small>선택</small>
+                      </button>
+                    ))
+                ) : (
+                  <p className="pdf-no-text">
+                    이 페이지에서 추출된 텍스트가 없습니다. 스캔 이미지 PDF일 수
+                    있어 OCR이 필요합니다.
+                  </p>
+                )}
               </div>
             </div>
           )}
